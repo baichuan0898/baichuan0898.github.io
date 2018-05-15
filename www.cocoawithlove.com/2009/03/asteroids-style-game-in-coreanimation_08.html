@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>An Asteroids-style game in CoreAnimation, Part Four.</title>
+  <meta name="description" content="Over the last three weeks, I presented a simple 2D game using CoreAnimation. For the final post in this series, I&#39;ll look at CATransactions and why I didn&#39;t use them in the game to handle animations and I&#39;ll look at the performance of CoreAnimation as numbers of CALayers and sizes of CALayers change." />
+
+  <meta name="twitter:title" content="An Asteroids-style game in CoreAnimation, Part Four."/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/03/asteroids-style-game-in-coreanimation_08.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Over the last three weeks, I presented a simple 2D game using CoreAnimation. For the final post in this series, I&#39;ll look at CATransactions and why I didn&#39;t use them in the game to handle animations and I&#39;ll look at the performance of CoreAnimation as numbers of CALayers and sizes of CALayers change."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="asteroids-style-game-in-coreanimation_08.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">An Asteroids-style game in CoreAnimation, Part Four.</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-03-08">March 8, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/coreanimation.html">CoreAnimation</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>Over the last three weeks, I presented a simple 2D game using CoreAnimation. For the final post in this series, I'll look at CATransactions and why I didn't use them in the game to handle animations and I'll look at the performance of CoreAnimation as numbers of CALayers and sizes of CALayers change.</p></span>
+
+<span class="fullpost">
+<h2>Frame-based animation</h2>
+<p>The Quartzeroids2 game (download the complete code from the <a href="asteroids-style-game-in-coreanimation.html">previous post</a>) uses traditional frame-based updates to process, position and render all objects on screen. This works much like stop-motion animation as filmed with optical cameras: a frame is needed approximately every 30th of a second so the game moves all objects to their locations for this new frame (as determined by speed and trajectory) and the renderer takes a snapshot.</p>
+
+<p>As with stop-motion animation, the only reason this process appears smooth to the eye is because the frames are frequent enough that they run together appearing like motion.</p>
+
+<p>This is the traditional way that 2D games are implemented. Initially though, I wanted to handle the game in a different way. Frame-based animation has two main problems:</p>
+
+<ol><li>The CPU must reprocess all game objects 30 times a second (or more) to place them on screen, creating a continuous burden on the CPU.</li>
+<li>Even at 30 frames a second, fast moving objects leave distinct gaps which can cause problems with collision detection.</li></ol>
+
+<p>The following diagram illustrates the second point:</p>
+
+<img src="../../assets/objc-era/framesversuscontinuous.png" width="350" height="220" />
+
+<p>The blue and red balls never touch during a keyframe but if they were moving continuously would clearly collide in the middle. Such collisions could be detected by significantly increasing the frame-rate but that isn't always technically possible and would certainly make the first problem (excessive CPU usage) worse.</p>
+
+<h2>Continuous animation using CATransactions</h2>
+
+<p>What I wanted to do instead of frame-based animation was to create a continuous game instead.</p>
+
+<p>The idea would be: instead of the game engine reprocessing for each frame, just load the speeds and trajectories into CoreAnimation and let the animation run automatically until the next "event" (collision or user action). That way, the animation runs smoothly, the game engine performs the minimum amount of work and all collisions are mathematically perfect (since we calculate them in advance using trajectory equations instead of reading quantized data at frame update time).</p>
+
+<p>Continuous animation would involve taking the basic line equation (<em>y</em> = <em>mx</em> + <em>b</em>) for the two bounding edges of each object's trajectory and colliding it with the bounding box of the screen and every other object's trajectory equations. Between now and that first collision each object could be animated using a CoreAnimation <code>CAAnimation</code>, with the animations for all objects tied together using a <code>CATransaction</code>.</p>
+
+<p>The first downside to this was adding user involvement. When the user presses a key, they are changing the modelling for their player object which involves recalculating the next collision. This means that while the user is pressing a key, 30 recalculations per second may be required. On its own, this negative won't outweigh the positives. Recalculating in his manner isn't much more work than traditional frame-based collision detection which is always performed 30 frames-per-second or more &mdash; and these collisions would still be mathematically perfect.</p>
+
+<h3>Testing CATransactions</h3>
+
+<p>To see how the worst case of 30 updates per second would perform, you can add <code>CATransaction</code>-based animation to Quartzeroids2 by removing the <code>actionForKey:</code> method from "ImageLayer.m" in the program and replacing the following code in "GameObjectLayer.m":</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="nb">self</span><span class="p">.</span><span class="n">imageName</span> <span class="o">=</span> <span class="n">gameObjectImageName</span><span class="p">;</span>
+<span class="nb">self</span><span class="p">.</span><span class="n">bounds</span> <span class="o">=</span> <span class="n">CGRectMake</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">);</span>
+<span class="nb">self</span><span class="p">.</span><span class="n">position</span> <span class="o">=</span> <span class="n">CGPointMake</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">);</span>
+<span class="nb">self</span><span class="p">.</span><span class="n">transform</span> <span class="o">=</span> <span class="n">CATransform3DMakeRotation</span><span class="p">(</span><span class="n">angle</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">);</span>
+<span class="nb">self</span><span class="p">.</span><span class="n">hidden</span> <span class="o">=</span> <span class="o">!</span><span class="n">visible</span><span class="p">;</span></code></pre></div>
+
+<p>with the <code>CATransaction</code> based version:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">double</span> <span class="n">distance</span> <span class="o">=</span>
+    <span class="n">sqrt</span><span class="p">((</span><span class="nb">self</span><span class="p">.</span><span class="n">position</span><span class="p">.</span><span class="n">x</span> <span class="o">-</span> <span class="n">x</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="nb">self</span><span class="p">.</span><span class="n">position</span><span class="p">.</span><span class="n">x</span> <span class="o">-</span> <span class="n">x</span><span class="p">)</span> <span class="o">+</span>
+    <span class="p">(</span><span class="nb">self</span><span class="p">.</span><span class="n">position</span><span class="p">.</span><span class="n">y</span> <span class="o">-</span> <span class="n">y</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="nb">self</span><span class="p">.</span><span class="n">position</span><span class="p">.</span><span class="n">y</span> <span class="o">-</span> <span class="n">y</span><span class="p">));</span>
+<span class="kt">BOOL</span> <span class="n">wrapping</span> <span class="o">=</span> <span class="n">distance</span> <span class="o">&gt;</span> <span class="n">gameHeight</span><span class="p">;</span>
+
+<span class="k">if</span> <span class="p">(</span><span class="n">wrapping</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="nb">self</span> <span class="n">removeAllAnimations</span><span class="p">];</span>
+<span class="p">}</span>
+
+<span class="p">[</span><span class="n">CATransaction</span> <span class="n">begin</span><span class="p">];</span>
+<span class="p">[</span><span class="n">CATransaction</span>
+    <span class="nl">setValue</span><span class="p">:[</span><span class="n">NSNumber</span> <span class="nl">numberWithDouble</span><span class="p">:</span><span class="n">GAME_UPDATE_DURATION</span><span class="p">]</span>
+    <span class="nl">forKey</span><span class="p">:</span><span class="n">kCATransactionAnimationDuration</span><span class="p">];</span>
+
+<span class="k">if</span> <span class="p">(</span><span class="n">wrapping</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="n">CATransaction</span>
+        <span class="nl">setValue</span><span class="p">:[</span><span class="n">NSNumber</span> <span class="nl">numberWithBool</span><span class="p">:</span><span class="nb">YES</span><span class="p">]</span>
+        <span class="nl">forKey</span><span class="p">:</span><span class="n">kCATransactionDisableActions</span><span class="p">];</span>
+<span class="p">}</span>
+
+<span class="nb">self</span><span class="p">.</span><span class="n">imageName</span> <span class="o">=</span> <span class="n">gameObjectImageName</span><span class="p">;</span>
+<span class="nb">self</span><span class="p">.</span><span class="n">bounds</span> <span class="o">=</span> <span class="n">CGRectMake</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">);</span>
+<span class="nb">self</span><span class="p">.</span><span class="n">position</span> <span class="o">=</span> <span class="n">CGPointMake</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">);</span>
+<span class="nb">self</span><span class="p">.</span><span class="n">transform</span> <span class="o">=</span> <span class="n">CATransform3DMakeRotation</span><span class="p">(</span><span class="n">angle</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">);</span>
+<span class="nb">self</span><span class="p">.</span><span class="n">hidden</span> <span class="o">=</span> <span class="o">!</span><span class="n">visible</span><span class="p">;</span>
+
+<span class="p">[</span><span class="n">CATransaction</span> <span class="n">commit</span><span class="p">];</span></code></pre></div>
+
+<h3>Performance-based failure</h3>
+
+<p>The following performance numbers are running on my 2 x 2Ghz PowerMac G5.</p>
+
+<table><thead><tr><td>Number of CALayers animated using CATransaction</td><td>Frames per second</td></tr></thead>
+<tr><td>50</td><td>&gt; 33</td></tr>
+<tr><td>75</td><td>10-25</td></tr>
+<tr><td>100</td><td>&lt;10</td></tr>
+<tr><td>150</td><td>&lt;2</td></tr>
+</table>
+
+<p>I've given ranges since the frames per second varied significantly. This compares poorly with the <code>CATransaction</code> disabled version, where all tests ran faster than 30 frames per second.</p>
+
+<p>Since each asteroid represents two separate objects and every shot fired is another object on screen, I decided that an inability to handle more than 50 objects smoothly was unacceptable and discarded the <code>CATransaction</code>-based approach.</p>
+
+<p>Clearly, <code>CATransaction</code>-based animation has a significant amount of work to perform and this work increases more-than-linearly (greater than <code>O(n)</code>) with respect to the number of objects on screen. In CoreAnimation, you aren't expected to regenerate thousands of animations each second like this. I leave open the possibility that there's a modified approach that could still make this work but I didn't want to spend further time investigating.</p>
+
+<h2>Testing the render system in Quartzeroids2</h2>
+
+<p>To perform a series of performance tests on Quartzeroids2's rendering system, I removed the <code>PlayerObject</code> from the game, disabled the <code>AsteroidLayerObject</code> added for each asteroid by the <code>GameController</code> and used the <code>ASTEROID_LARGE_SIZE</code> and <code>ASTEROID_BASE_NUM</code> values to control the size and number of objects on the screen. I measured frame rates with the Quartz Debug frame meter.</p>
+
+<h3>Object size tests</h3>
+
+<p>The following test all involved 100 <code>CALayer</code>s on screen. My graphics card is an ATI Radeon X800 with 256MB VRAM.</p>
+
+<table><thead><tr><td>Width and Height of CALayer in pixels</td><td>Frames per second</td></tr></thead>
+<tr><td>110</td><td>&gt; 33</td></tr>
+<tr><td>440</td><td>&gt; 33</td></tr>
+<tr><td>660</td><td>&gt; 33</td></tr>
+<tr><td>770</td><td>&gt; 33</td></tr>
+<tr><td>880</td><td>&lt; 5</td></tr>
+</table>
+
+<p>Once you exceed the available video memory in CoreAnimation, frame rate immediately plummets. Some new Macs have double the VRAM that I have but many still ship with 256MB VRAM as standard, so these numbers are probably indicative of the average among newer machines.</p>
+
+<h3>Object count tests</h3>
+
+<p>The following tests all involved 11 pixel by 11 pixel objects.</p>
+
+<table><thead><tr><td>Number of CALayers on screen</td><td>Frames per second</td></tr></thead>
+<tr><td>100</td><td>&gt; 33</td></tr>
+<tr><td>200</td><td>&gt; 33</td></tr>
+<tr><td>300</td><td>&gt; 33</td></tr>
+<tr><td>400</td><td>20</td></tr>
+<tr><td>500</td><td>18</td></tr>
+<tr><td>600</td><td>12</td></tr>
+<tr><td>700</td><td>9</td></tr>
+<tr><td>800</td><td>&lt; 5</td></tr>
+</table>
+
+<p>Profiling the 800 object version revealed CPU time was mostly spent in CALayer updating layer positions &mdash; so this would appear to be a basic CPU bound situation for CoreAnimation on the test machine. On newer Mac Pros, I wouldn't be surprised if object counts over 1000 were possible at 30 frames per second.</p>
+
+<h3>Other CALayer limitations</h3>
+
+<p>Depending on your graphics card, you may have a maximum texture size. On my ATI Radeon X800, that size is 2048 by 2048. Any texture bigger than 2048 in any CALayer with a native size bigger than 2048 in any direction will result in an empty white square when rendered, instead of the expected texture. <code>CALayer</code> does output an error when this occurs:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="nl">CoreAnimation</span><span class="p">:</span> <span class="mi">2049</span> <span class="n">by</span> <span class="mi">2049</span> <span class="n">image</span> <span class="n">is</span> <span class="n">too</span> <span class="n">large</span> <span class="k">for</span> <span class="n">GPU</span><span class="p">,</span> <span class="n">ignoring</span></code></pre></div>
+
+<p>Newer cards have maximum texture sizes of 4096 and even 8192 pixels. A hard limit here for your target systems could be difficult to know.</p>
+
+<h2>Conclusion</h2>
+
+<p>CoreAnimation is incredibly capable as a 2D renderer. I have spent this post discussing its limits but that is not because I consider its capabilities limiting but because I am impressed by how much it can do. With CoreAnimation layers, you can render hundreds of objects, each of which can be hundreds of pixels big, without paying any attention to performance &mdash; you can simply let CoreAnimation handle it.</p>
+
+<p>Obviously, for the Quarteroids2 game I developed, most of this testing was irrelevant but it may prove useful to anyone looking to use CoreAnimation in a more ambitious manner.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="asteroids-style-game-in-coreanimation.html">An Asteroids-style game in CoreAnimation, Part Three.</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="scripted-window-management-in-xcode.html">Scripted window management in Xcode</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

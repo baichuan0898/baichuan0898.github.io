@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Load from NIB or construct views in code: which is faster?</title>
+  <meta name="description" content="You don&#39;t have to look far to find people suggesting that constructing views in code will increase the speed of your program. Since interface performance is a serious concern in iPhone development, I thought I&#39;d look at the performance speed in creating complex iPhone UITableViewCells in code versus loading them from a NIB file." />
+
+  <meta name="twitter:title" content="Load from NIB or construct views in code: which is faster?"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2010/03/load-from-nib-or-construct-views-in.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="You don&#39;t have to look far to find people suggesting that constructing views in code will increase the speed of your program. Since interface performance is a serious concern in iPhone development, I thought I&#39;d look at the performance speed in creating complex iPhone UITableViewCells in code versus loading them from a NIB file."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="load-from-nib-or-construct-views-in.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Load from NIB or construct views in code: which is faster?</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2010-03-01">March 1, 2010</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/performance-tests.html">performance tests</a>, <a href="../../categories/uikit.html">UIKit</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>You don't have to look far to find people suggesting that constructing views in code will increase the speed of your program. Since interface performance is a serious concern in iPhone development, I thought I'd look at the performance speed in creating complex iPhone UITableViewCells in code versus loading them from a NIB file.</p></span>
+
+<span class="fullpost">
+<h2>Introduction</h2>
+<p>The sample program this time is pretty simple: an iPhone application that can load a table containing 20 rows (sized so that they will all fit onscreen), each row containing 20 fully-configured <code>UILabels</code>, a <code>backgroundView</code> and a <code>selectedBackgroundView</code>.</p>
+
+<p>All timing is done on the construct/load only. Adding cells to the table, configuring the cell for its row and drawing to the screen (all of which is identical in either load from NIB or construct in code cases) is not included as part of the timing results.</p>
+
+<img src="../../assets/objc-era/nibornot.png" width="200" height="384" />
+
+<p>The dark line across the right-hand side of each cell is just the word "placeholder" written 19 times on top of itself by the labels added to the cell.</p>
+
+<blockquote>You can download the sample project: <a href="../../assets/objc-era/NibOrNot.zip">NibOrNot.zip</a></blockquote>
+
+<h2>Creating the cell in code</h2>
+
+<p>The construction of the cell in code looks like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">cell</span> <span class="o">=</span> <span class="p">[[[</span><span class="n">UITableViewCell</span> <span class="n">alloc</span><span class="p">]</span>
+   <span class="nl">initWithFrame</span><span class="p">:</span><span class="n">CGRectZero</span> <span class="nl">reuseIdentifier</span><span class="p">:</span><span class="n">CellIdentifier</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span>
+<span class="n">cell</span><span class="p">.</span><span class="n">backgroundView</span> <span class="o">=</span> <span class="p">[[[</span><span class="n">UIView</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithFrame</span><span class="p">:</span><span class="n">CGRectZero</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span>
+<span class="n">cell</span><span class="p">.</span><span class="n">backgroundView</span><span class="p">.</span><span class="n">backgroundColor</span> <span class="o">=</span> <span class="p">[</span><span class="n">UIColor</span> <span class="nl">colorWithWhite</span><span class="p">:</span><span class="mf">0.95</span> <span class="nl">alpha</span><span class="p">:</span><span class="mf">1.0</span><span class="p">];</span>
+
+<span class="n">cell</span><span class="p">.</span><span class="n">selectedBackgroundView</span> <span class="o">=</span> <span class="p">[[[</span><span class="n">UIView</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithFrame</span><span class="p">:</span><span class="n">CGRectZero</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span>
+<span class="n">cell</span><span class="p">.</span><span class="n">selectedBackgroundView</span><span class="p">.</span><span class="n">backgroundColor</span> <span class="o">=</span> <span class="p">[</span><span class="n">UIColor</span> <span class="nl">colorWithWhite</span><span class="p">:</span><span class="mf">0.85</span> <span class="nl">alpha</span><span class="p">:</span><span class="mf">1.0</span><span class="p">];</span>
+
+<span class="n">UILabel</span> <span class="o">*</span><span class="n">firstLabel</span> <span class="o">=</span>
+   <span class="p">[[[</span><span class="n">UILabel</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithFrame</span><span class="p">:</span><span class="n">CGRectMake</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">60</span><span class="p">,</span> <span class="mi">20</span><span class="p">)]</span> <span class="n">autorelease</span><span class="p">];</span>
+<span class="n">firstLabel</span><span class="p">.</span><span class="n">tag</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+<span class="n">firstLabel</span><span class="p">.</span><span class="n">font</span> <span class="o">=</span> <span class="p">[</span><span class="n">UIFont</span> <span class="nl">boldSystemFontOfSize</span><span class="p">:</span><span class="mi">14</span><span class="p">];</span>
+<span class="n">firstLabel</span><span class="p">.</span><span class="n">shadowOffset</span> <span class="o">=</span> <span class="n">CGSizeMake</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">);</span>
+<span class="n">firstLabel</span><span class="p">.</span><span class="n">textColor</span> <span class="o">=</span> <span class="p">[</span><span class="n">UIColor</span> <span class="nl">colorWithRed</span><span class="p">:</span><span class="mf">0.0</span> <span class="nl">green</span><span class="p">:</span><span class="mf">0.2</span> <span class="nl">blue</span><span class="p">:</span><span class="mf">0.5</span> <span class="nl">alpha</span><span class="p">:</span><span class="mf">1.0</span><span class="p">];</span>
+<span class="n">firstLabel</span><span class="p">.</span><span class="n">backgroundColor</span> <span class="o">=</span> <span class="p">[</span><span class="n">UIColor</span> <span class="n">clearColor</span><span class="p">];</span>
+<span class="n">firstLabel</span><span class="p">.</span><span class="n">text</span> <span class="o">=</span> <span class="s">@&#34;placeholder&#34;</span><span class="p">;</span>
+<span class="n">firstLabel</span><span class="p">.</span><span class="n">autoresizingMask</span> <span class="o">=</span> <span class="n">UIViewAutoresizingFlexibleLeftMargin</span><span class="p">;</span>
+<span class="n">firstLabel</span><span class="p">.</span><span class="n">adjustsFontSizeToFitWidth</span> <span class="o">=</span> <span class="nb">YES</span><span class="p">;</span>
+<span class="n">firstLabel</span><span class="p">.</span><span class="n">minimumFontSize</span> <span class="o">=</span> <span class="mi">10</span><span class="p">;</span>
+<span class="n">firstLabel</span><span class="p">.</span><span class="n">baselineAdjustment</span> <span class="o">=</span> <span class="n">UIBaselineAdjustmentAlignCenters</span><span class="p">;</span>
+<span class="n">firstLabel</span><span class="p">.</span><span class="n">lineBreakMode</span> <span class="o">=</span> <span class="n">UILineBreakModeTailTruncation</span><span class="p">;</span>
+<span class="n">firstLabel</span><span class="p">.</span><span class="n">baselineAdjustment</span> <span class="o">=</span> <span class="n">UIBaselineAdjustmentAlignCenters</span><span class="p">;</span>
+<span class="n">firstLabel</span><span class="p">.</span><span class="n">highlightedTextColor</span> <span class="o">=</span> <span class="p">[</span><span class="n">UIColor</span> <span class="n">clearColor</span><span class="p">];</span>
+
+<span class="p">[</span><span class="n">cell</span> <span class="nl">addSubview</span><span class="p">:</span><span class="n">firstLabel</span><span class="p">];</span>
+
+<span class="c1">//
+</span><span class="c1">// Plus the construction of a further 19 labels...
+</span><span class="c1"></span><span class="o">//</span></code></pre></div>
+
+<p>In this case, the next 19 labels could all be created in a loop (since they're all identical) but I wanted to code to reflect a proper view where each subview is distinct and has many properties uniquely applied &mdash; so a basic loop is not necessarily appropriate.</p>
+
+<h2>Loading the NIB</h2>
+
+<p>There are many different ways to load a <code>UITableViewCell</code> (loading just the <code>contentView</code>, constructing a <code>UITableViewCell</code> subclass and having it load the NIB, etc). I've gone for the quick and easy approach: loading the <code>UITableViewCell</code> from the NIB in its entirety, passing my <code>UITableViewController</code> as the owner.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">[[</span><span class="n">NSBundle</span> <span class="n">mainBundle</span><span class="p">]</span> <span class="nl">loadNibNamed</span><span class="p">:</span><span class="s">@&#34;Cell&#34;</span> <span class="nl">owner</span><span class="p">:</span><span class="nb">self</span> <span class="nl">options</span><span class="p">:</span><span class="nb">nil</span><span class="p">];</span>
+<span class="n">cell</span> <span class="o">=</span> <span class="n">loadedCell</span><span class="p">;</span>
+<span class="n">loadedCell</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span></code></pre></div>
+
+<p>It may be hard to see how the <code>loadNibNamed:owner:options:</code> method is connected to the other two lines. In this code, <code>loadedCell</code> is an <code>IBOutlet</code> on <code>self</code>. When the NIB is loaded, it sets the <code>loadedCell</code> value to be equal to the loaded cell (this is configured in the NIB file). After loading, I copy the <code>loadedCell</code> into a local variable named <code>cell</code> (which is later configured and returned) and set the instance variable on the class back to <code>nil</code> (because we no longer need this pointer after returning it).</p>
+
+<h2>Simulator results</h2>
+
+<p>The first 10 results from the simulator look like this:</p>
+
+<table><thead><tr><td>Generated in code</td><td>Loaded from NIB</td></tr></thead>
+<tr><td>Generated cell in 0.00153798 seconds</td><td>Loaded cell in 0.00184 seconds</td></tr>
+<tr><td>Generated cell in 0.00138998 seconds</td><td>Loaded cell in 0.00168097 seconds</td></tr>
+<tr><td>Generated cell in 0.00138199 seconds</td><td>Loaded cell in 0.00168198 seconds</td></tr>
+<tr><td>Generated cell in 0.00139898 seconds</td><td>Loaded cell in 0.001706 seconds</td></tr>
+<tr><td>Generated cell in 0.00167602 seconds</td><td>Loaded cell in 0.001697 seconds</td></tr>
+<tr><td>Generated cell in 0.00235301 seconds</td><td>Loaded cell in 0.00171804 seconds</td></tr>
+<tr><td>Generated cell in 0.00137097 seconds</td><td>Loaded cell in 0.002105 seconds</td></tr>
+<tr><td>Generated cell in 0.00138301 seconds</td><td>Loaded cell in 0.00173801 seconds</td></tr>
+<tr><td>Generated cell in 0.00140399 seconds</td><td>Loaded cell in 0.00171405 seconds</td></tr>
+<tr><td>Generated cell in 0.00137198 seconds</td><td>Loaded cell in 0.001692 seconds</td></tr>
+</table>
+
+<p>Constructing in code is generally about 20% faster &mdash; although at 1 millisecond per construction in the simulator, it doesn't really matter.</p>
+
+<h2>Device results</h2>
+
+<p>The first 10 results running on my iPhone 3G look like this:</p>
+
+<table><thead><tr><td>Generated in code</td><td>Loaded from NIB</td></tr></thead>
+<tr><td>Generated cell in 0.113011 seconds</td><td>Loaded cell in 0.131085 seconds</td></tr>
+<tr><td>Generated cell in 0.114312 seconds</td><td>Loaded cell in 0.097244 seconds</td></tr>
+<tr><td>Generated cell in 0.101614 seconds</td><td>Loaded cell in 0.08413 seconds</td></tr>
+<tr><td>Generated cell in 0.105022 seconds</td><td>Loaded cell in 0.081331 seconds</td></tr>
+<tr><td>Generated cell in 0.10087 seconds</td><td>Loaded cell in 0.093407 seconds</td></tr>
+<tr><td>Generated cell in 0.105968 seconds</td><td>Loaded cell in 0.083472 seconds</td></tr>
+<tr><td>Generated cell in 0.100045 seconds</td><td>Loaded cell in 0.091788 seconds</td></tr>
+<tr><td>Generated cell in 0.105458 seconds</td><td>Loaded cell in 0.083763 seconds</td></tr>
+<tr><td>Generated cell in 0.098836 seconds</td><td>Loaded cell in 0.08714 seconds</td></tr>
+<tr><td>Generated cell in 0.102028 seconds</td><td>Loaded cell in 0.109811 seconds</td></tr>
+</table>
+
+<p>The construction in code is about 15% faster on the first construction but by the third cell, <em>loading from the NIB file is 17% faster</em>.</p>
+
+<p>Running some CPU sampling in Instruments, I was able to work out that <code>adjustsFontSizeToFitWidth</code> was the critical factor here: it appears that Interface Builder precalculates the correct size based on the placeholder string, whereas the constructed code is forced to do this at runtime, causing its performance to suffer.</p>
+
+<p>Turning off <code>adjustsFontSizeToFitWidth</code> in both the generated code and the loaded code (replaced the <code>label.adjustsFontSizeToFitWidth = YES</code> with <code>label.adjustsFontSizeToFitWidth = NO</code> and switched <em>Cell.xib</em> to <em>Cell2.xib</em>), gave the following results:</p>
+
+<table><thead><tr><td>Generated in code</td><td>Loaded from NIB</td></tr></thead>
+<tr><td>Generated cell in 0.085553 seconds</td><td>Loaded cell in 0.095012 seconds</td></tr>
+<tr><td>Generated cell in 0.077257 seconds</td><td>Loaded cell in 0.087141 seconds</td></tr>
+<tr><td>Generated cell in 0.084639 seconds</td><td>Loaded cell in 0.082693 seconds</td></tr>
+<tr><td>Generated cell in 0.079142 seconds</td><td>Loaded cell in 0.098218 seconds</td></tr>
+<tr><td>Generated cell in 0.078286 seconds</td><td>Loaded cell in 0.082136 seconds</td></tr>
+<tr><td>Generated cell in 0.087895 seconds</td><td>Loaded cell in 0.087088 seconds</td></tr>
+<tr><td>Generated cell in 0.0792 seconds</td><td>Loaded cell in 0.082335 seconds</td></tr>
+<tr><td>Generated cell in 0.084037 seconds</td><td>Loaded cell in 0.082358 seconds</td></tr>
+<tr><td>Generated cell in 0.076416 seconds</td><td>Loaded cell in 0.08714 seconds</td></tr>
+<tr><td>Generated cell in 0.078426 seconds</td><td>Loaded cell in 0.084312 seconds</td></tr>
+</table>
+
+<p>This now swings the performance advantage back to handwritten code by 7%.</p>
+
+<h2>Conclusion</h2>
+
+<blockquote>You can download the sample project: <a href="../../assets/objc-era/NibOrNot.zip">NibOrNot.zip</a></blockquote>
+
+<p>Don't assume that NIB files are always slower than generating views in code &mdash; it is not always true. While in general, generating user interface views in code appears to be 5-10% faster than loading from a NIB, the reality is that this difference is small enough that it doesn't matter and there are certainly some views that load faster from a NIB than from code.</p>
+
+<p>This doesn't mean that construction speed is unimportant on the iPhone; it clearly is. I was able to create a (slightly contrived) view that took nearly two seconds to load (unacceptably slow). However, saving 10% by moving from NIBs to creating views in code will never fix the problem (1.8 seconds is still too slow). In this case, flattening the view hierarchy (using a single custom view to draw what multiple subviews used to draw), or removing text fields entirely, is the best way to improve performance. This type of redesign can improve performance by a factor of 10 or more.</p>
+
+<p>The conclusion to be drawn is that when choosing to use a NIB file or not, you should use whatever you're most comfortable with and whatever will keep your code maintenance costs low. Don't be concerned that one approach or the other will cause your UI performance to suffer.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../02/streamtome-20-is-out-and-cocoa-with.html">StreamToMe 2.0 is out (and Cocoa With Love is 2 years old).</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="designing-view-with-bindings.html">Designing a view with Bindings (UITableView on the Mac)</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

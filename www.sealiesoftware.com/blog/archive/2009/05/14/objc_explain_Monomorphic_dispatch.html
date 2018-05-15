@@ -1,0 +1,149 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<!--
+Local Variables:
+sgml-default-dtd-file: "~/html-loose.ced"
+End:
+-->
+<html>
+  <head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+
+    <title>Hamster Emporium: [objc explain]: Monomorphic dispatch</title>
+    <link title="RSS 2.0" href="../../../../rss.xml.rss" type="application/rss+xml" rel="alternate">
+  </head>
+  <body bgcolor="#ffffff">
+    <table cellpadding="0" cellspacing="0">
+      <tr>
+	  <td valign="top" align="left">
+	    <a href="../../../../index.html"><img src="http://www.sealiesoftware.com/hamster.jpg" alt="" width="108" height="160"></a><br><br>
+	    <b>blog</b><br>
+	    <a href="../../../../index.html">recent</a><br>
+	    <a href="../../../index.html">archive</a><br>
+	    <a href="http://twitter.com/gparker">twitter</a><br>
+	    <br>
+	    <b>projects</b><br>
+	    <a href="http://www.apple.com/macosx/">Mac OS X</a><br>
+	    <a href="http://www.sealiesoftware.com/keyboard/index.html">Keyboard</a><br>
+	     &nbsp; <a href="http://www.sealiesoftware.com/keyboard/index.html">backlight</a><br>
+	    <a href="http://www.sealiesoftware.com/cscmenu/index.html">CSC Menu</a><br>
+	    <a href="http://www.sealiesoftware.com/valgrind/index.html">Valgrind</a><br>
+	    <a href="http://www.sealiesoftware.com/fringe/index.html">Fringe Player</a><br>
+	    <a href="http://www.sealiesoftware.com/pssh/index.html">pssh</a><br>
+	    <a href="http://www.sealiesoftware.com/peal/index.html">Peal</a><br>
+	    <a href="http://www.sealiesoftware.com/frankenmouse/index.html">Frankenmouse</a><br>
+	    <br>
+	  </td>
+	  <td>
+	    &nbsp; &nbsp;
+	  </td>
+	  <td valign="top">
+	      <h2>Hamster Emporium archive</h2>
+  <p>
+     &lt;&lt; &nbsp; <a href="../../06/03/Valgrind_for_Mac_OS_X_goes_mainline.html">Valgrind for Mac OS X goes mainline</a> &nbsp; | &nbsp;  
+    <a href="../../../index.html">archive</a>
+     &nbsp; | &nbsp; <a href="../../04/14/objc_explain_Classes_and_metaclasses.html">[objc explain]: Classes and metaclasses</a> &nbsp; &gt;&gt; 
+  </p>
+  <table cellpadding="0" cellspacing="3">
+      <tr>
+	<td>
+	  <a href="objc_explain_Monomorphic_dispatch.html"><img src="http://www.sealiesoftware.com/link.gif" width="14" height="16" border="0" alt="(link)"></a>
+	</td>
+	<td>
+	  <b><font size="+1">[objc explain]: Monomorphic dispatch</font></b> &nbsp; 
+	  <font size="-1">(<a href="objc_explain_Monomorphic_dispatch.html">2009-05-14 8:04 PM</a>)</font>
+	</td>
+      </tr>
+      <tr>
+	<td>
+	  &nbsp;
+	</td>
+	<td>
+	        <p>
+	Polymorphic dispatch means a single call site could branch to one
+	of several different implementations. C function calls are not
+	polymorphic; Objective-C methods and C++ virtual methods are
+	polymorphic. 
+      </p>
+      <p>
+	The monomorphic dispatch optimization is used when a call site
+	could call different implementations in principle, but can only 
+	ever call one particular implementation in reality. Then the
+	optimizer can eliminate the polymorphic dispatcher's overhead and
+	jump directly to the right place or even inline the callee
+	locally. This is a classic 
+	optimization for dynamic-compiled runtimes from Smalltalk to Java
+	and JavaScript.
+      </p>
+      <p>
+	There are some complications. First is dynamically-loaded code
+	like shared libraries or eval() operations. If your new code
+	provides a second implementation of a call that was previously
+	monomorphic, you need to be able to undo the previous optimization
+	on the fly and recompile it or fall back to an interpreter. Any
+	dynamic compiler worth the name can do this nowadays.
+      </p>
+      <p>
+	Second, the area to search for additional implementations depends
+	on the type-strictness of your language. If the compile-time type
+	of the receiver rigidly defines the allowed runtime types, then
+	the implementation need only be unique within that part of the
+	hierarchy for the optimization to work. <code>Window.title</code>
+	and <code>Employee.title</code> wouldn't interfere with each other
+	at a strictly-typed call site whose receiver is of type
+	<code>Employee</code> (or a subclass thereof). 
+      </p>
+      <p>
+	How does Objective-C fit in here? In general, it doesn't. The
+	monomorphic optimization is hard to apply to Objective-C. The two
+	problems above loom large because of the language's definition,
+	even if it suddenly acquired a runtime recompiler tomorrow.
+      </p>
+      <p>
+	Objective-C's call sites are not type-strict. The code may say the
+	receiver is of some type, but at runtime it could actually be a
+	Distributed Objects proxy or a unit test mock or a scripting
+	bridge shim. You'd have to look at all classes to decide if a 
+	selector has multiple implementations, instead of searching only a
+	subtree of the class hierarchy.
+      </p>
+      <p>
+	Even worse, there are zero selectors that have only a single
+	implementation. They all have at least two: the one that exists in 
+	some class, and the one from every other class that calls
+	-forwardInvocation:. You can never jump directly to any 
+	implementation, because if your receiver object is of the wrong
+	type then you need to call the forwarding machinery instead. And
+	checking the receiver's type quickly eats any optimization profit;
+	you can only make a handful of checks before your cost is the
+	same as <code>objc_msgSend()</code>. 
+      </p>
+      <p>
+	There are some important cases where monomorphic dispatch would
+	still work in Objective-C. The container classes in particular
+	have only one or two real implementations, so a receiver type
+	check could be fast enough. And in other places you can make a single
+	relatively expensive type check but then re-use the result many
+	times, such as a series of <code>[self ...]</code> calls. The
+	tricky part is identifying which selectors and call sites would
+	optimize well, without taking too much time or memory to do so.
+      </p>
+      <p>
+	The monomorphic dispatch optimization will be present in some
+	future dynamic-recompiling Objective-C runtime, but it won't work
+	as well as it does in other less-dynamic languages.
+      </p>
+
+	  </td>
+      </tr>
+  </table>
+
+	  </td>
+	</tr>
+    </table>
+    <hr>
+    <img align="right" src="http://www.sealiesoftware.com/sealie.gif" alt="seal!" width="114" height="69">
+    Greg Parker<br>
+    <a href="mailto:gparker-www@sealiesoftware.com">gparker-www@sealiesoftware.com</a><br>
+    <a href="http://www.sealiesoftware.com/index.html">Sealie Software</a>
+  </body>
+</html>

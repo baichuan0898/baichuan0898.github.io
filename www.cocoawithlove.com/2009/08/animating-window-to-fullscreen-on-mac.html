@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Animating a window to fullscreen on the Mac</title>
+  <meta name="description" content="Many Mac OS X applications animate their regular application windows to fullscreen but since there&#39;s no dedicated method for the task, there&#39;s no standard Apple documentation that covers the operation. If you look for examples on the web, you&#39;ll find numerous examples that perform this operation using old APIs or methods intended for permanently fullscreen games (the wrong approach for an application window). In this post I&#39;ll show you my preferred approach for making an application window fullscreen, with continuous display and smooth animation." />
+
+  <meta name="twitter:title" content="Animating a window to fullscreen on the Mac"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/08/animating-window-to-fullscreen-on-mac.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Many Mac OS X applications animate their regular application windows to fullscreen but since there&#39;s no dedicated method for the task, there&#39;s no standard Apple documentation that covers the operation. If you look for examples on the web, you&#39;ll find numerous examples that perform this operation using old APIs or methods intended for permanently fullscreen games (the wrong approach for an application window). In this post I&#39;ll show you my preferred approach for making an application window fullscreen, with continuous display and smooth animation."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="animating-window-to-fullscreen-on-mac.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="118px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Animating a window to fullscreen on the Mac</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-08-14">August 14, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/appkit.html">AppKit</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>Many Mac OS X applications animate their regular application windows to fullscreen but since there's no dedicated method for the task, there's no standard Apple documentation that covers the operation. If you look for examples on the web, you'll find numerous examples that perform this operation using old APIs or methods intended for permanently fullscreen games (the wrong approach for an application window). In this post I'll show you my preferred approach for making an application window fullscreen, with continuous display and smooth animation.</p></span>
+
+<span class="fullpost">
+<h2>Introduction</h2>
+<p>The sample app for this post has one window:</p>
+
+<img src="../../assets/objc-era/fullscreenwindow.png" width="364" height="276" />
+
+<p>When you choose the "Toggle Fullscreen" menu item, the content area of the window (not the window's frame) will animate to fill the entire screen (the Dock and menubar will hide).</p>
+
+<blockquote>You can download the Xcode 3.1 project here: <a href="../../assets/objc-era/FullscreenImage.zip">FullscreenImage.zip (277kB)</a>.</blockquote>
+
+<h2>Fullscreen windows</h2>
+
+<p>There are two basic types of fullscreen on the Mac:</p>
+
+<ol><li>Screen capture &mdash; where one window gains exclusive control of the screen.</li>
+<li>Basic fullscreen window &mdash; where a floating window simply covers everything else on the screen.</li>
+</ol>
+
+<p>The first is normally recommended for games where you never want the window to be interrupted. For an example of this type of window, see my earlier post <a href="../02/asteroids-style-game-in-coreanimation.html">An Asteroids-Style Game in Core Animation: Part 1</a>.</p>
+
+<p>The second option has the advantage that it <em>can</em> be interrupted by other windows. For example: Expos&eacute;, Command-Tab and notification windows will continue to function. This is the approach that I will detail in this post.</p>
+
+<h2>Animating a window to fullscreen</h2>
+
+<p>Zooming a window to the full size of the screen can be done using the <code>setFrame:display:animate:</code> method:</p>
+
+<div class="highlight"><pre><code class="language-objc" data-lang="objc"><span></span><span class="p">[</span><span class="n">mainWindow</span>
+    <span class="nl">setFrame</span><span class="p">:[</span><span class="n">mainWindow</span> <span class="nl">frameRectForContentRect</span><span class="p">:[[</span><span class="n">mainWindow</span> <span class="n">screen</span><span class="p">]</span> <span class="n">frame</span><span class="p">]]</span>
+    <span class="nl">display</span><span class="p">:</span><span class="nb">YES</span>
+    <span class="nl">animate</span><span class="p">:</span><span class="nb">YES</span><span class="p">];</span>
+</code></pre></div>
+
+
+<p>This will smoothly zoom a window to fill the available screen area.</p>
+
+<p>On its own though, it has a few limitations:</p>
+
+<ul><li>It doesn't hide the menubar or Dock &mdash; so it doesn't actually <em>fill</em> the screen.</li>
+<li>It doesn't hide the frame of the window, so the frame remains visible around the outside.</li>
+<li>It doesn't change the window's level so panels and other window may still overlap the expanded window.</li></ul>
+
+<h2>Hiding the menubar and Dock</h2>
+
+<p>There are two different ways to hide the menubar and the Dock. They are:</p>
+
+<div class="highlight"><pre><code class="language-objc" data-lang="objc"><span></span><span class="n">SetSystemUIMode</span><span class="p">(</span><span class="n">kUIModeAllHidden</span><span class="p">,</span> <span class="n">kUIOptionAutoShowMenuBar</span><span class="p">);</span>
+</code></pre></div>
+
+
+<p>and</p>
+
+<div class="highlight"><pre><code class="language-objc" data-lang="objc"><span></span><span class="p">[</span><span class="n">NSMenu</span> <span class="nl">setMenuBarVisible</span><span class="p">:</span><span class="nb">NO</span><span class="p">];</span>
+</code></pre></div>
+
+
+<p>Despite the wording of the <code>NSMenu</code> method, it does also hide the Dock.</p>
+
+<p>The first method has more options &mdash; the biggest of which is the <code>kUIOptionAutoShowMenuBar</code> which will reshow the menubar if you move the mouse to the top of the screen &mdash; but unfortunately, this method is Carbon, not Cocoa, so it requires you to link against the Carbon frameworks.</p>
+
+<p>I prefer the <code>NSMenu</code> method for its simplicity and Cocoa linkage. This does mean that if you want to show the menubar, you'd need to create an <code>NSTrackingArea</code> or something similar to detect when the mouse is over the menubar and show it again.</p>
+
+<blockquote><strong>Update 2009-09-20</strong>: In Snow Leopard, you can use the <code>-[NSApplication setPresentationOptions:]</code> method to handle all that <code>SetSystemUIMode</code> could do and more, all with standard Cocoa linkage.</blockquote>
+
+<p>The other consideration with hiding the menubar is that you should only do it if the window you are resizing is actually on the <code>[[NSScreen screens] objectAtIndex:0]</code> (the screen that shows the menubar). i.e.:</p>
+
+<div class="highlight"><pre><code class="language-objc" data-lang="objc"><span></span><span class="k">if</span> <span class="p">([[</span><span class="n">mainWindow</span> <span class="n">screen</span><span class="p">]</span> <span class="nl">isEqual</span><span class="p">:[[</span><span class="n">NSScreen</span> <span class="n">screens</span><span class="p">]</span> <span class="nl">objectAtIndex</span><span class="p">:</span><span class="mi">0</span><span class="p">]])</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="n">NSMenu</span> <span class="nl">setMenuBarVisible</span><span class="p">:</span><span class="nb">NO</span><span class="p">];</span>
+<span class="p">}</span>
+</code></pre></div>
+
+
+<h2>Hiding the window frame</h2>
+
+<p>The next issue to address is the window frame: we need to hide it. The problem is that you <em>can't</em> hide the frame of an existing window.</p>
+
+<p>Instead, what we do is create a new, borderless window and swap the <code>contentView</code> from the old window into the new window.</p>
+
+<div class="highlight"><pre><code class="language-objc" data-lang="objc"><span></span><span class="n">fullscreenWindow</span> <span class="o">=</span> <span class="p">[[</span><span class="n">FullscreenWindow</span> <span class="n">alloc</span><span class="p">]</span>
+    <span class="nl">initWithContentRect</span><span class="p">:[</span><span class="n">mainWindow</span> <span class="nl">contentRectForFrameRect</span><span class="p">:[</span><span class="n">mainWindow</span> <span class="n">frame</span><span class="p">]]</span>
+    <span class="nl">styleMask</span><span class="p">:</span><span class="n">NSBorderlessWindowMask</span>
+    <span class="nl">backing</span><span class="p">:</span><span class="n">NSBackingStoreBuffered</span>
+    <span class="nl">defer</span><span class="p">:</span><span class="nb">YES</span>
+    <span class="nl">screen</span><span class="p">:[</span><span class="n">mainWindow</span> <span class="n">screen</span><span class="p">]];</span>
+<span class="p">[</span><span class="n">fullscreenWindow</span> <span class="nl">setLevel</span><span class="p">:</span><span class="n">NSFloatingWindowLevel</span><span class="p">];</span>
+<span class="p">[</span><span class="n">fullscreenWindow</span> <span class="nl">setContentView</span><span class="p">:[</span><span class="n">mainWindow</span> <span class="n">contentView</span><span class="p">]];</span>
+<span class="p">[</span><span class="n">fullscreenWindow</span> <span class="nl">setTitle</span><span class="p">:[</span><span class="n">mainWindow</span> <span class="n">title</span><span class="p">]];</span>
+<span class="p">[</span><span class="n">fullscreenWindow</span> <span class="nl">makeKeyAndOrderFront</span><span class="p">:</span><span class="nb">nil</span><span class="p">];</span>
+</code></pre></div>
+
+
+<p>There are three other points to notice in this code:</p>
+
+<ul>
+<li>The window level is <code>NSFloatingWindowLevel</code> (so that the window will appear above <code>NSPanel</code>s and similar windows).</li>
+<li>The window title is set to match the old window (so that the new window will appear the same in Expos&eacute;). </li>
+<li>The window is actually a subclass so we can override the method <code>canBecomeKeyWindow</code> to return <code>YES</code> (since it returns <code>NO</code> by default for <code>NSBorderlessWindowMask</code> windows).</li>
+</ul>
+
+<h2>Other minor points</h2>
+
+<p>When swapping the <code>contentView</code> between windows, the destination window should not be onscreen (<code>orderedOut:</code>) otherwise flicker can occur.</p>
+
+<p>If you run the whole process while the window is miniaturized in the Dock, numerous screen glitches will occur. It's best to deminiaturize before you start (this must happen before you hide the Dock).</p>
+
+<h2>Conclusion</h2>
+
+<blockquote>You can download the Xcode 3.1 project here:<a href="../../assets/objc-era/FullscreenImage.zip"> FullscreenImage.zip (277kB)</a>.</blockquote>
+
+<p>The whole code is one method in the sample app &mdash; an easy copy and paste into any application.</p> 
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="safe-threaded-design-and-inter-thread.html">Safe, threaded design and inter-thread communication</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="adding-shadow-effects-to-uitableview.html">Adding shadow effects to UITableView using CAGradientLayer</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

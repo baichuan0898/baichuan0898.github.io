@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Dynamic ivars: solving a fragile base class problem</title>
+  <meta name="description" content="In the &#34;modern&#34; Objective-C runtime (that&#39;s iPhone OS or 64-bit Mac OS X), you can dynamically add ivars (instance variables) to a class without declaring them first. This allows a solution to the common &#34;fragile base class&#34; problem involving ivar layouts. Dynamic ivars can also help data hiding and abstraction and can even create a confusing situation where a base class and a sub class have ivars with the same names that don&#39;t refer to the same underlying data." />
+
+  <meta name="twitter:title" content="Dynamic ivars: solving a fragile base class problem"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2010/03/dynamic-ivars-solving-fragile-base.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="In the &#34;modern&#34; Objective-C runtime (that&#39;s iPhone OS or 64-bit Mac OS X), you can dynamically add ivars (instance variables) to a class without declaring them first. This allows a solution to the common &#34;fragile base class&#34; problem involving ivar layouts. Dynamic ivars can also help data hiding and abstraction and can even create a confusing situation where a base class and a sub class have ivars with the same names that don&#39;t refer to the same underlying data."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="dynamic-ivars-solving-fragile-base.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Dynamic ivars: solving a fragile base class problem</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2010-03-22">March 22, 2010</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/objective-c.html">Objective-C</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>In the "modern" Objective-C runtime (that's iPhone OS or 64-bit Mac OS X), you can dynamically add ivars (instance variables) to a class without declaring them first. This allows a solution to the common "fragile base class" problem involving ivar layouts. Dynamic ivars can also help data hiding and abstraction and can even create a confusing situation where a base class and a sub class have ivars with the same names that don't refer to the same underlying data.</p></span>
+
+<span class="fullpost">
+
+<h2>Introduction</h2>
+
+<p>The post is about dynamic ivars in Objective-C. Dynamic ivars exist to solve a common type of fragile base class, specifically, the problem of ivar layouts.</h2>
+
+<p>A <a href="http://en.wikipedia.org/wiki/Fragile_base_class">fragile base class</a> problem is a situation where a minor change to the base class can break subclasses. The ivar layout problem is a fragile base class problem where you can't add an ivar to a base class without requiring all subclasses to be recompiled.</p>
+
+<p>The fragile base class problem with ivar layouts occurs because accessing an ivar requires adding the ivar's offset within the object to the object's pointer. Since a subclass' ivars are always positioned after the base class' ivars, the offset to a subclass' ivars must always be the total size of the base class' ivar region plus their own relative offset. Since these offsets are traditionally fixed and unchangeable after compile-time, this means that you can't change the total size of a base class' ivar area without needing to recompile all subclasses to update their ivar offsets.</p>
+
+<p>The reality is that in most object-oriented languages (including Objective-C before dynamic ivars), adding ivars to established classes while maintaining backwards binary compatibility is practically impossible.</p>
+
+<p>Objective-C in conjunction with the Objective-C modern runtime is one of the few compiled language environments to address this problem.</p>
+
+<blockquote><strong><em>Dynamic</em> does not mean "at any time"</strong>: by dynamic, I mean that the absolute ivar layout is not known at compile-time. Really, I'm talking about ivars that will appear dynamically from the perspective of subclasses (to the base class, they will appear like a normal ivar). While additional ivars can be added to a class at runtime, they can only be added before the class pair is registered (i.e. before there are any instances of the class). See the <a href="http://developer.apple.com/mac/library/documentation/Cocoa/Reference/ObjCRuntimeRef/Reference/reference.html#//apple_ref/c/func/class_addIvar">Apple documentation for class_addIvar</a> for more.</blockquote>
+
+<h2>The fragile base class problem of ivar layouts</h2>
+
+<p>Let's have a look at how the fragile base class problem of ivar layouts can cause problems by looking at an example.</p>
+
+<h3>Adding an ivar to a base class would break all subclasses</h3>
+
+<p>Consider an example where a writer of dynamic libraries (e.g. Apple writing the Mac OS X or iPhone OS Cocoa libraries) issues a version of a class that is designed to allow subclasses:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@interface</span> <span class="nc">LibraryBaseObject</span> : <span class="nc">NSObject</span>
+<span class="p">{</span>
+    <span class="n">NSString</span> <span class="o">*</span><span class="n">baseObjectIVar</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="k">@end</span></code></pre></div>
+
+<p>Users of that library class then make their own subclasses of the base class:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@interface</span> <span class="nc">UserSubObject</span> : <span class="nc">LibraryBaseObject</span>
+<span class="p">{</span>
+    <span class="n">NSString</span> <span class="o">*</span> <span class="n">userSubObjectIVar</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="k">@end</span></code></pre></div>
+
+<p>This works fine until the writer of the library wants to add a feature to LibraryBaseObject that requires an additional ivar:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@interface</span> <span class="nc">LibraryBaseObject</span> : <span class="nc">NSObject</span>
+<span class="p">{</span>
+    <span class="n">NSString</span> <span class="o">*</span><span class="n">baseObjectIVar</span><span class="p">;</span>
+    <span class="kt">id</span> <span class="n">newFeatureObject</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="k">@end</span></code></pre></div>
+
+<p>Traditionally, this would break every existing subclass of <code>LibraryBaseObject</code> because no existing subclass would allocate enough memory to hold this new ivar and the offsets to <code>userSubObjectIVar</code> would be wrong because these offsets were compiled to include the old instance memory size of <code>NSObject</code> + <code>LibraryBaseObject</code> and will now offset by the wrong amount.</p>
+
+<p>Yes, code can simply be recompiled with the new headers and all offsets would be corrected to the new values automatically, but until such a recompile, all existing programs that subclass the <code>LibraryBaseObject</code> will break.</p>
+
+<blockquote>Greg Parker's <em>Hamster Emporium: [objc explain]</em> has a good post titled <a href="http://www.sealiesoftware.com/blog/archive/2009/01/27/objc_explain_Non-fragile_ivars.html">Non-fragile ivars</a> with more diagrams showing the ivar layout problem.</blockquote>
+
+<h3>Previous workarounds for the fragile base class problem</h3>
+
+<p>The common workaround to the fragile base class problem of ivar layouts is to declare your class like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@interface</span> <span class="nc">LibraryBaseObject</span> : <span class="nc">NSObject</span>
+<span class="p">{</span>
+    <span class="kt">id</span> <span class="n">private</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="k">@end</span></code></pre></div>
+
+<p>and then actually store all your data in the private class, which you can change in size without affecting the actual <code> LibraryBaseObject </code> since the private ivar will only ever be the size of a pointer.</p>
+
+<p>However, this has three problems:</p>
+
+<ul><li>You must have had the foresight to include this <code>private</code> pointer from the beginning</li>
+<li>It involves two dereferences (see the performance note below where I explain that the dereference is the slowest part of ivar access)</li>
+<li>In this untyped scenario, it is unwieldy since all your code must cast this <code>private</code> ivar to its actual class before use. You can forward declare a <code>@class</code> and use that instead to eliminate this difficulty.</li>
+</ul>
+
+<h2>A fix requires that one of the compile-time values becomes dynamic</h2>
+
+<p>Previously, I said that we access an ivar by:</p>
+
+<ol><li>Add the ivar's offset within the object to the object's pointer value</li>
+<li>Dereference (read or write from) the memory location referred to by the offset pointer value</li></ol>
+
+<p>This should not be new information to any programmer since Algol: it is the approach taken for accessing data in any <code>struct</code>, record or instance variable in most compiled languages.</p>
+
+<p>The problem is that the offset of any subclass' ivars must include the total size of the base class ivar area and none of this can change at runtime.</p>
+
+<p>Obviously, to fix the problem, something must be changeable at runtime. Objective-C's modern runtime fixes this by making the "size of the base class ivar area" a value that can be looked up at runtime.</p>
+
+<p>The "modern" Objective-C runtime therefore requires that accessing an ivar follows this modified approach:</p>
+
+<ol><li>Add the offset for the subclass' instance value area to the object's pointer value</li>
+<li>Add the offset from the subclass' instance area to the ivar</li>
+<li>Dereference (read or write from) the memory location referred to by the offset pointer value</li></ol>
+
+<p>Once this is done, the base class' ivar area can grow and the subclass' offsets will shift to accommodate this.</p>
+
+<blockquote><strong>All ivars are dynamic in the modern runtime</strong>: Since this procedure is followed for all ivars, that means that all ivars in the modern Objective-C runtime are dynamic in that their absolute offsets are never known at compile-time.</blockquote>
+
+<h3>Performance note</h3>
+
+<p>You may be concerned that the "modern" runtime makes a very common task (accessing ivars) slower.</p>
+
+<p>Yes, adding the extra offset might slow down some code but for most, the reality is that the difference will be unmeasurably small.</p>
+
+<p>Theoretically, if the extra offset needs to be fetched from the struct that describes the class' ivar layout, then the new approach could double time taken. However, the offset for the current subclass will normally already be stored in the <code>rip</code> register, which is designed for this type of doubly offset dereference and may reduce the impact of the extra offset to zero. Even if the extra cycle to add the offset is needed, it will be a maximum 20% speed impact, assuming the ivar is in the L1 cache (1 cyle impact versus 4 cycles just to fetch from L1 on newer Intel CPUs), less than 10% for L2 (where the fetch takes 10 cycles) and about 1% for main memory fetches.</p>
+
+<p>In addition to this, compilers already eliminate unnecessary dereferencing, so multiple accesses to the same ivar will be optimized so that this additional offset only occurs once.</p>
+
+<h2>Synthesizing ivars</h2>
+
+<p>The next question is how do we take advantage of this to add additional ivars to an existing, established class? The reality is that since all ivars are dynamic in the modern runtime, you can simply add extra ivars to a base class and it won't cause a problem for existing subclasses.</p>
+
+<p>But dynamic ivars also enable another way of creating ivars that involves even less disruption to existing classes since it doesn't require changing the header file at all &mdash; you can use a synthesized property without a matching ivar. This will create an additional ivar in the implementation that doesn't appear in the declaration that other classes see.</p>
+
+<p>For example, if you start with the following class:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@interface</span> <span class="nc">MyIvarlessObject</span> : <span class="nc">NSObject</span>
+<span class="p">{</span>
+<span class="p">}</span>
+<span class="k">@end</span></code></pre></div>
+
+<p>You could add dynamic ivars by altering the declaration to:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@interface</span> <span class="nc">MyIvarlessObject</span> : <span class="nc">NSObject</span>
+<span class="p">{</span>
+<span class="p">}</span>
+<span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">copy</span><span class="p">)</span> <span class="n">NSString</span> <span class="o">*</span><span class="n">myProperty</span><span class="p">;</span>
+<span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">copy</span><span class="p">)</span> <span class="n">NSString</span> <span class="o">*</span><span class="n">anotherProperty</span><span class="p">;</span>
+<span class="k">@end</span></code></pre></div>
+
+<p>and add the following to the implementation:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@synthesize</span> <span class="n">myProperty</span><span class="o">=</span><span class="n">myIvar</span><span class="p">;</span> <span class="c1">// a dynamic ivar named myIvar will be generated
+</span><span class="c1"></span><span class="k">@synthesize</span> <span class="n">anotherProperty</span><span class="p">;</span>   <span class="o">//</span> <span class="n">a</span> <span class="n">dynamic</span> <span class="n">ivar</span> <span class="n">named</span> <span class="n">anotherProperty</span> <span class="n">will</span> <span class="n">be</span> <span class="n">generated</span></code></pre></div>
+
+<p>With no matching ivars for either <code>myIvar</code> or <code>anotherProperty</code>, the <code>@synthesize</code> statement will generate a dynamic ivar for each and the <code>@synthesize</code> statement becomes the declaration of these ivars.</p>
+
+<p>Since the <code>@synthesize</code> statement acts as a declaration, you can now reference <code>myIvar</code> or <code>anotherProperty</code> in the implementation as though they were regular declared ivars. For example, you could write:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nf">init</span>
+<span class="p">{</span>
+    <span class="nb">self</span> <span class="o">=</span> <span class="p">[</span><span class="nb">super</span> <span class="n">init</span><span class="p">];</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nb">self</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">myIvar</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSString</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithString</span><span class="p">:</span><span class="s">@&#34;someString&#34;</span><span class="p">];</span>
+        <span class="n">anotherProperty</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSString</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithString</span><span class="p">:</span><span class="s">@&#34;someOtherString&#34;</span><span class="p">];</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="nb">self</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>If you wanted to hide the property declaration or avoid changing the header file at all, you can declare the properties in a private category in your implementation file instead of in your interface file:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@interface</span> <span class="nc">MyIvarlessObject</span> <span class="p">()</span>
+<span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">copy</span><span class="p">)</span> <span class="n">NSString</span> <span class="o">*</span><span class="n">myProperty</span><span class="p">;</span>
+<span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">copy</span><span class="p">)</span> <span class="n">NSString</span> <span class="o">*</span><span class="n">anotherProperty</span><span class="p">;</span>
+<span class="k">@end</span></code></pre></div>
+
+<p>This will need to appear above the implementation block for <code>MyIvarlessObject</code>.</p>
+
+<h2>Multiple ivars with the same name</h2>
+
+<p>Imagine the following base class:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@interface</span> <span class="nc">BaseObject</span> : <span class="nc">NSObject</span>
+<span class="p">{</span>
+<span class="p">}</span>
+<span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">copy</span><span class="p">)</span> <span class="n">NSString</span> <span class="o">*</span><span class="n">propertyOne</span><span class="p">;</span>
+<span class="k">@end</span>
+
+<span class="k">@implementation</span> <span class="nc">BaseObject</span>
+<span class="k">@synthesize</span> <span class="n">propertyOne</span><span class="o">=</span><span class="n">myIvar</span><span class="p">;</span>
+<span class="k">@end</span></code></pre></div>
+
+<p>and a subclass:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@interface</span> <span class="nc">SubObject</span> : <span class="nc">BaseObject</span>
+<span class="p">{</span>
+<span class="p">}</span>
+<span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">copy</span><span class="p">)</span> <span class="n">NSString</span> <span class="o">*</span><span class="n">propertyTwo</span><span class="p">;</span>
+<span class="k">@end</span>
+
+<span class="k">@implementation</span> <span class="nc">SubObject</span>
+<span class="k">@synthesize</span> <span class="n">propertyTwo</span><span class="o">=</span><span class="n">myIvar</span><span class="p">;</span>
+<span class="k">@end</span></code></pre></div>
+
+<p>This base class and the sub class both <code>@synthesize</code> an ivar with the name <code>myIvar</code>.</p>
+
+<p>In a somewhat unusual quirk, the <code>myIvar</code> in <code>BaseObject</code> and the <code>myIvar</code> in <code>SubObject</code> are not the same value &mdash; they are actually different ivars, with different offsets within the instance memory area.</p>
+
+<p>This quirk is required to properly address another fragile base class problem: if a <code>@synthesize</code> ivar could conflict with a subclass' ivar, then the base class' ivars would still be fragile. To support this idea, <code>@synthesize</code> ivars are always <code>@private</code>.</p>
+
+<p>However, this does not mean that they are limited to the scope of the <code>@implementation</code>. You can access them in category implementations, provided that the category is below the <code>@implementation</code> that synthesizes the ivar and hence can see the implicit declaration.</p>
+
+<p>It also means that if the <code>BaseObject</code> and <code>SubObject</code> were implemented in the same file, they would not compile. Why? Because if they were implemented in the same file, <code>SubObject</code> would see the implicit declaration of <code>myIvar</code> from its superclass <code>BaseObject</code>, attempt to use that instead of synthesizing its own and fail because the <code>myIvar</code> from <code>BaseObject</code> is <code>@private</code>.</p>
+
+<h2>Conclusion</h2>
+
+<p>You do not normally need to worry about ivar layout problems when adding ivars to your classes. It is only a concern when you are writing or updating a dynamic library and you want to maintain backwards binary compatibility.</p>
+
+<p>Dynamic ivars are a feature of the "modern" runtime; if you are targetting 32-bit Mac OS X, they are not supported.</p>
+
+<p>For other Cocoa platforms, there are numerous reasons why you may want to <code>@synthesize</code> ivars:</p>
+
+<ul><li>They are convenient (don't require an ivar declaration, just a property declaration).</li>
+<li>They allow for greater information hiding from subclasses than <code>@private</code> declarations since they don't publicly declare anything.</li>
+<li>You can add them to base classes without needing to recompile subclasses.</li></ul>
+
+<p>Dynamic ivars do require the cost of an extra pointer offset at runtime but you are paying this cost whether you use them or not (it is a required part of the iPhone OS and 64-bit Mac OS X Objective-C runtimes). In any case, you're unlikely to ever notice this cost.</p>
+
+</span>
+
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="custom-ui-bindings-in-interface-builder.html">Custom UI Bindings in Interface Builder</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="streaming-mp3aac-audio-again.html">Streaming MP3/AAC audio again</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Partial functions in Swift, Part 2: Catching precondition failures</title>
+  <meta name="description" content="Partial functions are risky but if you&#39;re going to write one anyway, you should do something completely crazy to test that it is risky in all the right places." />
+
+  <meta name="twitter:title" content="Partial functions in Swift, Part 2: Catching precondition failures"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/blog/2016/02/02/partial-functions-part-two-catching-precondition-failures.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Partial functions are risky but if you&#39;re going to write one anyway, you should do something completely crazy to test that it is risky in all the right places."/>
+
+  <link rel="icon" href="../../../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../../../css/main.css" />
+  <link rel="canonical" href="partial-functions-part-two-catching-precondition-failures.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../../../index.html"><img class="heartandcup" src="../../../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../../../about/index.html">about</a>
+        <a class="page-link" href="../../../../archive/index.html">archive</a>
+        <a class="page-link" href="../../../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Partial functions in Swift, Part 2: Catching precondition failures</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2016-02-02">February 2, 2016</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../../../tags/testing.html">testing</a>, <a href="../../../../tags/hacks.html">hacks</a>
+		 
+	</div>
+</header>
+
+
+<main role="main">
+	<article itemscope itemtype="http://schema.org/BlogPosting">
+		<div class="post-content" itemprop="articleBody">
+			
+
+<p>In the <a href="../../01/25/partial-functions-part-one-avoidance.html">previous post</a>, I discussed &ldquo;partial functions&rdquo; and advised against them. As stated in that article though, there are situations where partial functions are necessary or expected. If you&rsquo;re going to write a partial function, you need to test it and that means testing a <code>precondition</code> failure occurs when the requirement is violated.</p>
+
+<p>One problem: <code>precondition</code> failures crash the xctest harness making testing annoying. In this article, I&rsquo;m going to show a Mach exception handler that catches these crashes and rewrites the thread&rsquo;s state as though an Objective-C exception was raised instead, making <code>precondition</code> failures testable.</p>
+
+<nav id="TableOfContents"><span class="toc-heading">Contents</span>
+<ul>
+<li>
+<ul>
+<li><a href="#background">Background</a></li>
+<li><a href="#tests-first">Tests first</a></li>
+<li><a href="#a-list-of-serious-caveats">A list of serious caveats</a></li>
+<li><a href="#trying-to-write-a-mach-exception-handler">Trying to write a Mach exception handler</a>
+<ul>
+<li><a href="#update-an-alternative-using-a-posix-signal-handler">Update: an alternative using a POSIX signal handler</a></li>
+</ul></li>
+<li><a href="#the-mach-exception-handler-rewriting-history">The Mach exception handler: rewriting history</a></li>
+<li><a href="#setting-up-a-mach-exception-handler">Setting up a Mach exception handler</a></li>
+<li><a href="#usage">Usage</a></li>
+<li><a href="#conclusion">Conclusion</a></li>
+</ul></li>
+</ul>
+</nav>
+
+<h2 id="background">Background</h2>
+
+<div class="aside">On ARM, a fatal error is implemented as a <code>brk</code> instruction which triggers an <code>EXC_BREAKPOINT</code> instead. We'll only test iOS code in the simulator, which is x86-64, so we won't worry about <code>EXC_BREAKPOINT</code>.</div>
+
+<p>A <code>precondition</code> failure is implemented in the Swift standard library as a <code>Builtin.int_trap()</code> which is ultimately compiled as a <code>ud2</code> instruction on i386/x86-64 platforms. This instruction exists for the sole purpose of triggering an &ldquo;invalid opcode&rdquo; which will be caught by the operating system, leading to a Mach <code>EXC_BAD_INSTRUCTION</code> exception at runtime.</p>
+
+<p>Using only Swift language and standard library features, there&rsquo;s no way to recover from a <code>precondition</code> failure.</p>
+
+<p>Traditional approaches to this type of situation involve running the code in a child process and monitoring crashes from the parent or using build configurations to swap the fatal error with something more catchable.</p>
+
+<p>Mach exception handlers provide a different approach. With a Mach exception handler the operating system gives us a chance to respond to the Mach exception and we can use that chance to rewrite our application&rsquo;s history as though the <code>ud2</code> instruction never happened.</p>
+
+<h2 id="tests-first">Tests first</h2>
+
+<p>What we need is a function named <code>catchBadInstruction</code> that satisfies the following test:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">class</span> <span class="nc">CatchBadInstructionTests</span><span class="p">:</span> <span class="n">XCTestCase</span> <span class="p">{</span>
+   <span class="kd">func</span> <span class="nf">testCatchBadInstruction</span><span class="p">()</span> <span class="p">{</span>
+   <span class="cp">#if</span> <span class="cp">arch</span><span class="p">(</span><span class="cp">x86_64</span><span class="p">)</span>
+      <span class="c1">// Test catching an assertion failure</span>
+      <span class="kd">var</span> <span class="nv">reachedPoint1</span> <span class="p">=</span> <span class="kc">false</span>
+      <span class="kd">var</span> <span class="nv">reachedPoint2</span> <span class="p">=</span> <span class="kc">false</span>
+      <span class="kd">let</span> <span class="nv">exception1</span><span class="p">:</span> <span class="n">BadInstructionException</span><span class="p">?</span> <span class="p">=</span> <span class="n">catchBadInstruction</span> <span class="p">{</span>
+         <span class="c1">// Must invoke this block</span>
+         <span class="n">reachedPoint1</span> <span class="p">=</span> <span class="kc">true</span>
+         
+         <span class="c1">// Fatal error raised</span>
+         <span class="bp">precondition</span><span class="p">(</span><span class="kc">false</span><span class="p">,</span> <span class="s">&#34;EXC_BAD_INSTRUCTION raised here&#34;</span><span class="p">)</span>
+
+         <span class="c1">// Exception must be thrown so that this point is never reached</span>
+         <span class="n">reachedPoint2</span> <span class="p">=</span> <span class="kc">true</span>
+      <span class="p">}</span>
+      <span class="c1">// We must get a valid BadInstructionException</span>
+      <span class="n">XCTAssert</span><span class="p">(</span><span class="n">exception1</span> <span class="o">!=</span> <span class="kc">nil</span><span class="p">)</span>
+      <span class="n">XCTAssert</span><span class="p">(</span><span class="n">reachedPoint1</span><span class="p">)</span>
+      <span class="n">XCTAssert</span><span class="p">(</span><span class="o">!</span><span class="n">reachedPoint2</span><span class="p">)</span>
+      
+      <span class="c1">// Test without catching an assertion failure</span>
+      <span class="kd">var</span> <span class="nv">reachedPoint3</span> <span class="p">=</span> <span class="kc">false</span>
+      <span class="kd">let</span> <span class="nv">exception2</span><span class="p">:</span> <span class="n">BadInstructionException</span><span class="p">?</span> <span class="p">=</span> <span class="n">catchBadInstruction</span> <span class="p">{</span>
+         <span class="c1">// Must invoke this block</span>
+         <span class="n">reachedPoint3</span> <span class="p">=</span> <span class="kc">true</span>
+      <span class="p">}</span>
+      <span class="c1">// We must not get a BadInstructionException without an assertion</span>
+      <span class="n">XCTAssert</span><span class="p">(</span><span class="n">reachedPoint3</span><span class="p">)</span>
+      <span class="n">XCTAssert</span><span class="p">(</span><span class="n">exception2</span> <span class="p">==</span> <span class="kc">nil</span><span class="p">)</span>
+   <span class="cp">#endif</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The <code>catchBadInstruction</code> function runs the closure passed to it. If any Mach <code>EXC_BAD_INSTRUCTION</code> exceptions occur, this function catches the Mach exception, creates an instance of <code>BadInstructionException</code> (a subclass of <code>NSException</code>), raises that exception at the point where the <code>EXC_BAD_INSTRUCTION</code> occurred and then catches the <code>BadInstructionException</code> outside the child closure. The <code>BadInstructionException</code> raised, if any, is returned.</p>
+
+<p>This <code>catchBadInstruction</code> function will catch any of the Swift fatal error aborts, including <code>assert</code>, <code>assertionFailure</code>, <code>precondition</code>, <code>preconditionFailure</code>, <code>fatalError</code>. By catching these failures, we can test that functions required to raise assertions for particular combinations of inputs are being applied correctly.</p>
+
+<p>This code will also catch other unrelated sources of Mach <code>EXC_BAD_INSTRUCTION</code> exceptions but they&rsquo;re extremely rare unless your binary is corrupted (not a serious possibility in the testing scenarios to which this code should be limited).</p>
+
+<h2 id="a-list-of-serious-caveats">A list of serious caveats</h2>
+
+<blockquote>
+<p>I have tagged this article with the tag &lsquo;hacks&rsquo;. I intend this tag to communicate that the code in this post does some clever things but the result is well outside the bounds of what safe, maintainable programs should do. Let me be clear: there&rsquo;s no good reason to run this code in your deployment builds. <strong>This code is intended for testing, exclusively</strong>.</p>
+</blockquote>
+
+<p>One of the simplest things this code does is also the least usable in a deployed program: throwing and catching an Objective-C exception over your Swift code. Even in Objective-C, exceptions are usually unsafe unless you&rsquo;re extremely careful. The situation is worse in Swift since we can no longer ask the compiler to generate exception-safe automatic reference counting. A few memory leaks will almost certainly occur and other code may misbehave due to interrupted side effects or partial construction. It&rsquo;s up to you to minimize these problems if they surround <code>precondition</code> failures that you need to test. Under test conditions, this is usually a manageable problem.</p>
+
+<p>Installing multiple Mach exception handlers may create complications. I&rsquo;ve not tested multiple, nested or otherwise conflicting Mach exception handlers and I&rsquo;m not convinced the exception handler will play well with other handlers installed on the same thread. This is all outside the &ldquo;testing, exclusively&rdquo; use-case so just don&rsquo;t do it.</p>
+
+<p>There&rsquo;s also something you might have noticed in the test code: it will only run on <code>arch(x86_64)</code>. The code will run in the iOS/watchOS/tvOS simulators and natively on the Mac but it will not run on iOS/watchOS/tvOS devices. This is because the API for catching Mach exceptions is not public in these SDKs. <a href="https://mikeash.com/pyblog/friday-qa-2013-01-11-mach-exception-handlers.html">Landon Fuller mentioned in 2013</a> that he had filed a radar with Apple requesting the required interfaces on iOS but nothing has come of it. I can only assume this isn&rsquo;t going to change.</p>
+
+<p>If you&rsquo;re using open source Swift on Linux, Mach exceptions and the Objective-C runtime aren&rsquo;t available. See the &ldquo;proof-of-concept&rdquo; SIGILL handler, mentioned in the &ldquo;Update&rdquo; below.</p>
+
+<h2 id="trying-to-write-a-mach-exception-handler">Trying to write a Mach exception handler</h2>
+
+<p>Writing this code was considerably harder for me than it ideally should have been. For whatever reason, Apple don&rsquo;t document Mach exception handling. They don&rsquo;t conceal its existence and the &ldquo;mach_exc.defs&rdquo; file is public API on OS X but there&rsquo;s nothing in the Xcode documentation reference, man pages or on Apple&rsquo;s website beyond the definitions file itself.</p>
+
+<p>Making matters worse, the examples and documentation you can easily find on third-party web sites are usually for the 32-bit version of Mach exceptions which uses slightly different functions and requires slightly different parameters. When you do find examples of 64-bit Mach exception handling (like that in <a href="https://www.plcrashreporter.org">plcrashreporter</a>, lldb or gdb) it&rsquo;s normally catching exceptions for the whole program rather than a specific thread or for catching from another process.</p>
+
+<p>I eventually got through it with a basic trial-and-error approach but it was really slow going due to the ease of writing code that appeared to succeed but did nothing useful because the <code>mach_port_t</code> was configured using flags only valid in 32-bit.</p>
+
+<div class="aside">Processing Mach exception messages uses technology that seems completely out-of-place in the modern world. Maybe that shouldn't be surprising, given a few of the files in this particular time-capsule are listed as "Author: Avadis Tevanian, Jr., Date: 1985".</div>
+
+<p>There&rsquo;s no simple C interface for processing Mach messages. Instead, you get a &ldquo;MiG&rdquo; (Mach Interface Generator) file and you&rsquo;re expected to generate a C interface from that. Interface generators are normally used when it&rsquo;s possible to generate interfaces for multiple languages. Okay, so can I generate a Swift interface? No, you can only generate a C interface. So why do I need to generate the interface at all? Why isn&rsquo;t the implementation in a library with a basic C interface provided? I don&rsquo;t know.</p>
+
+<p>Then the generated interface expects to call into C functions in your code with specific type signatures. Here we run into a Swift limitation: Swift (as of version 2.1) can&rsquo;t expose a function matching a C type signature. You can pass around  <code>@convention(c)</code> pointers to your Swift functions but you can&rsquo;t publicly expose headers to those same functions. The autogenerated &ldquo;[ProductName]-Swift.h&rdquo; file for letting Objective-C call into Swift only exposes your public Objective-C classes (free functions are not exposed). The end result is that it&rsquo;s just easiest to call into Swift via Objective-C.</p>
+
+<p>I wanted to write as much of the Mach message handling in Swift as possible but I&rsquo;ve had to implement the actual callback interface in an Objective-C file and call the Swift handler function from there. There&rsquo;s also some Objective-C code use to catch exceptions.</p>
+
+<h3 id="update-an-alternative-using-a-posix-signal-handler">Update: an alternative using a POSIX signal handler</h3>
+
+<p>I&rsquo;ve had a few people ask &ldquo;If a Mach Exception handler is so difficult, why not use a POSIX signal handler instead?&rdquo; Both can do similar things. The reason I wanted to use a Mach exception handler is that despite requiring considerably more <em>boilerplate</em>, the resulting <em>behavior</em> is far simpler.</p>
+
+<p>I&rsquo;ve added a &ldquo;proof-of-concept&rdquo; POSIX <code>SIGILL</code> signal handler to the code in the linked Github project so you can see what I mean. It&rsquo;s a single Swift file (instead of the Mach exception handler&rsquo;s 7 files scattered across Swift, Objective-C and MiG) but on platforms where Mach exceptions are available, it&rsquo;s a clear step backwards.</p>
+
+<p>The biggest problem is straightforward: it won&rsquo;t run with lldb attached since lldb catches the <code>EXC_BAD_INSTRUCTION</code>, preventing the <code>SIGILL</code> from ever occurring (you must run without a debugger attached). For my typical &ldquo;testing from within Xcode&rdquo; usage scenario (where I always run with lldb attached) this point alone entirely rules out the signal handler version.</p>
+
+<p>Additional problems in decreasing severity include:</p>
+
+<ul>
+<li>the signal handler is whole process (rather than correctly scoped to the thread where the &ldquo;catch&rdquo; occurs)</li>
+<li>the signal handler doesn&rsquo;t deal with re-entrancy whereas the mach exception handler remains deterministic in the face of multiple fatal errors</li>
+<li>the signal handler overwrites the &ldquo;<a href="https://en.wikipedia.org/wiki/Red_zone_(computing)">red zone</a>&rdquo; which is technically frowned upon in signal handlers (although unlikely to cause problems here)</li>
+</ul>
+
+<h2 id="the-mach-exception-handler-rewriting-history">The Mach exception handler: rewriting history</h2>
+
+<p>There&rsquo;s a lot of different parts to the code but the core of it happens inside the Mach exception handler. The exception handler gives us the &ldquo;state&rdquo; (registers) for the thread where the exception occurs. We can return a modified version of this &ldquo;state&rdquo; and since the thread is suspended, we can also modify the stack. This is what we do:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="c1">// Read the old thread state</span>
+<span class="kd">var</span> <span class="nv">state</span> <span class="p">=</span> <span class="n">old_state</span><span class="p">.</span><span class="n">withMemoryRebound</span><span class="p">(</span><span class="n">to</span><span class="p">:</span> <span class="n">x86_thread_state64_t</span><span class="p">.</span><span class="kc">self</span><span class="p">,</span> <span class="n">capacity</span><span class="p">:</span> <span class="mi">1</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="nv">$0</span><span class="p">.</span><span class="n">pointee</span> <span class="p">}</span>
+
+<span class="c1">// 1. Decrement the stack pointer</span>
+<span class="n">state</span><span class="p">.</span><span class="n">__rsp</span> <span class="o">-=</span> <span class="n">__uint64_t</span><span class="p">(</span><span class="n">MemoryLayout</span><span class="p">&lt;</span><span class="nb">Int</span><span class="o">&gt;</span><span class="p">.</span><span class="n">size</span><span class="p">)</span>
+
+<span class="c1">// 2. Save the old Instruction Pointer to the stack.</span>
+<span class="k">if</span> <span class="kd">let</span> <span class="nv">pointer</span> <span class="p">=</span> <span class="nb">UnsafeMutablePointer</span><span class="p">&lt;</span><span class="n">__uint64_t</span><span class="o">&gt;</span><span class="p">(</span><span class="n">bitPattern</span><span class="p">:</span> <span class="nb">UInt</span><span class="p">(</span><span class="n">state</span><span class="p">.</span><span class="n">__rsp</span><span class="p">))</span> <span class="p">{</span>
+   <span class="n">pointer</span><span class="p">.</span><span class="n">pointee</span> <span class="p">=</span> <span class="n">state</span><span class="p">.</span><span class="n">__rip</span>
+<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+   <span class="k">return</span> <span class="n">KERN_INVALID_ARGUMENT</span>
+<span class="p">}</span>
+
+<span class="c1">// 3. Set the Instruction Pointer to the new function&#39;s address</span>
+<span class="kd">var</span> <span class="nv">f</span><span class="p">:</span> <span class="p">@</span><span class="n">convention</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="p">()</span> <span class="p">-&gt;</span> <span class="nb">Void</span> <span class="p">=</span> <span class="n">raiseBadInstructionException</span>
+<span class="bp">withUnsafePointer</span><span class="p">(</span><span class="n">to</span><span class="p">:</span> <span class="p">&amp;</span><span class="n">f</span><span class="p">)</span> <span class="p">{</span>
+   <span class="n">state</span><span class="p">.</span><span class="n">__rip</span> <span class="p">=</span> <span class="nv">$0</span><span class="p">.</span><span class="n">withMemoryRebound</span><span class="p">(</span><span class="n">to</span><span class="p">:</span> <span class="n">__uint64_t</span><span class="p">.</span><span class="kc">self</span><span class="p">,</span> <span class="n">capacity</span><span class="p">:</span> <span class="mi">1</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="nv">$0</span><span class="p">.</span><span class="n">pointee</span> <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1">// Write the new thread state</span>
+<span class="n">new_state</span><span class="p">.</span><span class="n">withMemoryRebound</span><span class="p">(</span><span class="n">to</span><span class="p">:</span> <span class="n">x86_thread_state64_t</span><span class="p">.</span><span class="kc">self</span><span class="p">,</span> <span class="n">capacity</span><span class="p">:</span> <span class="mi">1</span><span class="p">)</span> <span class="p">{</span> <span class="nv">$0</span><span class="p">.</span><span class="n">pointee</span> <span class="p">=</span> <span class="n">state</span> <span class="p">}</span>
+<span class="n">new_stateCnt</span><span class="p">.</span><span class="n">pointee</span> <span class="p">=</span> <span class="n">x86_THREAD_STATE64_COUNT</span></code></pre></div>
+
+<p>The three numbered steps are the equivalent of an assembly language <code>call</code> instruction. We&rsquo;ve changed the state of the thread to look like the last code run was not the <code>ud2</code> instruction that raised the <code>EXC_BAD_INSTRUCTION</code> but was instead a <code>call</code> to our <code>raiseBadInstructionException</code> function. Therefore, when the thread resumes it will run:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">private</span> <span class="kd">func</span> <span class="nf">raiseBadInstructionException</span><span class="p">()</span> <span class="p">{</span>
+   <span class="n">BadInstructionException</span><span class="p">().</span><span class="n">raise</span><span class="p">()</span>
+<span class="p">}</span></code></pre></div>
+
+<p>which is a straightforward throw of an <code>NSException</code> subclass.</p>
+
+<h2 id="setting-up-a-mach-exception-handler">Setting up a Mach exception handler</h2>
+
+<p>The other code I wanted to highlight was the setup of the Mach exception handler. There are two reasons for this:</p>
+
+<ol>
+<li>Documentation and useful examples for the required functions were really difficult to find, so I&rsquo;d like to publish it here for visibility.</li>
+<li>This was some of the first Swift 2 code I ever wrote and I went crazy with Swift&rsquo;s <code>defer</code>, <code>try</code>, <code>guard</code>, <code>throw</code> and <code>catch</code>; I&rsquo;m not sure if the result is brilliant or ridiculous but at least there&rsquo;s no possibility of a <code>goto fail</code> error here.</li>
+</ol>
+
+<p>I&rsquo;ve commented each step in the code so you should just be able to read the comments to see what the code does. <strong>Pay close attention to the order that the steps are numbered</strong>, remember: <code>defer</code> statements are executed in the reverse order to their setup.</p>
+
+<p>Here goes:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">public</span> <span class="kd">func</span> <span class="nf">catchBadInstruction</span><span class="p">(</span><span class="k">in</span> <span class="n">block</span><span class="p">:</span> <span class="p">()</span> <span class="p">-&gt;</span> <span class="nb">Void</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="n">BadInstructionException</span><span class="p">?</span> <span class="p">{</span>
+   <span class="kd">var</span> <span class="nv">context</span> <span class="p">=</span> <span class="n">MachContext</span><span class="p">()</span>
+   <span class="kd">var</span> <span class="nv">result</span><span class="p">:</span> <span class="n">BadInstructionException</span><span class="p">?</span> <span class="p">=</span> <span class="kc">nil</span>
+   <span class="k">do</span> <span class="p">{</span>
+      <span class="kd">var</span> <span class="nv">handlerThread</span><span class="p">:</span> <span class="n">pthread_t</span><span class="p">?</span> <span class="p">=</span> <span class="kc">nil</span>
+      <span class="k">defer</span> <span class="p">{</span>
+         <span class="c1">// 8. Wait for the thread to terminate *if* we actually made it to the creation</span>
+         <span class="c1">// point. The mach port should be destroyed *before* calling pthread_join to avoid</span>
+         <span class="c1">// a deadlock.</span>
+         <span class="k">if</span> <span class="n">handlerThread</span> <span class="o">!=</span> <span class="kc">nil</span> <span class="p">{</span>
+            <span class="n">pthread_join</span><span class="p">(</span><span class="n">handlerThread</span><span class="o">!</span><span class="p">,</span> <span class="kc">nil</span><span class="p">)</span>
+         <span class="p">}</span>
+      <span class="p">}</span>
+      
+      <span class="k">try</span> <span class="n">kernCheck</span> <span class="p">{</span>
+         <span class="c1">// 1. Create the mach port</span>
+         <span class="n">mach_port_allocate</span><span class="p">(</span><span class="n">mach_task_self_</span><span class="p">,</span> <span class="n">MACH_PORT_RIGHT_RECEIVE</span><span class="p">,</span>
+            <span class="p">&amp;</span><span class="n">context</span><span class="p">.</span><span class="n">currentExceptionPort</span><span class="p">)</span>
+      <span class="p">}</span>
+      <span class="k">defer</span> <span class="p">{</span>
+         <span class="c1">// 7. Cleanup the mach port</span>
+         <span class="n">mach_port_destroy</span><span class="p">(</span><span class="n">mach_task_self_</span><span class="p">,</span> <span class="n">context</span><span class="p">.</span><span class="n">currentExceptionPort</span><span class="p">)</span>
+      <span class="p">}</span>
+      
+      <span class="k">try</span> <span class="n">kernCheck</span> <span class="p">{</span>
+         <span class="c1">// 2. Configure the mach port</span>
+         <span class="n">mach_port_insert_right</span><span class="p">(</span><span class="n">mach_task_self_</span><span class="p">,</span> <span class="n">context</span><span class="p">.</span><span class="n">currentExceptionPort</span><span class="p">,</span>
+            <span class="n">context</span><span class="p">.</span><span class="n">currentExceptionPort</span><span class="p">,</span> <span class="n">MACH_MSG_TYPE_MAKE_SEND</span><span class="p">)</span>
+      <span class="p">}</span>
+      
+      <span class="k">try</span> <span class="n">kernCheck</span> <span class="p">{</span> <span class="n">context</span><span class="p">.</span><span class="bp">withUnsafeMutablePointers</span> <span class="p">{</span> <span class="n">masksPtr</span><span class="p">,</span> <span class="n">portsPtr</span><span class="p">,</span> <span class="n">behaviorsPtr</span><span class="p">,</span>
+         <span class="n">flavorsPtr</span> <span class="k">in</span>
+         <span class="c1">// 3. Apply the mach port as the handler for this thread</span>
+         <span class="n">thread_swap_exception_ports</span><span class="p">(</span><span class="n">mach_thread_self</span><span class="p">(),</span> <span class="n">EXC_MASK_BAD_INSTRUCTION</span><span class="p">,</span>
+            <span class="n">context</span><span class="p">.</span><span class="n">currentExceptionPort</span><span class="p">,</span> <span class="nb">Int32</span><span class="p">(</span><span class="n">bitPattern</span><span class="p">:</span> <span class="nb">UInt32</span><span class="p">(</span><span class="n">EXCEPTION_STATE</span><span class="p">)</span> <span class="o">|</span>
+            <span class="n">MACH_EXCEPTION_CODES</span><span class="p">),</span> <span class="n">x86_THREAD_STATE64</span><span class="p">,</span> <span class="n">masksPtr</span><span class="p">,</span> <span class="p">&amp;</span><span class="n">context</span><span class="p">.</span><span class="bp">count</span><span class="p">,</span> <span class="n">portsPtr</span><span class="p">,</span>
+            <span class="n">behaviorsPtr</span><span class="p">,</span> <span class="n">flavorsPtr</span><span class="p">)</span>
+      <span class="p">}</span> <span class="p">}</span>
+      
+      <span class="k">defer</span> <span class="p">{</span> <span class="n">context</span><span class="p">.</span><span class="bp">withUnsafeMutablePointers</span> <span class="p">{</span> <span class="n">masksPtr</span><span class="p">,</span> <span class="n">portsPtr</span><span class="p">,</span> <span class="n">behaviorsPtr</span><span class="p">,</span>
+         <span class="n">flavorsPtr</span> <span class="k">in</span>
+         <span class="c1">// 6. Unapply the mach port</span>
+         <span class="kc">_</span> <span class="p">=</span> <span class="n">thread_swap_exception_ports</span><span class="p">(</span><span class="n">mach_thread_self</span><span class="p">(),</span> <span class="n">EXC_MASK_BAD_INSTRUCTION</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span>
+            <span class="n">EXCEPTION_DEFAULT</span><span class="p">,</span> <span class="n">THREAD_STATE_NONE</span><span class="p">,</span> <span class="n">masksPtr</span><span class="p">,</span> <span class="p">&amp;</span><span class="n">context</span><span class="p">.</span><span class="bp">count</span><span class="p">,</span> <span class="n">portsPtr</span><span class="p">,</span>
+            <span class="n">behaviorsPtr</span><span class="p">,</span> <span class="n">flavorsPtr</span><span class="p">)</span>
+      <span class="p">}</span> <span class="p">}</span>
+      
+      <span class="k">try</span> <span class="bp">withUnsafeMutablePointer</span><span class="p">(</span><span class="n">to</span><span class="p">:</span> <span class="p">&amp;</span><span class="n">context</span><span class="p">)</span> <span class="p">{</span> <span class="n">c</span> <span class="kr">throws</span> <span class="k">in</span>
+         <span class="c1">// 4. Create the thread</span>
+         <span class="kd">let</span> <span class="nv">e</span> <span class="p">=</span> <span class="n">pthread_create</span><span class="p">(&amp;</span><span class="n">handlerThread</span><span class="p">,</span> <span class="kc">nil</span><span class="p">,</span> <span class="n">machMessageHandler</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span>
+         <span class="k">guard</span> <span class="n">e</span> <span class="p">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="p">{</span> <span class="k">throw</span> <span class="n">PthreadError</span><span class="p">.</span><span class="n">code</span><span class="p">(</span><span class="n">e</span><span class="p">)</span> <span class="p">}</span>
+         
+         <span class="c1">// 5. Run the block</span>
+         <span class="n">result</span> <span class="p">=</span> <span class="n">BadInstructionException</span><span class="p">.</span><span class="n">catchException</span><span class="p">(</span><span class="k">in</span><span class="p">:</span> <span class="n">block</span><span class="p">)</span>
+      <span class="p">}</span>
+   <span class="p">}</span> <span class="k">catch</span> <span class="p">{</span>
+      <span class="c1">// Should never be reached but this is testing code, don&#39;t try to recover, just abort</span>
+      <span class="bp">fatalError</span><span class="p">(</span><span class="s">&#34;Mach port error: </span><span class="si">\(</span><span class="n">error</span><span class="si">)</span><span class="s">&#34;</span><span class="p">)</span>
+   <span class="p">}</span>
+   <span class="k">return</span> <span class="n">result</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The <code>kernCheck</code> function is just a little helper to grab the result code from a Mach function and if it&rsquo;s an error, convert to a Swift <code>ErrorType</code> and <code>throw</code>. It&rsquo;s equivalent to the sort of macro that might be used for this type of error code checking in C.</p>
+
+<p>The <code>catchBadInstruction</code> function sets everything up but it&rsquo;s the <code>machMessageHandler</code> function (spawned by the <code>pthread_create</code> call at step 4) that sits around and waits to see if a Mach message will be received. It looks like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">private</span> <span class="kd">func</span> <span class="nf">machMessageHandler</span><span class="p">(</span><span class="kc">_</span> <span class="n">arg</span><span class="p">:</span> <span class="n">UnsafeMutableRawPointer</span><span class="p">)</span> <span class="p">-&gt;</span>
+   <span class="n">UnsafeMutableRawPointer</span><span class="p">?</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">context</span> <span class="p">=</span> <span class="n">arg</span><span class="p">.</span><span class="n">assumingMemoryBound</span><span class="p">(</span><span class="n">to</span><span class="p">:</span> <span class="n">MachContext</span><span class="p">.</span><span class="kc">self</span><span class="p">).</span><span class="n">pointee</span>
+   <span class="kd">var</span> <span class="nv">request</span> <span class="p">=</span> <span class="n">request_mach_exception_raise_t</span><span class="p">()</span>
+   <span class="kd">var</span> <span class="nv">reply</span> <span class="p">=</span> <span class="n">reply_mach_exception_raise_state_t</span><span class="p">()</span>
+   
+   <span class="kd">var</span> <span class="nv">handledfirstException</span> <span class="p">=</span> <span class="kc">false</span>
+   <span class="k">repeat</span> <span class="p">{</span> <span class="k">do</span> <span class="p">{</span>
+      <span class="c1">// Request the next mach message from the port</span>
+      <span class="n">request</span><span class="p">.</span><span class="n">Head</span><span class="p">.</span><span class="n">msgh_local_port</span> <span class="p">=</span> <span class="n">context</span><span class="p">.</span><span class="n">currentExceptionPort</span>
+      <span class="n">request</span><span class="p">.</span><span class="n">Head</span><span class="p">.</span><span class="n">msgh_size</span> <span class="p">=</span> <span class="nb">UInt32</span><span class="p">(</span><span class="n">MemoryLayout</span><span class="p">&lt;</span><span class="n">request_mach_exception_raise_t</span><span class="o">&gt;</span><span class="p">.</span><span class="n">size</span><span class="p">)</span>
+      <span class="k">try</span> <span class="n">kernCheck</span> <span class="p">{</span> <span class="n">request</span><span class="p">.</span><span class="n">withMsgHeaderPointer</span> <span class="p">{</span> <span class="n">requestPtr</span> <span class="k">in</span>
+         <span class="n">mach_msg</span><span class="p">(</span><span class="n">requestPtr</span><span class="p">,</span> <span class="n">MACH_RCV_MSG</span> <span class="o">|</span> <span class="n">MACH_RCV_INTERRUPT</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">request</span><span class="p">.</span><span class="n">Head</span><span class="p">.</span><span class="n">msgh_size</span><span class="p">,</span>
+            <span class="n">context</span><span class="p">.</span><span class="n">currentExceptionPort</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="nb">UInt32</span><span class="p">(</span><span class="n">MACH_PORT_NULL</span><span class="p">))</span>
+      <span class="p">}</span> <span class="p">}</span>
+      
+      <span class="c1">// Prepare the reply structure</span>
+      <span class="n">reply</span><span class="p">.</span><span class="n">Head</span><span class="p">.</span><span class="n">msgh_bits</span> <span class="p">=</span> <span class="n">MACH_MSGH_BITS</span><span class="p">(</span><span class="n">MACH_MSGH_BITS_REMOTE</span><span class="p">(</span><span class="n">request</span><span class="p">.</span><span class="n">Head</span><span class="p">.</span><span class="n">msgh_bits</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span>
+      <span class="n">reply</span><span class="p">.</span><span class="n">Head</span><span class="p">.</span><span class="n">msgh_local_port</span> <span class="p">=</span> <span class="nb">UInt32</span><span class="p">(</span><span class="n">MACH_PORT_NULL</span><span class="p">)</span>
+      <span class="n">reply</span><span class="p">.</span><span class="n">Head</span><span class="p">.</span><span class="n">msgh_remote_port</span> <span class="p">=</span> <span class="n">request</span><span class="p">.</span><span class="n">Head</span><span class="p">.</span><span class="n">msgh_remote_port</span>
+      <span class="n">reply</span><span class="p">.</span><span class="n">Head</span><span class="p">.</span><span class="n">msgh_size</span> <span class="p">=</span> <span class="nb">UInt32</span><span class="p">(</span><span class="n">MemoryLayout</span><span class="p">&lt;</span><span class="n">reply_mach_exception_raise_state_t</span><span class="o">&gt;</span><span class="p">.</span><span class="n">size</span><span class="p">)</span>
+      <span class="n">reply</span><span class="p">.</span><span class="n">NDR</span> <span class="p">=</span> <span class="n">NDR_record</span>
+      
+      <span class="k">if</span> <span class="o">!</span><span class="n">handledfirstException</span> <span class="p">{</span>
+         <span class="c1">// Use the MiG generated server to invoke our handler for the request and fill in</span>
+         <span class="c1">// the rest of the reply structure</span>
+         <span class="k">guard</span> <span class="n">request</span><span class="p">.</span><span class="n">withMsgHeaderPointer</span><span class="p">(</span><span class="k">in</span><span class="p">:</span> <span class="p">{</span> <span class="n">requestPtr</span> <span class="k">in</span>
+            <span class="n">reply</span><span class="p">.</span><span class="n">withMsgHeaderPointer</span> <span class="p">{</span> <span class="n">replyPtr</span> <span class="k">in</span>
+            <span class="n">mach_exc_server</span><span class="p">(</span><span class="n">requestPtr</span><span class="p">,</span> <span class="n">replyPtr</span><span class="p">)</span>
+         <span class="p">}</span> <span class="p">})</span> <span class="o">!=</span> <span class="mi">0</span> <span class="k">else</span> <span class="p">{</span> <span class="k">throw</span> <span class="n">MachExcServer</span><span class="p">.</span><span class="n">code</span><span class="p">(</span><span class="n">reply</span><span class="p">.</span><span class="n">RetCode</span><span class="p">)</span> <span class="p">}</span>
+         
+         <span class="n">handledfirstException</span> <span class="p">=</span> <span class="kc">true</span>
+      <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+         <span class="c1">// If multiple fatal errors occur, don&#39;t handle subsquent errors (let the program</span>
+         <span class="c1">// crash)</span>
+         <span class="n">reply</span><span class="p">.</span><span class="n">RetCode</span> <span class="p">=</span> <span class="n">KERN_FAILURE</span>
+      <span class="p">}</span>
+      
+      <span class="c1">// Send the reply</span>
+      <span class="k">try</span> <span class="n">kernCheck</span> <span class="p">{</span> <span class="n">reply</span><span class="p">.</span><span class="n">withMsgHeaderPointer</span> <span class="p">{</span> <span class="n">replyPtr</span> <span class="k">in</span>
+         <span class="n">mach_msg</span><span class="p">(</span><span class="n">replyPtr</span><span class="p">,</span> <span class="n">MACH_SEND_MSG</span><span class="p">,</span> <span class="n">reply</span><span class="p">.</span><span class="n">Head</span><span class="p">.</span><span class="n">msgh_size</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="nb">UInt32</span><span class="p">(</span><span class="n">MACH_PORT_NULL</span><span class="p">),</span>
+            <span class="mi">0</span><span class="p">,</span> <span class="nb">UInt32</span><span class="p">(</span><span class="n">MACH_PORT_NULL</span><span class="p">))</span>
+      <span class="p">}</span> <span class="p">}</span>
+   <span class="p">}</span> <span class="k">catch</span> <span class="kd">let</span> <span class="nv">error</span> <span class="k">as</span> <span class="n">NSError</span> <span class="k">where</span> <span class="p">(</span><span class="n">error</span><span class="p">.</span><span class="n">domain</span> <span class="p">==</span> <span class="n">NSMachErrorDomain</span> <span class="o">&amp;&amp;</span> <span class="p">(</span><span class="n">error</span><span class="p">.</span><span class="n">code</span> <span class="p">==</span>
+      <span class="nb">Int</span><span class="p">(</span><span class="n">MACH_RCV_PORT_CHANGED</span><span class="p">)</span> <span class="o">||</span> <span class="n">error</span><span class="p">.</span><span class="n">code</span> <span class="p">==</span> <span class="nb">Int</span><span class="p">(</span><span class="n">MACH_RCV_INVALID_NAME</span><span class="p">)))</span> <span class="p">{</span>
+      <span class="c1">// Port was already closed before we started or closed while we were listening.</span>
+      <span class="c1">// This means the controlling thread shut down.</span>
+      <span class="k">return</span> <span class="kc">nil</span>
+   <span class="p">}</span> <span class="k">catch</span> <span class="p">{</span>
+      <span class="c1">// Should never be reached but this is testing code, don&#39;t try to recover, just abort</span>
+      <span class="bp">fatalError</span><span class="p">(</span><span class="s">&#34;Mach message error: </span><span class="si">\(</span><span class="n">error</span><span class="si">)</span><span class="s">&#34;</span><span class="p">)</span>
+   <span class="p">}</span> <span class="p">}</span> <span class="k">while</span> <span class="kc">true</span>
+<span class="p">}</span></code></pre></div>
+
+<h2 id="usage">Usage</h2>
+
+<blockquote>
+<p>The project containing this code is available on github: <a href="https://github.com/mattgallagher/CwlPreconditionTesting">mattgallagher/CwlPreconditionTesting</a>.</p>
+</blockquote>
+
+<p>The <a href="https://github.com/mattgallagher/CwlPreconditionTesting/blob/master/README.md">Readme.md file</a> file contains some additional usage instructions but the short version is:</p>
+
+<ol>
+<li><code>git clone https://github.com/mattgallagher/CwlPreconditionTesting.git</code></li>
+<li>drag the &ldquo;CwlPreconditionTesting.xcodeproj&rdquo; file into your project&rsquo;s file tree in Xcode</li>
+<li>go to your testing target&rsquo;s Build Phase settings and under &ldquo;Target Dependencies&rdquo; press the &ldquo;+&rdquo; button and select the relevant &ldquo;CwlPreconditionTesting&rdquo; target (&rdquo;_iOS&rdquo; or &ldquo;_OSX&rdquo;, depending on your testing target&rsquo;s SDK)</li>
+<li>write <code>import CwlPreconditionTesting</code> at the top of any test file where you want to use <code>catchBadInstruction</code> (Swift should handle the linkage automatically when you do this)</li>
+<li>use the <code>catchBadInstruction</code> function as shown in the <a href="https://github.com/mattgallagher/CwlPreconditionTesting/blob/master/Tests/CwlPreconditionTestingTests/CwlCatchBadInstructionTests.swift?ts=3">CwlCatchBadInstructionTests.swift tests file</a></li>
+</ol>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p><code>CwlPreconditionTesting.catchBadInstruction</code> can catch Swift <code>precondition</code> failures so we can accurately test partial functions. I think it&rsquo;s likely that the Mach exception handler shown in this article contains the highest percentage of Swift used in any Mach exception handler ever written (although I doubt there&rsquo;s much Swift competition in this area).</p>
+
+<p>This post completes my &ldquo;Return to Cocoa with Love and Be Completely Self-Contradictory&rdquo; trilogy:</p>
+
+<ul>
+<li><a href="../../01/25/a-new-era-for-cocoa-with-love.html">Part 1: Move away from fun hacks on Cocoa with Love</a></li>
+<li><a href="../../01/25/partial-functions-part-one-avoidance.html">Part 2: Don&rsquo;t use partial functions</a></li>
+<li><a href="partial-functions-part-two-catching-precondition-failures.html">Part 3: Let&rsquo;s test partial functions using fun hacks!</a></li>
+</ul>
+
+<p>I&rsquo;m being flippant, of course, since this apparent contradiction only exists if we omit the context of the articles&rsquo; different problem domains: app implementation, API design and testing, respectively. It&rsquo;s easy to forget the differences between these domains since we might use Swift, Xcode and other tools across all three. That doesn&rsquo;t mean they&rsquo;re the same. What&rsquo;s good in test code may be bad in a deployed app – and vice versa.</p>
+
+<p>An app needs to handle user unpredictability and endure revisions. An API needs to be efficient and reusable. None of this is strictly required for testing; if our tests are easy to write, easy to read and thorough, then everything else is optional.</p>
+
+		</div>
+	</article>
+</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../../01/25/partial-functions-part-one-avoidance.html">Partial functions in Swift, Part 1: Avoidance</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../16/use_it_or_lose_it_why_safe_c_is_sometimes_unsafe_swift.html">Use it or lose it: why safe C is sometimes unsafe Swift</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../../../feed.json">JSON</a>, <a href="../../../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Assign, retain, copy: pitfalls in Obj-C property accessors</title>
+  <meta name="description" content="In this post, I&#39;ll look at some very subtle problems that can occur if a getter or setter method chooses the wrong memory management pattern and in the process, explain why NSDictionary copies its keys rather than simply retains them." />
+
+  <meta name="twitter:title" content="Assign, retain, copy: pitfalls in Obj-C property accessors"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2010/06/assign-retain-copy-pitfalls-in-obj-c.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="In this post, I&#39;ll look at some very subtle problems that can occur if a getter or setter method chooses the wrong memory management pattern and in the process, explain why NSDictionary copies its keys rather than simply retains them."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="assign-retain-copy-pitfalls-in-obj-c.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Assign, retain, copy: pitfalls in Obj-C property accessors</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2010-06-30">June 30, 2010</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/objective-c.html">Objective-C</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>In this post, I'll look at some very subtle problems that can occur if a getter or setter method chooses the wrong memory management pattern and in the process, explain why NSDictionary copies its keys rather than simply retains them.</p></span>
+
+<span class="fullpost">
+
+<blockquote><strong>Scope of this article</strong>: in this post I'll be discussing basic memory and mutability considerations in Objective-C accessor methods. If you're interested in atomicity and thread safety issues in accessor methods, please read my earlier post on <a href="../../2009/10/memory-and-thread-safe-custom-property.html">Memory and thread-safe custom property methods</a>. This post will only look at non-atomic accessors.</blockquote>
+
+<h2>Why implement your own accessors?</h2>
+
+<p>If you know about Objective-C's properties, you may already be asking, "Why implement your own accessors at all?". For simple accessors, you can (and probably should) use the synthesized <code>@property</code> accessors and not worry about the implementation. The reason for this post is that you will often need to implement accessor methods yourself to attach additional behaviors to the get or set action, so you always need to know how the accessor should work.</p>
+
+<h2>The one you already know: the assign pattern</h2>
+
+<p>Since you're reading this blog, it's probably safe to assume that you already know how a basic assign accessor looks:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">SomeVariable</span><span class="p">)</span><span class="nf">someValue</span>
+<span class="p">{</span>
+    <span class="k">return</span> <span class="n">someValue</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>and a setter method looks like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setSomeValue:</span><span class="p">(</span><span class="n">SomeVariable</span><span class="p">)</span><span class="nv">aSomeVariableValue</span>
+<span class="p">{</span>
+    <span class="n">someValue</span> <span class="o">=</span> <span class="n">aSomeVariableValue</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>For most non-object data, that's all you need. This is the implementation you'd get with a non-atomic <code>assign</code> synthesized <code>@property</code>.</p>
+
+<h2>Retain: first opportunities for failure</h2>
+
+<p>If you're working with retain/released objects in Objective-C, your object will become invalid if your setter does not retain it, so the setter must handle this.</p>
+
+<p>The most completely thorough, all purpose way of handling <code>retain</code> and <code>release</code> issues in a setter looks like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setSomeInstance:</span><span class="p">(</span><span class="n">SomeClass</span> <span class="o">*</span><span class="p">)</span><span class="nv">aSomeInstanceValue</span>
+<span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">someInstance</span> <span class="o">==</span> <span class="n">aSomeInstanceValue</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="n">SomeClass</span> <span class="o">*</span><span class="n">oldValue</span> <span class="o">=</span> <span class="n">someInstance</span><span class="p">;</span>
+    <span class="n">someInstance</span> <span class="o">=</span> <span class="p">[</span><span class="n">aSomeInstanceValue</span> <span class="k">retain</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">oldValue</span> <span class="k">release</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This is obviously much more complicated than a simple assignment.</p>
+
+<p>The biggest point that stands out i the weird <code>retain</code>/<code>release</code> dance occupying the last three lines of this code block. We do this to avoid problems where the object pointed to by <code>aSomeInstanceValue</code> and <code>someInstance</code> is the same. Imagine the following:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setSomeInstance:</span><span class="p">(</span><span class="n">SomeClass</span> <span class="o">*</span><span class="p">)</span><span class="nv">aSomeInstanceValue</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="n">someInstance</span> <span class="k">release</span><span class="p">];</span> <span class="c1">// &lt;-- original value is released
+</span><span class="c1"></span>    <span class="n">someInstance</span> <span class="o">=</span> <span class="p">[</span><span class="n">aSomeInstanceValue</span> <span class="k">retain</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>If <code>aSomeInstanceValue</code> and <code>someInstance</code> are the same object, then the first line could release the underlying object before the second line retains it &mdash; meaning that the object is destroyed and invalid by the time it is retained again.</p>
+
+<p>You'll notice that we use the C equality operator to compare the two objects instead of the <code>isEqual:</code> method. Normally, this is a bad idea (Objective-C objects may be "equal" even if they do not point to the same location in memory) but in this case, we are specifically interested in cases where the memory location (and hence the retain counts) are identical. The comparison is not strictly necessary to prevent premature release (since the <code>retain</code> precedes the <code>release</code>) but it's an optimization and safety measure.</p>
+
+<p>In reality though, all this is a bit painful to write: the comparison, the annoying temporary value and the careful ordering of everything. In practice, we normally use a shorter version of the setter method that is basically just as good and is certainly far easier to write:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setSomeInstance:</span><span class="p">(</span><span class="n">SomeClass</span> <span class="o">*</span><span class="p">)</span><span class="nv">aSomeInstanceValue</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="n">someInstance</span> <span class="n">autorelease</span><span class="p">];</span>
+    <span class="n">someInstance</span> <span class="o">=</span> <span class="p">[</span><span class="n">aSomeInstanceValue</span> <span class="k">retain</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>In this case, we don't care about the comparison optimisation and we use the autorelease pool to temporarily hold the original value instead of our own stack value.</p>
+
+<p>This method has the same safety as the <code>retain</code>/<code>release</code> dance but requires an autorelease pool and is marginally slower if someInstance and aSomeInstanceValue are actually the same. In reality, there's almost always an autorelease pool in a Cocoa application and the performance difference is more theoretical than real (you'd have difficulty constructing a test program to ever show a difference) until you start creating copy setters (see below).</p>
+
+<blockquote><strong>Not all Objective-C setters should retain</strong>: There are some situations where a setter method that takes an Objective-C object should <em>not</em> retain its parameter. Specifically: objects in a hierarchy should not normally retain their parents. Look at <a href="../../2009/07/rules-to-avoid-retain-cycles.html">Rules to avoid retain cycles</a> for more on this topic.</blockquote>
+
+<h2>The other half of the retain access pattern</h2>
+
+<p>In reality, even if you forget to perform the <code>if (newInstance == oldInstance) return;</code> check in your accessor method, you are highly unlikely to see a problem even if you actually do pass the current value to a setter method.</p>
+
+<p>The reason why you are normally safe, even if you make a mistake, is because the parameter you pass into a method normally has another retain count held elsewhere.</p>
+
+<p>Specifically: most objects you access on the stack have an autoreleased retain count held by an autorelease pool on the stack or a longer lived object somewhere in the heap.</p> 
+
+<p>Theoretically, you could help this idea along by implementing your getter methods like this for retained objects:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">SomeClass</span> <span class="o">*</span><span class="p">)</span><span class="nf">someInstance</span>
+<span class="p">{</span>
+    <span class="k">return</span> <span class="p">[[</span><span class="n">someInstance</span> <span class="k">retain</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This will ensure that if your object is used like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">SomeClass</span> <span class="o">*</span><span class="n">stackInstance</span> <span class="o">=</span> <span class="p">[</span><span class="n">anObject</span> <span class="n">someInstance</span><span class="p">];</span>
+<span class="p">[</span><span class="n">anObject</span> <span class="k">release</span><span class="p">];</span> <span class="c1">// anObject releases its someInstance ivar in its dealloc method
+</span><span class="c1"></span><span class="p">[</span><span class="n">stackInstance</span> <span class="n">doSomething</span><span class="p">];</span></code></pre></div>
+
+<p>Then the <code>stackInstance</code> variable will still be valid when <code>doSomething</code> is invoked on it.</p>
+
+<p>Generally though, I don't bother doing this in non-atomic getter methods.</p>
+
+<p>Why not? Speed, redundancy and common sense.</p>
+
+<p>While retaining and autoreleasing something is not a gigantic overhead, it is normally just not needed for a get accessor method. The programmer using the get accessor should understand that the lifetime is bound to the source object.</p>
+
+<p>However, you may want to use this pattern in a situation where it is not immediately clear that the value returned is a getter method. For example:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@implementation</span> <span class="nc">ThisClassIsReallyJustAString</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nf">description</span>
+<span class="p">{</span>
+    <span class="k">return</span> <span class="p">[[</span><span class="n">internalValue</span> <span class="k">retain</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span>
+<span class="p">}</span>
+
+<span class="k">@end</span></code></pre></div>
+
+<p>The <code>description</code> method (which returns an <code>NSString</code> representation of an object) does not normally return an instance variable directly so it would not ordinarily be considered an accessor method. In this situation, it is implemented as an accessor but due to the expectation that the description is a generated value, we need to retain and autorelease the returned value.</p>
+
+<p>Any instance variable returned from a method where the method is not obviously an accessor method should always go through a <code>retain</code>/<code>autorelease</code> since it is not immediately obvious that its lifetime would be bound to the lifetime of the source object.</p>
+
+<h2>Copy accessors</h2>
+
+<p>The reason why <code>retain</code> accessors exist is obvious &mdash; you don't want the value to be deallocated while it is set on the object.</p>
+
+<p>The reason for the final accessor pattern in Objective-C &mdash; copy accessors &mdash; is less broadly understood but nonetheless relevant.</p>
+
+<p>You should use a copy accessor when the setter parameter may be mutable but you can't have the internal state of a property changing without warning. Consider the following example:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSMutableString</span> <span class="o">*</span><span class="n">mutableString</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSMutableString</span> <span class="nl">stringWithString</span><span class="p">:</span><span class="s">@&#34;initial value&#34;</span><span class="p">];</span>
+<span class="p">[</span><span class="n">someObject</span> <span class="nl">setStringValue</span><span class="p">:</span><span class="n">mutableString</span><span class="p">];</span>
+<span class="p">[</span><span class="n">mutableString</span> <span class="nl">setString</span><span class="p">:</span><span class="s">@&#34;different value&#34;</span><span class="p">];</span></code></pre></div>
+
+<p>In this situation, if the <code>setStringValue:</code> method followed the <code>retain</code> pattern, then the <code>setString:</code> method invoked on the next line would change the internal value of this property without warning <code>someObject</code>.</p>
+
+<p>Sometimes, you don't care if the internal state of a property change without warning. However, if you do care about the internal state of a property changing, then you'll want to use a <code>copy</code> setter.</p>
+
+<p>The implementation of a non-atomic copy setter is as simple as you'd imagine:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setStringValue:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">aString</span>
+<span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">stringValue</span> <span class="o">==</span> <span class="n">aString</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="n">NSString</span> <span class="o">*</span><span class="n">oldValue</span> <span class="o">=</span> <span class="n">stringValue</span><span class="p">;</span>
+    <span class="n">stringValue</span> <span class="o">=</span> <span class="p">[</span><span class="n">aString</span> <span class="k">copy</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">oldValue</span> <span class="k">release</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<blockquote><strong>Correction</strong>: I had previously stated that you don't need the equality comparison for a copy (since I wrongly claimed the <code>copy</code> would ensure you always have a different block of memory). I was wrong, of course. As was immediately pointed out in the comments: <code>copy</code> does not always return a copy; for immutable objects, <code>copy</code> can return the <strong>same</strong> object. I forgot about this, even though I've certainly written copy setters that work this way (see the <a href="../../2008/11/singletons-appdelegates-and-top-level.html">SynthesizeSingleton code</a>). The result is that we still need the comparison to ensure that setting the property to the same value doesn't cause the same potential release problems that the previous retain pattern had. Did I mention it is possible to screw up property accessors?</blockquote>
+
+<p>This finally explains why <code>NSDictionary</code> copies its keys.</p>
+
+<p><code>NSDictionary</code> stores all its value objects in locations according to the result of each corresponding key object's <code>hash</code> method.</p>
+
+<p>If a key object were to change in such a way that the <code>hash</code> method result changed, then the <code>NSDictionary</code> would not be able to find the corresponding value object any more.</p>
+
+<p>Key objects are not set by a property accessor on an <code>NSDictionary</code> but the effect is the same: the copy pattern is used to ensure that outside objects cannot change the internal state of the dictionary without warning.</p>
+
+<p>Of course, the downside to properties that follow the copy pattern is speed. It's not normally an issue for objects up to a few kilobytes but beyond that point, you'll need to consider whether copy is the right pattern for the resources involved.</p>
+
+<h2>Conclusion</h2>
+
+<p>Getter and setter methods are frequently given as the simplest kind of method to implement. But you can see that even within this very simple kind of method, there are subtle ways that they can go wrong.</p>
+
+<p>Overall, this post is a much simpler level than my typical posts but that doesn't mean its only for novice Objective-C developers. Experienced programmers are far from immune to mistakes in this area. Some of the potential quirks with getter and setter methods are so rare you may never see a problem (even if your code is doing things in an unsafe manner) so learning from experience can take time in this area.</p>
+
+<p>Of course, if you don't need any customization in your accessor methods, you should simply use a synthesized <code>@property</code> implementation. This will avoid any possibility of introducing mistakes.</p>
+
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="design-of-every-mac-application.html">The design of every Mac application</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../07/tips-tricks-for-conditional-ios3-ios32.html">Tips &amp; Tricks for conditional iOS3, iOS3.2 and iOS4 code</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

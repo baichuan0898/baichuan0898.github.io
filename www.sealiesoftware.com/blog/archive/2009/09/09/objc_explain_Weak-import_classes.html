@@ -1,0 +1,142 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<!--
+Local Variables:
+sgml-default-dtd-file: "~/html-loose.ced"
+End:
+-->
+<html>
+  <head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+
+    <title>Hamster Emporium: [objc explain]: Weak-import classes</title>
+    <link title="RSS 2.0" href="../../../../rss.xml.rss" type="application/rss+xml" rel="alternate">
+  </head>
+  <body bgcolor="#ffffff">
+    <table cellpadding="0" cellspacing="0">
+      <tr>
+	  <td valign="top" align="left">
+	    <a href="../../../../index.html"><img src="http://www.sealiesoftware.com/hamster.jpg" alt="" width="108" height="160"></a><br><br>
+	    <b>blog</b><br>
+	    <a href="../../../../index.html">recent</a><br>
+	    <a href="../../../index.html">archive</a><br>
+	    <a href="http://twitter.com/gparker">twitter</a><br>
+	    <br>
+	    <b>projects</b><br>
+	    <a href="http://www.apple.com/macosx/">Mac OS X</a><br>
+	    <a href="http://www.sealiesoftware.com/keyboard/index.html">Keyboard</a><br>
+	     &nbsp; <a href="http://www.sealiesoftware.com/keyboard/index.html">backlight</a><br>
+	    <a href="http://www.sealiesoftware.com/cscmenu/index.html">CSC Menu</a><br>
+	    <a href="http://www.sealiesoftware.com/valgrind/index.html">Valgrind</a><br>
+	    <a href="http://www.sealiesoftware.com/fringe/index.html">Fringe Player</a><br>
+	    <a href="http://www.sealiesoftware.com/pssh/index.html">pssh</a><br>
+	    <a href="http://www.sealiesoftware.com/peal/index.html">Peal</a><br>
+	    <a href="http://www.sealiesoftware.com/frankenmouse/index.html">Frankenmouse</a><br>
+	    <br>
+	  </td>
+	  <td>
+	    &nbsp; &nbsp;
+	  </td>
+	  <td valign="top">
+	      <h2>Hamster Emporium archive</h2>
+  <p>
+     &lt;&lt; &nbsp; <a href="../../../2010/4/8/Do-it-yourself_Objective-C_weak_import.html">Do-it-yourself Objective-C weak import</a> &nbsp; | &nbsp;  
+    <a href="../../../index.html">archive</a>
+     &nbsp; | &nbsp; <a href="../05/Colorized_keyboard_backlight.html">Colorized keyboard backlight</a> &nbsp; &gt;&gt; 
+  </p>
+  <table cellpadding="0" cellspacing="3">
+      <tr>
+	<td>
+	  <a href="objc_explain_Weak-import_classes.html"><img src="http://www.sealiesoftware.com/link.gif" width="14" height="16" border="0" alt="(link)"></a>
+	</td>
+	<td>
+	  <b><font size="+1">[objc explain]: Weak-import classes</font></b> &nbsp; 
+	  <font size="-1">(<a href="objc_explain_Weak-import_classes.html">2009-09-09 1:30 PM</a>)</font>
+	</td>
+      </tr>
+      <tr>
+	<td>
+	  &nbsp;
+	</td>
+	<td>
+	        <p>
+	Weak-import classes are a useful new Objective-C feature that you
+	can't use yet. 
+      </p>
+      <p>
+	Weak import is a solution when you want to use something from a
+	framework, but still need to be compatible with older versions of
+	the framework that didn't support it yet. Using weak import you
+	can test if the feature exists at runtime before you try to use
+	it. 
+      </p>
+      <p>
+	Objective-C has not previously supported weak import for
+	classes. Instead you had to use clumsy runtime introspection to
+	check whether a class was available, store a pointer to that class
+	in a variable, and use that variable when you wanted to send a
+	message to the class. Even worse, there was no reasonable way to
+	create your own subclass of a superclass that might be
+	unavailable. Some developers put the subclass in a separate
+	library that was not loaded until after checking that the
+	superclass was present, but even that trick is not allowed on
+	iPhone OS. 
+      </p>
+      <p>
+	Weak import for C functions works by checking the weak-imported
+	function pointer's value before calling it:
+      </p>
+      <pre>    if (NSNewFunction != NULL) {
+        NSNewFunction(...);
+    } else {
+        // NSNewFunction not supported on this system
+    }</pre>
+      <p>
+	The same mechanism is a natural fit with Objective-C classes and 
+	Objective-C's handling of messages to nil. These constructs are
+	much nicer than <code>NSClassFromString()</code> or a separate 
+	<code>NSBundle</code>. 
+      </p>
+      <pre>    if ([NSNewClass class] != nil) {
+        [NSNewClass doSomething];
+    } else {
+        // NSNewClass is unavailable on this system
+    }</pre>
+      <pre>    @interface MySubclass : NSNewClass ... @end
+    MySubclass *obj = [[MySubclass alloc] init];
+    if (!obj) {
+        // MySubclass (or a superclass thereof) is unavailable on this system
+    }</pre>
+      <p>
+	Weak import of Objective-C classes is now available. But you can't
+	use it yet. First, it's only supported today on iPhone OS 3.1; 
+	it's expected to arrive in a future Mac OS. 
+      </p>
+      <p>
+	Second, there's nothing you can do with weak import until the
+	first OS update <i>after</i> iPhone OS 3.1. Then you could write an app
+	that adopted new features in that future version, and used weak import
+	to be compatible with 3.1. (It still could not run on 3.0 or 2.x,
+	because those systems lack the runtime machinery to process the
+	weak import references.)
+      </p>
+      <p>
+	Weak import for Objective-C did not make Snow Leopard for
+	scheduling reasons. Assuming it ships in Mac OS X 10.7 Cat Name
+	Forthcoming, you won't be able to use it until Mac OS X 10.8
+	LOLcat. 
+      </p>
+
+	  </td>
+      </tr>
+  </table>
+
+	  </td>
+	</tr>
+    </table>
+    <hr>
+    <img align="right" src="http://www.sealiesoftware.com/sealie.gif" alt="seal!" width="114" height="69">
+    Greg Parker<br>
+    <a href="mailto:gparker-www@sealiesoftware.com">gparker-www@sealiesoftware.com</a><br>
+    <a href="http://www.sealiesoftware.com/index.html">Sealie Software</a>
+  </body>
+</html>

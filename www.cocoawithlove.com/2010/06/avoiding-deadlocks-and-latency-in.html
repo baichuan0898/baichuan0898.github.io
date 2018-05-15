@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Avoiding deadlocks and latency in libdispatch</title>
+  <meta name="description" content="The system-wide thread pool of libdispatch&#39;s global queue is an easy way to efficiently manage concurrent operations but it is not the solution to all threading problems and it is not without its own class of problems. In this post I look at deadlocks and latency problems that are inherent in thread-pool based solutions like libdispatch&#39;s global concurrent queue so that you will know when you should use this option and when you need something else." />
+
+  <meta name="twitter:title" content="Avoiding deadlocks and latency in libdispatch"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2010/06/avoiding-deadlocks-and-latency-in.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="The system-wide thread pool of libdispatch&#39;s global queue is an easy way to efficiently manage concurrent operations but it is not the solution to all threading problems and it is not without its own class of problems. In this post I look at deadlocks and latency problems that are inherent in thread-pool based solutions like libdispatch&#39;s global concurrent queue so that you will know when you should use this option and when you need something else."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="avoiding-deadlocks-and-latency-in.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Avoiding deadlocks and latency in libdispatch</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2010-06-02">June 2, 2010</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/snow-leopard.html">Snow Leopard</a>, <a href="../../categories/foundation.html">Foundation</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>The system-wide thread pool of libdispatch's global queue is an easy way to efficiently manage concurrent operations but it is not the solution to all threading problems and it is not without its own class of problems. In this post I look at deadlocks and latency problems that are inherent in thread-pool based solutions like libdispatch's global concurrent queue so that you will know when you should use this option and when you need something else.</p></span>
+
+<span class="fullpost">
+<h2>Introduction: libdispatch's global queue is a constrained resource</h2>
+<p>In Mac OS X 10.6 (Snow Leopard), Apple introduced Grand Central Dispatch (GCD) for managing a system-wide thread pool. The normal API for GCD is libdispatch (despite the name, this API is part of libSystem).</p>
+
+<p>The simplest way to interact with libdispatch is to execute blocks on the global queue:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">dispatch_queue_t</span> <span class="n">queue</span> <span class="o">=</span> <span class="n">dispatch_get_global_queue</span><span class="p">(</span><span class="n">DISPATCH_QUEUE_PRIORITY_DEFAULT</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+<span class="n">dispatch_async</span><span class="p">(</span><span class="n">queue</span><span class="p">,</span> <span class="o">^</span><span class="p">{</span> <span class="cm">/* perform some work */</span> <span class="p">});</span></code></pre></div>
+
+<p>For discrete packets of work that are not order dependent, this is a great solution. In this post, however, I'm going to look at situations where this is a poor choice.</p>
+
+<p>The key limitation of this approach is that the global concurrent thread pool is a constrained resource &mdash; there are only as many active threads in this pool as you have CPUs on your computer.</p>
+
+<p>Using this constrained resource indiscriminately can lead to the following problems once the limits of the resource are reached:</p>
+
+<ul><li>higher latency than other solutions</li>
+<li>deadlocks for interdependent jobs in the queue</li></ul>
+
+<h2>Latency problems</h2>
+
+<p>The following code simulates a tiny web sever or similar program that needs to serve a number of clients. In this case, it has 20 simultaneous requests from different clients.</p>
+
+<p>In reality, this program just writes a small string to /dev/null 100,000 times for every client but that's sufficient to simulate any similar network or other non-CPU based operation.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span> <span class="n">argv</span><span class="p">[])</span>
+<span class="p">{</span>
+    <span class="n">dispatch_queue_t</span> <span class="n">queue</span> <span class="o">=</span> <span class="n">dispatch_get_global_queue</span><span class="p">(</span><span class="n">DISPATCH_QUEUE_PRIORITY_DEFAULT</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+    <span class="n">dispatch_group_t</span> <span class="n">group</span> <span class="o">=</span> <span class="n">dispatch_group_create</span><span class="p">();</span>
+    
+    <span class="n">FILE</span> <span class="o">*</span><span class="n">devNull</span> <span class="o">=</span> <span class="n">fopen</span><span class="p">(</span><span class="sa"></span><span class="s">&#34;/dev/null&#34;</span><span class="p">,</span> <span class="sa"></span><span class="s">&#34;a&#34;</span><span class="p">);</span>
+
+    <span class="k">const</span> <span class="kt">int</span> <span class="n">NumConcurrentBlocks</span> <span class="o">=</span> <span class="mi">20</span><span class="p">;</span>
+    <span class="k">const</span> <span class="kt">int</span> <span class="n">NumLoopsPerBlock</span> <span class="o">=</span> <span class="mi">100000</span><span class="p">;</span>
+
+    <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">NumConcurrentBlocks</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">dispatch_group_async</span><span class="p">(</span><span class="n">group</span><span class="p">,</span> <span class="n">queue</span><span class="p">,</span> <span class="o">^</span><span class="p">{</span>
+            <span class="n">NSLog</span><span class="p">(</span><span class="s">@&#34;Started block %d&#34;</span><span class="p">,</span> <span class="n">i</span><span class="p">);</span>
+            <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">j</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="n">NumLoopsPerBlock</span><span class="p">;</span> <span class="n">j</span><span class="o">++</span><span class="p">)</span>
+            <span class="p">{</span>
+                <span class="n">fprintf</span><span class="p">(</span><span class="n">devNull</span><span class="p">,</span> <span class="sa"></span><span class="s">&#34;Write to /dev/null</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">);</span>
+            <span class="p">}</span>
+            <span class="n">NSLog</span><span class="p">(</span><span class="s">@&#34;Finished block %d&#34;</span><span class="p">,</span> <span class="n">i</span><span class="p">);</span>
+        <span class="p">});</span>
+    <span class="p">}</span>
+
+    <span class="n">dispatch_group_wait</span><span class="p">(</span><span class="n">group</span><span class="p">,</span> <span class="n">DISPATCH_TIME_FOREVER</span><span class="p">);</span>
+    <span class="n">dispatch_release</span><span class="p">(</span><span class="n">group</span><span class="p">);</span>
+    <span class="n">fclose</span><span class="p">(</span><span class="n">devNull</span><span class="p">);</span>
+    
+    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This scenario illustrates the latency problems inherent in using the libdispatch global queue: on my computer, the first 4 blocks start immediately and the first of these finish 1.5 seconds later when the next blocks are started. The final block does not begin until 7.5 seconds after it is queued, finishing at the 9 second mark.</p>
+
+<p>While the global queue in libdispatch is called "concurrent", it is only concurrent up to a threshold. Once the concurrent slots are full, the global queue becomes serial &mdash; in this case, the limit is reached and the serial nature increases the latency.</p>
+
+<p>If this were a heavily loaded web server, instead of simply slowing down evenly for all users, the first few users would get a response and the last few would simply time out.</p>
+
+<p>The solution to this type of problem is to create a specific queue for every block. Instead of pushing everything into the global queue (which is capped at 4 blocks on my test computer) we will have a separate queue for each block that will run simultaneously.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span> <span class="n">argv</span><span class="p">[])</span>
+<span class="p">{</span>
+    <span class="n">dispatch_group_t</span> <span class="n">group</span> <span class="o">=</span> <span class="n">dispatch_group_create</span><span class="p">();</span>
+    <span class="n">FILE</span> <span class="o">*</span><span class="n">devNull</span> <span class="o">=</span> <span class="n">fopen</span><span class="p">(</span><span class="sa"></span><span class="s">&#34;/dev/null&#34;</span><span class="p">,</span> <span class="sa"></span><span class="s">&#34;a&#34;</span><span class="p">);</span>
+
+    <span class="k">const</span> <span class="kt">int</span> <span class="n">NumConcurrentBlocks</span> <span class="o">=</span> <span class="mi">20</span><span class="p">;</span>
+    <span class="n">dispatch_queue_t</span> <span class="o">*</span><span class="n">queues</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="n">dispatch_queue_t</span><span class="p">)</span> <span class="o">*</span> <span class="n">NumConcurrentBlocks</span><span class="p">);</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">q</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">q</span> <span class="o">&lt;</span> <span class="n">NumConcurrentBlocks</span><span class="p">;</span> <span class="n">q</span><span class="o">++</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="kt">char</span> <span class="n">label</span><span class="p">[</span><span class="mi">20</span><span class="p">];</span>
+        <span class="n">sprintf</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="sa"></span><span class="s">&#34;Queue%d&#34;</span><span class="p">,</span> <span class="n">q</span><span class="p">);</span>
+        <span class="n">queues</span><span class="p">[</span><span class="n">q</span><span class="p">]</span> <span class="o">=</span> <span class="n">dispatch_queue_create</span><span class="p">(</span><span class="n">label</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">const</span> <span class="kt">int</span> <span class="n">NumLoopsPerBlock</span> <span class="o">=</span> <span class="mi">100000</span><span class="p">;</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">NumConcurrentBlocks</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">dispatch_group_async</span><span class="p">(</span><span class="n">group</span><span class="p">,</span> <span class="n">queues</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="o">^</span><span class="p">{</span>
+            <span class="n">NSLog</span><span class="p">(</span><span class="s">@&#34;Started block %d&#34;</span><span class="p">,</span> <span class="n">i</span><span class="p">);</span>
+            <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">j</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="n">NumLoopsPerBlock</span><span class="p">;</span> <span class="n">j</span><span class="o">++</span><span class="p">)</span>
+            <span class="p">{</span>
+                <span class="n">fprintf</span><span class="p">(</span><span class="n">devNull</span><span class="p">,</span> <span class="sa"></span><span class="s">&#34;abcdefghijklmnopqrstuvwxyz</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">);</span>
+            <span class="p">}</span>
+            <span class="n">NSLog</span><span class="p">(</span><span class="s">@&#34;Finished block %d&#34;</span><span class="p">,</span> <span class="n">i</span><span class="p">);</span>
+        <span class="p">});</span>
+    <span class="p">}</span>
+
+    <span class="n">dispatch_group_wait</span><span class="p">(</span><span class="n">group</span><span class="p">,</span> <span class="n">DISPATCH_TIME_FOREVER</span><span class="p">);</span>
+    <span class="n">dispatch_release</span><span class="p">(</span><span class="n">group</span><span class="p">);</span>
+    <span class="n">fclose</span><span class="p">(</span><span class="n">devNull</span><span class="p">);</span>
+    
+    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The result is that all 20 blocks are started simultaneously. All run at approximately the same speed and all finish at approximately the same time.</p>
+
+<blockquote><strong>Alternative solution</strong>: as suggested by Keith in the comments, since these operations are I/O bound, not CPU bound, a better solution would be to use a <a href="http://developer.apple.com/mac/library/documentation/General/Conceptual/ConcurrencyProgrammingGuide/GCDWorkQueues/GCDWorkQueues.html#//apple_ref/doc/uid/TP40008091-CH103-SW21">file write source</a> in the queue instead of standard operation queue blocks. File write sources are removed from the queue when they are blocked on I/O and this would allow all 20 sources to operate equitably in the global concurrent queue (or any other single queue).</blockquote>
+
+<h2>Deadlocking</h2>
+
+<p>Deadlocking occurs when a first block stops and waits for a second to complete but the second can't proceed because it needs a resource that the first is holding.</p>
+
+<p>In the following program, 20 parent blocks are queued (which will more than fill the constrained resource of the global concurrent queue). Each of these blocks spawns a child block which is queued in the same global concurrent queue. The parent runs a busy wait loop until the child adds its own integer to the <code>completedSubblocks</code> set.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSMutableSet</span> <span class="o">*</span><span class="n">completedSubblocks</span><span class="p">;</span>
+<span class="n">NSLock</span> <span class="o">*</span><span class="n">subblocksLock</span><span class="p">;</span>
+
+<span class="kt">int</span> <span class="nf">main</span> <span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span> <span class="n">argv</span><span class="p">[])</span>
+<span class="p">{</span>
+    <span class="n">completedSubblocks</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSMutableSet</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">];</span>
+    <span class="n">subblocksLock</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSLock</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">];</span>
+
+    <span class="n">dispatch_queue_t</span> <span class="n">queue</span> <span class="o">=</span> <span class="n">dispatch_get_global_queue</span><span class="p">(</span><span class="n">DISPATCH_QUEUE_PRIORITY_DEFAULT</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+    <span class="n">dispatch_group_t</span> <span class="n">group</span> <span class="o">=</span> <span class="n">dispatch_group_create</span><span class="p">();</span>
+        
+    <span class="k">const</span> <span class="kt">int</span> <span class="n">NumConcurrentBlocks</span> <span class="o">=</span> <span class="mi">20</span><span class="p">;</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">NumConcurrentBlocks</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">dispatch_group_async</span><span class="p">(</span><span class="n">group</span><span class="p">,</span> <span class="n">queue</span><span class="p">,</span> <span class="o">^</span><span class="p">{</span>
+            <span class="n">NSLog</span><span class="p">(</span><span class="s">@&#34;Starting parent block %d&#34;</span><span class="p">,</span> <span class="n">i</span><span class="p">);</span>
+            
+            <span class="n">NSDate</span> <span class="o">*</span><span class="n">endDate</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSDate</span> <span class="nl">dateWithTimeIntervalSinceNow</span><span class="p">:</span><span class="mf">1.0</span><span class="p">];</span>
+            <span class="k">while</span> <span class="p">([(</span><span class="n">NSDate</span> <span class="o">*</span><span class="p">)[</span><span class="n">NSDate</span> <span class="n">date</span><span class="p">]</span> <span class="nl">compare</span><span class="p">:</span><span class="n">endDate</span><span class="p">]</span> <span class="o">==</span> <span class="n">NSOrderedAscending</span><span class="p">)</span>
+            <span class="p">{</span>
+                <span class="c1">// Busy wait for 1 second to let the queue fill
+</span><span class="c1"></span>            <span class="p">}</span>
+            
+            <span class="n">dispatch_async</span><span class="p">(</span><span class="n">queue</span><span class="p">,</span> <span class="o">^</span><span class="p">{</span>
+                <span class="n">NSLog</span><span class="p">(</span><span class="s">@&#34;Starting child block %d&#34;</span><span class="p">,</span> <span class="n">i</span><span class="p">);</span>
+
+                <span class="p">[</span><span class="n">subblocksLock</span> <span class="n">lock</span><span class="p">];</span>
+                <span class="p">[</span><span class="n">completedSubblocks</span> <span class="nl">addObject</span><span class="p">:[</span><span class="n">NSNumber</span> <span class="nl">numberWithInt</span><span class="p">:</span><span class="n">i</span><span class="p">]];</span>
+                <span class="p">[</span><span class="n">subblocksLock</span> <span class="n">unlock</span><span class="p">];</span>
+                
+                <span class="n">NSLog</span><span class="p">(</span><span class="s">@&#34;Finished child block %d&#34;</span><span class="p">,</span> <span class="n">i</span><span class="p">);</span>
+            <span class="p">});</span>
+
+            <span class="kt">BOOL</span> <span class="n">complete</span> <span class="o">=</span> <span class="nb">NO</span><span class="p">;</span>
+            <span class="k">while</span> <span class="p">(</span><span class="o">!</span><span class="n">complete</span><span class="p">)</span>
+            <span class="p">{</span>
+                <span class="p">[</span><span class="n">subblocksLock</span> <span class="n">lock</span><span class="p">];</span>
+                <span class="k">if</span> <span class="p">([</span><span class="n">completedSubblocks</span> <span class="nl">containsObject</span><span class="p">:[</span><span class="n">NSNumber</span> <span class="nl">numberWithInt</span><span class="p">:</span><span class="n">i</span><span class="p">]])</span>
+                <span class="p">{</span>
+                    <span class="n">complete</span> <span class="o">=</span> <span class="nb">YES</span><span class="p">;</span>
+                <span class="p">}</span>
+                <span class="p">[</span><span class="n">subblocksLock</span> <span class="n">unlock</span><span class="p">];</span>
+            <span class="p">}</span>
+
+            <span class="n">NSLog</span><span class="p">(</span><span class="s">@&#34;Finished parent block %d&#34;</span><span class="p">,</span> <span class="n">i</span><span class="p">);</span>
+        <span class="p">});</span>
+    <span class="p">}</span>
+    
+    <span class="n">dispatch_group_wait</span><span class="p">(</span><span class="n">group</span><span class="p">,</span> <span class="n">DISPATCH_TIME_FOREVER</span><span class="p">);</span>
+    <span class="n">dispatch_release</span><span class="p">(</span><span class="n">group</span><span class="p">);</span>
+    
+    <span class="p">[</span><span class="n">completedSubblocks</span> <span class="k">release</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">subblocksLock</span> <span class="k">release</span><span class="p">];</span>
+
+    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>On my computer the first 8 blocks are started (filling the global queue's concurrent blocks) and these blocks block the global queue so that the child blocks can never run. Since the parent is waiting for the child and the child can never run, the result is a deadlock: the program never completes.</p>
+
+<p>You'll notice that I've used a busy wait loop for both the 1 second delay and to detect when the child has completed. Normally, you would dispatch the child using <code>dispatch_sync</code> (which is a different way to wait for the child to complete) but the reality is that libdispatch is smart enough to remove a block from its queue while it is using one of the libdispatch wait mechanisms (or one of the many Cocoa or OS functions that similarly yields CPU time like <code>sleep</code>).</p>
+
+<p>While using the correct functions to wait will fix this trivial example, it will not fix the situation where the processes might be genuinely busy.</p>
+
+<p>The best solution is to avoid dependencies between blocks in the same queue.</p>
+
+<p>In a situation like this where one of the blocks (the child block) consumes a trivial amount of time and the other is time consuming (the parent always takes at least 1 second), you can simply enqueue the trivial time block in a separate serial queue. That will prevent deadlocking in all cases.</p>
+
+<p>In a situation where both parent and child are time consuming, you could try:</p>
+
+<ul><li>create a separate queue for every invocation of either the parent or child and queue the other in the global queue</li>
+<li>roll the functionality of the child into the parent so that they are always done as a single block</li>
+<li>carefully write your code to ensure that a libdispatch wait mechanism is always ahead of any dependency</li></ul>
+
+<h2>Conclusion</h2>
+
+<p>While libdispatch does an excellent job at making concurrent, multithreaded programming easier, it does not magically eliminate some of the pitfalls.</p>
+
+<p>The problems I've looked at in this post are mostly a result of the fact that queues are shared resources and there are situations where you must be careful about how resources are shared.</p
+
+<p>In that sense, these problems are not directly related to libdispatch (although I've used libdispatch to implement the scenarios) they are problems that can be caused by misusing any system where a fixed number of servers is pulling data out of a queue.</p>
+
+<p>Grand Central Dispatch's global queue is intended for CPU intensive operations. That it limits concurrency to the number of CPUs in your computer is good for CPU intensive operations; it prevents wasting CPU time due to task swapping. The examples here demonstrate the downside: it may increase latency for queue blocks and you need to be careful about dependencies between blocks on the same queue.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../05/handling-unhandled-exceptions-and.html">Handling unhandled exceptions and signals</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="sorting-nsmutablearray-with-random.html">Sorting an NSMutableArray with a random comparison method</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

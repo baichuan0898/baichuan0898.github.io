@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Using libxml2 for XML parsing and XPath queries in Cocoa</title>
+  <meta name="description" content="NSXMLDocument is the normal tree-based XML parser in Cocoa. But if you&#39;re writing for the iPhone, this class isn&#39;t available. Even on the Mac, sometimes you want tree-based parsing without the full overhead of NSXMLDocument. Here&#39;s how to use libxml2 to perform tree-based parsing in a Cocoa-friendly way." />
+
+  <meta name="twitter:title" content="Using libxml2 for XML parsing and XPath queries in Cocoa"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2008/10/using-libxml2-for-parsing-and-xpath.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="NSXMLDocument is the normal tree-based XML parser in Cocoa. But if you&#39;re writing for the iPhone, this class isn&#39;t available. Even on the Mac, sometimes you want tree-based parsing without the full overhead of NSXMLDocument. Here&#39;s how to use libxml2 to perform tree-based parsing in a Cocoa-friendly way."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="using-libxml2-for-parsing-and-xpath.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Using libxml2 for XML parsing and XPath queries in Cocoa</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2008-10-31">October 31, 2008</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/foundation.html">Foundation</a>, <a href="../../categories/cocoa-touch.html">Cocoa Touch</a>, <a href="../../categories/standard-c.html">Standard C</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>NSXMLDocument is the normal tree-based XML parser in Cocoa. But if you're writing for the iPhone, this class isn't available. Even on the Mac, sometimes you want tree-based parsing without the full overhead of NSXMLDocument. Here's how to use libxml2 to perform tree-based parsing in a Cocoa-friendly way.</p></span>
+
+<span class="fullpost">
+<h2>Introduction</h2>
+<p><code>NSXMLDocument</code> is an excellent XML parser and XML document generator. Sadly, Apple have chosen not to include it in the current iPhone SDK. Apple instead recommend <code>NSXMLParser</code> on the iPhone.</p>
+
+<p>Personally, I don't like the "event-driven" parsing of <code>NSXMLParser</code>. For the types of project I find myself writing, it is time-consuming and fiddly. I also like throwing HTML at my XML parsers and <code>NSXMLParser</code> (which is a strict, non-correcting parser) requires that HTML be cleaned-up first (using libtidy or similar), which eliminates much of the performance gain from this type of parsing anyway.</p>
+
+<p>Fortunately, libxml2 exists on the iPhone and we can use it to perform much of the same parsing that <code>NSXMLDocument</code> performs for us on the Mac.</p>
+
+<p><a href="http://blogs.newsgator.com/newsgator_widget_blog/2008/10/netnewswire-iph.html">Other programmers</a> have noted that libxml2 can be faster and more memory efficient than <code>NSXMLDocument</code> on the Mac, so there may be reasons to use libxml2 directly, even when <code>NSXMLDocument</code> is available.</p>
+
+<h2>Downside to libxml2</h2>
+
+<p>libxml2 itself is a fairly simple, clean library but the <a href="http://xmlsoft.org/">official documentation</a> is famously confusing. The documentation is really just a slightly commented version of the header files &mdash; not a great way to learn. Being pure C, the structure and style of the declarations and the datatypes used are also a long way from what is normally expected in Cocoa.</p>
+
+<p>If you want to use libxml2 in Cocoa, you'll want a wrapper around it.</p>
+
+<h2>Proposed solution</h2>
+
+<p>Reflecting the manner in which I use XML, my solution will have two functions declared as follows:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSArray</span> <span class="o">*</span><span class="nf">PerformXMLXPathQuery</span><span class="p">(</span><span class="n">NSData</span> <span class="o">*</span><span class="n">document</span><span class="p">,</span> <span class="n">NSString</span> <span class="o">*</span><span class="n">query</span><span class="p">);</span>
+<span class="n">NSArray</span> <span class="o">*</span><span class="nf">PerformHTMLXPathQuery</span><span class="p">(</span><span class="n">NSData</span> <span class="o">*</span><span class="n">document</span><span class="p">,</span> <span class="n">NSString</span> <span class="o">*</span><span class="n">query</span><span class="p">);</span></code></pre></div>
+
+<p>For an entire XML document, contained in the <code>NSData</code> object "<code>document</code>", this function executes the XPath query in the <code>NSString</code> "<code>query</code>" and returns an <code>NSArray</code> of <code>NSDictionary</code> node objects for nodes that match the query.</p>
+
+<p>The only difference between the two listed functions is that the the first expects proper XML data and the second expects HTML data.</p>
+
+<p>Each result in the array of nodes returned will be an <code>NSDictionary</code> with the following structure:</p>
+
+<ul>
+<li><strong>nodeName</strong> &mdash; an <code>NSString</code> containing the name of the node</li>
+<li><strong>nodeContent</strong> &mdash; an <code>NSString</code> containing the textual content of the node</li>
+<li><strong>nodeAttributeArray</strong> &mdash; an <code>NSArray</code> of <code>NSDictionary</code> where each dictionary has two keys: <em>attributeName</em> (<code>NSString</code>) and <em>nodeContent</em> (<code>NSString</code>)</li>
+<li><strong>nodeChildArray</strong> &mdash; an <code>NSArray</code> of child nodes (same structure as this node)</li>
+</ul>
+
+<p>Any of these fields may absent if not found in the libxml2 result.</p>
+
+<p>If you don't know how or why to use an XPath query on an XML document, please look at my previous post titled <a href="../09/cocoa-application-driven-by-http-data.html">A Cocoa application driven by HTTP data</a> which shows how XPath queries can be used to extract specific sections of data from an HTML document.</p>
+
+<h2>The implementation</h2>
+
+<p>Download the full solution here: <a href="../../assets/objc-era/XPathQuery.zip">XPathQuery.m and XPathQuery.h as a 2kb zip file</a>.
+
+<p>The implementation is very straightforward. The entry point looks like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSArray</span> <span class="o">*</span><span class="nf">PerformXMLXPathQuery</span><span class="p">(</span><span class="n">NSData</span> <span class="o">*</span><span class="n">document</span><span class="p">,</span> <span class="n">NSString</span> <span class="o">*</span><span class="n">query</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">xmlDocPtr</span> <span class="n">doc</span><span class="p">;</span>
+    
+    <span class="cm">/* Load XML document */</span>
+    <span class="n">doc</span> <span class="o">=</span> <span class="n">xmlReadMemory</span><span class="p">(</span>
+        <span class="p">[</span><span class="n">document</span> <span class="n">bytes</span><span class="p">],</span> <span class="p">[</span><span class="n">document</span> <span class="n">length</span><span class="p">],</span> <span class="sa"></span><span class="s">&#34;&#34;</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="n">XML_PARSE_RECOVER</span><span class="p">);</span>
+    
+    <span class="k">if</span> <span class="p">(</span><span class="n">doc</span> <span class="o">==</span> <span class="nb">NULL</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">NSLog</span><span class="p">(</span><span class="s">@&#34;Unable to parse.&#34;</span><span class="p">);</span>
+        <span class="k">return</span> <span class="nb">nil</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="n">NSArray</span> <span class="o">*</span><span class="n">result</span> <span class="o">=</span> <span class="n">PerformXPathQuery</span><span class="p">(</span><span class="n">doc</span><span class="p">,</span> <span class="n">query</span><span class="p">);</span>
+    <span class="n">xmlFreeDoc</span><span class="p">(</span><span class="n">doc</span><span class="p">);</span> 
+    
+    <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The only real difference in the <code>PerformHTMLXPathQuery</code> version is that it calls <code>htmlReadMemory</code> instead of <code>xmlReadMemory</code>.</p>
+
+<p>The query itself is then performed in an internal function common to both entry functions:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSArray</span> <span class="o">*</span><span class="nf">PerformXPathQuery</span><span class="p">(</span><span class="n">xmlDocPtr</span> <span class="n">doc</span><span class="p">,</span> <span class="n">NSString</span> <span class="o">*</span><span class="n">query</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">xmlXPathContextPtr</span> <span class="n">xpathCtx</span><span class="p">;</span> 
+    <span class="n">xmlxpathObjectPtr</span> <span class="n">xpathObj</span><span class="p">;</span> 
+
+    <span class="cm">/* Create XPath evaluation context */</span>
+    <span class="n">xpathCtx</span> <span class="o">=</span> <span class="n">xmlXPathNewContext</span><span class="p">(</span><span class="n">doc</span><span class="p">);</span>
+    <span class="k">if</span><span class="p">(</span><span class="n">xpathCtx</span> <span class="o">==</span> <span class="nb">NULL</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">NSLog</span><span class="p">(</span><span class="s">@&#34;Unable to create XPath context.&#34;</span><span class="p">);</span>
+        <span class="k">return</span> <span class="nb">nil</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="cm">/* Evaluate XPath expression */</span>
+    <span class="n">xmlChar</span> <span class="o">*</span><span class="n">queryString</span> <span class="o">=</span>
+        <span class="p">(</span><span class="n">xmlChar</span> <span class="o">*</span><span class="p">)[</span><span class="n">query</span> <span class="nl">cStringUsingEncoding</span><span class="p">:</span><span class="n">NSUTF8StringEncoding</span><span class="p">];</span>
+    <span class="n">xpathObj</span> <span class="o">=</span> <span class="n">xmlXPathEvalExpression</span><span class="p">(</span><span class="n">queryString</span><span class="p">,</span> <span class="n">xpathCtx</span><span class="p">);</span>
+    <span class="k">if</span><span class="p">(</span><span class="n">xpathObj</span> <span class="o">==</span> <span class="nb">NULL</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">NSLog</span><span class="p">(</span><span class="s">@&#34;Unable to evaluate XPath.&#34;</span><span class="p">);</span>
+        <span class="k">return</span> <span class="nb">nil</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="n">xmlNodeSetPtr</span> <span class="n">nodes</span> <span class="o">=</span> <span class="n">xpathObj</span><span class="o">-&gt;</span><span class="n">nodesetval</span><span class="p">;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">nodes</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">NSLog</span><span class="p">(</span><span class="s">@&#34;Nodes was nil.&#34;</span><span class="p">);</span>
+        <span class="k">return</span> <span class="nb">nil</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="n">NSMutableArray</span> <span class="o">*</span><span class="n">resultNodes</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSMutableArray</span> <span class="n">array</span><span class="p">];</span>
+    <span class="k">for</span> <span class="p">(</span><span class="n">NSInteger</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">nodes</span><span class="o">-&gt;</span><span class="n">nodeNr</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">NSDictionary</span> <span class="o">*</span><span class="n">nodeDictionary</span> <span class="o">=</span> <span class="n">DictionaryForNode</span><span class="p">(</span><span class="n">nodes</span><span class="o">-&gt;</span><span class="n">nodeTab</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="nb">nil</span><span class="p">);</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">nodeDictionary</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="p">[</span><span class="n">resultNodes</span> <span class="nl">addObject</span><span class="p">:</span><span class="n">nodeDictionary</span><span class="p">];</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+
+    <span class="cm">/* Cleanup */</span>
+    <span class="n">xmlXPathFreeObject</span><span class="p">(</span><span class="n">xpathObj</span><span class="p">);</span>
+    <span class="n">xmlXPathFreeContext</span><span class="p">(</span><span class="n">xpathCtx</span><span class="p">);</span> 
+    
+    <span class="k">return</span> <span class="n">resultNodes</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The work done is here simple: create the working space for the XPath query on the document, evalute the XPath query, get all the nodes from the result and use the <code>DictionaryForNode</code> function to parse them into our <code>NSDictionary</code> objects, and clean up when done.</p>
+
+<p>The implementation of the <code>DictionaryForNode</code> function is the only one I haven't shown. If you <a href="../../assets/objc-era/XPathQuery.zip">download the full solution</a>, you can see how it's done. It's a bit bigger than I want to dump into my blog's text but it really just traverses the libxml2 <code>xmlNodePtr</code> structures, getting the fields it needs and converting them to <code>NSString</code>, <code>NSArray</code> and <code>NSDictionary</code> as appropriate.</p>
+
+<h2>Setting up your project file</h2>
+
+<p>You need to add libxml2.dylib to your project (don't put it in the Frameworks section). On the Mac, you'll find it at <code>/usr/lib/libxml2.dylib</code> and for the iPhone, you'll want the <code>/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS4.0.sdk/usr/lib/libxml2.dylib</code> version.</p>
+
+<p>Since libxml2 is a .dylib (not a nice friendly .framework) we still have one more thing to do. Go to the Project build settings (Project->Edit Project Settings->Build) and find the "Search Paths". In "Header Search Paths" add the following path:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="err">$</span><span class="p">(</span><span class="n">SDKROOT</span><span class="p">)</span><span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">include</span><span class="o">/</span><span class="n">libxml2</span></code></pre></div>
+
+<h2>Conclusion</h2>
+
+<p>This solution will let you get the results of an XPath query on the iPhone in nice Cocoa friendly objects.</p>
+
+<p>I've only tested this on textual data &mdash; I don't know how it will behave on XML CDATA.</p>
+
+<p>If you don't want an XPath query (for example: if you need the whole document) you can either run the query "/" to get the root node or drop the <code>PerformXPathQuery</code> function and instead run <code>DictionaryForNode</code> on the <code>children</code> of the <code>xmlDocPtr</code> or even cast the <code>xmlDocPtr</code> to an <code>xmlNodePtr</code> and run it directly on that (in either case, pass <code>NULL</code> in as the <code>parentResult</code> to <code>DictionaryForNode</code>).</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="debugging-tips-for-objective-c.html">Debugging tips for Objective-C programming</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../11/simplifying-your-code-using.html">Simplifying your code using NSDictionary</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Designing a view with Bindings (UITableView on the Mac)</title>
+  <meta name="description" content="Bindings are one of the best ways of connecting your view and model on the Mac but due to the layers of abstraction involved &amp;mdash; and the fact that they don&#39;t exist on other platforms &amp;mdash; bindings can seem foreign and confusing. In this post, I&#39;ll show a complex view that is traditionally implemented without bindings (the iPhone&#39;s &lt;code&gt;UITableView&lt;/code&gt;) and show how it might be redesigned for the Mac with bindings." />
+
+  <meta name="twitter:title" content="Designing a view with Bindings (UITableView on the Mac)"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2010/03/designing-view-with-bindings.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Bindings are one of the best ways of connecting your view and model on the Mac but due to the layers of abstraction involved &amp;mdash; and the fact that they don&#39;t exist on other platforms &amp;mdash; bindings can seem foreign and confusing. In this post, I&#39;ll show a complex view that is traditionally implemented without bindings (the iPhone&#39;s &lt;code&gt;UITableView&lt;/code&gt;) and show how it might be redesigned for the Mac with bindings."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="designing-view-with-bindings.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Designing a view with Bindings (UITableView on the Mac)</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2010-03-10">March 10, 2010</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/objective-c.html">Objective-C</a>, <a href="../../categories/object-oriented-design.html">object-oriented design</a>, <a href="../../categories/uikit.html">UIKit</a>, <a href="../../categories/appkit.html">AppKit</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>Bindings are one of the best ways of connecting your view and model on the Mac but due to the layers of abstraction involved &mdash; and the fact that they don't exist on other platforms &mdash; bindings can seem foreign and confusing. In this post, I'll show a complex view that is traditionally implemented without bindings (the iPhone's <code>UITableView</code>) and show how it might be redesigned for the Mac with bindings.</p></span>
+
+<span class="fullpost">
+<h2>The aim</h2>
+
+<p>I'm going to show the design of <code>ColumnView</code>, a Mac <code>NSView</code> subclass which operates in a similar manner to the iPhone's <code>UITableView</code>.</p>
+
+<img src="../../assets/objc-era/columnview.png" width="216" height="264" />
+
+<p>Specifically, the <code>ColumnView</code> will lay out <code>RowView</code>s (a proper <code>NSView</code> subclass instead of cells like <code>NSTableView</code> arranges). The rows are grouped in sections (sections may have a header and may be independently sorted). The rows can have different heights and be different classes.</p>
+
+<p>I'm not aiming to make this a fully-fledged <code>UITableView</code> recreation &mdash; it won't support significant interactivity, animation or editing modes, although all these things could be added to the design (it is designed to be a flexible foundation, even if all features aren't present).</p>
+
+<p>The aim of this design is to show that the entire structure and configuration of the <code>ColumnView</code> can be done with one binding. The <code>UITableViewDataSource</code>/<code>UITableViewDelegate</code>, normally required for a <code>UITableView</code>, can all be replaced by this single binding.</p>
+
+<p>I won't be looking at bindings in Interface Builder in this post. I realize that is how most people configure bindings but to keep the number of topics down, I'm going to limit discussion to bindings configured in code.</p>
+
+<h2>Background: controller heavy implementations</h2>
+
+<p>Traditionally, Model-View-Controller would work like this:</p>
+
+<ol><li><strong>Model</strong> &mdash; sends notifications when it changes but otherwise keeps to itself</li>
+<li><strong>Controller</strong> &mdash; receives model notifications and actively changes views in response</li>
+<li><strong>View</strong> &mdash; passive and simply shows information the controller shoves at it</li></ol>
+
+<p>This works well but the controller ends up being huge because it contains all the logic of responding to changes, configuring the view, plus all of the interactivity work that may be required by the views.</p>
+
+<p>A number of larger views, including the iPhone's UITableView and the Mac's NSTableView (without bindings) operate on a delegate model which breaks the controller up slightly:</p>
+
+<ol><li><strong>Model</strong> &mdash; (as before) sends notifications when it changes but otherwise keeps to itself</li>
+<li><strong>Controller</strong> &mdash; pushes new data to the delegate and notifies the view that it needs an update</li>
+<li><strong>View</strong> &mdash; determines areas needing an update and asks the delegate how to display those areas</li>
+<li><strong>View delegate</strong> &mdash; tells the view how to update based on data from the controller</li></ol>
+
+<p>A view delegate is really just a controller but since it is invoked by the view, it allows the view to control when data is loaded and changes are made (the view can control lazy load order).</p>
+
+<p>Ultimately though, this second case can still involve a lot of code to configure the view and provide it with data. The potential advantage of breaking the controller into two pieces (the controller and the view delegate) is normally lost since both are frequently implemented in the same class.</p>
+
+<h2>Bindings: a reusable controller</h2>
+
+<p>The controller heavy nature of the above approaches can be burdensome as you need to rewrite the controller every single time &mdash; it is entirely specific to the mode and view that it joins.</p>
+
+<p><a href="http://developer.apple.com/mac/library/documentation/Cocoa/Conceptual/CocoaBindings/CocoaBindings.html">Cocoa Bindings</a> are a way of eliminating implementation specific controller code &mdash; the entire controller layer can be handled with reusable controllers and observations and configurations specified in data, not code.</p>
+
+<blockquote><strong>Cocoa Bindings purpose in one sentence</strong>: If you can simplify your design so that all a controller needs to do is copy data from the model to the view, then the controller's role can be replaced by a simple, reusable "binding" object and all that remains is to configure that binding object with data.</blockquote>
+
+<p>The bindings structure is then:</p>
+
+<ol><li><strong>Model</strong> &mdash; (as before) sends notifications when it changes but otherwise keeps to itself</li>
+<ul><li><strong>KVO interface/controller</strong> &mdash; the interface that the model exposes must be Key Value Observing compliant. This interface may be part of the Model, or it can be a lightweight wrapper around the model, or a generic controller like NSArrayController.</li></ul>
+<li><strong>Key Value Binding</strong> &mdash; ensures that data from the KVO controller is pushed to an object with exposed bindings. May pass the data through an NSValueTransformer before pushing to the exposed binding. A binding may also contain an options dictionary which tells the view how to handle data it receives.</li>
+<li><strong>View</strong> &mdash; determines areas needing an update and asks the delegate how to display those areas
+</li>
+<ul><li><strong>Exposed binding</strong> &mdash; any Key Value Coding compliant property on the view but may also have options and other metadata to support Interface Builder and configuration.</li></ul>
+</ol>
+
+<p>While I've included more layers in this description, most of the time, you'll only deal with two: the model and the view.</p>
+
+<p>The "Key Value Binding" layer is entirely automatic &mdash; in fact, unless you're hacking or looking closely at the stack, you won't actually see the classes that handle this layer. It will "just happen".</p>
+
+<p>The "KVO interface/controller" and "Exposed binding" may or may not be automatic. Many model classes will be KVO compatible already, although others may require a shallow layer to improve their compatibility.</p>
+
+<p>The real work for bindings, is in designing views to be fully configurable through bindings alone.</p>
+
+<blockquote><strong>Terminology</strong>: I've already mentioned KVC and KVO. These technologies are fundamental to how bindings work. If you don't have great familiarity with these terms, you can read the Apple programming guide to <a href="http://developer.apple.com/mac/library/documentation/cocoa/conceptual/KeyValueCoding/KeyValueCoding.html">Key Value Coding</a> and <a href="http://developer.apple.com/Mac/library/documentation/Cocoa/Conceptual/KeyValueObserving/index.html">Key Value Observing</a>. You could also read my earlier post on <a href="../01/5-key-value-coding-approaches-in-cocoa.html">5 key-value coding approaches in Cocoa</a> but note that bindings require proper <code>NSKeyValueCoding</code> compatible KVC.</blockquote>
+
+<h2>Implicit bindings support</h2>
+
+<p>In some situations, you might be able to connect a model and view with a binding with no cooperation from either the model or the view. This will be the case if your model is already KVO compliant and your view can be totally configured by piping this KVO data directly into KVC properties on the view.</p>
+
+<p>For example, if your model has a <code>text</code> property that is only ever changed through its <code>setText:</code> method and you want to display that property in a text field, you can connect the two with:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">[</span><span class="n">someTextField</span> <span class="nl">bind</span><span class="p">:</span><span class="s">@&#34;stringValue&#34;</span> <span class="nl">toObject</span><span class="p">:</span><span class="n">myModelObject</span> <span class="nl">withKeyPath</span><span class="p">:</span><span class="s">@&#34;text&#34;</span> <span class="nl">options</span><span class="p">:</span><span class="nb">nil</span><span class="p">];</span></code></pre></div>
+
+<p>Bindings will do the rest.</p>
+
+<p>As soon as the binding is established, the binding will set the <code>stringValue</code> property of the <code>someTextField</code> to the value of the <code>text</code> property from the <code>myModelObject</code>. Every time the <code>text</code> is set using the <code>setText:</code> method, an automatic Key Value Observing notification will be detected by the binding and it will keep the text field in sync.</p>
+
+<p>Normally though, bindings are used in situations where the view explicitly supports them. For example, with <code>NSTextField</code>, you would normally use <code>NSValueBinding</code> instead of <code>@"stringValue"</code>. Ultimately, the <code>NSTextField</code> will map <code>NSValueBinding</code> onto the same <code>@"stringValue"</code> property but the supported binding guarantees compliance (and also supports other options like implicit conversion from <code>NSNumber</code> to <code>NSString</code>).</p>
+
+<h2>Adapting a delegate/dataSource view for use with bindings</h2>
+
+<p>Most views require a redesign so that they can be completely configured through Key Value Coding compliant properties. The reason for this is that the view must be completely configurable through KVC compliant properties to work with bindings.</p>
+
+<p>In adapting <code>UITableView</code> for the Mac, I'll need to make such a redesign since <code>UITableView</code> does not expose the KVC properties we would require.</p>
+
+<h3>Looking at the situation before bindings</h3>
+
+<p>To achieve the features I want, a <code>UITableView</code> would require its <code>dataSource</code> to implement the following methods:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="nf">tableView:cellForRowAtIndexPath:</span>
+<span class="p">-</span> <span class="nf">numberOfSectionsInTableView:</span>
+<span class="p">-</span> <span class="nf">tableView:numberOfRowsInSection:</span>
+<span class="p">-</span> <span class="nf">tableView:titleForHeaderInSection:</span></code></pre></div>
+
+<p>and the <code>delegate</code> would need to implement:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="nf">tableView:heightForRowAtIndexPath:</span>
+<span class="p">-</span> <span class="nf">tableView:viewForHeaderInSection:</span>
+<span class="p">-</span> <span class="nf">tableView:didSelectRowAtIndexPath:</span></code></pre></div>
+
+<p>None of these methods set KVC properties so they all need to go.</p>
+
+<h3>Recategorizing delegate and controller methods as properties</h3>
+
+<p>We need to rethink what the table displays as data that we can set.</p>
+
+<p>Ultimately, a <code>UITableView</code> contains two tiers of data: the section and the row. For each of the <code>UITableView</code> <code>dataSource</code> and <code>delegate</code> methods, we can consider the returned value as either a property of a section, row (or the array containing them).</p>
+
+<ul>
+<li><code>tableView:cellForRowAtIndexPath:</code> &mdash; Row property</li>
+<li><code>numberOfSectionsInTableView:</code> &mdash; Property of the sections array</li>
+<li><code>tableView:numberOfRowsInSection:</code> &mdash; Property of the rows array within a section</li>
+<li><code>tableView:titleForHeaderInSection:</code> &mdash; Section property</li>
+<li><code>tableView:heightForRowAtIndexPath:</code> &mdash; Row property</li>
+<li><code>tableView:viewForHeaderInSection:</code> &mdash; Section property</li>
+<li><code>tableView:didSelectRowAtIndexPath:</code> &mdash; Section array and rows array controller properties</li>
+</ul>
+
+<h2>ColumnView, ColumnSection and RowView binding interfaces</h2>
+
+<h3>Structure of data used for the bindings</h3>
+
+<p>The bindings design for the <code>ColumnView</code> then comes directly from this categorization.</p>
+
+<p>At the top level we need to bind the <code>ColumnView</code> to an array of sections. Each section must have a row array property.</p>
+
+<p>Each "section" is not an object of any specific class &mdash; it can be any object from your model. To make it work, the <code>ColumnView</code> must also know the key path from the section to its content. This key path can be set by using a binding option when a binding is established for the <code>sectionsArray</code>. It is this type of key path traversal that allows the view to traverse model data whose structure it doesn't necessarily know.</p>
+
+<p>The only tricky point is the <code>tableView:cellForRowAtIndexPath:</code> method. While the "<code>cellForRowAtIndexPath</code>" could be considered a property, the rows and sections here a model objects and having "view" properties on model objects is a bad idea.</p>
+
+<p>I've opted instead to use the row's class as the property instead of a fully realized view. The <code>ColumnView</code> will then construct the view from this class. Further, this class does not need to come from the model object &mdash; other means of setting the row's class will exist that are unrelated to the model object involved.</p>
+
+<h3>Class structure to follow the data structure</h3>
+
+<p>To break the implementation down into manageable components, the design will use three classes:</p>
+
+<ul>
+<li><code>ColumnView</code> &mdash; does all of the layout and manages the array of sections</li>
+<li><code>ColumnSection</code> &mdash; manages the array of rows in each section and stores header information</li>
+<li><code>RowView</code> &mdash; mostly a drawing class but does report the height for the row, given its data</li>
+</ul>
+
+<h4>ColumnView</h4>
+
+<p>The only binding for the <code>ColumnView</code> is the <code>ColumnViewSectionArrayBinding</code> which sets the <code><strong>sectionsArray</strong></code> property (<code>ColumnViewSectionArrayBinding</code> is a globally defined string with the value <code>@"sectionsArray"</code>).</p>
+
+<p>Along with this binding, the <code>ColumnView</code> has the following additional properties that can be set in the <code>ColumnViewSectionArrayBinding</code> options:</p>
+
+<ul>
+<li><code><strong>sectionContentKey</strong></code> &mdash;A key path (relative to the section object) where the rows array can be found (if not present, it is assumed that the section <em>is</em> the rows array).</li>
+<li><code><strong>sectionClassKey</strong></code> &mdash; A key path (relative to the section object) where the default class to use for all rows in the section can be found (if not present the default <code>RowView</code> class is used). This property is overridden by the <code>rowClassKey</code>.</li>
+<li><code><strong>rowClassKey</strong></code> &mdash; A key path (relative to the row object) where the class for the row can be found (if not present, it is assume the section <em>is</em> the rows array).</li>
+<li><code><strong>rowDisplayKey</strong></code> &mdash; A key path (relative to the row object) where a separate object used for display is found (if not present, the row object is used directly for display).</li>
+<li><code><strong>headerDataKey</strong></code> &mdash; A key path (relative to the section object) where the object for the header is found (if not present, no header is shown for the section).</li>
+<li><code><strong>headerClassKey</strong></code> &mdash; A key path (relative to the section object) where the class for the header row is found (if not present, the default <code>RowView</code> class is used).</li>
+<li><code><strong>allSectionsSortKey</strong></code> &mdash; A key path (relative to each row object) by which every section should be sorted.</li>
+<li><code><strong>sectionRowSortKey</strong></code> &mdash; A key path (relative to the section object) where the key by which that section should be sorted can be found (this will override the allSectionsSortKey).</li>
+</ul>
+
+<p>While you can set these properties directly on the <code>ColumnView</code>, it is expected that they will be passed in the <code>options</code> dictionary and picked up in the implementation of <code>bind:toObject:withKeyPath:options:</code> on the <code>ColumnView</code>.</p>
+
+<h4>ColumnSection</h4>
+
+<p>The <code>ColumnSection</code> is a simple data class to manage data associated with a section. It looks like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@interface</span> <span class="nc">ColumnSection</span> : <span class="nc">NSObject</span>
+<span class="p">{</span>
+    <span class="n">NSArrayController</span> <span class="o">*</span><span class="n">rowDataArrayController</span><span class="p">;</span>
+    <span class="n">NSString</span> <span class="o">*</span><span class="n">rowClassKey</span><span class="p">;</span>
+    <span class="n">NSString</span> <span class="o">*</span><span class="n">rowDisplayKey</span><span class="p">;</span>
+    
+    <span class="kt">Class</span> <span class="n">defaultClass</span><span class="p">;</span>
+    
+    <span class="kt">id</span> <span class="n">headerData</span><span class="p">;</span>
+    <span class="kt">Class</span> <span class="n">headerClass</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>All of these properties are set by the <code>ColumnView</code> using the properties it extracts from the <code>sectionsArray</code> by following the key paths options from the binding.</p>
+
+<p>The array of row data is set by binding the <code>NSContentArrayBinding</code> of the <code>rowDataArrayController</code> instead of setting it directly as an <code>NSArray</code> property. This is done so that the <code>ColumnSection</code> can sort the array independent of the original data and so that the selection and other controller features of the <code>NSArrayController</code> could be used if desired.</p>
+
+<h4>RowView</h4>
+
+<p>The <code>RowView</code> has no bindings of its own &mdash; it doesn't bindings since its data is passed to it by the <code>ColumnView</code> which gets it from the <code>ColumnSection</code>.</p>
+
+<h2>Following the path of setting the data</h2>
+
+<p>To see how these bindings work to change the table, I'll explain what happens at each step.</p>
+
+<h3>1. The sectionsArray property is set by the binding</h3>
+
+<p>Immediately after you establish a binding, the bindings will set the value of the underlying property to be the same as the model object to which it is bound.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setSectionsArray:</span><span class="p">(</span><span class="n">NSArray</span> <span class="o">*</span><span class="p">)</span><span class="nv">newSectionsArray</span><span class="p">;</span></code></pre></div>
+
+<p>When the <code>sectionsArray</code> is set by the <code>ColumnViewSectionArrayBinding</code>, the <code>ColumnView</code>'s <code>setSectionsArray:</code> method is invoked where it constructs a <code>ColumnSection</code> object for each section.</p>
+
+<h3>2. The constructed array of ColumnSections is set as the columnSections array</h3>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setColumnSections:</span><span class="p">(</span><span class="n">NSArray</span> <span class="o">*</span><span class="p">)</span><span class="nv">newColumnSections</span><span class="p">;</span></code></pre></div>
+
+<p>The final step in the setter for <code>sectionsArray</code> sets the <code>columnSections</code> property of the <code>ColumnView</code> using the constructed array of <code>ColumnSection</code>s objects.</p>
+
+<p>This method observes the <code>rowDataArrayController</code>'s <code>arrangedObjects</code> (in case a row in the section changes) and triggers a reload of the view.</p>
+
+<p>If you wanted to bypass bindings for the sections (to use static, manually created sections), you could create and configure the <code>ColumnSection</code> objects yourself and set them using this method.</p>
+
+<h3>3. Reload the view</h3>
+
+<p>The <code>ColumnView</code> then accesses the properties on the <code>ColumnSection</code> objects to populate the table. Only rows and headers that are visible are constructed, positioned and displayed.</p>
+
+<p>I show this code next time with the implementation of the <code>ColumnView</code>.</p>
+
+<h2>End result</h2>
+
+<p>The end result of a class designed this way is that configuring the <code>ColumnView</code> is done with a single statement. For the screenshot I showed at the top, the <code>ColumnView</code> is configured with data from the <code>ABAddressBook</code> with a single statement:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">[</span><span class="n">columnView</span>
+    <span class="nl">bind</span><span class="p">:</span><span class="n">ColumnViewSectionArrayBinding</span>
+    <span class="nl">toObject</span><span class="p">:[[</span><span class="n">AddressBookDataController</span> <span class="n">sharedController</span><span class="p">]</span> <span class="n">groupsController</span><span class="p">]</span>
+    <span class="nl">withKeyPath</span><span class="p">:</span><span class="s">@&#34;arrangedObjects&#34;</span>
+    <span class="nl">options</span><span class="p">:</span>
+        <span class="p">[</span><span class="n">NSDictionary</span> <span class="nl">dictionaryWithObjectsAndKeys</span><span class="p">:</span>
+            <span class="s">@&#34;members&#34;</span><span class="p">,</span> <span class="n">ColumnViewSectionContentKeyOption</span><span class="p">,</span>
+            <span class="n">kABGroupNameProperty</span><span class="p">,</span> <span class="n">ColumnViewSectionHeaderDataKeyOption</span><span class="p">,</span>
+            <span class="s">@&#34;Last&#34;</span><span class="p">,</span> <span class="n">ColumnSectionRowDisplayKeyOption</span><span class="p">,</span>
+        <span class="nb">nil</span><span class="p">]];</span></code></pre></div>
+
+<p>This selects the arranged groups from the <code>AddressBookDataController</code> and uses them as sections. The title of each section is the group name, the content is the group's members and the object used for display is the lastname of the group member.</p>
+
+<p>This one statement replaces the 6 <code>dataSource</code> and <code>delegate</code> method implementations that <code>UITableView</code> requires for the same functionality. If you create an IBPlugin for the view, you can configure all of this in Interface Builder and reduce the lines of code to zero.</p>
+
+<p>Obviously, I'm going through a small controller here: the <code>AddressBookDataController</code>. This is because the <code>ABAddressBook</code> does not send KVO notifications when <code>groups</code> or their contents change and further, <code>ABGroup</code>s are not <code>KVC</code> compliant for their <code>members</code> method. This controller is to address these problems, sort the groups by name and handle a situation where no groups exist. This work is not really bindings related and would be required in some form if the <code>ColumnView</code> were configured another way.</p>
+
+<h2>To be continued...</h2>
+
+<p><em>Matt, I can't help but notice you haven't shared the complete implementation of the <code>ColumnView</code> class.</em></p>
+
+<p>Well spotted, voice in my head. I wanted to focus on bindings and how to redesign an interface to work with them. I've already run way past the time I was going to spend on this. In my next post, I'll share more about the implementation and let you see all the code.</p>
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="load-from-nib-or-construct-views-in.html">Load from NIB or construct views in code: which is faster?</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="custom-ui-bindings-in-interface-builder.html">Custom UI Bindings in Interface Builder</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

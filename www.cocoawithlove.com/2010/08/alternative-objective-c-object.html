@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Alternative Objective-C object allocation for large arrays</title>
+  <meta name="description" content="In this post, I&#39;ll show you how you can create objects without using the standard instance allocation process (either &lt;code&gt;&#43;[NSObject alloc]&lt;/code&gt; or &lt;code&gt;class_createInstance()&lt;/code&gt;). I&#39;ll also explain why you might do this &amp;mdash; the benefits and drawbacks to a custom object creation process." />
+
+  <meta name="twitter:title" content="Alternative Objective-C object allocation for large arrays"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2010/08/alternative-objective-c-object.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="In this post, I&#39;ll show you how you can create objects without using the standard instance allocation process (either &lt;code&gt;&#43;[NSObject alloc]&lt;/code&gt; or &lt;code&gt;class_createInstance()&lt;/code&gt;). I&#39;ll also explain why you might do this &amp;mdash; the benefits and drawbacks to a custom object creation process."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="alternative-objective-c-object.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Alternative Objective-C object allocation for large arrays</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2010-08-30">August 30, 2010</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/objective-c.html">Objective-C</a>, <a href="../../categories/performance-tests.html">performance tests</a>, <a href="../../categories/standard-c.html">Standard C</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>In this post, I'll show you how you can create objects without using the standard instance allocation process (either <code>+[NSObject alloc]</code> or <code>class_createInstance()</code>). I'll also explain why you might do this &mdash; the benefits and drawbacks to a custom object creation process.</p></span>
+
+<span class="fullpost">
+<h2>Introduction to object allocation</h2>
+
+<p>The first point to understand when looking at Objective-C object allocation is what is an Objective-C object?</p>
+
+<p>The answer is pretty simple: any block of data that starts with an Objective-C <code>Class</code> pointer can be treated as an Objective-C object. This pointer is normally called the <code>isa</code> pointer and allows the block of memory to be used in the Objective-C message sending system.</p>
+
+<p>Normally, Objective-C objects are individually allocated on the malloc heap using <code>malloc_zone_calloc</code> from within the <code>+[NSObject alloc]</code> or <code>class_createInstance()</code> implementation. These allocation approaches automatically set the <code>isa</code> pointer for the object once it is allocated.</p>
+
+<h2>Alternative object allocation</h2>
+
+<p>Since any block of memory that starts with an <code>isa</code> pointer can be treated as an object, then there are numerous ways you could actually allocate objects. I'm going to consider just one alternative approach: malloc'ing a single large block of data, treating this single block as a C array of Objective-C objects and manually setting the <code>isa</code> pointer at the start of each of these objects.</p>
+
+<p>The approach is fairly simple. Step one, allocate the C array (using <code>calloc</code> to obey Objective-C conventions):</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">const</span> <span class="n">NSInteger</span> <span class="n">arrayLength</span> <span class="o">=</span> <span class="cm">/* some array length */</span><span class="p">;</span>
+<span class="kt">Class</span> <span class="n">someClass</span> <span class="o">=</span> <span class="p">[</span><span class="n">SomeClass</span> <span class="k">class</span><span class="p">];</span>
+<span class="n">NSInteger</span> <span class="n">runtimeInstanceSize</span> <span class="o">=</span> <span class="n">class_getInstanceSize</span><span class="p">(</span><span class="n">someClass</span><span class="p">);</span>
+<span class="kt">char</span> <span class="o">*</span><span class="n">instanceArray</span> <span class="o">=</span> <span class="n">calloc</span><span class="p">(</span>
+    <span class="n">runtimeInstanceSize</span><span class="p">,</span>
+    <span class="n">arrayLength</span><span class="p">);</span></code></pre></div>
+
+<p>Notice that we use the runtime size of the instance, not a compile-time value. This is because the instance size may change if a superclass adds extra instance variables at runtime (see <a href="../03/dynamic-ivars-solving-fragile-base.html">my previous post on Dynamic Ivars</a>). If your class doesn't have a superclass or you're otherwise cavalier enough to ignore this possibility, then you could use a fixed or compile-time size value.</p>
+
+<p>Once the block is allocated, we need to set all the isa pointers:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">for</span> <span class="p">(</span><span class="n">NSInteger</span> <span class="n">instanceIndex</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">instanceIndex</span> <span class="o">&lt;</span> <span class="n">arrayLength</span><span class="p">;</span> <span class="n">instanceIndex</span><span class="o">++</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kt">Class</span> <span class="o">*</span><span class="n">currentInstanceIsa</span> <span class="o">=</span>
+        <span class="p">(</span><span class="kt">Class</span> <span class="o">*</span><span class="p">)(</span><span class="n">instanceArray</span> <span class="o">+</span> <span class="p">(</span><span class="n">runtimeInstanceSize</span> <span class="o">*</span> <span class="n">instanceIndex</span><span class="p">));</span>
+    <span class="o">*</span><span class="n">currentInstanceIsa</span> <span class="o">=</span> <span class="n">someClass</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Then if desired, you can invoke the <code>init</code> method or otherwise initialize each object some other way.</p>
+
+<h2>Reasons for using alternative allocation approaches</h2>
+
+<p>The reason to avoid standard allocation is generally because <code>malloc_zone_calloc</code> does not offer the memory efficiency or performance required.</p>
+
+<p>I've previously examined <a href="../05/look-at-how-malloc-works-on-mac.html">how malloc works on the Mac</a>. This post briefly looked at two of the limitations with malloc:</p>
+
+<ul><li>malloc allocations have an "allocation resolution" (objects not a multiple of the resolution will result in wasted space)</li>
+<li>malloc must maintain metadata on allocated objects and this imposes an additional memory overhead</li></ul>
+
+<p>The biggest malloc limitation however is simply the fact that it imposes a per-object CPU overhead on allocations.</p>
+
+<p>Finally, there is one other advantage associated with using alternative allocation approaches: it is lower level. This is not an advantage in all situations &mdash; low level implementations can be fussy and prone to errors. But low-level C implementations can be easier to join with other low-level C implementations, so if much of your program is already a low-level C implementation, it may end up being an advantage to have low-level access to your object's allocation.</p>
+
+<h2>Drawbacks to alternative object allocation</h2>
+
+<p>Alternative object allocation should not be used lightly. First of all: it is simply more work as a programmer, so you need to be sure it's work the effort.</p>
+
+<p>But the biggest problem it creates is the fact that individual objects cannot be retained beyond lifetime of the larger block in which they're allocated. To address this, you must either</p>
+
+<ul><li>Give the containing block a global lifetime (never released) like a singleton or other permanent instance</li>
+<li>Carefully manage all retains and releases to ensure that no object is retained beyond the containing block's lifetime</li>
+<li>Make retains illegal (use a retain implementation that throws an exception).</li></ul>
+
+<p>This limitation can be justified but only if the efficiency benefits are significant. On the iPhone, you may be able to justify it for a few 10s of thousands but on the Mac, your block should contain hundreds of thousands before you'd bother.</p>
+
+<h2>An example: loading the "/usr/share/dict/words" file</h2>
+
+<p>To illustrate how you can use alternative allocation, I'm going to show a traditional Objective-C approach for reading, parsing and storing the contents of the "/usr/share/dict/words" file as an array of <code>NSString</code>s. I will compare the time taken and memory used by this approach with an approach that uses the alternate allocation approach.</p>
+
+<p>The traditional Objective-C approach:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">words</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSString</span>
+        <span class="nl">stringWithContentsOfFile</span><span class="p">:</span><span class="s">@&#34;/usr/share/dict/words&#34;</span>
+        <span class="nl">encoding</span><span class="p">:</span><span class="n">NSASCIIStringEncoding</span>
+        <span class="nl">error</span><span class="p">:</span><span class="nb">NULL</span><span class="p">]</span>
+    <span class="n">arrayBySeparatingIntoParagraphs</span><span class="p">];</span></code></pre></div>
+
+<p>where <code>arrayBySeparatingIntoParagraphs</code> is an <code>NSString</code> category method that uses <code>getParagraphStart:end:contentsEnd:forRange:</code> to divide the <code>NSString</code> into lines.</p>
+
+<p>The alternative approach uses a custom <code>NSString</code> class, allocated as described in the "Alternative object allocation" section above. This <code>NSString</code> stores a fixed length 24 character ASCII character string (24 characters is the maximum length of a line in the words file). The string storage is not actually a C string; if the stored string is 24 characters long, it isn't null terminated.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@interface</span> <span class="nc">CustomAsciiString</span> : <span class="nc">NSString</span>
+<span class="p">{</span>
+    <span class="kt">char</span> <span class="n">value</span><span class="p">[</span><span class="n">CUSTOM_ASCII_STRING_LENGTH</span><span class="p">];</span>
+<span class="p">}</span>
+<span class="k">@end</span></code></pre></div>
+
+<p>The allocation itself happens in the init method of a custom NSArray subclass.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@interface</span> <span class="nc">CustomAsciiStringArray</span> : <span class="nc">NSArray</span>
+<span class="p">{</span>
+    <span class="n">NSInteger</span> <span class="n">count</span><span class="p">;</span>
+    <span class="kt">char</span> <span class="o">*</span><span class="n">stringArray</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="k">@end</span></code></pre></div>
+
+<p>This custom array subclass is used to provide <code>NSArray</code>-compatible access to the C array of <code>CustomAsciiString</code>.</p>
+
+<p>The array of <code>CustomAsciiString</code> is actually referenced here as a <code>char*</code> because at compile time we don't presume to know the allocated size of the <code>CustomAsciiString</code> so we'll need to offset into the array by bytes (i.e. <code>char</code>s).</p>
+
+<p>The code for all of this is too big to include here but you can download the <a href="../../assets/objc-era/CustomObjectCreation.zip">CustomObjectCreation.zip</a> for the complete code.</p>
+
+<h2>Results</h2>
+
+<p>There are 234936 words in the dictionary with a maximum length of 24 characters and an average length of 9.6 characters.</p>
+
+<p>The "traditional" Objective-C approach took 3.12 seconds to load, parse and store the file in the string array 20 times. Memory usage after the final iteration (all other iterations were released) was 16.5 MB.</p>
+
+<p>The "alternative allocation" approach took 0.49 seconds to load, parse and store the file in the string array 20 times. Memory usage after the final iteration was 8MB.</p>
+
+<p>Final result: 6 times faster using half the memory.</p>
+
+<h2>Potential issues with the methodology behind these numbers</h2>
+
+<p>Based on these numbers, the "alternative allocation" would appear to be more than 6 times faster and more than twice as memory efficient.</p>
+
+<p>This isn't an "apples to apples" comparison though.</p>
+
+<p>The "alternative allocation" approach is storing ASCII strings (which are half the size, character-for-character compared to typical <code>unichar</code> <code>NSString</code>s). However, this is largely compensated by the fact that every one of the ASCII strings is 24 characters long &mdash; significantly more than twice the average length of the strings, so the useful memory allocated here is actually greater. Even if you double the ASCII string length to 48 characters, the memory usage is only 13.4MB &mdash; still 20% less than the traditional allocation approach. The "alternative allocation" approach is also allocating a fixed 250000 entry array (even though only 234936 are used).</p>
+
+<p>The parsing used by each approach is radically different. However, this is related to my earlier statement that lower-level allocation lends itself to integration with lower-level parsing and handling. I have not attempted to make the parsing more comparable between the two approaches because I believe the different parsing approaches are correctly matched to the different allocation approaches.</p>
+
+<p>The biggest problem that I would have liked to address better &mdash; but I don't really know how I would &mdash; is that simply reading memory usage from <code>getrusage</code> is not a highly precise way of determining memory used by the test. The <code>getrusage</code>  results count allocated memory pages whether they're truly in use or not. It also can't separate memory that may have been allocated by the runtime for different purposes. Due to the difficulty of measuring memory, I've had to assume that <code>getrusage</code> is sufficient but there is certainly a margin for error in the numbers.</p>
+
+<h2>Conclusion</h2>
+
+<blockquote>You can download the <a href="../../assets/objc-era/CustomObjectCreation.zip">CustomObjectCreation.zip</a> (20kB) which contains all the code used in the test project for this post.</blockquote>
+
+<p>For very large arrays of Objective-C objects, it is certainly more efficient to allocate them yourself within C-style arrays. It is faster (on the order of 6 times faster) and more memory efficient (between 20% and 60% lower memory usage).</p>
+
+<p>However, it is not something you should do for all arrays. There's a lot of extra code &mdash; any part of which could introduce issues &mdash; and it introduces object-lifetime issues but for very large arrays, the advantages (especially in CPU or memory constraint scenarios) could be worth the effort.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../07/is-virtual-machine-for-cocoa.html">Is a virtual machine for Cocoa programming inevitable?</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../09/substituting-local-data-for-remote.html">Substituting local data for remote UIWebView requests</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

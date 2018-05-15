@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Intercepting status bar touches on the iPhone</title>
+  <meta name="description" content="You can configure your iPhone applications so that a touch in the status bar will scroll a UIScrollView to the top. I&#39;ll show you how you can intercept this touch event to use status bar touches for other purposes. The sample application will show a hidden drawer that slides out from the status bar when you tap it." />
+
+  <meta name="twitter:title" content="Intercepting status bar touches on the iPhone"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/05/intercepting-status-bar-touches-on.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="You can configure your iPhone applications so that a touch in the status bar will scroll a UIScrollView to the top. I&#39;ll show you how you can intercept this touch event to use status bar touches for other purposes. The sample application will show a hidden drawer that slides out from the status bar when you tap it."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="intercepting-status-bar-touches-on.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Intercepting status bar touches on the iPhone</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-05-19">May 19, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/uikit.html">UIKit</a>, <a href="../../categories/cocoa-touch.html">Cocoa Touch</a>, <a href="../../categories/fun-hacks.html">fun hacks</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>You can configure your iPhone applications so that a touch in the status bar will scroll a UIScrollView to the top. I'll show you how you can intercept this touch event to use status bar touches for other purposes. The sample application will show a hidden drawer that slides out from the status bar when you tap it.</p></span><span class="fullpost"><h2>Touches in the status bar</h2><p>A lesser known user-interface feature on the iPhone is that touches in the status bar will usually scroll the main <code>UIScrollView</code> to the top, providing a quick way to scroll to the top of long documents.</p><p>This will work in your application when exactly one <code>UIScrollView</code> returns <code>YES</code> for the <code>scrollsToTop</code> property (<code>YES</code> is the default). If more than one <code>UIScrollView</code> returns <code>YES</code> for this property (or the <code>UIScrollView</code>'s <code>delegate</code> returns <code>NO</code> from <code>scrollViewWillScrollToTop:</code>) the scroll to top functionality will be disabled.</p><p>That's the ordinary functionality but how do we achieve different functionality?</p><h2>The HiddenDrawer sample appliction</h2><img src="../../assets/objc-era/hidden_drawer_screenshots.png" width="500" height="220" /><p>These screenshots show the HiddenDrawer sample application. When the status bar is tapped on the left, the hidden drawer animates out from under the status bar, resulting in the state shown on the right.</p><h2>Stealing status bar touch events</h2><p>The trickiest part of the sample application is detecting a touch in the status bar.</p><p>By implementing a custom <code>setContentOffset:animated:</code> method on a <code>UITableView</code> and setting a breakpoint in that method, you can see in the debugger stack that the <code>UIApplication</code><code>sendEvent:</code> method is invoked for status bar touches, so that's where we'll begin.</p><h3>CustomApplication</h3><p>Overriding <code>UIApplication</code> is extremely rare so I'll explain how to make it work. Once you create the subclass of <code>UIApplication</code> you need to tell the program to use that subclass. In Cocoa Senior (Mac OS X) you specify application subclasses in the Info.plist file. In Cocoa Touch, you specify custom application subclasses by name in the <code>UIApplicationMain</code> function in the <code>main.m</code> file:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">int</span> <span class="n">retVal</span> <span class="o">=</span> <span class="n">UIApplicationMain</span><span class="p">(</span><span class="n">argc</span><span class="p">,</span> <span class="n">argv</span><span class="p">,</span> <span class="s">@&#34;CustomApplication&#34;</span><span class="p">,</span> <span class="nb">nil</span><span class="p">);</span></code></pre></div>
+
+<h3>sendEvent:</h3><p>The only method override we need in <code>CustomApplication</code> is <code>sendEvent:</code>. The difficult part is then working out from the <code>UIEvent</code> which events are status bar touch events &mdash; unfortunately, the <code>allTouches</code> method returns an empty array for status bar touches.</p><p>Instead, we delve into the secret <code>GSEvent</code>.</p><p>I previously accessed <code>GSEvent</code> in my post <a href="../../2008/10/synthesizing-touch-event-on-iphone.html">Synthesizing a touch event on the iPhone</a>. In that post, I created a <code>PublicEvent</code> class and a fake <code>GSEventProxy</code> class to access the required fields. This time, I'm going to use a different approach and jump straight to the data I need.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">sendEvent:</span><span class="p">(</span><span class="n">UIEvent</span> <span class="o">*</span><span class="p">)</span><span class="nv">anEvent</span>
+<span class="p">{</span>
+    <span class="cp">#define GS_EVENT_TYPE_OFFSET 2
+</span><span class="cp"></span>    <span class="cp">#define GS_EVENT_X_OFFSET 6
+</span><span class="cp"></span>    <span class="cp">#define GS_EVENT_Y_OFFSET 7
+</span><span class="cp"></span>    <span class="cp">#define STATUS_BAR_TOUCH_DOWN 1015
+</span><span class="cp"></span>    
+    <span class="c1">// Traverse from the UIEvent to the GSEvent to the type
+</span><span class="c1"></span>    <span class="kt">int</span> <span class="o">*</span><span class="n">eventMemory</span> <span class="o">=</span> <span class="p">(</span><span class="kt">int</span> <span class="o">*</span><span class="p">)[</span><span class="n">anEvent</span> <span class="nl">performSelector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="n">_gsEvent</span><span class="p">)];</span>
+    <span class="kt">int</span> <span class="n">eventType</span> <span class="o">=</span> <span class="n">eventMemory</span><span class="p">[</span><span class="n">GS_EVENT_TYPE_OFFSET</span><span class="p">];</span>
+
+    <span class="c1">// Look for status bar touches by event type
+</span><span class="c1"></span>    <span class="k">if</span> <span class="p">(</span><span class="n">eventType</span> <span class="o">==</span> <span class="n">STATUS_BAR_TOUCH_DOWN</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="c1">// The next 6 lines aren&#39;t essential but if you want to know where the
+</span><span class="c1"></span>       <span class="c1">// touch coordinates live, here they are: 
+</span><span class="c1"></span>        <span class="kt">int</span> <span class="n">xMemory</span> <span class="o">=</span> <span class="n">eventMemory</span><span class="p">[</span><span class="n">GS_EVENT_X_OFFSET</span><span class="p">];</span>
+        <span class="kt">int</span> <span class="n">yMemory</span> <span class="o">=</span> <span class="n">eventMemory</span><span class="p">[</span><span class="n">GS_EVENT_Y_OFFSET</span><span class="p">];</span>
+
+        <span class="k">typedef</span> <span class="k">union</span> <span class="p">{</span><span class="kt">int</span> <span class="n">intValue</span><span class="p">;</span> <span class="kt">float</span> <span class="n">floatValue</span><span class="p">;}</span> <span class="n">Int2Float</span><span class="p">;</span>
+        <span class="kt">float</span> <span class="n">x</span> <span class="o">=</span> <span class="p">((</span><span class="n">Int2Float</span><span class="p">)</span><span class="n">xMemory</span><span class="p">).</span><span class="n">floatValue</span><span class="p">;</span>
+        <span class="kt">float</span> <span class="n">y</span> <span class="o">=</span> <span class="p">((</span><span class="n">Int2Float</span><span class="p">)</span><span class="n">yMemory</span><span class="p">).</span><span class="n">floatValue</span><span class="p">;</span>
+
+        <span class="n">NSLog</span><span class="p">(</span><span class="s">@&#34;Status bar down at %f, %f&#34;</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">);</span>
+        
+        <span class="c1">// Send a message to the delegate to handle the action
+</span><span class="c1"></span>        <span class="p">[(</span><span class="n">HiddenDrawerAppDelegate</span> <span class="o">*</span><span class="p">)</span><span class="nb">self</span><span class="p">.</span><span class="n">delegate</span> <span class="n">toggleDrawer</span><span class="p">];</span>
+    <span class="p">}</span>
+    <span class="k">else</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="nb">super</span> <span class="nl">sendEvent</span><span class="p">:</span><span class="n">anEvent</span><span class="p">];</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>You may be curious to know where the <code>OFFSET</code> values come from. The answer is that I spent a while staring at the raw memory values in the <code>GSEvent</code> object while deliberately causing status bar and other touch events &mdash; nothing fancier than that. It's tricky and unreliable. If it works at all in iPhoneSDK3.0, it'll be pure luck.</p><p>I also use a <code>union</code> here. This is because I step through memory as <code>int</code>s and in C, a basic cast from <code>int</code> to <code>float</code> causes a value conversion (I want a reinterpret, not a value conversion).</p><p>I also chose to suppress status bar touch events going through to the <code>UITableView</code> by the normal route. If you want to re-enable this behavior, you can take the <code>[super sendEvent:anEvent];</code> line out of the <code>else</code> block and put it in the main method body.</p><h2>Animating the drawer</h2><p>The <code>sendEvent:</code> implementation above invokes the <code>toggleDrawer</code> method on the application's <code>delegate</code>.</p><p>All that's required is to animate the drawer's view in and push the table's view down:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">drawerController</span> <span class="o">=</span> <span class="p">[[</span><span class="n">HiddenDrawerViewController</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">];</span>
+
+<span class="c1">// Position the drawer below the status bar
+</span><span class="c1"></span><span class="n">CGRect</span> <span class="n">drawerFrame</span> <span class="o">=</span> <span class="n">drawerController</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">frame</span><span class="p">;</span>
+<span class="n">CGRect</span> <span class="n">statusBarFrame</span> <span class="o">=</span> <span class="p">[[</span><span class="n">UIApplication</span> <span class="n">sharedApplication</span><span class="p">]</span> <span class="n">statusBarFrame</span><span class="p">];</span>
+<span class="n">drawerFrame</span><span class="p">.</span><span class="n">origin</span><span class="p">.</span><span class="n">x</span> <span class="o">=</span> <span class="n">statusBarFrame</span><span class="p">.</span><span class="n">origin</span><span class="p">.</span><span class="n">x</span><span class="p">;</span>
+<span class="n">drawerFrame</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">width</span> <span class="o">=</span> <span class="n">statusBarFrame</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">width</span><span class="p">;</span>
+<span class="n">drawerFrame</span><span class="p">.</span><span class="n">origin</span><span class="p">.</span><span class="n">y</span> <span class="o">=</span> <span class="n">statusBarFrame</span><span class="p">.</span><span class="n">origin</span><span class="p">.</span><span class="n">y</span> <span class="o">+</span> <span class="n">statusBarFrame</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span><span class="p">;</span>
+
+<span class="c1">// For the animation, move the drawer up by its own height.
+</span><span class="c1"></span><span class="n">drawerFrame</span><span class="p">.</span><span class="n">origin</span><span class="p">.</span><span class="n">y</span> <span class="o">-=</span> <span class="n">drawerFrame</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span><span class="p">;</span>
+
+<span class="c1">// Place the drawer and add it to the window
+</span><span class="c1"></span><span class="n">drawerController</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">frame</span> <span class="o">=</span> <span class="n">drawerFrame</span><span class="p">;</span>
+<span class="p">[</span><span class="n">window</span> <span class="nl">addSubview</span><span class="p">:</span><span class="n">drawerController</span><span class="p">.</span><span class="n">view</span><span class="p">];</span>
+
+<span class="c1">// Start the animation
+</span><span class="c1"></span><span class="p">[</span><span class="n">UIView</span> <span class="nl">beginAnimations</span><span class="p">:</span><span class="nb">nil</span> <span class="nl">context</span><span class="p">:</span><span class="nb">nil</span><span class="p">];</span>
+
+<span class="c1">// Move the table down
+</span><span class="c1"></span><span class="n">CGRect</span> <span class="n">tableFrame</span> <span class="o">=</span> <span class="n">viewController</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">frame</span><span class="p">;</span>
+<span class="n">tableFrame</span><span class="p">.</span><span class="n">origin</span><span class="p">.</span><span class="n">y</span> <span class="o">+=</span> <span class="n">drawerFrame</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span><span class="p">;</span>
+<span class="n">viewController</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">frame</span> <span class="o">=</span> <span class="n">tableFrame</span><span class="p">;</span>
+
+<span class="c1">// Move the drawer down
+</span><span class="c1"></span><span class="n">drawerFrame</span><span class="p">.</span><span class="n">origin</span><span class="p">.</span><span class="n">y</span> <span class="o">+=</span> <span class="n">drawerFrame</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span><span class="p">;</span>
+<span class="n">drawerController</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">frame</span> <span class="o">=</span> <span class="n">drawerFrame</span><span class="p">;</span>
+
+<span class="c1">// Commit the animation
+</span><span class="c1"></span><span class="p">[</span><span class="n">UIView</span> <span class="n">commitAnimations</span><span class="p">];</span></code></pre></div>
+
+<p>If you download the whole project, you'll see that there's also an animate up and remove branch that gets run if the <code>drawerController</code> already exists.</p><h2>Conclusion</h2><blockquote>You can download the <a href="../../assets/objc-era/HiddenDrawer.zip">HiddenDrawer sample project</a> (30kB) to see the whole application in action.</blockquote><p>A hidden drawer under the status bar isn't necessarily something that every iPhone application should have but the obscure, secretive nature of it appeals to me.</p><p>The approach of determining which <code>UIEvent</code> we want by the <code>type</code> field in the <code>GSEvent</code> is a little precarious. Apple are free to change the structure of <code>GSEvent</code> at any time, which could cause your application to misbehave or crash so this type of code would need to be tested on each iPhone OS release to ensure that it still works.</p></span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="variable-argument-lists-in-cocoa.html">Variable argument lists in Cocoa</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="simple-methods-for-date-formatting-and.html">Simple methods for date formatting and transcoding</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

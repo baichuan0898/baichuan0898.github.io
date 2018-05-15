@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>There&#39;s a Garbage Collection ninja hiding in the project templates</title>
+  <meta name="description" content="Not all Xcode project templates are alike. Especially the Core Data Command Line Tool..." />
+
+  <meta name="twitter:title" content="There&#39;s a Garbage Collection ninja hiding in the project templates"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/12/there-garbage-collection-ninja-hiding.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Not all Xcode project templates are alike. Especially the Core Data Command Line Tool..."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="there-garbage-collection-ninja-hiding.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="118px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">There&#39;s a Garbage Collection ninja hiding in the project templates</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-12-01">December 1, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/performance-tests.html">performance tests</a>, <a href="../../categories/xcode.html">Xcode</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>Not all Xcode project templates are alike. Especially the Core Data Command Line Tool...</p></span>
+
+<span class="fullpost">
+<h2>An unwanted feature jumped out and attacked me!</h2>
+<p>In <a href="../11/writing-parser-using-nsscanner-csv.html">yesterday's post on implementing a CSV parser</a>, I briefly mentioned that the parser took around 0.28 seconds to parse the test data that I provided. I consider this a good time for the parser to take but my first run was not so quick.</p>
+
+<p>The first timing test I ran gave a parsing time of 1.15 seconds. This was slightly shocking to me, since I had already run a "control" test &mdash; where I just used <code>componentsSeparatedByString:</code> to break into lines and then into fields &mdash; that took just 0.95 seconds.</p>
+
+<p>Had I really spent all that time writing code that was 20% slower (albeit more functional) than a clumsy, brute force approach?</p>
+
+<p>No. As it turns out, the Xcode Project Template I had used for the test project, the:</p>
+
+   <ul>Mac OS X&rarr;Application&rarr;Command Line Tool&rarr;Type:Core Data</ul>
+
+<p>project has Garbage Collection enabled by default.</p>
+
+<p>The only real hint that this template is different is the <code>objc_startCollectorThread()</code> line in the default <code>main()</code> function &mdash; of course, I never saw this line because I always replace the source files in the templates with my own versions that follow my own formatting style.</p>
+
+<p>Anyway, I turned Garbage Collection off and... <em>boom</em> 4 times faster.</p>
+
+<p>I'd ask for more warning about these major &mdash; but subtle &mdash; changes to templates in the future but you know... ninjas, what can you do?</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../11/writing-parser-using-nsscanner-csv.html">Writing a parser using NSScanner (a CSV parsing example)</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="design-of-iphone-application.html">The design of an iPhone application</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

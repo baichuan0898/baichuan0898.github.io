@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Verifying that a string contains an email address using NSPredicate</title>
+  <meta name="description" content="To celebrate the official release of iPhone OS 3.0 this week, I will show you how to verify that an NSString contains a syntactically valid email address using NSPredicate &amp;mdash; a class that joins the iPhone SDK 3.0 as part of the Core Data additions. This code will work on Mac OS X too since, as with the rest of Core Data, NSPredicate has been part of Mac OS X since 10.4 (Tiger)." />
+
+  <meta name="twitter:title" content="Verifying that a string contains an email address using NSPredicate"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/06/verifying-that-string-is-email-address.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="To celebrate the official release of iPhone OS 3.0 this week, I will show you how to verify that an NSString contains a syntactically valid email address using NSPredicate &amp;mdash; a class that joins the iPhone SDK 3.0 as part of the Core Data additions. This code will work on Mac OS X too since, as with the rest of Core Data, NSPredicate has been part of Mac OS X since 10.4 (Tiger)."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="verifying-that-string-is-email-address.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Verifying that a string contains an email address using NSPredicate</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-06-23">June 23, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/foundation.html">Foundation</a>, <a href="../../categories/cocoa-touch.html">Cocoa Touch</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>To celebrate the official release of iPhone OS 3.0 this week, I will show you how to verify that an NSString contains a syntactically valid email address using NSPredicate &mdash; a class that joins the iPhone SDK 3.0 as part of the Core Data additions. This code will work on Mac OS X too since, as with the rest of Core Data, NSPredicate has been part of Mac OS X since 10.4 (Tiger).</p></span>
+
+<span class="fullpost">
+<h2>Before I begin...</h2>
+<p>I gave an interview to Anthony Agius of <a href="http://www.mactalk.com.au">MacTalk.com.au</a> this week. You can <a href="http://www.mactalk.com.au/2009/06/23/mactalk-interviews-10-matt-gallagher-cocoa-with-love/">download the MP3 from their website</a>. I'm hesitant to listen to my own voice but I think I talked about what it's like to be an independent Mac/iPhone developer in Melbourne, Australia.</p>
+
+<h2>Back to predicates</h2>
+<p>In programming, a predicate is a condition that returns true or false if the object it processes has the properties that the predicate describes. The key difference between a predicate and a regular boolean expression is that a predicate only considers the properties of one object, where a boolean expression may consider multiple, unrelated objects.</p>
+
+<p>Many programmers are familiar with predicates as used in SQL database queries. For example a query to extract the complete row from the "people" database table for every person named "John Smith" might look like this in SQL:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">SELECT</span> <span class="o">*</span> <span class="n">FROM</span> <span class="n">people</span> <span class="n">WHERE</span> <span class="n">firstname</span> <span class="o">=</span> <span class="err">&#39;</span><span class="n">John</span><span class="err">&#39;</span> <span class="n">AND</span> <span class="n">lastname</span> <span class="o">=</span> <span class="err">&#39;</span><span class="n">Smith</span><span class="err">&#39;</span></code></pre></div>
+
+<p>Everything after the "WHERE" is the predicate &mdash; it looks at properties of the row only and is either true (the row will be extracted) or false (the row will be ignored).</p>
+
+<h2>Using NSPredicate to evaluate predicates</h2>
+
+<p>In Cocoa, <code>NSPredicate</code> works in much the same way as the "WHERE" clause of SQL. The main reason that <code>NSPredicate</code> is being brought to the iPhone is that <code>NSPredicate</code> fulfils the same role in Core Data that "WHERE" clauses fulfil in SQL &mdash; to allow the persistent store to fetch objects that satisfy specific criteria.</p>
+
+<p>Imagine we had an <code>NSDictionary</code> created using the following method:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">NSDictionary</span> <span class="o">*</span><span class="p">)</span><span class="nf">personRowWithFirstname:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">aFirstname</span>
+    <span class="nf">lastname:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">aLastname</span>
+<span class="p">{</span>
+    <span class="k">return</span>
+        <span class="p">[</span><span class="n">NSDictionary</span> <span class="nl">dictionaryWithObjectsAndKeys</span><span class="p">:</span>
+            <span class="n">aFirstname</span><span class="p">,</span> <span class="s">@&#34;firstname&#34;</span><span class="p">,</span>
+            <span class="n">aLastname</span><span class="p">,</span> <span class="s">@&#34;lastname&#34;</span><span class="p">,</span>
+        <span class="nb">nil</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>we could test if a given row created by this method matched the predicate "<code>firstname = 'John' AND lastname = 'Smith'</code>" with the following:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="c1">// given an NSDictionary created used the above method named &#34;row&#34;...
+</span><span class="c1"></span><span class="n">NSPredicate</span> <span class="o">*</span><span class="n">johnSmithPredicate</span> <span class="o">=</span>
+    <span class="p">[</span><span class="n">NSPredicate</span> <span class="nl">predicateWithFormat</span><span class="p">:</span><span class="s">@&#34;firstname = &#39;John&#39; AND lastname = &#39;Smith&#39;&#34;</span><span class="p">];</span>
+<span class="kt">BOOL</span> <span class="n">rowMatchesPredicate</span> <span class="o">=</span> <span class="p">[</span><span class="n">johnSmithPredicate</span> <span class="nl">evaluateWithObject</span><span class="p">:</span><span class="n">row</span><span class="p">];</span></code></pre></div>
+
+<p>The <a href="http://developer.apple.com/DOCUMENTATION/Cocoa/Conceptual/Predicates/Articles/pSyntax.html#//apple_ref/doc/uid/TP40001795">string format used to construct an <code>NSPredicate</code> in Cocoa</a> is very similar to the syntax of the "WHERE" clause in SQL. You can also construct this <code>NSPredicate</code> in code by building it from two <code>NSComparisonPredicate</code>s and an <code>NSCompoundPredicate</code>.</p>
+
+<p>A more common use of <code>NSPredicate</code> is filtering &mdash; extracting rows that match an <code>NSPredicate</code> from a larger collection:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="c1">// given an NSArray of rows named &#34;rows&#34; and the above &#34;johnSmithPredicate&#34;...
+</span><span class="c1"></span><span class="n">NSArray</span> <span class="o">*</span><span class="n">rowsMatchingPredicate</span> <span class="o">=</span> <span class="p">[</span><span class="n">rows</span> <span class="nl">filteredArrayUsingPredicate</span><span class="p">:</span><span class="n">johnSmithPredicate</span><span class="p">];</span></code></pre></div>
+
+<p>This is then more like an SQL query where we have selected matching rows from the larger table of data.</p>
+
+<blockquote><strong>Note:</strong> <code>NSPredicate</code> handles filtering only. If you'd like to replicate SQL's "ORDER BY" clause, you can apply <code>NSSortDescriptor</code> as a separate step.</blockquote>
+
+<h2>Verifying an email address</h2>
+
+<p>The "LIKE" comparison operator in <code>NSPredicate</code> (<code>NSLikePredicateOperatorType</code>) is commonly used as a convenient means of testing if an <code>NSString</code> matches a Regular Expression. It's advantage over full libraries with greater options and replacement capability is that it is already in Cocoa &mdash; no libraries, no linkage, no hassle.</p>
+
+<p>To test if an <code>NSString</code> matches a regular expression, we can use the following code:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSPredicate</span> <span class="o">*</span><span class="n">regExPredicate</span> <span class="o">=</span>
+    <span class="p">[</span><span class="n">NSPredicate</span> <span class="nl">predicateWithFormat</span><span class="p">:</span><span class="s">@&#34;SELF MATCHES %@&#34;</span><span class="p">,</span> <span class="n">regularExpressionString</span><span class="p">];</span>
+<span class="kt">BOOL</span> <span class="n">myStringMatchesRegEx</span> <span class="o">=</span> <span class="p">[</span><span class="n">regExPredicate</span> <span class="nl">evaluateWithObject</span><span class="p">:</span><span class="n">myString</span><span class="p">];</span></code></pre></div>
+
+<p>The only question that remains is: what is a regular expression that can be used to verify that an <code>NSString</code> contains a syntactically valid email address?</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSString</span> <span class="o">*</span><span class="n">emailRegEx</span> <span class="o">=</span>
+    <span class="s">@&#34;(?:[a-z0-9!#$%</span><span class="se">\\</span><span class="s">&amp;&#39;*+/=?</span><span class="se">\\</span><span class="s">^_`{|}~-]+(?:</span><span class="se">\\</span><span class="s">.[a-z0-9!#$%</span><span class="se">\\</span><span class="s">&amp;&#39;*+/=?</span><span class="se">\\</span><span class="s">^_`{|}&#34;</span>
+    <span class="s">@&#34;~-]+)*|</span><span class="se">\&#34;</span><span class="s">(?:[</span><span class="se">\\</span><span class="s">x01-</span><span class="se">\\</span><span class="s">x08</span><span class="se">\\</span><span class="s">x0b</span><span class="se">\\</span><span class="s">x0c</span><span class="se">\\</span><span class="s">x0e-</span><span class="se">\\</span><span class="s">x1f</span><span class="se">\\</span><span class="s">x21</span><span class="se">\\</span><span class="s">x23-</span><span class="se">\\</span><span class="s">x5b</span><span class="se">\\</span><span class="s">x5d-</span><span class="se">\\</span><span class="s">&#34;</span>
+    <span class="s">@&#34;x7f]|</span><span class="se">\\\\</span><span class="s">[</span><span class="se">\\</span><span class="s">x01-</span><span class="se">\\</span><span class="s">x09</span><span class="se">\\</span><span class="s">x0b</span><span class="se">\\</span><span class="s">x0c</span><span class="se">\\</span><span class="s">x0e-</span><span class="se">\\</span><span class="s">x7f])*</span><span class="se">\&#34;</span><span class="s">)@(?:(?:[a-z0-9](?:[a-&#34;</span>
+    <span class="s">@&#34;z0-9-]*[a-z0-9])?</span><span class="se">\\</span><span class="s">.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|</span><span class="se">\\</span><span class="s">[(?:(?:25[0-5&#34;</span>
+    <span class="s">@&#34;]|2[0-4][0-9]|[01]?[0-9][0-9]?)</span><span class="se">\\</span><span class="s">.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-&#34;</span>
+    <span class="s">@&#34;9][0-9]?|[a-z0-9-]*[a-z0-9]:(?:[</span><span class="se">\\</span><span class="s">x01-</span><span class="se">\\</span><span class="s">x08</span><span class="se">\\</span><span class="s">x0b</span><span class="se">\\</span><span class="s">x0c</span><span class="se">\\</span><span class="s">x0e-</span><span class="se">\\</span><span class="s">x1f</span><span class="se">\\</span><span class="s">x21&#34;</span>
+    <span class="s">@&#34;-</span><span class="se">\\</span><span class="s">x5a</span><span class="se">\\</span><span class="s">x53-</span><span class="se">\\</span><span class="s">x7f]|</span><span class="se">\\\\</span><span class="s">[</span><span class="se">\\</span><span class="s">x01-</span><span class="se">\\</span><span class="s">x09</span><span class="se">\\</span><span class="s">x0b</span><span class="se">\\</span><span class="s">x0c</span><span class="se">\\</span><span class="s">x0e-</span><span class="se">\\</span><span class="s">x7f])+)</span><span class="se">\\</span><span class="s">])&#34;</span><span class="p">;</span></code></pre></div>
+
+<p>This regular expression is adapted from a version at <a href="http://www.regular-expressions.info/email.html">regular-expressions.info</a> and is a complete verification of RFC 2822.</p>
+
+<p>This adaptation involved escaping all backslashes with another backslash (otherwise the <code>NSString</code> will try to interpret them before they are used in the Regular Expression) and escaping the ampersands (&amp;) so it isn't interpreted as a Unicode escape sequence and caret (^) characters because &mdash; actually I have no idea why except that the expression wouldn't parse without it.</p>
+
+<p>The linked <a href="http://www.regular-expressions.info/email.html">regular-expressions.info</a> page recommends using slightly different regular expressions that force the top-level domain to be a country code or a known top-level domain. With the number of top-level domains due to increase in the near future, I'm not sure this is a good constraint to impose &mdash; since this check isn't intended to verify that the provided domain name is valid.</p>
+
+<p>Since this regular expression <code>NSString</code> is so long, I've split it over 7 lines. This is an underused feature in Standard C languages &mdash; if you split a string into pieces but put nothing except whitespace between the pieces, the compiler will treat it as one continuous string. You don't need to write an extremely long string on a single long line.</p>
+
+<h2>Conclusion</h2>
+
+<p>Just a few lines of code this week but I thought it would be good to draw attention to one of the minor additions making its way to the iPhone in SDK 3.0. I use <code>NSPredicate</code> all the time on Mac OS to perform searches, extract subarrays and perform quick Regular Expression tests. Without it, the only alternatives on the iPhone were methodical array iterations and manual comparisons in code.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="revisiting-old-post-streaming-and.html">Revisiting an old post: Streaming and playing an MP3 stream</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../07/custom-views-in-interface-builder-using.html">Custom views in Interface Builder using IBPlugins</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

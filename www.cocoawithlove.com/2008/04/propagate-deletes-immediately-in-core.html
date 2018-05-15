@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Propagate deletes immediately in Core Data</title>
+  <meta name="description" content="Learn some limitations associated with cascading deletes in Core Data and find out how to immediately propagate deletes in Core Data, overcoming these potential problems." />
+
+  <meta name="twitter:title" content="Propagate deletes immediately in Core Data"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2008/04/propagate-deletes-immediately-in-core.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Learn some limitations associated with cascading deletes in Core Data and find out how to immediately propagate deletes in Core Data, overcoming these potential problems."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="propagate-deletes-immediately-in-core.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Propagate deletes immediately in Core Data</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2008-04-25">April 25, 2008</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/core-data.html">Core Data</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>Learn some limitations associated with cascading deletes in Core Data and find out how to immediately propagate deletes in Core Data, overcoming these potential problems.</p></span>
+
+<span class="fullpost">
+
+<blockquote><strong>Correction</strong>: this post previously indicated that NSManagedObject deletes would fail inside <span class="monospace">processPendingChanges</span>. This issue was fixed in Mac OS X 10.5. The post has been edited to reflect that in Mac OS X 10.5 it is only <span class="monospace">processPendingChanges</span> that cannot be invoked inside itself.</blockquote>
+
+<h2>Limitations to the default "deleteObject" for change propagation</h2>
+
+<p>Core Data has the ability to perform full object-graph deletes through the "cascade" delete rule available to each entity in the object model.</p>
+
+<p>If you have overridden the Key Value Coding methods for relationships on your model entities you can encounter the following issues.</p>
+
+<h3>Always deferred</h3>
+
+<p>Deletes in Core Data are always deferred, either to the end of the event (when <span class="monospace">-[NSManagedObjectContext processPendingChanges]</span> is next called) or until the context is saved.</p>
+
+<p>This means that if you want to read a value changed by a delete, you must:</p>
+
+<ul><li>not be inside a <span class="monospace">-[NSManagedObjectContext processPendingChanges]</span> invocation (i.e. during a delete propagation)</li>
+
+<li>call <span class="monospace">-[NSManagedObjectContext processPendingChanges]</span> after the delete to flush the work through</li>
+
+</ul>
+
+<p>If you are inside <span class="monospace">processPendingChanges</span> (or you otherwise don't want to call it) but you need to see changes immediately, then you will need to implement your own change propagation instead of relying on the default <span class="monospace">deleteObject:</span> to apply changes.</p>
+
+<h3>Relationships deleted in no particular order</h3>
+
+<p>The "cascade" Delete Rule does not cascade through relationships in any particular order. If you need relationships to be deleted in a specific order (i.e. if you may read from the object during deletion), you will need to implement your own change propagation.</p>
+
+<h3>No recursive deletes in 10.4</h3>
+
+<p>In Mac OS X 10.4, Core Data's delete propagation is incompatible with recursively invoked deletes. If a delete propagation triggers another delete propagation while it is doing its work, the second propagation won't work (it will have no effect).</p>
+
+<h2>An example of how these problems can occur</h2>
+
+<p>Consider the following .xcdatamodel:</p>
+
+<div class="scroll"><img src="../../assets/objc-era/propagatedelete.png" /></div>
+
+<p>In this example, "A" uses a "cascade" Delete Rule for its properties but "B" and "C" use "nullify".</p>
+
+<p>Our program must obey the following rule:</p>
+
+<ul><em>Every B object attached to an A object must have a matching C object attached to the same A object at all times.</em></ul>
+
+<p>Our program maintains this rule by overriding the Key Value Coding methods for the "A" class.</p>
+
+<p>The <span class="monospace">addBObject:</span> method is overridden to create a C object and add it to the "A" object's "c" property before the "b" property is changed. Similarly, the <span class="monospace">removeBObject:</span> method is overridden to delete the matching C object in the "A" object's "c" property after the "b" property is changed.</p>
+
+<p>By adding the "C" object <em>before</em> the "b" property is changed and removing the "C" object <em>after</em> the "b" property is changed, we ensure that while a "B" object is attached to an "A" object, there is <em>always</em> a matching "C" object attached.</p>
+
+<p>Once we've deleted the "C" object, we use <span class="monospace">NSAssert</span> to check that the number of "B" objects and "C" objects attached to "A" are the same. To ensure that the "C" object has been deleted before this read, we must call <span class="monospace">processPendingChanges</span> to flush through the delete.</p>
+
+<h3>Problems with nested processPendingChanges</h3>
+
+<p>The above described example will work fine, unless it is invoked from inside a delete propagation.</p>
+
+<p>If we delete a "B" object, instead of simply removing it from "A", then the removal happens inside the <span class="monospace">processPendingChanges</span> for the "B" object's delete.</p>
+
+<p>In Mac OS X 10.4, the <span class="monospace">deleteObject:</span> invocation in <span class="monospace">removeBObject:</span> will not work correctly from inside <span class="monospace">processPendingChanges</span>. This is a documented limitation. Any use of <span class="monospace">deleteObject:</span> in an overridden accessor in Mac OS X 10.4 should propagate deletes itself.</p>
+
+<p>In Mac OS X 10.5, the call to <span class="monospace">processPendingChanges</span> in <span class="monospace">removeBObject:</span> will have no effect. This means that the <span class="monospace">NSAssert</span> will fail.</p>
+
+<p>In this trivial example, the <span class="monospace">NSAssert</span> isn't important but it shows that if you need to flush deletes to read back immediately and may need this functionality during a delete propagation, then you will need to propagate this delete yourself.</p>
+
+<h3>Problems with order of delete</h3>
+
+<p>If you delete an "A" object, then you have no control over whether the "b" property or "c" property is deleted first.</p>
+
+<p>The "C" property could be deleted first. If this occurs, then the rule <em>"must have a matching C object attached to the same A object at all times"</em> is violated.</p>
+
+<p>If you need control over the order that relationships are deleted, then you must propagate the delete yourself.</p>
+
+<h2>Solution: actively perform the delete propagation yourself</h2>
+
+<p>A solution to the above listed problems is to actively perform the delete propagation yourself. This means iterating over all relationships on the object and using the <span class="monospace">deleteRule</span> information from the relationship to decide how to handle the object on the other end.</p>
+
+<p>This is going to be slower than the default delete propagation but we are deliberately replicating its behavior so that we can have greater control over what is done during the propagation.</p>
+
+<p>Objects will still be deleted using <span class="monospace">-[NSMangedObjectContext deleteObject:]</span> but before this occurs, they will be correctly disconnected from the object graph. To ensure that no infinite loops occur, all relationships in affected objects are set to nil as propagation passes through.</p>
+
+<p>A brief warning: the following method doesn't handle the "Deny" delete rule. You would need to add support for this yourself.</p>
+
+<p>So here's the big block of code. This is intended to be a Category method on <span class="monospace">NSManagedObject</span> (otherwise it won't work as written). The <span class="monospace"> priorityDeletionRelationships</span> method should be overridden by classes which need some relationships deleted first — the array returned should be the ordered list of relationship keys to delete first.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">NSArray</span> <span class="o">*</span><span class="p">)</span><span class="nf">priorityDeletionRelationships</span>
+<span class="p">{</span>
+   <span class="k">return</span> <span class="nb">nil</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">propagateDelete</span>
+<span class="p">{</span>
+   <span class="n">NSEntityDescription</span> <span class="o">*</span><span class="n">entityDescription</span> <span class="o">=</span> <span class="p">[</span><span class="nb">self</span> <span class="n">entity</span><span class="p">];</span>
+  
+   <span class="c1">// Get the set of relationships
+</span><span class="c1"></span>   <span class="n">NSDictionary</span> <span class="o">*</span><span class="n">relationships</span> <span class="o">=</span> <span class="p">[</span><span class="n">entityDescription</span> <span class="n">relationshipsByName</span><span class="p">];</span>
+   <span class="n">NSArray</span> <span class="o">*</span><span class="n">unsortedKeys</span> <span class="o">=</span> <span class="p">[</span><span class="n">relationships</span> <span class="n">allKeys</span><span class="p">];</span>
+   <span class="n">NSArray</span> <span class="o">*</span><span class="n">priorityKeys</span> <span class="o">=</span> <span class="p">[</span><span class="nb">self</span> <span class="n">priorityDeletionRelationships</span><span class="p">];</span>
+   <span class="n">NSArray</span> <span class="o">*</span><span class="n">keys</span><span class="p">;</span>
+   <span class="k">if</span> <span class="p">([</span><span class="n">priorityKeys</span> <span class="n">count</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+   <span class="p">{</span>
+       <span class="n">keys</span> <span class="o">=</span> <span class="p">[[</span><span class="n">unsortedKeys</span> <span class="n">mutableCopy</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span>
+       <span class="p">[(</span><span class="n">NSMutableArray</span> <span class="o">*</span><span class="p">)</span><span class="n">keys</span>
+           <span class="nl">removeObjectsInArray</span><span class="p">:</span><span class="n">priorityKeys</span><span class="p">];</span>
+       <span class="p">[(</span><span class="n">NSMutableArray</span> <span class="o">*</span><span class="p">)</span><span class="n">keys</span>
+           <span class="nl">replaceObjectsInRange</span><span class="p">:</span><span class="n">NSMakeRange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+           <span class="nl">withObjectsFromArray</span><span class="p">:</span><span class="n">priorityKeys</span><span class="p">];</span>
+   <span class="p">}</span>
+   <span class="k">else</span>
+   <span class="p">{</span>
+       <span class="n">keys</span> <span class="o">=</span> <span class="n">unsortedKeys</span><span class="p">;</span>
+   <span class="p">}</span>
+  
+   <span class="c1">// Iterate over the set of relationships
+</span><span class="c1"></span>   <span class="n">NSEnumerator</span> <span class="o">*</span><span class="n">relationshipEnumerator</span> <span class="o">=</span> <span class="p">[</span><span class="n">keys</span> <span class="n">keyEnumerator</span><span class="p">];</span>
+   <span class="n">NSString</span> <span class="o">*</span><span class="n">relationshipName</span><span class="p">;</span>
+   <span class="k">while</span> <span class="p">((</span><span class="n">relationshipName</span> <span class="o">=</span> <span class="p">[</span><span class="n">relationshipEnumerator</span> <span class="n">nextObject</span><span class="p">])</span> <span class="o">!=</span> <span class="nb">nil</span><span class="p">)</span>
+   <span class="p">{</span>
+       <span class="n">NSRelationshipDescription</span> <span class="o">*</span><span class="n">relationshipDescription</span> <span class="o">=</span>
+           <span class="p">[</span><span class="n">relationships</span> <span class="nl">objectForKey</span><span class="p">:</span><span class="n">relationshipName</span><span class="p">];</span>
+      
+       <span class="c1">// If the relationship is not &#34;cascade&#34;, then just nullify it.
+</span><span class="c1"></span>       <span class="k">if</span> <span class="p">([</span><span class="n">relationshipDescription</span> <span class="n">deleteRule</span><span class="p">]</span> <span class="o">!=</span> <span class="n">NSCascadeDeleteRule</span><span class="p">)</span>
+       <span class="p">{</span>
+           <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="p">[</span><span class="n">relationshipDescription</span> <span class="n">isToMany</span><span class="p">])</span>
+           <span class="p">{</span>
+               <span class="p">[</span><span class="nb">self</span> <span class="nl">setValue</span><span class="p">:</span><span class="nb">nil</span> <span class="nl">forKey</span><span class="p">:</span><span class="n">relationshipName</span><span class="p">];</span>
+           <span class="p">}</span>
+           <span class="k">else</span>
+           <span class="p">{</span>
+               <span class="n">NSMutableSet</span> <span class="o">*</span><span class="n">relationshipSet</span> <span class="o">=</span>
+                   <span class="p">[</span><span class="nb">self</span> <span class="nl">mutableSetValueForKey</span><span class="p">:</span><span class="n">relationshipName</span><span class="p">];</span>
+               <span class="p">[</span><span class="n">relationshipSet</span> <span class="n">removeAllObjects</span><span class="p">];</span>
+           <span class="p">}</span>
+           <span class="k">continue</span><span class="p">;</span>
+       <span class="p">}</span>
+      
+       <span class="c1">// Propagate the delete to the object at the other end of the
+</span><span class="c1"></span>       <span class="c1">// relationship
+</span><span class="c1"></span>       <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="p">[</span><span class="n">relationshipDescription</span> <span class="n">isToMany</span><span class="p">])</span>
+       <span class="p">{</span>
+           <span class="n">NSManagedObject</span> <span class="o">*</span><span class="n">destination</span> <span class="o">=</span> <span class="p">[</span><span class="nb">self</span> <span class="nl">valueForKey</span><span class="p">:</span><span class="n">relationshipName</span><span class="p">];</span>
+           <span class="p">[</span><span class="nb">self</span> <span class="nl">setValue</span><span class="p">:</span><span class="nb">nil</span> <span class="nl">forKey</span><span class="p">:</span><span class="n">relationshipName</span><span class="p">];</span>
+           <span class="p">[</span><span class="n">destination</span> <span class="n">propagateDelete</span><span class="p">];</span>
+           <span class="k">continue</span><span class="p">;</span>
+       <span class="p">}</span>
+      
+       <span class="c1">// Propagate the delete to every object in the to-many relationship.
+</span><span class="c1"></span>       <span class="c1">// We copy the set because we plan to change it during iteration.
+</span><span class="c1"></span>       <span class="n">NSMutableSet</span> <span class="o">*</span><span class="n">mutableRelationship</span> <span class="o">=</span>
+           <span class="p">[</span><span class="nb">self</span> <span class="nl">mutableSetValueForKey</span><span class="p">:</span><span class="n">relationshipName</span><span class="p">];</span>
+       <span class="n">NSSet</span> <span class="o">*</span><span class="n">iterateSet</span> <span class="o">=</span> <span class="p">[[</span><span class="n">mutableRelationship</span> <span class="k">copy</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span>
+       <span class="n">NSEnumerator</span> <span class="o">*</span><span class="n">enumerator</span> <span class="o">=</span> <span class="p">[</span><span class="n">iterateSet</span> <span class="n">objectEnumerator</span><span class="p">];</span>
+       <span class="n">NSManagedObject</span> <span class="o">*</span><span class="n">setObject</span><span class="p">;</span>
+       <span class="k">while</span> <span class="p">((</span><span class="n">setObject</span> <span class="o">=</span> <span class="p">[</span><span class="n">enumerator</span> <span class="n">nextObject</span><span class="p">])</span> <span class="o">!=</span> <span class="nb">nil</span><span class="p">)</span>
+       <span class="p">{</span>
+           <span class="p">[</span><span class="n">mutableRelationship</span> <span class="nl">removeObject</span><span class="p">:</span><span class="n">setObject</span><span class="p">];</span>
+           <span class="p">[</span><span class="n">setObject</span> <span class="n">propagateDelete</span><span class="p">];</span>
+       <span class="p">}</span>
+   <span class="p">}</span>
+  
+   <span class="c1">// Delete this object
+</span><span class="c1"></span>   <span class="p">[[</span><span class="nb">self</span> <span class="n">managedObjectContext</span><span class="p">]</span> <span class="nl">deleteObject</span><span class="p">:</span><span class="nb">self</span><span class="p">];</span>
+
+<span class="p">}</span></code></pre></div>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="viewwilldraw-welcome-addition-to-nsview.html">viewWillDraw - a welcome addition to NSView in 10.5</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../05/open-previous-document-on-application.html">Open the previous document on application startup</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

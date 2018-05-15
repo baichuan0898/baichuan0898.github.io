@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Open the previous document on application startup</title>
+  <meta name="description" content="Setting up your application to open the most recent document on startup is easier than you might think. Here&#39;s a quick solution with a some code you can plug straight into your app." />
+
+  <meta name="twitter:title" content="Open the previous document on application startup"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2008/05/open-previous-document-on-application.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Setting up your application to open the most recent document on startup is easier than you might think. Here&#39;s a quick solution with a some code you can plug straight into your app."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="open-previous-document-on-application.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Open the previous document on application startup</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2008-05-02">May 2, 2008</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/appkit.html">AppKit</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>Setting up your application to open the most recent document on startup is easier than you might think. Here's a quick solution with a some code you can plug straight into your app.</p></span>
+
+
+
+<span class="fullpost">
+
+<h2>Recent instead of Untitled</h2>
+
+<p>If the user is likely to edit the same document over multiple sessions of the application, automatically opening the last edited document when your app starts up is a helpful option to offer.</p>
+
+
+
+<p>To make this easier for us, Mac OS X automatically remembers the last ten documents opened.</p>
+
+
+
+<p>We are left with three steps to make this happen:</p>
+
+
+
+<ul><li>Prevent the default "Untitled" document opening</li>
+
+<li>Open the most recent document as reported by the shared <span class="monospace">NSDocumentController</span></li>
+
+<li>Allow "Untitled" documents to open after startup</li></ul>
+
+
+
+<h2>All in the application delegate</h2>
+
+
+
+<p>The application's delegate is the appropriate place to do this work, most of which will occur in the delegate method <span class="monospace">applicationShouldOpenUntitledFile:</span>.</p>
+
+
+
+<p>Normally, this method returns <span class="monospace">YES</span>. Even if we want the most recent document to open at startup, we will want this method to return <span class="monospace">YES</span> after startup.</p>
+
+<p>But we can't directly ask <span class="monospace">NSApplication</span> if it is starting up, so we must keep a flag <span class="monospace">applicationHasStarted</span> that should be initialized to <span class="monospace">NO</span> in the delegate's constructor and set to <span class="monospace">YES</span> in <span class="monospace">applicationDidFinishLaunching:</span>. In the code example below, I assume you've already set up this behavior and I don't show it explicitly.</p>
+
+
+<p>So, inside the body of <span class="monospace">applicationShouldOpenUntitledFile:</span>, if <span class="monospace">applicationHasStarted</span> is <span class="monospace">NO</span>, we ask the shared <span class="monospace">NSDocumentController</span> for the most recent document, get the URL of this document and open it, returning <span class="monospace">NO</span> from <span class="monospace">applicationShouldOpenUntitledFile:</span> to prevent the untitled document appearing.</p>
+
+<h2>Solution</h2>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nf">applicationShouldOpenUntitledFile:</span><span class="p">(</span><span class="n">NSApplication</span> <span class="o">*</span><span class="p">)</span><span class="nv">sender</span>
+<span class="p">{</span>
+    <span class="c1">// On startup, when asked to open an untitled file, open the last opened
+</span><span class="c1"></span>    <span class="c1">// file instead
+</span><span class="c1"></span>    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">applicationHasStarted</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="c1">// Get the recent documents
+</span><span class="c1"></span>        <span class="n">NSDocumentController</span> <span class="o">*</span><span class="n">controller</span> <span class="o">=</span>
+            <span class="p">[</span><span class="n">NSDocumentController</span> <span class="n">sharedDocumentController</span><span class="p">];</span>
+        <span class="n">NSArray</span> <span class="o">*</span><span class="n">documents</span> <span class="o">=</span> <span class="p">[</span><span class="n">controller</span> <span class="n">recentDocumentURLs</span><span class="p">];</span>
+        
+        <span class="c1">// If there is a recent document, try to open it.
+</span><span class="c1"></span>        <span class="k">if</span> <span class="p">([</span><span class="n">documents</span> <span class="n">count</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="n">NSError</span> <span class="o">*</span><span class="n">error</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
+            <span class="p">[</span><span class="n">controller</span>
+                <span class="nl">openDocumentWithContentsOfURL</span><span class="p">:[</span><span class="n">documents</span> <span class="nl">objectAtIndex</span><span class="p">:</span><span class="mi">0</span><span class="p">]</span>
+                <span class="nl">display</span><span class="p">:</span><span class="nb">YES</span> <span class="nl">error</span><span class="p">:</span><span class="o">&amp;</span><span class="n">error</span><span class="p">];</span>
+            
+            <span class="c1">// If there was no error, then prevent untitled from appearing.
+</span><span class="c1"></span>            <span class="k">if</span> <span class="p">(</span><span class="n">error</span> <span class="o">==</span> <span class="nb">nil</span><span class="p">)</span>
+            <span class="p">{</span>
+                <span class="k">return</span> <span class="nb">NO</span><span class="p">;</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+    
+    <span class="k">return</span> <span class="nb">YES</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../04/propagate-deletes-immediately-in-core.html">Propagate deletes immediately in Core Data</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="square-root-numerical-fun-with.html">Square Root: Numerical fun with NSDecimalNumber</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

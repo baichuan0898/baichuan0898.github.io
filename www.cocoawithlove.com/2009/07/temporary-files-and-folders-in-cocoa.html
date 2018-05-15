@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Temporary files and folders in Cocoa</title>
+  <meta name="description" content="If you need to use temporary files in your application and you search the Cocoa documentation for &#34;temporary file&#34;, you&#39;re unlikely to find anything that explains how to create one. Since temporary files and folders are subject to a number of security issues and race conditions when done wrong, it is important to know the correct way to create them. I&#39;ll show you some code that you can copy and paste into your applications to create temporary files and folders safely." />
+
+  <meta name="twitter:title" content="Temporary files and folders in Cocoa"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/07/temporary-files-and-folders-in-cocoa.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="If you need to use temporary files in your application and you search the Cocoa documentation for &#34;temporary file&#34;, you&#39;re unlikely to find anything that explains how to create one. Since temporary files and folders are subject to a number of security issues and race conditions when done wrong, it is important to know the correct way to create them. I&#39;ll show you some code that you can copy and paste into your applications to create temporary files and folders safely."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="temporary-files-and-folders-in-cocoa.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Temporary files and folders in Cocoa</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-07-23">July 23, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/foundation.html">Foundation</a>, <a href="../../categories/standard-c.html">Standard C</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>If you need to use temporary files in your application and you search the Cocoa documentation for "temporary file", you're unlikely to find anything that explains how to create one. Since temporary files and folders are subject to a number of security issues and race conditions when done wrong, it is important to know the correct way to create them. I'll show you some code that you can copy and paste into your applications to create temporary files and folders safely.</p></span>
+
+<span class="fullpost">
+
+<h2>Introduction</h2>
+<p>With large amounts of RAM on modern computers and alternatives such as the cache directories and application support directories, genuine temporary files are not needed in most Cocoa applications. Even when they are needed, for atomic write operations or for Core Data databases, Cocoa libraries often create them automatically.</p>
+
+<p>Eventually though, you're likely to encounter a situation where you need to create a temporary file yourself. You need to be careful when creating temporary files because:</p>
+
+<ul><li>Predictable temporary file locations can be a security hole in your applications.</li>
+<li>On Mac OS X, multiple users on the computer may have their own copies of your application open, so the creation must be atomic (safe when concurrent).</li></ul>
+
+<p>In addition to this, you must be able to find the correct directories to place your files, be aware of the lifetime of files in these locations and manage cleanup correctly when you are done.</p>
+
+<h2>Required steps</h2>
+
+<h3>Choosing the right enclosing directory</h3>
+
+<p>The directory for temporary files needs to be writeable by the current user. This means that the directory will need to be user-specific.</p>
+
+<p>The correct directory is almost always the one returned by the Foundation function <code>NSTemporaryDirectory</code>. This directory is unique for each user (so each user has write permissions to it).</p>
+
+<p>If you choose this directory though, it is important to know that it is cleaned out automatically every 3 days but otherwise persists between application launches and reboots. This directory is in a hashed location (not predictable in advance) and is therefore safe against security issues associated with predicatable locations.</p>
+
+<p>If you need a location that can persist longer than 3 days, you probably want to use the Application Support directory or a Cache directory instead. Both of these locations are permanent (until your application deletes the contents) but Application Support is considered "important data" and backed up by Time Machine, whereas Cache is considered "user deletable at any time" and is not backed up. The backup point is important: don't store large amounts of temporary data in a location that will fill someone's backup drive.</p>
+
+<p>These alternate directories are obtained using the Foundation function <code>NSSearchPathForDirectoriesInDomains</code> with a first parameter of <code>NSApplicationSupportDirectory</code> or <code>NSCachesDirectory</code>, a second parameter of <code>NSUserDomainMask</code> (occasionally a different value if you need a directory shared between users on the system or network &mdash; but this is uncommon). This function returns an array but you'll normally get just one result if you use <code>NSUserDomainMask</code> and you'll need to append your bundle identifier to get a location unique to your application.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="c1">// an alternative to the NSTemporaryDirectory
+</span><span class="c1"></span><span class="n">NSString</span> <span class="o">*</span><span class="n">path</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
+<span class="n">NSArray</span> <span class="o">*</span><span class="n">paths</span> <span class="o">=</span> <span class="n">NSSearchPathForDirectoriesInDomains</span><span class="p">(</span>
+    <span class="n">NSCachesDirectory</span><span class="p">,</span> <span class="n">NSUserDomainMask</span><span class="p">,</span> <span class="nb">YES</span><span class="p">);</span>
+<span class="k">if</span> <span class="p">([</span><span class="n">paths</span> <span class="n">count</span><span class="p">])</span>
+<span class="p">{</span>
+    <span class="n">NSString</span> <span class="o">*</span><span class="n">bundleName</span> <span class="o">=</span>
+        <span class="p">[[[</span><span class="n">NSBundle</span> <span class="n">mainBundle</span><span class="p">]</span> <span class="n">infoDictionary</span><span class="p">]</span> <span class="nl">objectForKey</span><span class="p">:</span><span class="s">@&#34;CFBundleIdentifier&#34;</span><span class="p">];</span>
+    <span class="n">path</span> <span class="o">=</span> <span class="p">[[</span><span class="n">paths</span> <span class="nl">objectAtIndex</span><span class="p">:</span><span class="mi">0</span><span class="p">]</span> <span class="nl">stringByAppendingPathComponent</span><span class="p">:</span><span class="n">bundleName</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This <code>path</code> value can be used instead of the <code>NSTemporaryDirectory()</code> invocations in the code samples below.</p>
+
+<h3>Creating and opening a file or subdirectory</h3>
+
+<p>To avoid concurrency issues (race conditions), you need to choose a name for any file or directory placed directly in the temporary directory that is unique but which also can't be stolen by another process between choosing the name and creating/opening the file or directory. Even though <code>NSTemporaryDirectory()</code> is unique for each user, you still must avoid potential conflicts within the user's account.</p>
+
+<p>To do this, we use the POSIX function <code>mkstemp</code> for files and <code>mkdtemp</code> for directories. The former will return an already open file descriptor for the file and the latter will have already created the directory for us.</p>
+
+<p>We could simply generate a universally unique identifier (UUID) and use that for the filename but these IDs are guessable which can create security problems in obscure cases where we don't also check for a name conflict &mdash; better to use something that looks for a collision, in the extremely unlikely case that it occurs. If you must use a UUID filename instead of <code>mkstemp</code> for some reason, be certain that it is for non-critical data.</p>
+
+<h4>Creating a temporary file:</h4>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSString</span> <span class="o">*</span><span class="n">tempFileTemplate</span> <span class="o">=</span>
+    <span class="p">[</span><span class="n">NSTemporaryDirectory</span><span class="p">()</span> <span class="nl">stringByAppendingPathComponent</span><span class="p">:</span><span class="s">@&#34;myapptempfile.XXXXXX&#34;</span><span class="p">];</span>
+<span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">tempFileTemplateCString</span> <span class="o">=</span>
+    <span class="p">[</span><span class="n">tempFileTemplate</span> <span class="n">fileSystemRepresentation</span><span class="p">];</span>
+<span class="kt">char</span> <span class="o">*</span><span class="n">tempFileNameCString</span> <span class="o">=</span> <span class="p">(</span><span class="kt">char</span> <span class="o">*</span><span class="p">)</span><span class="n">malloc</span><span class="p">(</span><span class="n">strlen</span><span class="p">(</span><span class="n">tempFileTemplateCString</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">);</span>
+<span class="n">strcpy</span><span class="p">(</span><span class="n">tempFileNameCString</span><span class="p">,</span> <span class="n">tempFileTemplateCString</span><span class="p">);</span>
+<span class="kt">int</span> <span class="n">fileDescriptor</span> <span class="o">=</span> <span class="n">mkstemp</span><span class="p">(</span><span class="n">tempFileNameCString</span><span class="p">);</span>
+
+<span class="k">if</span> <span class="p">(</span><span class="n">fileDescriptor</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+<span class="p">{</span>
+   <span class="c1">// handle file creation failure
+</span><span class="c1"></span><span class="p">}</span>
+
+<span class="c1">// This is the file name if you need to access the file by name, otherwise you can remove
+</span><span class="c1">// this line.
+</span><span class="c1"></span><span class="n">tempFileName</span> <span class="o">=</span>
+    <span class="p">[[</span><span class="n">NSFileManager</span> <span class="n">defaultManager</span><span class="p">]</span>
+        <span class="nl">stringWithFileSystemRepresentation</span><span class="p">:</span><span class="n">tempFileNameCString</span>
+        <span class="nl">length</span><span class="p">:</span><span class="n">strlen</span><span class="p">(</span><span class="n">tempFileNameCString</span><span class="p">)];</span>
+
+<span class="n">free</span><span class="p">(</span><span class="n">tempFileNameCString</span><span class="p">);</span>
+<span class="n">tempFileHandle</span> <span class="o">=</span>
+    <span class="p">[[</span><span class="n">NSFileHandle</span> <span class="n">alloc</span><span class="p">]</span>
+        <span class="nl">initWithFileDescriptor</span><span class="p">:</span><span class="n">fileDescriptor</span>
+        <span class="nl">closeOnDealloc</span><span class="p">:</span><span class="nb">NO</span><span class="p">];</span></code></pre></div>
+
+<p>It is important to handle all reading and writing from the temporary file using this <code>fileDescriptor</code> or something created directly from the <code>fileDescriptor</code> like the <code>NSFileHandle</code> in this example. This guarantees the operation remains safe for concurrency &mdash; if the <code>fileDescriptor</code> is closed before use, a race condition could occur.</p>
+
+<p>The "X"s in the file name are replaced by the unique hash for the file's name. You'll probably want to replace the "<code>myapptempfile</code>" name with something appropriate, although it isn't required (the file is guaranteed unique regardless).</p>
+
+<p>Also notice the use of <code>fileSystemRepresentation</code> and <code>stringWithFileSystemRepresentation:length:</code> to convert to and from the C strings &mdash; this is helpful to handle weird path quirks on different filesystems.</p>
+
+
+<h4>Creating a temporary folder:</h4>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSString</span> <span class="o">*</span><span class="n">tempDirectoryTemplate</span> <span class="o">=</span>
+    <span class="p">[</span><span class="n">NSTemporaryDirectory</span><span class="p">()</span> <span class="nl">stringByAppendingPathComponent</span><span class="p">:</span><span class="s">@&#34;myapptempdirectory.XXXXXX&#34;</span><span class="p">];</span>
+<span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">tempDirectoryTemplateCString</span> <span class="o">=</span>
+    <span class="p">[</span><span class="n">tempDirectoryTemplate</span> <span class="n">fileSystemRepresentation</span><span class="p">];</span>
+<span class="kt">char</span> <span class="o">*</span><span class="n">tempDirectoryNameCString</span> <span class="o">=</span>
+    <span class="p">(</span><span class="kt">char</span> <span class="o">*</span><span class="p">)</span><span class="n">malloc</span><span class="p">(</span><span class="n">strlen</span><span class="p">(</span><span class="n">tempDirectoryTemplateCString</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span><span class="p">);</span>
+<span class="n">strcpy</span><span class="p">(</span><span class="n">tempDirectoryNameCString</span><span class="p">,</span> <span class="n">tempDirectoryTemplateCString</span><span class="p">);</span>
+
+<span class="kt">char</span> <span class="o">*</span><span class="n">result</span> <span class="o">=</span> <span class="n">mkdtemp</span><span class="p">(</span><span class="n">tempDirectoryNameCString</span><span class="p">);</span>
+<span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">result</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="c1">// handle directory creation failure
+</span><span class="c1"></span><span class="p">}</span>
+
+<span class="n">NSString</span> <span class="o">*</span><span class="n">tempDirectoryPath</span> <span class="o">=</span>
+    <span class="p">[[</span><span class="n">NSFileManager</span> <span class="n">defaultManager</span><span class="p">]</span>
+        <span class="nl">stringWithFileSystemRepresentation</span><span class="p">:</span><span class="n">tempDirectoryNameCString</span>
+        <span class="nl">length</span><span class="p">:</span><span class="n">strlen</span><span class="p">(</span><span class="n">result</span><span class="p">)];</span>
+<span class="n">free</span><span class="p">(</span><span class="n">tempDirectoryNameCString</span><span class="p">);</span></code></pre></div>
+
+<p>You can now use the <code>tempDirectoryPath</code> as the container for any files. As with the previous example, you probably want to replace "<code>myapptempdirectory</code>" with something appropriate to your application and usage.</p>
+
+<h2>Conclusion</h2>
+
+<p>You could simply create a file in the <code>/tmp</code> directory but this approach is filled with many problems &mdash; write permissions, concurrency issues, security issues and duration or persistence issues.</p>
+
+<p>Fortunately, the code to create a temporary file or temporary directory is consistent &mdash; you can normally use these code samples without modification. The only choices you need to make is whether to use an alternative directory (like the Application Support directory or the Caches directory).</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="simple-extensible-http-server-in-cocoa.html">A simple, extensible HTTP server in Cocoa</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="rules-to-avoid-retain-cycles.html">Rules to avoid retain cycles</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

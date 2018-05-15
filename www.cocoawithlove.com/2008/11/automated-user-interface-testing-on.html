@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Automated user interface testing on the iPhone</title>
+  <meta name="description" content="Automated testing of application user interfaces can be tricky since user interfaces are designed for use by humans not automated tools. The iPhone is particularly challenging since existing tools that aid user interface testing on the Mac are not available. This post will show you a way to run automated, scripted tests on an iPhone app&#39;s user interface." />
+
+  <meta name="twitter:title" content="Automated user interface testing on the iPhone"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2008/11/automated-user-interface-testing-on.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Automated testing of application user interfaces can be tricky since user interfaces are designed for use by humans not automated tools. The iPhone is particularly challenging since existing tools that aid user interface testing on the Mac are not available. This post will show you a way to run automated, scripted tests on an iPhone app&#39;s user interface."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="automated-user-interface-testing-on.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Automated user interface testing on the iPhone</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2008-11-23">November 23, 2008</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/testing.html">testing</a>, <a href="../../categories/uikit.html">UIKit</a>, <a href="../../categories/xcode.html">Xcode</a>, <a href="../../categories/cocoa-touch.html">Cocoa Touch</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>Automated testing of application user interfaces can be tricky since user interfaces are designed for use by humans not automated tools. The iPhone is particularly challenging since existing tools that aid user interface testing on the Mac are not available. This post will show you a way to run automated, scripted tests on an iPhone app's user interface.</p></span>
+
+<span class="fullpost">
+
+<blockquote><strong>Update 2009-08-15:</strong> Updated to work with iPhone SDK 3.0.</blockquote>
+
+<h2>A warning before we begin...</h2>
+
+<p>This post makes use of code from my earlier post <a href="../10/synthesizing-touch-event-on-iphone.html">Synthesizing a touch event on the iPhone</a>. For this reason, I will restate the warning from that post.</p>
+
+<p>Synthesizing a touch is for <strong><em>debugging and testing only</em></strong>. Do not submit this code in an application to the App Store. Doing so will likely result in:</p>
+
+<ul><li>A bad UI experience for your users.</li>
+<li>An app that breaks on every OS update.</li>
+<li>Rejection of your application.</li>
+</ul>
+
+<p>Automated user interface testing should always be done in a separate target and the testing code should be exclusive to that target and never submitted to Apple. I don't want to see your projects break or be rejected because you're trying to invoke use undisclosed APIs in your final application.</p>
+
+<h2>Challenges for user interface testing on the iPhone</h2>
+<p>Testing the user interface of an app on the iPhone presents three key challenges:</p>
+<ul>
+<li>How do you "read" the contents of the user interface?</li>
+<li>How do you manipulate the user interface?</li>
+<li>How do you programmatically invoke an iPhone application?</li>
+</ul>
+
+<h2>Scenario</h2>
+
+<p>I'm going to address the challenges listed above by demonstrating an automated test on the following program:</p>
+
+<img src="../../assets/objc-era/selftestscreenshot.png" border="1" width="400" height="283" />
+
+<p>I want to test the following:</p>
+
+<ul>Navigate to "Page 1" and ensure that the <code>UILabel</code> reads "Button clicked on: Page 1" after the "Click me" button is pressed.</ul>
+
+<p>To test this, I will create a special Target in the Xcode project that will embed a few extra classes that will run a script. It won't be a "scripting language", merely a data-driven set of commands that the program will run to interrogate itself. This script will perform the work required to navigate the user interface and check that appropriate objects exist and values are set as required.</p>
+
+<p>For the complete implementation, <a href="../../assets/objc-era/SelfTesting.zip">download the "SelfTesting" project (44kb)</a>.</p> 
+
+<blockquote><strong>Note:</strong> this test implementation presented in this Project is not a "unit test", rather it will be a command-line invocation that produces either an empty file (success) or a file containing an error message (failure). A unit test would need to wrap this invocation and interpret the result appropriately.</blockquote>
+
+<h2>Interrogating the user interface</h2>
+
+<p>The key task that the script will perform is interrogation and manipulation of the user interface. To that end, it must have the ability to read the current state of the user interface and select an object contained within.</p>
+
+<h3>Getting the complete user interface state</h3>
+
+<p>Generating a description of the user interface is very simple, since all elements descend from <code>UIView</code>. All we have to do is create a category on <code>UIView</code> containing the following:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">NSMutableDictionary</span> <span class="o">*</span><span class="p">)</span><span class="nf">fullDescription</span>
+<span class="p">{</span>
+    <span class="n">NSDictionary</span> <span class="o">*</span><span class="n">frame</span> <span class="o">=</span>
+        <span class="p">[</span><span class="n">NSDictionary</span> <span class="nl">dictionaryWithObjectsAndKeys</span><span class="p">:</span>
+            <span class="p">[</span><span class="n">NSNumber</span> <span class="nl">numberWithFloat</span><span class="p">:</span><span class="nb">self</span><span class="p">.</span><span class="n">frame</span><span class="p">.</span><span class="n">origin</span><span class="p">.</span><span class="n">x</span><span class="p">],</span> <span class="s">@&#34;x&#34;</span><span class="p">,</span>
+            <span class="p">[</span><span class="n">NSNumber</span> <span class="nl">numberWithFloat</span><span class="p">:</span><span class="nb">self</span><span class="p">.</span><span class="n">frame</span><span class="p">.</span><span class="n">origin</span><span class="p">.</span><span class="n">y</span><span class="p">],</span> <span class="s">@&#34;y&#34;</span><span class="p">,</span>
+            <span class="p">[</span><span class="n">NSNumber</span> <span class="nl">numberWithFloat</span><span class="p">:</span><span class="nb">self</span><span class="p">.</span><span class="n">frame</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">width</span><span class="p">],</span> <span class="s">@&#34;width&#34;</span><span class="p">,</span>
+            <span class="p">[</span><span class="n">NSNumber</span> <span class="nl">numberWithFloat</span><span class="p">:</span><span class="nb">self</span><span class="p">.</span><span class="n">frame</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span><span class="p">],</span> <span class="s">@&#34;height&#34;</span><span class="p">,</span>
+        <span class="nb">nil</span><span class="p">];</span>
+    <span class="n">NSMutableDictionary</span> <span class="o">*</span><span class="n">description</span> <span class="o">=</span>
+        <span class="p">[</span><span class="n">NSMutableDictionary</span> <span class="nl">dictionaryWithObjectsAndKeys</span><span class="p">:</span>
+            <span class="p">[</span><span class="n">NSNumber</span> <span class="nl">numberWithInteger</span><span class="p">:(</span><span class="n">NSInteger</span><span class="p">)</span><span class="nb">self</span><span class="p">],</span> <span class="s">@&#34;address&#34;</span><span class="p">,</span>
+            <span class="n">NSStringFromClass</span><span class="p">([</span><span class="nb">self</span> <span class="k">class</span><span class="p">]),</span> <span class="s">@&#34;className&#34;</span><span class="p">,</span>
+            <span class="n">frame</span><span class="p">,</span> <span class="s">@&#34;frame&#34;</span><span class="p">,</span>
+            <span class="p">[</span><span class="n">NSNumber</span> <span class="nl">numberWithInteger</span><span class="p">:[</span><span class="nb">self</span> <span class="n">tag</span><span class="p">]],</span> <span class="s">@&#34;tag&#34;</span><span class="p">,</span>
+            <span class="p">[</span><span class="nb">self</span> <span class="nl">valueForKeyPath</span><span class="p">:</span><span class="s">@&#34;subviews.fullDescription&#34;</span><span class="p">],</span> <span class="s">@&#34;subviews&#34;</span><span class="p">,</span>
+        <span class="nb">nil</span><span class="p">];</span>
+    
+    <span class="k">if</span> <span class="p">([</span><span class="nb">self</span> <span class="nl">respondsToSelector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="n">text</span><span class="p">)])</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="n">description</span>
+            <span class="nl">setValue</span><span class="p">:[</span><span class="nb">self</span> <span class="nl">performSelector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="n">text</span><span class="p">)]</span>
+            <span class="nl">forKey</span><span class="p">:</span><span class="s">@&#34;text&#34;</span><span class="p">];</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="p">([</span><span class="nb">self</span> <span class="nl">respondsToSelector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="n">title</span><span class="p">)])</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="n">description</span>
+            <span class="nl">setValue</span><span class="p">:[</span><span class="nb">self</span> <span class="nl">performSelector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="n">title</span><span class="p">)]</span>
+            <span class="nl">forKey</span><span class="p">:</span><span class="s">@&#34;title&#34;</span><span class="p">];</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="p">([</span><span class="nb">self</span> <span class="nl">respondsToSelector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="n">currentTitle</span><span class="p">)])</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="n">description</span>
+            <span class="nl">setValue</span><span class="p">:[</span><span class="nb">self</span> <span class="nl">performSelector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="n">currentTitle</span><span class="p">)]</span>
+            <span class="nl">forKey</span><span class="p">:</span><span class="s">@&#34;currentTitle&#34;</span><span class="p">];</span>
+    <span class="p">}</span>
+    
+    <span class="k">return</span> <span class="n">description</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This method can then be invoked on any <code>UIView</code> object to get a description of it and all its children. The description includes class name, position, address in memory and all subviews.</p>
+
+<p>By invoking the following:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSDictionary</span> <span class="o">*</span><span class="n">currentUserInterfaceState</span> <span class="o">=</span>
+        <span class="p">[[[</span><span class="n">UIApplication</span> <span class="n">sharedApplication</span><span class="p">]</span> <span class="n">keyWindow</span><span class="p">]</span> <span class="n">fullDescription</span><span class="p">];</span></code></pre></div> 
+
+<p>we get a description of the <code>keyWindow</code> (i.e. the current visible window).</p>
+
+<h3>Selecting objects within this user interface description</h3>
+
+<p>The next requirement is to select the objects that interest us. To do this, I chose to convert the <code>NSDictionary</code> representation of the user interface to XML and select elements using XPath queries.</p>
+
+<p>Using the iPhone XPath query code that I presented in my earlier post titled "<a href="../10/using-libxml2-for-parsing-and-xpath.html">Using libxml2 for XML parsing and XPath queries in Cocoa</a>", selecting a set of matching <code>UIView</code>s from the full collection of views on screen looks like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc">    <span class="n">NSDictionary</span> <span class="o">*</span><span class="n">keyWindowDescription</span> <span class="o">=</span>
+        <span class="p">[[[</span><span class="n">UIApplication</span> <span class="n">sharedApplication</span><span class="p">]</span> <span class="n">keyWindow</span><span class="p">]</span> <span class="n">fullDescription</span><span class="p">];</span>
+    <span class="n">NSData</span> <span class="o">*</span><span class="n">resultData</span> <span class="o">=</span>
+        <span class="p">[</span><span class="n">NSPropertyListSerialization</span>
+            <span class="nl">dataFromPropertyList</span><span class="p">:</span><span class="n">keyWindowDescription</span>
+            <span class="nl">format</span><span class="p">:</span><span class="n">NSPropertyListXMLFormat_v1_0</span>
+            <span class="nl">errorDescription</span><span class="p">:</span><span class="nb">nil</span><span class="p">];</span>
+
+    <span class="n">NSArray</span> <span class="o">*</span><span class="n">queryResults</span> <span class="o">=</span> <span class="n">PerformXMLXPathQuery</span><span class="p">(</span><span class="n">resultData</span><span class="p">,</span> <span class="n">xpath</span><span class="p">);</span></code></pre></div>
+
+<p>The XPath queries to select views in this way are a little cumbersome, due to the "sequential nodes" arrangement of key-value pairs in a Property List. A demonstration of how a query to choose the <code>UIRoundedRectButton</code> on screen with the <code>currentTitle</code> "Click Me" would be:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="o">//</span><span class="n">dict</span><span class="p">[</span><span class="n">key</span><span class="p">[.</span><span class="o">=</span><span class="err">&#39;</span><span class="n">className</span><span class="err">&#39;</span> <span class="n">and</span> <span class="n">following</span><span class="o">-</span><span class="n">sibling</span><span class="o">::</span><span class="n">string</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">/</span><span class="p">.</span><span class="o">=</span><span class="err">&#39;</span><span class="n">UIRoundedRectButton</span><span class="err">&#39;</span><span class="p">]</span> <span class="n">and</span> <span class="n">key</span><span class="p">[.</span><span class="o">=</span><span class="err">&#39;</span><span class="n">currentTitle</span><span class="err">&#39;</span> <span class="n">and</span> <span class="n">following</span><span class="o">-</span><span class="n">sibling</span><span class="o">::</span><span class="n">string</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">/</span><span class="p">.</span><span class="o">=</span><span class="err">&#39;</span><span class="n">Click</span> <span class="n">me</span><span class="err">&#39;</span><span class="p">]]</span></code></pre></div>
+
+<h2>More stealing from myself: manipulating the user interface</h2>
+
+<p>The only form of user interface manipulation required for this case is touches. The code for this can be found in my earlier post: "<a href="../10/synthesizing-touch-event-on-iphone.html">Synthesizing a touch event on the iPhone</a>".</p>
+
+<p>Previously, the code from that post didn't always work. There were multiple problems with the original implementation due to the limitations of working with undocumented features of the iPhone SDK. These problems got worse with the iPhone SDK 2.2 that Apple released this week.</p>
+
+<p>I've gone back and fixed the code from the "Synthesizing a touch event on the iPhone". It should work reliably in most situations now, including as the "user interface manipulation" part of this post's test scripting environment.</p>
+
+<h2>Running script commands</h2>
+
+<p>The "script" that the test will run is just an <code>NSArray</code> of <code>NSDictionary</code> objects contained in a Property List file.</p>
+
+<img src="../../assets/objc-era/selftestscript.png" width="477" height="290" /> 
+
+<p>The class that handles this script is <code>ScriptRunner</code> in the project.</p>
+
+<p>When the project is compiled with <code>SCRIPT_DRIVEN_TEST_MODE_ENABLED</code> defined (i.e. when the "TestScriptRunner" target is selected) an object of this class is created in the <code>-applicationDidFinishLaunching:</code> method. Once every two seconds, the <code>ScriptRunner</code> selects the next command and invokes the appropriate action. This delay is inserted to allow user interface animations to occur.</p>
+
+<blockquote><strong>Note:</strong> you may notice the "scrollToRow" command. This command is required because rows that are not visible in a <code>UITableView</code> do not have a corresponding <code>UITableViewCell</code> in the view hierarchy. We must scroll to a row before attempting to send a touch event to it.</blockquote>
+
+<h2>Configuring the project and command-line execution</h2>
+
+<h3>A testing Target</h3>
+
+<p>Since we don't want any of the test code in our program normally, the project file should contain a separate Target for testing. No other Target should include the test classes. The script itself (a Property List file named "TestScript.plist") is similarly excluded from non-testing Targets.</p>
+
+<p>The testing Target should have the "Base SDK" in its settings set to "Simulator" (whichever OS version you want).</p>
+
+<p>Further, the testing Target will define the preprocessor macro <code>SCRIPT_DRIVEN_TEST_MODE_ENABLED</code> which will be used to conditionally construct and start the <code>ScriptRunner</code> object. This must be set in the Target Settings (editing the Project Settings will affect all Targets).</p>
+
+<h3>Auto-run build step</h3>
+
+<p>The only remaining addition to the project is a build step that will run the project in the simulator when the Target is built.</p>
+
+<p>I borrow this technique from the <a href="http://code.google.com/p/google-toolbox-for-mac/">Google Toolbox for Mac</a> on their <a href="http://code.google.com/p/google-toolbox-for-mac/wiki/iPhoneUnitTesting">iPhoneUnitTesting wiki page</a>.</p>
+
+<p>A "Run Script" build phase is added to the Target as the last step. The script I use is:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">export</span> <span class="n">DYLD_ROOT_PATH</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;$SDKROOT&#34;</span>
+<span class="n">export</span> <span class="n">DYLD_FRAMEWORK_PATH</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;$CONFIGURATION_BUILD_DIR&#34;</span>
+<span class="n">export</span> <span class="n">IPHONE_SIMULATOR_ROOT</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;$SDKROOT&#34;</span>
+<span class="n">export</span> <span class="n">CFFIXED_USER_HOME</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;$USER_LIBRARY_DIR/Application Support/iPhone Simulator/User&#34;</span>
+<span class="sa"></span><span class="s">&#34;$TARGET_BUILD_DIR/$EXECUTABLE_PATH&#34;</span> <span class="o">-</span><span class="n">RegisterForSystemEvents</span> <span class="mi">2</span><span class="o">&gt;</span> <span class="sa"></span><span class="s">&#34;$PROJECT_DIR/errorLogFromLastBuild.txt&#34;</span></code></pre></div>
+
+<p>This script sets the environment variables so that a simulator build of the project can be invoked directly (last line of the script). I also redirect <code>stderr</code> to the file <code> errorLogFromLastBuild.txt</code> in the base directory of the Project. If this file has non-zero contents, then the test script failed.</p>
+
+<p>Invoking the build and test for the testing target named "TestScriptRunner" is then achieved by invoking the following shell command from the same directory as the Project:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">xcodebuild</span> <span class="o">-</span><span class="n">configuration</span> <span class="sa"></span><span class="s">&#34;Release&#34;</span> <span class="o">-</span><span class="n">target</span> <span class="sa"></span><span class="s">&#34;TestScriptRunner&#34;</span></code></pre></div>
+
+<p>If <code>errorLogFromLastBuild.txt</code> is empty after the script has finished, then the test succeeded.</p>
+
+<p>Running the program in this manner will not show a user interface. This may seem weird, especially given that it's a <em>user interface test</em>. This "headless" invocation will still run correctly, despite the lack of the Simulator window.</p>
+
+<h2>Podcast update</h2>
+
+<p>If you'd like to hear more about this topic, you can listen to <a href="http://www.mobileorchard.com/interview-with-matt-gallagher-author-of-the-cocoa-with-love-blog/">the January 19, 2009 podcast interview I gave to Dan Grigsby of Mobile Orchard</a> about the development of the project.</p>
+
+<h2>Conclusion</h2>
+
+<p>This final solution presented in the <a href=""/assets/objc-era/SelfTesting.zip">SelfTesting Project</a> can be scripted to perform navigation of a user interface as well as queries and testing of the views within that user interface.</p>
+
+<p>The current implementation is only intended for running one test per invocation. This approach is recommended because it resets the user interface state between tests. It does mean that running different tests involves swapping in a new TestScript.plist file each time.</p>
+
+<p>Testing of more sophisticated classes with more complex state would require further <code>command</code> names added to the script's language and greater amounts of data extracted by <code>-[UIView fullDescription]</code>. It should be easy to add such features as required.</p>
+
+<p>Finally, remember to keep your user interface testing code in a separate target (with testing files excluded from your main application target) so it isn't included in the application you submit to the App Store.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="singletons-appdelegates-and-top-level.html">Singletons, AppDelegates and top-level data.</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="method-invocation-formatting-styles-in.html">Method invocation formatting styles in Objective-C</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

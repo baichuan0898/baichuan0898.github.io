@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Type punning isn&#39;t funny: Using pointers to recast in C is bad.</title>
+  <meta name="description" content="A very common C technique for reinterpreting data types has the potential to cause nasty bugs. Apple knows this, which is why the implementation of NSRectToCGRect (correctly) doesn&#39;t do what the documention claims. I show you a technique to perform reinterpret casts safely in your own code." />
+
+  <meta name="twitter:title" content="Type punning isn&#39;t funny: Using pointers to recast in C is bad."/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2008/04/using-pointers-to-recast-in-c-is-bad.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="A very common C technique for reinterpreting data types has the potential to cause nasty bugs. Apple knows this, which is why the implementation of NSRectToCGRect (correctly) doesn&#39;t do what the documention claims. I show you a technique to perform reinterpret casts safely in your own code."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="using-pointers-to-recast-in-c-is-bad.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Type punning isn&#39;t funny: Using pointers to recast in C is bad.</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2008-04-14">April 14, 2008</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/foundation.html">Foundation</a>, <a href="../../categories/standard-c.html">Standard C</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>A very common C technique for reinterpreting data types has the potential to cause nasty bugs. Apple knows this, which is why the implementation of <span class="monospace">NSRectToCGRect</span> (correctly) doesn't do what the documention claims. I show you a technique to perform reinterpret casts safely in your own code.</p></span>
+<span class="fullpost">
+
+<p>Apple's <a href="http://developer.apple.com/documentation/Cocoa/Reference/Foundation/Miscellaneous/Foundation_Functions/index.html">documentation for the function <span class="monospace">NSRectToCGRect</span></a> claim that it is implemented as follows:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">CGRect</span> <span class="nf">NSRectToCGRect</span><span class="p">(</span><span class="n">NSRect</span> <span class="n">nsrect</span><span class="p">)</span> <span class="p">{</span>
+   <span class="k">return</span> <span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="n">CGRect</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="p">(</span><span class="n">nsrect</span><span class="p">));</span>
+<span class="p">}</span></code></pre></div>
+
+<p>If you have seen a lot of C code, chances are that you've seen this approach before. You can't cast one <span class="monospace">struct</span> to another to reinterpret &mdash; even if they have the same fields &mdash; so it is common to see reinterpreting by making a pointer and casting the pointer.</p>
+
+<p>The implication is that <span class="monospace">NSRectToCGRect</span> reinterprets an <span class="monospace">NSRect</span> as a <span class="monospace">CGRect</span> without altering the contained data.</p>
+
+<p>While the implied functionality is accurate, the displayed implementation is not. In actuality, the function looks like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NS_INLINE</span> <span class="n">CGRect</span> <span class="nf">NSRectToCGRect</span><span class="p">(</span><span class="n">NSRect</span> <span class="n">nsrect</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">union</span> <span class="n">_</span> <span class="p">{</span><span class="n">NSRect</span> <span class="n">ns</span><span class="p">;</span> <span class="n">CGRect</span> <span class="n">cg</span><span class="p">;};</span>
+    <span class="k">return</span> <span class="p">((</span><span class="k">union</span> <span class="n">_</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">nsrect</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">cg</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Why the difference? Why bother creating a union? Why shouldn't you simply cast through a pointer?</p>
+
+<h2>Type punning</h2>
+
+<p>As common as casting through a pointer is, it is actually bad practice and potentially risky code. Casting through a pointer has the potential to create bugs because of type punning.</p>
+
+<blockquote><strong>Type punning</strong><br/>
+A form of <a href="http://en.wikipedia.org/wiki/Pointer_alias">pointer aliasing</a> where two pointers and refer to the same location in memory but represent that location as different types. The compiler will treat both "puns" as unrelated pointers. Type punning has the potential to cause dependency problems for any data accessed through both pointers.</blockquote>
+
+<p>Most of the time, type punning won't cause any problems. It is considered undefined behavior by the C standard but will usually do the work you expect.</p>
+
+<p>That is unless you're trying to squeeze more performance out of your code through optimizations. Specifically, if you ever turn on "<em>Enforce Strict Aliasing</em>" in XCode (a.k.a <span class="monospace">-fstrict_aliasing</span> in GCC) you run the risk of unpredictable and errant behavior. With strict aliasing, the compiler may start doing things in the wrong order or leaving instructions out entirely.</p>
+
+<p>To be clear, these bugs can only occur if you <em>dereference</em> both pointers (or otherwise access their shared data) within a single scope or function. Just creating a pointer should be safe.</p>
+
+<h2>An example of a punning bug</h2>
+
+<p>Before the <span class="monospace">NSRectToCGRect</span> function existed, I had some code which did the following:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSRect</span> <span class="n">ellipseBounds</span><span class="p">;</span>
+<span class="n">ellipseBounds</span><span class="p">.</span><span class="n">origin</span><span class="p">.</span><span class="n">x</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+<span class="n">ellipseBounds</span><span class="p">.</span><span class="n">origin</span><span class="p">.</span><span class="n">y</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+<span class="n">ellipseBounds</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">width</span> <span class="o">=</span> <span class="n">WIDGET_SIZE</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">;</span>
+<span class="n">ellipseBounds</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span> <span class="o">=</span> <span class="n">WIDGET_SIZE</span> <span class="o">-</span> <span class="mf">1.0</span><span class="p">;</span>
+<span class="n">ellipseBounds</span> <span class="o">=</span> <span class="n">NSInsetRect</span><span class="p">(</span><span class="n">ellipseBounds</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">);</span>
+
+<span class="n">CGContextAddEllipseInRect</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="o">*</span><span class="p">(</span><span class="n">CGRect</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">ellipseBounds</span><span class="p">);</span>
+<span class="n">CGContextFillPath</span><span class="p">(</span><span class="n">context</span><span class="p">);</span></code></pre></div>
+
+<p>This code creates and sets up an <span class="monospace">NSRect</span> and then reinterprets it as a <span class="monospace">CGRect</span> before using it.</p>
+
+<p>In this case, with <span class="monospace">-fstrict_aliasing</span> enabled, GCC chose to order the <span class="monospace">NSInsetRect</span> <em>after</em> the call to <span class="monospace"> CGContextAddEllipseInRect</span> because the dependency between the two was broken by type punning when the pointer to ellipseBounds was dereferenced as a different type.</p>
+
+<h2>Union solves the problem</h2>
+
+<p>The traditional solution to this problem, to allow the code to be correct with <span class="monospace">-fstrict_aliasing</span> enabled, is to use a <span class="monospace">union</span>. As shown in the <span class="monospace">NSRectToCGRect</span> code, the <span class="monospace">union</span> should contain the source and destination types and you simply set or cast to the source type before reading from the destination type.</p>
+
+<p>According to the C standard, anything involving type punning is implementation specific. So in a "standard" sense, using a <span class="monospace">union</span> doesn't necessarily solve the problem. According to the standard, if you set data in a <span class="monospace">union</span> on one field, you are required to read back from the same field.</p>
+
+<p>Fortunately, GCC explicitly gives permission to do different. From the GCC documentation:</p>
+
+<blockquote> The practice of reading from a different union member than the one most recently written to (called “type-punning”) is common. Even with -fstrict-aliasing, type-punning is allowed, provided the memory is accessed through the union type.</blockquote>
+
+<p>Excellent.</p>
+
+<h2>A macro to reinterpret your own data safely</h2>
+
+<p>Really simple:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="cp">#define UNION_CAST(x, destType) \
+</span><span class="cp"></span>   <span class="p">(((</span><span class="k">union</span> <span class="p">{</span><span class="n">__typeof__</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="n">a</span><span class="p">;</span> <span class="n">destType</span> <span class="n">b</span><span class="p">;})</span><span class="n">x</span><span class="p">).</span><span class="n">b</span><span class="p">)</span></code></pre></div>
+
+<blockquote>This example now incorporates the "__typeof__" suggestion made by Daniel Néri in the comments.</blockquote>
+
+<p>So you could cast a <span class="monospace">float</span> variable named <span class="monospace">myFloat</span> to an <span class="monospace">int</span> as follows:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">int</span> <span class="n">myInt</span> <span class="o">=</span> <span class="n">UNION_CAST</span><span class="p">(</span><span class="n">myFloat</span><span class="p">,</span> <span class="kt">int</span><span class="p">);</span></code></pre></div>
+
+<p>You might notice that I don't bother with an inline function, I don't give the union a name, and I don't make a pointer to the value before casting. The Apple <span class="monospace">NSRectToCGRect</span> function did these things but they are unnecessary. Although, since the compiler should optimize away the extra work, the function, the extra pointer and the dereference in Apple's code shouldn't matter.</p>
+
+<h2>Conclusion</h2>
+
+<p>Creating a pointer to a value and recasting the pointer to a new type is the most common way to reinterpret data in C that I've seen. Despite its prevalence, you shouldn't do it. Always do your reinterpret casts through a <span class="monospace">union</span>. It could save you a lot of trouble if you're ever trying to squeeze performance through compiler options.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="value-of-immutable-values.html">The value of immutable values</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="viewwilldraw-welcome-addition-to-nsview.html">viewWillDraw - a welcome addition to NSView in 10.5</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

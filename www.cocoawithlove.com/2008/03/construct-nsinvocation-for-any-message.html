@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Construct an NSInvocation for any message, just by sending</title>
+  <meta name="description" content="I will show you how to use object forwarding to record any message in an NSInvocation, by simply sending the message to an object. Unlike techniques shown elsewhere, this will allow you to record any message, including NSObject messages and even the forwarding messages themselves." />
+
+  <meta name="twitter:title" content="Construct an NSInvocation for any message, just by sending"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2008/03/construct-nsinvocation-for-any-message.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="I will show you how to use object forwarding to record any message in an NSInvocation, by simply sending the message to an object. Unlike techniques shown elsewhere, this will allow you to record any message, including NSObject messages and even the forwarding messages themselves."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="construct-nsinvocation-for-any-message.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Construct an NSInvocation for any message, just by sending</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2008-03-19">March 19, 2008</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/foundation.html">Foundation</a>, <a href="../../categories/fun-hacks.html">fun hacks</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>I will show you how to use object forwarding to record any message in an NSInvocation, by simply sending the message to an object. Unlike techniques shown elsewhere, this will allow you to record any message, including NSObject messages and even the forwarding messages themselves.</p></span>
+
+<span class="fullpost"><h2>NSInvocation is painful to construct</h2><p>This article appears to be the second in an ad hoc series I'm writing on Cocoa. If it is, then series title might be something like:</p>
+<blockquote>Doing tricky things simply in Cocoa with one line of code</blockquote>
+
+<p>I refer you to my earlier post <a href="core-data-one-line-fetch.html">Core Data: one line fetch</a> where I show a single line fetch for Core Data instead of the suggested 10 line common approach.</p>
+
+<p>NSInvocation has a very similar problem where the its shortest possible usage case using the default methods is 4 lines and the common case is closer to 6.</p>
+
+<p>So, I'm going to reduce that to 1 (compound) line and make the code conceptually cleaner too.</p>
+
+<h2>Creating an NSInvocation using the default methods</h2>
+
+<p>According to Apple's documentation on the page <a href="http://developer.apple.com/documentation/Cocoa/Conceptual/DistrObjects/Tasks/invocations.html">Distributed Object Programming Topics: Using NSInvocation</a>, to create an invocation for the <span class="monospace">MyCalendar</span> method:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="err">–</span> <span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nl">updateAppointmentsForDate</span><span class="p">:(</span><span class="n">NSDate</span> <span class="o">*</span><span class="p">)</span><span class="n">aDate</span></code></pre></div>
+
+<p>with a target and argument respectively of:<p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">MyCalendar</span> <span class="o">*</span><span class="n">userDatebook</span><span class="p">;</span>    <span class="cm">/* Assume this exists. */</span>
+<span class="n">NSDate</span> <span class="o">*</span><span class="n">todaysDate</span><span class="p">;</span>          <span class="cm">/* Assume this exists. */</span></code></pre></div>
+
+<p>will require the following code:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">SEL</span> <span class="n">theSelector</span><span class="p">;</span>
+<span class="n">NSMethodSignature</span> <span class="o">*</span><span class="n">aSignature</span><span class="p">;</span>
+<span class="n">NSInvocation</span> <span class="o">*</span><span class="n">anInvocation</span><span class="p">;</span>
+ 
+<span class="n">theSelector</span> <span class="o">=</span> <span class="k">@selector</span><span class="p">(</span><span class="nl">updateAppointmentsForDate</span><span class="p">:);</span>
+<span class="n">aSignature</span> <span class="o">=</span> <span class="p">[</span><span class="n">MyCalendar</span> <span class="nl">instanceMethodSignatureForSelector</span><span class="p">:</span><span class="n">theSelector</span><span class="p">];</span>
+<span class="n">anInvocation</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSInvocation</span> <span class="nl">invocationWithMethodSignature</span><span class="p">:</span><span class="n">aSignature</span><span class="p">];</span>
+<span class="p">[</span><span class="n">anInvocation</span> <span class="nl">setSelector</span><span class="p">:</span><span class="n">theSelector</span><span class="p">];</span>
+<span class="p">[</span><span class="n">anInvocation</span> <span class="nl">setTarget</span><span class="p">:</span><span class="n">userDatebook</span><span class="p">];</span>
+<span class="p">[</span><span class="n">anInvocation</span> <span class="nl">setArgument</span><span class="p">:</span><span class="o">&amp;</span><span class="n">todaysDate</span> <span class="nl">atIndex</span><span class="p">:</span><span class="mi">2</span><span class="p">];</span></code></pre></div>
+
+<p>This isn't the largest or most cumbersome block of code but it does seem a little large for packaging a method invocation.</p>
+
+<p>Obviously, you could pass just <span class="monospace">theSelector</span>, the target <span class="monospace">userDatebook</span> and all the arguments (in a <span class="monospace">nil</span> terminated variable argument list) through to a constructor method. I've seen this approach used before. It tidies the code up a lot, but it makes the assumption that none of your arguments are <span class="monospace">nil</span>. It also makes a cumbersome, unstructured, method invocation.</p>
+
+<h2>Message forwarding</h2>
+
+<p>To spoil the ending for you, I'm going to show you a way to cut all this code down to one line. Like so:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSInvocation</span> <span class="o">*</span><span class="n">anInvocation</span><span class="p">;</span>
+<span class="p">[[</span><span class="n">NSInvocation</span> <span class="nl">invocationWithTarget</span><span class="p">:</span><span class="n">userDatebook</span> <span class="nl">invocationOut</span><span class="p">:</span><span class="o">&amp;</span><span class="n">anInvocation</span><span class="p">]</span>
+    <span class="nl">updateAppointmentsForDate</span><span class="p">:</span><span class="n">todaysDate</span><span class="p">];</span></code></pre></div>
+
+<p>The biggest advantage to this approach is that you are sending the <span class="monospace">updateAppointmentsForDate:</span> message as normal, with parameters.</p>
+
+<p>Now, this is not the most revolutionary concept. The designers of Cocoa use a similar, but more limited, technique in the NSUndoManager class. From Apple's <a href="http://developer.apple.com/documentation/Cocoa/Conceptual/UndoArchitecture/Tasks/RegisteringUndo.html">Undo Architecture: Registering Undo Operations</a>:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">[[</span><span class="n">myUndoManager</span> <span class="nl">prepareWithInvocationTarget</span><span class="p">:</span><span class="n">drawObject</span><span class="p">]</span>
+    <span class="nl">setFont</span><span class="p">:[</span><span class="n">drawObject</span> <span class="n">font</span><span class="p">]</span> <span class="nl">color</span><span class="p">:[</span><span class="n">drawObject</span> <span class="n">color</span><span class="p">]];</span></code></pre></div>
+
+<p>This is a 1 line reduction of NSInvocation creation for the message:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">[</span><span class="n">drawObject</span> <span class="nl">setFont</span><span class="p">:[</span><span class="n">drawObject</span> <span class="n">font</span><span class="p">]</span> <span class="nl">color</span><span class="p">:[</span><span class="n">drawObject</span> <span class="n">color</span><span class="p">]]</span></code></pre></div>
+
+<p>The NSInvocation isn't returned to the calling function (it's held internally by NSUndoManager) but it is creating this NSInvocation for its own internal use, just by recording the unhandled message.</p>
+
+<p>It relies on the Objective-C methods:</p>
+<ul><li><span class="monospace">- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector</span></li>
+<li><span class="monospace">- (void)forwardInvocation:(NSInvocation *)anInvocation</span></li></ul>
+
+<p>to capture any message sent to an object which the object does not handle itself and save the parameter <span class="monospace">anInvocation</span>.</p>
+
+<p>This is a very good solution but it can't handle every situation. It only lets you capture those messages that the object does not already handle. NSUndoManager is unable to handle NSObject instance methods and any NSUndoManager instance method.</p>
+
+<p>For example, NSUndoManager cannot create an NSInvocation of:
+<ul><li><span class="monospace">init</span></li>
+<li><span class="monospace">class</span></li>
+<li><span class="monospace">release</span></li></ul>
+<p>or any other NSObject or NSUndoManager method since it already has methods for these. Even if we were to create a non-NSObject derived class, it still wouldn't be able to create an NSInvocation for:
+<ul><li><span class="monospace">methodSignatureForSelector:</span></li>
+<li><span class="monospace">forwardInvocation:</span></li></ul>
+<p>using this approach because the forwarding system can't automatically catch and forward its own methods.</p>
+
+<h2>How to capture any message</h2>
+
+<p>The trick to capturing any message is to send the message for capture to an object which only responds to:
+<ul><li><span class="monospace">- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector</span></li>
+<li><span class="monospace">- (void)forwardInvocation:(NSInvocation *)anInvocation</span></li></ul>
+
+<p>and for those two methods, the object must be able to distinguish between a forwarded message (where the parameter <span class="monospace">anInvocation</span> just needs to be saved) and a message sent directly to those methods (for which an NSInvocation must be manually constructed).</p>
+
+<p>By distinguishing forwarding from invocation in those two cases, we will be able to build an NSInvocation for absolutely any valid message.</p>
+
+<h2>Approach</h2>
+
+<p>To summarize all steps, we need:</p>
+<ol><li>A base class (one which doesn't inherit from any other class)</li>
+<li>Only instance methods are:
+<ul><li><span class="monospace">- (NSMethodSignature *)methodSignatureForSelector:(SEL)aSelector</span></li>
+<li><span class="monospace">- (void)forwardInvocation:(NSInvocation *)anInvocation</span></li></ul>
+all other work must be done through class methods.</li>
+<li>An approach to distinguish a message forwarded through <span class="monospace">methodSignatureForSelector:</span> from a direct invocation of <span class="monospace">methodSignatureForSelector:</span></li>
+<li>An approach to distinguish a message forwarded through <span class="monospace"> forwardInvocation:</span> from a direct invocation of <span class="monospace"> forwardInvocation:</span></li>
+</ol>
+
+<p>Steps 1 and 2 are straightforward class construction. Allocating a base class is a bit unusual but not very hard.</p>
+
+<p>Step 4 can be done by checking if the "target" of the <span class="monospace">anInvocation</span> parameter is equal to the <span class="monospace">self</span> parameter inside the method. If it is, then it's a direct invocation, otherwise it's a forwarded message.</p>
+
+<p>Step 3 is trickier. The parameters passed are no different for a regular invocation to a forwarded invocation. Instead, we need to be get little dirtier. We can deliberately pass an unhandled message (which will go through the forwarding code) in a controlled situation and record the return address. By recording the known return address into the forwarding code, we can thus distinguish subsequent forwarded invocations from direct invocations. The return address can be obtained using a gcc built in function that <a href="../02/imp-of-current-method.html">I've used before</a>, <span class="monospace">__builtin_return_address(0)</span>.</p>
+
+<p>Of course, there's no absolute guarantee that multiple paths through the forwarding code (which would result in different return addresses) won't happen. For this reason, we'll use an approach that is tolerant of mistakes. Since <span class="monospace">forwardInvocation:</span> is always called after <span class="monospace">methodSignatureforSelector:</span> for forwarded invocations, then we can correct false direct invocation determinations afterwards by overwriting their result.
+
+<h2>Solution</h2> 
+
+<p>We have a category with the following structure:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@interface</span> <span class="nc">NSInvocation</span> <span class="nl">(ForwardedConstruction)</span>
+
+<span class="p">+</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nf">invocationWithTarget:</span><span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nv">target</span>
+    <span class="nf">invocationOut:</span><span class="p">(</span><span class="n">NSInvocation</span> <span class="o">**</span><span class="p">)</span><span class="nv">invocationOut</span><span class="p">;</span>
+<span class="p">+</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nf">retainedInvocationWithTarget:</span><span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nv">target</span>
+    <span class="nf">invocationOut:</span><span class="p">(</span><span class="n">NSInvocation</span> <span class="o">**</span><span class="p">)</span><span class="nv">invocationOut</span><span class="p">;</span>
+
+<span class="k">@end</span></code></pre></div>
+
+<p>Those are our entry and exit points in one. The <span class="monospace">invocationOut</span> parameter is only set <em>after</em> the message to be recorded is sent.</p>
+
+<p>The <span class="monospace">id</span> returned is actually an instance of the following class:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@interface</span> <span class="nc">InvocationProxy</span>
+<span class="p">{</span>
+    <span class="kt">Class</span> <span class="n">isa</span><span class="p">;</span>
+    <span class="n">NSInvocation</span> <span class="o">**</span><span class="n">invocation</span><span class="p">;</span>
+    <span class="kt">id</span> <span class="n">target</span><span class="p">;</span>
+    <span class="kt">BOOL</span> <span class="n">retainArguments</span><span class="p">;</span>
+    <span class="n">NSUInteger</span> <span class="n">forwardingAddress</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="p">+</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nf">alloc</span><span class="p">;</span>
+<span class="p">+</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setValuesForInstance:</span><span class="p">(</span><span class="n">InvocationProxy</span> <span class="o">*</span><span class="p">)</span><span class="nv">instance</span>
+    <span class="nf">target:</span><span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nv">target</span>
+    <span class="nf">destinationInvocation:</span><span class="p">(</span><span class="n">NSInvocation</span> <span class="o">**</span><span class="p">)</span><span class="nv">destinationInvocation</span>
+    <span class="nf">retainArguments:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">retain</span><span class="p">;</span>
+<span class="p">-</span> <span class="p">(</span><span class="n">NSMethodSignature</span> <span class="o">*</span><span class="p">)</span><span class="nf">methodSignatureForSelector:</span><span class="p">(</span><span class="kt">SEL</span><span class="p">)</span><span class="nv">aSelector</span><span class="p">;</span>
+<span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">forwardInvocation:</span><span class="p">(</span><span class="n">NSInvocation</span> <span class="o">*</span><span class="p">)</span><span class="nv">forwardedInvocation</span><span class="p">;</span>
+
+<span class="k">@end</span></code></pre></div>
+
+<p>This is our special base class. It handles it own <span class="monospace">alloc</span>. It also requires that <span class="monospace">init</span> be sent to it after allocation (even though the class doesn't implement <span class="monospace">init</span>) to record the return address for message forwarding.</p>
+
+<p>The <span class="monospace">setValues...</span> method configures the <span class="monospace">instance</span> so that the next message sent to it will have its invocation recorded and store in <span class="monospace">destinationInvocation</span> and the two instance methods <span class="monospace"> methodSignatureForSelector:</span> and <span class="monospace"> forwardInvocation:</span> perform the work of capturing the forwarded message as earlier described.</p>
+
+<p>There's also another privately declared class in the implementation named <span class="monospace">DeallocatorHelper</span>. This class is used because <span class="monospace">InvocationProxy</span> doesn't have an <span class="monospace">autorelease</span>, <span class="monospace">release</span> or <span class="monospace">dealloc</span> method but needs to be freed by the <span class="monospace">NSAutoreleasePool</span>. Instead we create and <span class="monospace">autorelease</span> the <span class="monospace">DeallocatorHelper</span> which then deallocates the <span class="monospace">InvocationProxy</span> in its own <span class="monospace">dealloc</span> method. This code is all <span class="monospace">#ifdef</span>'d out when compiled under garbage collection.</p>
+
+<h2>Conclusion</h2>
+
+<p>Get the code here: <a href="../../assets/objc-era/NSInvocationForwardedConstruction.zip"> NSInvocationForwardedConstruction.zip</a> (4kb)</p>
+
+<p>It will let you create an NSInvocation as follows:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSInvocation</span> <span class="o">*</span><span class="n">anInvocation</span><span class="p">;</span>
+<span class="p">[[</span><span class="n">NSInvocation</span> <span class="nl">invocationWithTarget</span><span class="p">:</span><span class="n">target</span> <span class="nl">invocationOut</span><span class="p">:</span><span class="o">&amp;</span><span class="n">anInvocation</span><span class="p">]</span>
+    <span class="nl">methodParam1</span><span class="p">:</span><span class="n">argument1</span>
+    <span class="nl">methodParam2</span><span class="p">:</span><span class="n">argument2</span>
+    <span class="nl">methodParam3</span><span class="p">:</span><span class="n">argument3</span>
+    <span class="nl">methodParam4</span><span class="p">:</span><span class="n">argument4</span><span class="p">];</span></code></pre></div>
+
+<p>for any method with any number of and type of parameters and any valid value of arguments. Invoking <span class="monospace">retainedInvocationWithTarget:invocationOut:</span> if you want to retain the arguments of the NSInvocation.</p>
+
+<p>If want to create an NSInvocation for a selector (for example <span class="monospace">aSelector</span>) instead of a method, with known arguments, you can invoke as follows:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSInvocation</span> <span class="o">*</span><span class="n">invocation</span><span class="p">;</span>
+<span class="kt">id</span> <span class="n">proxy</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSInvocation</span> <span class="nl">invocationWithTarget</span><span class="p">:</span><span class="n">target</span> <span class="nl">invocationOut</span><span class="p">:</span><span class="o">&amp;</span><span class="n">invocation</span><span class="p">];</span>
+<span class="n">objc_msgSend</span><span class="p">(</span><span class="n">proxy</span><span class="p">,</span> <span class="n">aSelector</span><span class="p">,</span> <span class="n">argument1</span><span class="p">,</span> <span class="n">argument2</span><span class="p">,</span> <span class="n">argument3</span><span class="p">,</span> <span class="n">argument4</span><span class="p">);</span></code></pre></div>
+
+<p>You will need to use <span class="monospace">objc_msgSend_stret</span> or <span class="monospace">objc_msgSend_fpret</span> instead of <span class="monospace">objc_msgSend</span> for methods returning <span class="monospace">struct</span>s or <span class="monospace">double</span>s respectively.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="cocoa-application-startup.html">Cocoa Application Startup</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="testing-core-data-with-very-big.html">Testing Core Data with very big hierarchical data sets</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

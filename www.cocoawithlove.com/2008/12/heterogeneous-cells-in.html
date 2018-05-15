@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Heterogeneous cells in a UITableViewController</title>
+  <meta name="description" content="This post looks at writing a UITableViewController for a table view that contains behaviorally unrelated rows &amp;mdash; a common occurrence on the iPhone for tables containing multiple groups. I will present a simple alternative to Apple&#39;s UITableViewController template code that will reduce complexity and code as well as refocus areas-of-concern for this heterogeneous arrangement." />
+
+  <meta name="twitter:title" content="Heterogeneous cells in a UITableViewController"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2008/12/heterogeneous-cells-in.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="This post looks at writing a UITableViewController for a table view that contains behaviorally unrelated rows &amp;mdash; a common occurrence on the iPhone for tables containing multiple groups. I will present a simple alternative to Apple&#39;s UITableViewController template code that will reduce complexity and code as well as refocus areas-of-concern for this heterogeneous arrangement."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="heterogeneous-cells-in.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Heterogeneous cells in a UITableViewController</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2008-12-27">December 27, 2008</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/object-oriented-design.html">object-oriented design</a>, <a href="../../categories/uikit.html">UIKit</a>, <a href="../../categories/cocoa-touch.html">Cocoa Touch</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>This post looks at writing a UITableViewController for a table view that contains behaviorally unrelated rows &mdash; a common occurrence on the iPhone for tables containing multiple groups. I will present a simple alternative to Apple's UITableViewController template code that will reduce complexity and code as well as refocus areas-of-concern for this heterogeneous arrangement.</p></span>
+
+<span class="fullpost">
+
+<blockquote><strong>Update:</strong> If you're interested in approaches to managing and customizing <code>UITableView</code>s and <code>UITableViewCell</code>s, you might be interested in seeing my more up-to-date post: <a href="../../2010/12/uitableview-construction-drawing-and.html">UITableView construction, drawing and management (revisited)</a>; it represents an evolution and refinement of the ideas presented in this post.</blockquote>
+
+<h2>The sample app</h2>
+
+<p>I'm going to present the following iPhone <a href="../../assets/objc-era/PhoneNumbers.zip">Phone Numbers sample app</a>:</p>
+
+<img src="../../assets/objc-era/phonenumbers.png" width="336" height="320" />
+
+<p>The top group contains a simple, statically constructed text link to a child <code>UIViewController</code>. The bottom group contains multi-column display of data from the iPhone's Address Book in rows with no selection behavior.</p>
+
+<p>The focus of the post will be to look at the design of the <code>UITableViewController</code> subclass for the visible table and how it provides two distinct types of table row, with completely different layouts, data sources and behaviors.</p>
+
+<h2>Over-use of template code</h2>
+
+<p>My reason for writing this post is that I don't think the Apple-provided <code>UITableViewController</code> template code should be used outside of trivial examples. But Apple's example is powerful: when I see other programmers' iPhone code, they rarely use anything else.</p>
+
+<h3>How the Apple-provided template works</h3>
+
+<p>The most important method that the <code>UITableViewController</code> template provides is:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="c1">// Customize the appearance of table view cells.
+</span><span class="c1"></span><span class="p">-</span> <span class="p">(</span><span class="n">UITableViewCell</span> <span class="o">*</span><span class="p">)</span><span class="nf">tableView:</span><span class="p">(</span><span class="n">UITableView</span> <span class="o">*</span><span class="p">)</span><span class="nv">tableView</span>
+    <span class="nf">cellForRowAtIndexPath:</span><span class="p">(</span><span class="n">NSIndexPath</span> <span class="o">*</span><span class="p">)</span><span class="nv">indexPath</span> <span class="p">{</span>
+    
+    <span class="k">static</span> <span class="n">NSString</span> <span class="o">*</span><span class="n">CellIdentifier</span> <span class="o">=</span> <span class="s">@&#34;Cell&#34;</span><span class="p">;</span>
+    
+    <span class="n">UITableViewCell</span> <span class="o">*</span><span class="n">cell</span> <span class="o">=</span> <span class="p">[</span><span class="n">tableView</span>
+        <span class="nl">dequeueReusableCellWithIdentifier</span><span class="p">:</span><span class="n">CellIdentifier</span><span class="p">];</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">cell</span> <span class="o">==</span> <span class="nb">nil</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">cell</span> <span class="o">=</span> <span class="p">[[[</span><span class="n">UITableViewCell</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithFrame</span><span class="p">:</span><span class="n">CGRectZero</span>
+            <span class="nl">reuseIdentifier</span><span class="p">:</span><span class="n">CellIdentifier</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span>
+    <span class="p">}</span>
+    
+    <span class="c1">// Set up the cell...
+</span><span class="c1"></span>
+    <span class="k">return</span> <span class="n">cell</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>If you're not familiar with this code sample, I'll quickly explain: when a <code>UITableView</code> needs to display a row, it invokes this method on its data source (the <code>UITableViewController</code>) and this method constructs the <code>UITableViewCell</code> for the row, populates it with data and returns it.</p>
+
+<h3>The problem with the template</h3>
+
+<p>This code implies a situation where each <code>UITableViewController</code> you create is directly responsible for providing the configuration and behavior of every row in the table.</p>
+
+<p>From a design perspective, there are three distinct issues with this:</p>
+
+<ol>
+<li>If the table contains more than one type of row, the controller must handle this and each type will increase the number of code paths for construction and behavior.</li>
+<li>There is no abstraction between the <code>UITableViewController</code> and the <code>UITableViewCell</code>, which encourages the programmer towards <code>UITableViewCell</code> subclasses to provide row-specific behaviors that they choose to keep out of the <code>UITableViewController</code> (an unnecessary subclass of a view to add controller functionality).</li>
+<li>If your program contains multiple <code>UITableViewControllers</code> they will each need to replicate this code.</li>
+</ol>
+
+<p>Following the template exactly, <code>UITableViewController</code> subclasses become huge classes, repeated multiple times throughout the program, that spend most of their time managing the behaviors of their cells.</p>
+
+<h2>Reducing the responsibilities of the UITableViewController</h2>
+
+<p>The best way to improve the <code>UITableViewController</code> is to refocus it on its required behaviors. These are:</p>
+
+<ol><li>View setup</li></ol>
+
+<p><em>(There will probably be some top-level behavior to handle in many cases but a list with just one item seemed more impactful.)</em></p>
+
+<p>To that end, I have reduced the entire code for the table view controller in the sample app down to:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">constructTableGroups</span>
+<span class="p">{</span>
+    <span class="n">NSMutableArray</span> <span class="o">*</span><span class="n">linkRows</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSMutableArray</span> <span class="n">array</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">linkRows</span> <span class="nl">addObject</span><span class="p">:</span>
+        <span class="p">[[[</span><span class="n">LinkRowCellController</span> <span class="n">alloc</span><span class="p">]</span>
+            <span class="nl">initWithLabel</span><span class="p">:</span><span class="s">@&#34;Link to another page&#34;</span>
+            <span class="nl">controllerClass</span><span class="p">:[</span><span class="n">PlainViewController</span> <span class="k">class</span><span class="p">]]</span>
+        <span class="n">autorelease</span><span class="p">]];</span>
+
+    <span class="n">NSMutableArray</span> <span class="o">*</span><span class="n">phoneNumberRows</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSMutableArray</span> <span class="n">array</span><span class="p">];</span>
+    <span class="k">for</span> <span class="p">(</span><span class="n">NSDictionary</span> <span class="o">*</span><span class="n">entry</span> <span class="k">in</span> <span class="n">addressBookDataSource</span><span class="p">.</span><span class="n">phoneNumbers</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="n">phoneNumberRows</span> <span class="nl">addObject</span><span class="p">:</span>
+            <span class="p">[[[</span><span class="n">PhoneNumberCellController</span> <span class="n">alloc</span><span class="p">]</span>
+                <span class="nl">initWithPhoneNumberData</span><span class="p">:</span><span class="n">entry</span><span class="p">]</span>
+            <span class="n">autorelease</span><span class="p">]];</span>
+    <span class="p">}</span>
+    
+    <span class="n">tableGroups</span> <span class="o">=</span>
+        <span class="p">[[</span><span class="n">NSArray</span> <span class="nl">arrayWithObjects</span><span class="p">:</span><span class="n">linkRows</span><span class="p">,</span> <span class="n">phoneNumberRows</span><span class="p">,</span> <span class="nb">nil</span><span class="p">]</span> <span class="k">retain</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The class no longer needs to directly implement any of the standard methods and requires just a single construction method.</p>
+
+<p>What I've done is reduced the responsibility of the controller down to establishing the structure of the view and populating it with the data (in this case, data from the <code>addressBookDataSource.phoneNumbers</code>).</p>
+
+<h2>Class redesign</h2>
+
+<p>The reduction in complexity for the <code>UITableViewController</code> comes from two changes: moving generic behavior into a superclass and specific behavior into child classes.</p>
+
+<h3>CellController</h3>
+
+<p>The "specific" behavior in this case is row-specific behavior. Row-specific behavior is moved into the "Cell Controllers" (<code>LinkRowCellController</code> and <code>PhoneNumberCellController</code>).</p>
+
+<p><code>CellController</code> is a protocol. In the sample app, it only contains two methods (<code>tableView:cellForRowAtIndexPath:</code> and <code>tableView:didSelectRowAtIndexPath:</code>) but in a fully fledged application, it would be exanded to further mimic <code>UITableViewDelegate</code> and <code>UITableViewDataSource</code>.<p>
+
+<p>To see how these work, let's look at the cell construction code for <code>LinkRowCellController</code>:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">UITableViewCell</span> <span class="o">*</span><span class="p">)</span><span class="nf">tableView:</span><span class="p">(</span><span class="n">UITableView</span> <span class="o">*</span><span class="p">)</span><span class="nv">tableView</span>
+    <span class="nf">cellForRowAtIndexPath:</span><span class="p">(</span><span class="n">NSIndexPath</span> <span class="o">*</span><span class="p">)</span><span class="nv">indexPath</span>
+<span class="p">{</span>
+    <span class="k">static</span> <span class="n">NSString</span> <span class="o">*</span><span class="n">cellIdentifier</span> <span class="o">=</span> <span class="s">@&#34;LinkDataCell&#34;</span><span class="p">;</span>
+    
+    <span class="n">UITableViewCell</span> <span class="o">*</span><span class="n">cell</span> <span class="o">=</span>
+        <span class="p">[</span><span class="n">tableView</span> <span class="nl">dequeueReusableCellWithIdentifier</span><span class="p">:</span><span class="n">cellIdentifier</span><span class="p">];</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">cell</span> <span class="o">==</span> <span class="nb">nil</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">cell</span> <span class="o">=</span>
+            <span class="p">[[[</span><span class="n">UITableViewCell</span> <span class="n">alloc</span><span class="p">]</span>
+                <span class="nl">initWithFrame</span><span class="p">:</span><span class="n">CGRectZero</span>
+                <span class="nl">reuseIdentifier</span><span class="p">:</span><span class="n">cellIdentifier</span><span class="p">]</span>
+            <span class="n">autorelease</span><span class="p">];</span>
+        <span class="n">cell</span><span class="p">.</span><span class="n">accessoryType</span> <span class="o">=</span> <span class="n">UITableViewCellAccessoryDisclosureIndicator</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="c1">// Configure the cell
+</span><span class="c1"></span>    <span class="n">cell</span><span class="p">.</span><span class="n">text</span> <span class="o">=</span> <span class="n">label</span><span class="p">;</span>
+    
+    <span class="k">return</span> <span class="n">cell</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>You can see that it's largely the same code that might have appeared in a <code>UITableViewController</code> but offers the following advantages:</p>
+
+<ul><li>won't grow in behavioral complexity (since it manages just one row type)</li>
+<li>keeps a narrow area-of-concern by connecting a single view element (<code>cell</code>) to a single piece of data (<code>label</code>)</li></ul>
+
+<h3>GenericTableViewController</h3>
+
+<p>The "generic" behavior is moved into <code>GenericTableViewController</code> which provides a basic architecture for lazy construction of the <code>tableGroups</code> instance variable and routing of all row-specific behaviors through to the relevant <code>CellController</code>s.</p>
+
+<p>When <code>tableGroups</code> construction is needed, the method <code>constructTableGroups</code> is invoked, which is the only method required for custom behavior.</p>
+
+<h2>Limitations to this approach</h2>
+
+<p>This design is only useful in situations where you have the data object for every single row at all times. It is not particularly good in situations where you don't have the data for every row up-front (for example, data fetched from an NSFetchedResultsController).</p>
+
+<h2>Bonus features in the sample app</h2>
+
+<p>Unrelated to the main content of this article, the sample app also fetches the phone numbers of all contacts from the Address Book using <code>ABAddressBookCreate</code>, <code>ABAddressBookCopyArrayOfAllPeople</code> and <code>ABRecordCopyValue</code>. Have a look at the <code>AddressBookDataSource</code> class in the project if you're curious to see how this is done.</p>
+
+<p>The <code>PhoneNumberCellController</code> shows how to perform custom layout and arrangement in the <code>contentView</code> of a <code>UITableViewCell</code> to achieve a somewhat customized appearance without subclassing. This is trivial stuff but is a reminder to programmers still stuck in the <code>NSCell</code> subclass habit from Mac OS X (you know who you are) that <code>UITableViewCell</code> subclasses are rarely required.</p>
+
+<h2>Conclusion</h2>
+
+<blockquote>Download the complete code for the sample app in the <a href="../../assets/objc-era/PhoneNumbers.zip">PhoneNumbers Xcode 3.1 project</a> (34kB).</blockquote>
+
+<p>When writing a post, it's hard for me to know if a topic is too obvious. This topic is certainly at the obvious end of the spectrum but I'm hoping it will nudge a few culprits to add a proper base-class and move their row-specific behaviors into resuable, row-specific classes.</p>
+
+<p>I realize that programmers may face confidence issues when an authoritative source like Apple provides an example. Programmers may avoid obvious improvements because they don't want to question the authority's advice.</p>
+
+<p>Apple's code is just a template and typical of a template, it doesn't force any particular arrangement of data upon you. However, choosing a common data arrangement allows for moving common code to handle that data into a base-class, which can further provide common behaviors throughout your application.</p>
+
+<p>The design pattern of separate <code>CellController</code> implementations to simplify a <code>UITableViewController</code> should apply, in a more generalised way, throughout your programming: you shouldn't have multiple conditionals switching on the same piece of data. In this case, we avoided conditionals switched on the <code>row</code> index by creating an object for each row that contains row-specific behavior. This is object-oriented programming: if you're using <code>switch</code> statements or other compound, data-switched conditionals in your user-interface code, you're probably doing it wrong.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="ordereddictionary-subclassing-cocoa.html">OrderedDictionary: Subclassing a Cocoa class cluster</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../../2009/01/serving-nsmanagedobjectcontext-over.html">Serving an NSManagedObjectContext over an NSConnection</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

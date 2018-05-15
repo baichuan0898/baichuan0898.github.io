@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>A new era for Cocoa with Love</title>
+  <meta name="description" content="I&#39;m drawing a line between the old Objective-C era posts on Cocoa with Love and the Swift era posts. The aim of the new era will be to make app programming suck less through a broad theme: &#34;maintainable Cocoa apps&#34;. If we program with fewer runtime errors and new features are easier to add, we&#39;ll have more fun – even if &#34;maintainable&#34; sounds like a dull word." />
+
+  <meta name="twitter:title" content="A new era for Cocoa with Love"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/blog/2016/01/25/a-new-era-for-cocoa-with-love.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="I&#39;m drawing a line between the old Objective-C era posts on Cocoa with Love and the Swift era posts. The aim of the new era will be to make app programming suck less through a broad theme: &#34;maintainable Cocoa apps&#34;. If we program with fewer runtime errors and new features are easier to add, we&#39;ll have more fun – even if &#34;maintainable&#34; sounds like a dull word."/>
+
+  <link rel="icon" href="../../../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../../../css/main.css" />
+  <link rel="canonical" href="a-new-era-for-cocoa-with-love.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../../../index.html"><img class="heartandcup" src="../../../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../../../about/index.html">about</a>
+        <a class="page-link" href="../../../../archive/index.html">archive</a>
+        <a class="page-link" href="../../../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../../../assets/site/banner.svg" width="720px" height="118px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">A new era for Cocoa with Love</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2016-01-25">January 25, 2016</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../../../tags/meta.html">meta</a>
+		 
+	</div>
+</header>
+
+
+<main role="main">
+	<article itemscope itemtype="http://schema.org/BlogPosting">
+		<div class="post-content" itemprop="articleBody">
+			
+
+<p>I haven&rsquo;t written a Cocoa with Love article in 4 and a half years. What&rsquo;s been happening? Is there anything new in Cocoa?</p>
+
+<p>&ldquo;Everything&rdquo;, you say? Excellent! I should have plenty of new code to share.</p>
+
+<p>But not in this article.</p>
+
+<h2 id="previously-on-cocoa-with-love">Previously on Cocoa with Love&hellip;</h2>
+
+<p>Cocoa with Love started as a place for me to write down some fun hacks I used for doing mischievous things in Cocoa – mostly abusing the Objective-C runtime. It&rsquo;s fun to do things generally considered undocumented or impossible and Objective-C&rsquo;s highly introspectible runtime let the devious programmer do much by hijacking other people&rsquo;s code and subverting it. Of course, these sorts of actions are little more than cute tricks with few real use cases (they&rsquo;re too risky, too high maintenance and there&rsquo;s usually a non-devious way to achieve the same effect). I branched out in a number of different directions and even tried writing some articles about designing better apps, I primarily demonstrated a &ldquo;business as usual&rdquo; approach to app development and I&rsquo;m not really happy with the overall result.</p>
+
+<p>I&rsquo;ve looked back through most of my old articles and many contain code that no longer compiles or code that&rsquo;s completely superseded by newer APIs. Still more contain out-of-date information or worse: offer advice and opinions I no longer endorse.</p>
+
+<p>I&rsquo;m not planning to take the old articles down – people do still read them – but I&rsquo;m not going to update or maintain them either. I&rsquo;ve put a prominent &ldquo;Reader beware&rdquo; disclaimer on all of them to highlight that they should be viewed with appropriate caution. They&rsquo;re doomed to become less relevant as Cocoa development continues to move towards Swift and away from Objective-C and that&rsquo;s fine by me. I&rsquo;d rather take the opportunity afforded by Swift and start fresh.</p>
+
+<h2 id="a-new-theme">A new theme</h2>
+
+<p>Switching from Objective-C to Swift will be an obvious change as I return to Cocoa with Love but it&rsquo;s not the only change. I&rsquo;ve wanted to return to Cocoa with Love since before Swift&rsquo;s announcement (it&rsquo;s a long delayed 2014 New Year&rsquo;s Resolution of mine) to try writing articles that loosely fit into a broad, overarching theme: writing maintainable Cocoa apps.</p>
+
+<p>I realize that as a topic, &ldquo;writing maintainable Cocoa apps&rdquo; sounds like a good choice for boring people into a coma. Despite the banal connotations, maintenance is truly the hardest problem in app development and minimizing maintenance costs is a good way to make everything else in programming feel better.</p>
+
+<div class="aside">The hardest problem in app development is not "how do I implement this" or "how can I make this run faster". These are problems that programmers will necessarily have to address but they're not persistent; we solve them and move on. Maintainability is a pervasive and persistent problem; there's no single solution and it doesn't simply go away.</div>
+
+<p>The importance of maintenance is due to the fact that an app is never &ldquo;done&rdquo;. In most modern desktop and mobile spaces, update cycles for operating systems, devices – even device categories – are annual or faster. There is always a change that requires a corresponding update. At the same time, your app has its own update cycle because you want to advance its feature set. Sadly, the fundamental architecture of modern user-applications does not gracefully endure multiple refreshes. A typical codebase will grow progressively harder to maintain until after 2 to 3 years, you&rsquo;re barely maintaining existing features, let alone adding new ones. If you can afford to double your developer resources, you&rsquo;ll need to completely rewrite or thoroughly refactor otherwise the only option is app abandonment.</p>
+
+<p>This situation is horrible: we invest months or years into projects and throw that work away on a regular basis.</p>
+
+<p>A significant portion of this problem is due to the same code maintenance issues that affect all programming. Any programming project – not just user-applications – can suffer loss of momentum over successive releases due to haphazard implementation, poor original designs, difficulties refactoring code and other forms of &ldquo;code rot&rdquo;.</p>
+
+<p>But the manifestation of maintenance difficulties affecting user-apps is particularly acute. Even fair implementations of adequately designed apps can rapidly grow unreasonably difficult to add features or update for new technologies and OS versions. User-applications, as a programming domain, have a high concentration of traits that most programming tries to avoid for the exact reason that they are difficult to maintain. Most prominent of these traits are:</p>
+
+<ul>
+<li>apps are inherently stateful</li>
+<li>controllers naturally subsume other components increasing coupling and fragility</li>
+<li>efforts to combat coupling lead to excessive layers of abstraction rather than cleaner code</li>
+<li>apps include many timing dependent behaviors including callbacks, asynchrony, animation and user events</li>
+<li>apps are heavily reliant on OS provided APIs, taking many things out of your direct control</li>
+<li>apps are difficult to test automatically</li>
+</ul>
+
+<p>The cumulative result is that app programming, while not a technically difficult field, tends to create fragile webs of code that are highly interdependent along a number of different axes leading to programs that are easy enough to design initially but surprisingly time-consuming and expensive to maintain and update.</p>
+
+<p>We need to write code that is resilient against regular code maintenance issues and at the same time, address the problems that undermine app maintenance in particular. Unless we do, every program we write is just another soon-to-be-abandoned app.</p>
+
+<h2 id="how-do-we-improve-maintainability">How do we improve &ldquo;maintainability&rdquo;?</h2>
+
+<p>If you&rsquo;re savvy enough to reading this blog, then you&rsquo;re doubtless aware that there are plenty of ideas around – technologies, frameworks, design patterns and programming techniques – that aim to limit the various negative traits that I listed as contributing to maintenance problems for user-applications.</p>
+
+<ul>
+<li>Some are applications of basic programming theory</li>
+<li>Some are lessons to avoid misusing development tools</li>
+<li>Some are as simple as better coding practices</li>
+<li>Some try to limit problems through evolved design patterns</li>
+<li>Some try to detect problems sooner through better testing approaches</li>
+<li>Some involve changing conventional thinking about errors, data, time or state</li>
+<li>Some involve pure functional, dataflow, declarative or other programming paradigms</li>
+<li>Some are frameworks that encapsulate a difficult trait throughout your program</li>
+<li>Some are frameworks that entirely replace the native application frameworks with alternatives</li>
+</ul>
+
+<p>However, it&rsquo;s interesting to consider though, that despite the number of techniques claiming to limit maintenance problems, none are universally considered essential for app development. Swift language notwithstanding, mainstream Cocoa app development is not dramatically different to NeXTSTEP development 20 years ago. Which leaves open the question: how many of these techniques – if any – actually succeed at their goals?</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>My aim with the &ldquo;Swift era&rdquo; of Cocoa with Love will be to look at different approaches to make app programming suck less. If we program with fewer runtime errors and our new features are easier to add, we&rsquo;ll have more fun – even if &ldquo;maintainability&rdquo; sounds like a dull word.</p>
+
+		</div>
+	</article>
+</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../../../../2011/06/big-weakness-of-objective-c-weak-typing.html">A big weakness in Objective-C&#39;s weak typing</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="partial-functions-part-one-avoidance.html">Partial functions in Swift, Part 1: Avoidance</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../../../feed.json">JSON</a>, <a href="../../../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

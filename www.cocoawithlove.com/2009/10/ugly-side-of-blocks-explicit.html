@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>The ugly side of blocks: explicit declarations and casting.</title>
+  <meta name="description" content="Blocks are a welcome addition to C/Objective-C/C&#43;&#43;/Objective-C&#43;&#43; with Snow Leopard but they carry with them the worst aspect of Standard C: function pointer declaration and casting syntax. In this post, I&#39;ll show you how to understand declarations and casting syntax for blocks and function pointers, even in the worst of scenarios." />
+
+  <meta name="twitter:title" content="The ugly side of blocks: explicit declarations and casting."/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/10/ugly-side-of-blocks-explicit.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Blocks are a welcome addition to C/Objective-C/C&#43;&#43;/Objective-C&#43;&#43; with Snow Leopard but they carry with them the worst aspect of Standard C: function pointer declaration and casting syntax. In this post, I&#39;ll show you how to understand declarations and casting syntax for blocks and function pointers, even in the worst of scenarios."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="ugly-side-of-blocks-explicit.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="118px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">The ugly side of blocks: explicit declarations and casting.</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-10-05">October 5, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/objective-c.html">Objective-C</a>, <a href="../../categories/c++.html">C&#43;&#43;</a>, <a href="../../categories/snow-leopard.html">Snow Leopard</a>, <a href="../../categories/standard-c.html">Standard C</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>Blocks are a welcome addition to C/Objective-C/C++/Objective-C++ with Snow Leopard but they carry with them the worst aspect of Standard C: function pointer declaration and casting syntax. In this post, I'll show you how to understand declarations and casting syntax for blocks and function pointers, even in the worst of scenarios.</p></span>
+
+<span class="fullpost">
+
+<h2>Simple block declarations and casting</h2>
+
+<p>Used as intended (simple inline code implementations) blocks are fairly elegant. This is due to one advantage they offer: in simple cases, you do not need to specify the return type &mdash; it can be inferred from the return statement in the block itself.</p>
+
+<p>So declaring a block that returns an <code>int</code> can be as simple as:</p>
+
+<div class="highlight"><pre><code class="language-objc" data-lang="objc"><span></span><span class="kt">int</span> <span class="p">(</span><span class="o">^</span><span class="n">alwaysReturnIntZero</span><span class="p">)()</span> <span class="o">=</span> <span class="o">^</span><span class="p">{</span> <span class="k">return</span> <span class="mi">0</span><span class="p">;</span> <span class="p">};</span>
+</code></pre></div>
+
+
+<p>In this case though, an unqualified integral value is correctly assumed to be an <code>int</code>. If we want the block to return an <code>NSInteger</code>, we need to either cast the return type or not rely on type inference and declare the return fully:</p>
+
+<div class="highlight"><pre><code class="language-objc" data-lang="objc"><span></span><span class="n">NSInteger</span> <span class="p">(</span><span class="o">^</span><span class="n">alwaysReturnNSIntegerZero</span><span class="p">)()</span> <span class="o">=</span> <span class="o">^</span> <span class="n">NSInteger</span> <span class="p">(){</span> <span class="k">return</span> <span class="mi">0</span><span class="p">;</span> <span class="p">};</span>
+</code></pre></div>
+
+
+<p>Notice that the <em>block literal</em> (righthand side) does not follow the structure as the <em>block declaration</em> (lefthand side). The block literal uses a straightforward "caret, return type, parameter list" order but the block declaration uses the C function pointer declaration syntax, which can grow more complex (as I'll show later). At this point though, the two are of similar complexity.</p>
+
+<p>Casting a block looks much like declaring a block, minus the name of the variable from the declaration.</p>
+
+<div class="highlight"><pre><code class="language-objc" data-lang="objc"><span></span><span class="kt">long</span> <span class="nf">long</span> <span class="p">(</span><span class="o">^</span><span class="n">alwaysReturnLongLongZero</span><span class="p">)()</span> <span class="o">=</span> <span class="p">(</span><span class="kt">long</span> <span class="kt">long</span> <span class="p">(</span><span class="o">^</span><span class="p">)())</span><span class="n">alwaysReturnNSIntegerZero</span><span class="p">;</span>
+</code></pre></div>
+
+
+<p>If you look at what is done here, all that is needed to create a cast for a value to the variable type, is to copy the variable's declaration, put parentheses around the copied declaration and remove the variable name.</p>
+
+<h3>Function pointers</h3>
+
+<p>Blocks borrow their syntax from standard C function pointers. In almost all cases, the only difference between a block declaration or cast and a function pointer declaration or cast is the "<code>^</code>" character is used for the block and the "<code>*</code>" character is used for the function pointer. e.g.:</p>
+
+<div class="highlight"><pre><code class="language-objc" data-lang="objc"><span></span><span class="kt">long</span> <span class="nf">long</span> <span class="p">(</span><span class="o">*</span><span class="n">fnAlwaysReturnLongLongZero</span><span class="p">)()</span> <span class="o">=</span> <span class="p">(</span><span class="kt">long</span> <span class="kt">long</span> <span class="p">(</span><span class="o">*</span><span class="p">)())</span><span class="n">fnAlwaysReturnNSIntegerZero</span><span class="p">;</span>
+</code></pre></div>
+
+
+<p>Of course, functions cannot be declared inline, so you cannot have function literals in the same way as you can have block literals. However, all other syntactic traits remain the same.</p>
+
+<h2>Reading declarations correctly</h2>
+
+<p>Unfortunately, blocks follow the typical C declaration rules which become outright confusing when you try to return something. Before it all gets complicated, I'm going to explain something simple about C declarations.</p>
+
+<p>Consider how a pointer is declared:</p>
+
+<div class="highlight"><pre><code class="language-objc" data-lang="objc"><span></span><span class="kt">int</span> <span class="o">*</span><span class="n">myVariable</span><span class="p">;</span>
+</code></pre></div>
+
+
+<p>If you're reading this blog at all, you should know that this statement creates a pointer named <code>myVariable</code> which points to an <code>int</code>.</p>
+
+<p>But the operator used here is a "dereference", it is not the "make a pointer" (address of) operator. The correct way to read this line is:
+
+<ol>
+<li>Declare a variable:<br/>
+   <code>myVariable</code></li>
+<li>It can be dereferenced (and by <em>implication</em> is therefore a pointer)<br/>
+   <code>*myVariable</code></li>
+<li>If it is deferenced, then the value yielded from the dereference should be treated as an <code>int</code>:<br/>
+   <code>int *myVariable;</code>.</li>
+</ol>
+
+<p>Let's look at the <code>alwaysReturnIntZero</code> declaration from above again and we'll apply this same reading to it.</p>
+
+<div class="highlight"><pre><code class="language-objc" data-lang="objc"><span></span><span class="kt">int</span> <span class="p">(</span><span class="o">^</span><span class="n">alwaysReturnIntZero</span><span class="p">)()</span> <span class="o">=</span> <span class="o">^</span><span class="p">{</span> <span class="k">return</span> <span class="mi">0</span><span class="p">;</span> <span class="p">};</span>
+</code></pre></div>
+
+
+<ol>
+<li>Declare a variable:<br/>
+   <code>alwaysReturnIntZero</code></li>
+<li>It can be dereferenced to yield block information (and by <em>implication</em> is therefore a block pointer):<br/>
+   <code>^alwaysReturnIntZero</code></li>
+<li>Its block implementation takes no parameters and returns an <code>int</code>:<br/>
+   <code>int (^alwaysReturnIntZero)()</code></li>
+</ol>
+
+<p>This approach to reading a declaration is quite simple but you'll need to it to follow the next section.</p>
+
+<h2>Declaring a block that returns a block</h2>
+
+<p>Imagine you wanted to use a block to compare a <code>double</code> to an <code>int</code> and return <code>true</code> if the <code>double</code> is greater than the <code>int</code> or <code>false</code> if the double is equal or smaller. In the simple case, that might look like this:</p>
+
+<div class="highlight"><pre><code class="language-objc" data-lang="objc"><span></span><span class="kt">bool</span> <span class="p">(</span><span class="o">^</span><span class="n">compareDoubleToInt</span><span class="p">)(</span><span class="kt">int</span> <span class="n">i</span><span class="p">,</span> <span class="kt">double</span> <span class="n">j</span><span class="p">)</span> <span class="o">=</span> <span class="o">^</span><span class="p">{</span> <span class="k">return</span> <span class="n">j</span> <span class="o">&gt;</span> <span class="n">i</span><span class="p">;</span> <span class="p">};</span>
+</code></pre></div>
+
+
+<p>Easy enough but imagine now that you want to break this into two pieces:</p>
+
+<ol><li>A first block which takes only the <code>int</code> and returns a second block, pre-configured to use this <code>int</code>.</li>
+<li>The second block then takes the <code>double</code>, compares it to its pre-configured <code>int</code> and returns the result.</li></ol>
+
+<p>The first block is then a <em>factory block</em> which creates instances of the second block that operate like the <code>compareDoubleToInt</code> shown above for a single, pre-configured value of <code>i</code>.</p>
+
+<p>The complete implemention of this would be:</p>
+
+<div class="highlight"><pre><code class="language-objc" data-lang="objc"><span></span><span class="kt">bool</span> <span class="p">(</span><span class="o">^</span><span class="p">(</span><span class="o">^</span><span class="n">newDoubleToIntComparison</span><span class="p">)(</span><span class="kt">int</span><span class="p">))(</span><span class="kt">double</span><span class="p">)</span> <span class="o">=</span>
+    <span class="o">^</span><span class="p">(</span><span class="kt">int</span> <span class="n">i</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="n">Block_copy</span><span class="p">(</span><span class="o">^</span> <span class="p">(</span><span class="kt">double</span> <span class="n">j</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="k">return</span> <span class="n">j</span> <span class="o">&gt;</span> <span class="n">i</span><span class="p">;</span>
+        <span class="p">});</span>
+    <span class="p">};</span>
+</code></pre></div>
+
+
+<blockquote>Pay careful attention to the "new" in the name &mdash; this serves to notify that you must use <code>Block_destroy</code> on any blocks created in this fashion when you're done.</blockquote>
+
+<p>If everything about the syntax on that first line (the declaration) makes immediate sense to you, then you may consider yourself skilled at syntactic recursion.</p>
+
+<p>The reason most people find this hard to read is that verbally, we would describe this scenario in a very different order:</p>
+
+<ol>
+<li>Declare a variable:<br/><code>newDoubleToIntComparison</code></li>
+<li>It can be dereferenced to yield block information (and by <em>implication</em> is therefore a block pointer):<br/>
+<code>^newDoubleToIntComparison</code></li>
+<li>The block takes an <code>int</code> parameter:<br/><code>(^newDoubleToIntComparison)(int)</code></li>
+<li>Its return value can be dereferenced to yield block information (and by <em>implication</em> the return value is therefore a block pointer):<br/>
+<code>(^(^newDoubleToIntComparison)(int))</code></li>
+<li>This returned block takes a <code>double</code> parameter<br/><code>(^(^newDoubleToIntComparison)(int))(double)</code></li>
+<li>And the returned block returns a <code>bool</code><br/><code>bool (^(^newDoubleToIntComparison)(int))(double);</code></li></ol>
+
+<p>If C declarations read from left-to-right, it would be far less confusing. Instead, we have a situation where blocks that return blocks are recursively nested inside each other.</p>
+
+<p>Of course, most people mitigate this by <code>typedef</code>'ing absolutely function pointer they ever use. Doing this for the previous block declaration changes it to:</p>
+
+<div class="highlight"><pre><code class="language-objc" data-lang="objc"><span></span><span class="k">typedef</span> <span class="nf">bool</span> <span class="p">(</span><span class="o">^</span><span class="n">IsDoubleBiggerBlock</span><span class="p">)(</span><span class="kt">double</span><span class="p">);</span>
+<span class="n">IsDoubleBiggerBlock</span> <span class="p">(</span><span class="o">^</span><span class="n">newDoubleToIntComparison</span><span class="p">)(</span><span class="kt">int</span><span class="p">);</span>
+</code></pre></div>
+
+
+<h2>Functions or methods that return blocks</h2>
+
+<p>It may also be helpful to see the subtle difference between declaring a block that returns a block and the definition of of a function returns a block.</p>
+
+<p>Replacing the <em>factory block</em> with a <em>factory function</em> in the previous example would lead to:</p>
+
+<div class="highlight"><pre><code class="language-objc" data-lang="objc"><span></span><span class="kt">bool</span> <span class="p">(</span><span class="o">^</span><span class="n">NewDoubleToIntComparisonFunction</span><span class="p">(</span><span class="kt">int</span> <span class="n">i</span><span class="p">))(</span><span class="kt">double</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">return</span> <span class="p">(</span><span class="kt">bool</span> <span class="p">(</span><span class="o">^</span><span class="p">)(</span><span class="kt">double</span><span class="p">))</span><span class="n">Block_copy</span><span class="p">(</span><span class="o">^</span> <span class="p">(</span><span class="kt">double</span> <span class="n">j</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="n">j</span> <span class="o">&gt;</span> <span class="n">i</span><span class="p">;</span>
+    <span class="p">});</span>
+<span class="p">};</span>
+</code></pre></div>
+
+
+<p>This function takes a single <code>int</code> as its parameter and yet the last component on the function prototype line is <code>(double)</code>. The <code>int</code> parameter that the function actually takes and the name of the function are nested inside of the return type (the return type comprises the <code>double</code> parameter to the right, the caret character and the <code>bool</code> return value to the left).</p>
+
+<p>Also notice that you need to cast the output of <code>Block_copy</code> to have it recognized as the correct return type.</p>
+
+<p>As with the variable declarations, this nested behaviour is normally considered too annoying, so typedefs are employed to simplify:</p>
+
+<div class="highlight"><pre><code class="language-objc" data-lang="objc"><span></span><span class="k">typedef</span> <span class="nf">bool</span> <span class="p">(</span><span class="o">^</span><span class="n">IsDoubleBiggerBlock</span><span class="p">)(</span><span class="kt">double</span><span class="p">);</span>
+<span class="n">IsDoubleBiggerBlock</span> <span class="nf">NewDoubleToIntComparisonFunction</span><span class="p">(</span><span class="kt">int</span> <span class="n">i</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">IsDoubleBiggerBlock</span><span class="p">)</span><span class="n">Block_copy</span><span class="p">(</span><span class="o">^</span> <span class="p">(</span><span class="kt">double</span> <span class="n">j</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="n">j</span> <span class="o">&gt;</span> <span class="n">i</span><span class="p">;</span>
+    <span class="p">});</span>
+<span class="p">};</span>
+</code></pre></div>
+
+
+<p>This has the huge advantage that it puts the function's parameter back where it belongs &mdash; as the last component on the function prototype line.</p>
+
+<p>An Objective-C method that returns a block is a much simpler situation since the method does not become nested within the return type in the same way. Instead, the return type looks identical to the cast of the returned copied block and the rest of the method remains distinct.</p>
+
+<div class="highlight"><pre><code class="language-objc" data-lang="objc"><span></span><span class="p">-</span> <span class="p">(</span><span class="kt">bool</span> <span class="p">(</span><span class="o">^</span><span class="p">)(</span><span class="kt">double</span><span class="p">))</span><span class="nf">newDoubleToIntComparison:</span><span class="p">(</span><span class="kt">int</span><span class="p">)</span><span class="nv">i</span>
+<span class="p">{</span>
+    <span class="k">return</span> <span class="p">(</span><span class="kt">bool</span> <span class="p">(</span><span class="o">^</span><span class="p">)(</span><span class="kt">double</span><span class="p">))</span><span class="n">Block_copy</span><span class="p">(</span><span class="o">^</span> <span class="p">(</span><span class="kt">double</span> <span class="n">j</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="n">j</span> <span class="o">&gt;</span> <span class="n">i</span><span class="p">;</span>
+    <span class="p">});</span>
+<span class="p">}</span>
+</code></pre></div>
+
+
+<h2>Conclusion</h2>
+
+<p>The declaration of C function pointers is widely regarded as the worst syntax in the language. There is a good reason for this: the information in a function pointer's declaration flows from the most significant components which are nestled on the inside of the declaration to the least significant components which encircle the outside. They could flow left-to-right like a sentence but instead they flow outwards from an identifier somewhere in the middle.</p>
+
+<p>Sadly, blocks follow in this tradition. All you can do to mitigate the torment is use <code>typedef</code>'d declarations judiciously and try to keep your blocks simple. They're not really intended for large numbers of parameters and complex return values, anyway.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../09/optimizing-loading-of-very-large-table.html">Optimizing the loading of a very large table on the iPhone</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="objective-c-niche-why-it-survives-in.html">Objective-C&#39;s niche: why it survives in a world of alternatives</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>A sample Mac application with complete unit tests</title>
+  <meta name="description" content="In this post, I present a complete Cocoa Mac application implemented with unit tests for all created code. I&#39;ll create the tests first and then only add the code required to make the tests pass, largely following a test-driven development (TDD) methodology. Next week I&#39;ll show the configuration and implementation of this project as an iPhone application for the benefit of Cocoa Touch developers." />
+
+  <meta name="twitter:title" content="A sample Mac application with complete unit tests"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/12/sample-mac-application-with-complete.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="In this post, I present a complete Cocoa Mac application implemented with unit tests for all created code. I&#39;ll create the tests first and then only add the code required to make the tests pass, largely following a test-driven development (TDD) methodology. Next week I&#39;ll show the configuration and implementation of this project as an iPhone application for the benefit of Cocoa Touch developers."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="sample-mac-application-with-complete.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">A sample Mac application with complete unit tests</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-12-21">December 21, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/testing.html">testing</a>, <a href="../../categories/object-oriented-design.html">object-oriented design</a>, <a href="../../categories/appkit.html">AppKit</a>, <a href="../../categories/xcode.html">Xcode</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>In this post, I present a complete Cocoa Mac application implemented with unit tests for all created code. I'll create the tests first and then only add the code required to make the tests pass, largely following a test-driven development (TDD) methodology.</p>
+
+<p>Next week I'll show the configuration and implementation of this project as an iPhone application for the benefit of Cocoa Touch developers.</p></span>
+
+<span class="fullpost">
+
+<h2>Introduction</h2>
+
+<p>A few days ago, I spent some time searching for a Cocoa application with source code and full unit tests but I was only able to find Apple's trivial <a href="http://developer.apple.com/IPhone/library/samplecode/iPhoneUnitTests/index.html">iPhoneUnitTests sample project</a>.</p>
+
+<p>With more than four years of official support (Apple added OCUnit to the Developer Tools in 2005) and a large number of articles and blog posts by Mac programmers endorsing unit testing and offering solutions to problems within unit testing, it is surprising to me that there are so few code examples showing Cocoa applications with full unit tests.</p>
+
+<p>So I decided to re-implement one of my own projects (<a href="../09/whereismymac-snow-leopard-corelocation.html">the WhereIsMyMac application from an earlier post</a>) with complete unit tests using a test-first approach &mdash; I'll create failing tests and only add code to the project to pass those failing tests.</p>
+
+<p>I'll be cheating a bit relative to proper test-first development (since this is a re-implementation of an existing project, I already know what the final code should be) but I'll keep to the spirit of the process by only adding as much code as I need to make the tests pass.</p>
+
+<p>I know people will want to see how this works on the iPhone but since this post is already large, I've deferred that implementation until next week.</p>
+
+<h2>Xcode unit testing targets</h2>
+
+<p>There are two different ways of configuring Xcode for unit testing: logic test targets and application test targets.</p>
+
+<ul><li><strong>Logic tests</strong> &mdash; these are run in a executable that is separate from your application. The separate build can be easier to manage, faster to build and is easier to run objects in isolation since it avoids the application setup. However, you cannot test components which rely on the application (which is most user interface components). Generally, this type of test target is intended for libraries, frameworks and testing the back-end (model components of model-view-controller) of your application.<p>Logic tests are easily run at build-time or from the command-line, which is helpful for continuous integration or automated test processes.</p></li>
+
+<li><strong>Application tests</strong> &mdash; these tests let the application load first and are subsequently loaded into the existing application. This means that the full application environment is available to your tests. In many cases, controller tests and view tests need to be run as application tests since they are reliant on the full environment.<p>Application tests allow your application to be tested in a more realistic environment, reducing the chance that environment or integration level issues will be missed. They are normally run as a separate step (not as part of the build) and therefore may be less convenient for tests that need to be run every time.</p></li></ul>
+
+<p>I'll focus exclusively on the second type of testing target, since it will allow full testing of the application.</p>
+
+<p>It may seem strange to talk about "unit tests" which are supposed to be run in isolation but then talk about "Application tests" which provide the environment in which to run tests. The reality is that you can only isolate user-interface unit tests from your own code &mdash; there will always be some interaction (in hidden and not controllable ways) with the application framework code. Windows, views and controls simply won't work if there's no application around them.</p>
+
+<h2>Mac project configuration</h2>
+
+<p>One of the best sources of information on configuring Xcode for Unit Tests is <a href="http://chanson.livejournal.com/119097.html">Chris Hanson's series on unit testing</a>. I'll follow many of the steps that he describes and further add OCMock integration to the procedure.</p>
+
+<p>After you've created a blank project, use the "Project&rarr;New Target..." menu item to add a new "Cocoa&rarr;Unit Testing Bundle" Target to the project.</p>
+
+<blockquote><strong>Note:</strong> The testing target is a separate target. This means that you need to be careful of target membership. All application source files should be added to the application target only. Test code files should be added to the testing target only.</blockquote>
+
+<p>It'd be great if that's all that you needed but there's more.</p>
+
+<p>First, drag your application's target onto the unit testing target to create a dependency (force the application to build before the unit tests).</p>
+
+<p>Then edit the unit testing target's settings (Right click&rarr;Get Info) and set the "Build&rarr;Linking&rarr;Bundle Loader" for all configurations to:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="err">$</span><span class="p">(</span><span class="n">CONFIGURATION_BUILD_DIR</span><span class="p">)</span><span class="o">/</span><span class="n">WhereIsMyMac</span><span class="p">.</span><span class="n">app</span><span class="o">/</span><span class="n">Contents</span><span class="o">/</span><span class="n">MacOS</span><span class="o">/</span><span class="n">WhereIsMyMac</span></code></pre></div>
+
+<p>where "WhereIsMyMac" is the name of the application you're unit testing. This will let the testing target link against the application (so you don't get linker errors when compiling).</p>
+
+<p>Also set the "Build&rarr;Unit Testing&rarr;Test Host" to <code>$(BUNDLE_LOADER)</code> (this will give this property the same value as the above setting). This property lets the automated build-time script know to launch the application and inject the unit testing bundle into it to start the tests.</p>
+
+<blockquote><strong>Logic tests note:</strong> If you want to do logic tests instead of application tests, leave the Bundle Loader and Test Host fields empty and add all files you want to test to the test target (so the test target becomes a separate, self-contained target instead of linking against the main application).</blockquote>
+
+<p>Finally, <a href="http://www.mulle-kybernetik.com/software/OCMock/">download a copy of OCMock</a>, place the OCMock.framework in the same directory as your .xcodeproj file and set the "Build&rarr;Search Paths&rarr;Framework Search Paths" to:</p>
+
+<ul><li><code>"$(SDKROOT/Developer/Library/Frameworks"</code></li>
+<li><code>"$(SRCROOT)"</code></li></ul>
+
+<p>Neither need to be recursive. The quotes are to handle potential spaces in your paths. The first search path will probably already exist in the settings but we add the second search path so that the OCUnit framework will be found in the project's directory.</strong></p>
+
+<p>The configuration so far will run all tests as a build step (the Cocoa Unit Testing target includes a Run Script build step that runs all the unit tests).</p>
+
+<p>To allow debugging as well as build-time execution, add a new executable to the project ("Project&rarr;New Custom Executable...") with a path relative to the Build Product of:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">WhereIsMyMac</span><span class="p">.</span><span class="n">app</span><span class="o">/</span><span class="n">Contents</span><span class="o">/</span><span class="n">MacOS</span><span class="o">/</span><span class="n">WhereIsMyMac</span></code></pre></div>
+
+<p>and in the custom application's settings (Right click&rarr;Get Info) on the Argument tab, set the arguments and environment variables as follows:</p>
+
+<div style="width=100%;overflow:scroll;"><img src="../../assets/objc-era/executable_settings.png" width="844" height="304" /></div>
+
+<p>Most of these settings configure the application to load our test bundle into itself when it runs. The <code>:$(SRCROOT)</code> at the end of fallback framework path is to allow the application to find the OCUnit framework in our project directory at runtime.</p>
+
+<blockquote><strong>Separate executable</strong>: since this test debugging executable is a separate executable, you will need to switch to the debugging executable for debugging tests and switch back when you want to run the application normally.</blockquote>
+
+<h2>AppDelegate Tests</h2>
+
+<h3>Startup integration</h3>
+
+<p>The application will start with the <code>WhereIsMyMacAppDelegate</code> and we'll use the the <code>WhereIsMyMacAppDelegate</code> to load the main window.</p>
+
+<p>The first test is therefore to ensure that application's delegate is an instance of <code>WhereIsMyMacAppDelegate</code> on startup.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">testAppDelegate</span>
+<span class="p">{</span>
+    <span class="kt">id</span> <span class="n">appDelegate</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSApplication</span> <span class="n">sharedApplication</span><span class="p">]</span> <span class="n">delegate</span><span class="p">];</span>
+    <span class="n">STAssertTrue</span><span class="p">([</span><span class="n">appDelegate</span> <span class="nl">isKindOfClass</span><span class="p">:[</span><span class="n">WhereIsMyMacAppDelegate</span> <span class="k">class</span><span class="p">]],</span>
+        <span class="s">@&#34;Cannot find the application delegate.&#34;</span><span class="p">);</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This is a short and simple test but it isn't a unit test. It's actually an integration test (since it is testing the fully connected <code>+[NSApplication sharedApplication]</code> in place.</p>
+
+<p>An ideal unit test would test the <code>NSApplication</code> in isolation and ensure that it creates and sets its delegate property correctly. This is infeasible since <code>NSApplication</code> can't be isolated so we simply accept the nature of the class and test the instance of <code>sharedApplication</code> that should be created on startup. Of course, unit testing <code>NSApplication</code> itself shouldn't be necessary but an integration test to ensure that the startup of the program leads correctly to the creation and setting of the <code>WhereIsMyMacAppDelegate</code> is still a good idea.</p>
+
+<h3>applicationDidFinishLaunching:</h3>
+
+<p>The next test is to ensure that <code>applicationDidFinishLaunching:</code> on the delegate will:</p>
+
+<ol>
+<li>create the <code>WhereIsMyMacWindowController</code> and set it on the delegate</li>
+<li>load the <code>WhereIsMyMacWindowController</code>'s window</li>
+<li>make the <code>WhereIsMyMacWindowController</code>'s window the main and key window</li>
+</ol>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">testApplicationDidFinishLaunching</span>
+<span class="p">{</span>
+    <span class="n">WhereIsMyMacAppDelegate</span> <span class="o">*</span><span class="n">appDelegate</span> <span class="o">=</span>
+        <span class="p">[[[</span><span class="n">WhereIsMyMacAppDelegate</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span>
+
+    <span class="kt">id</span> <span class="n">mockWindow</span> <span class="o">=</span> <span class="p">[</span><span class="n">OCMockObject</span> <span class="nl">mockForClass</span><span class="p">:[</span><span class="n">NSWindow</span> <span class="k">class</span><span class="p">]];</span>
+    <span class="p">[[</span><span class="n">mockWindow</span> <span class="n">expect</span><span class="p">]</span> <span class="nl">makeKeyAndOrderFront</span><span class="p">:</span><span class="n">appDelegate</span><span class="p">];</span>
+
+    <span class="n">mockWindowController</span> <span class="o">=</span> <span class="p">[</span><span class="n">OCMockObject</span> <span class="nl">mockForClass</span><span class="p">:[</span><span class="n">WhereIsMyMacWindowController</span> <span class="k">class</span><span class="p">]];</span>
+    <span class="p">[[[</span><span class="n">mockWindowController</span> <span class="n">expect</span><span class="p">]</span> <span class="nl">andReturn</span><span class="p">:</span><span class="n">mockWindow</span><span class="p">]</span> <span class="n">window</span><span class="p">];</span>
+    <span class="n">NSUInteger</span> <span class="n">preRetainCount</span> <span class="o">=</span> <span class="p">[</span><span class="n">mockWindowController</span> <span class="n">retainCount</span><span class="p">];</span>
+
+    <span class="p">[</span><span class="n">appDelegate</span> <span class="nl">applicationDidFinishLaunching</span><span class="p">:</span><span class="nb">nil</span><span class="p">];</span>
+    
+    <span class="p">[</span><span class="n">mockWindowController</span> <span class="n">verify</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">mockWindow</span> <span class="n">verify</span><span class="p">];</span>
+    
+    <span class="n">NSUInteger</span> <span class="n">postRetainCount</span> <span class="o">=</span> <span class="p">[</span><span class="n">mockWindowController</span> <span class="n">retainCount</span><span class="p">];</span>
+    <span class="n">STAssertEquals</span><span class="p">(</span><span class="n">postRetainCount</span><span class="p">,</span> <span class="n">preRetainCount</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="s">@&#34;Window controller not retained&#34;</span><span class="p">);</span>
+
+    <span class="kt">id</span> <span class="n">windowController</span><span class="p">;</span>
+    <span class="n">object_getInstanceVariable</span><span class="p">(</span><span class="n">appDelegate</span><span class="p">,</span> <span class="sa"></span><span class="s">&#34;windowController&#34;</span><span class="p">,</span> <span class="p">(</span><span class="kt">void</span> <span class="o">**</span><span class="p">)</span><span class="o">&amp;</span><span class="n">windowController</span><span class="p">);</span>
+    <span class="n">STAssertEqualObjects</span><span class="p">(</span><span class="n">windowController</span><span class="p">,</span> <span class="n">mockWindowController</span><span class="p">,</span>
+        <span class="s">@&#34;windowController not set on appDelegate&#34;</span><span class="p">);</span>
+
+    <span class="n">object_setInstanceVariable</span><span class="p">(</span><span class="n">appDelegate</span><span class="p">,</span> <span class="sa"></span><span class="s">&#34;windowController&#34;</span><span class="p">,</span> <span class="nb">nil</span><span class="p">);</span>
+    <span class="n">mockWindowController</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This test is a near perfectly decoupled unit test of the <code>-[WhereIsMyMacAppDelegate applicationDidFinishLaunching:]</code> method. However, the approaches used to decouple it from the rest of the program probably make it tricky to understand.</p>
+
+<p>The first two lines create a clean <code>WhereIsMyMacAppDelegate</code> to test.</p>
+
+<p>The second two lines create a mock <code>NSWindow</code> that we use to check that the window is brought to the front by <code>makeKeyAndOrderFront:</code>. In conjunction with the later <code>[mockWindow verify]</code> this will test the 3rd requirement in the list above.</p>
+
+<p>The next three lines create a <code>WhereIsMyMacWindowController</code> that will be swapped in place of any <code>WhereIsMyMacWindowController</code> that the <code>appDelegate</code> tries to create (more on how this works in the next paragraph). The <code>mockWindowController</code> is told to expect <code>window</code> to be invoked and when it does, will return the <code>mockWindow</code>. In conjunction with the <code>[mockWindowController verify]</code>, the retain count checks and the <code>STAssertEqualObjects</code> will verify the first two requirements in the list.</p>
+
+<p>I mentioned that <code>mockWindowController</code> will be substituted in place of a real <code>WhereIsMyMacWindowController</code> any time the <code>appDelegate</code> tries to create a <code>WhereIsMyMacWindowController</code>. This works because <code>mockWindowController</code> is a global variable that affects the following category:</p> 
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">id</span> <span class="n">mockWindowController</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
+
+<span class="k">@implementation</span> <span class="nc">WhereIsMyMacWindowController</span> <span class="nl">(WhereIsMyMacAppDelegateTests)</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nf">init</span>
+<span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">mockWindowController</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="nb">self</span> <span class="k">release</span><span class="p">];</span>
+        <span class="k">return</span> <span class="n">mockWindowController</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="k">return</span> <span class="n">invokeSupersequent</span><span class="p">();</span>
+<span class="p">}</span>
+
+<span class="k">@end</span></code></pre></div>
+
+<p>This category overrides the <code>-[WhereIsMyMacWindowController init]</code> method to return the <code>mockWindowController</code> if it exists, otherwise the default behavior. The <code>invokeSupersequent()</code> comes from my old <a href="../../2008/03/supersequent-implementation.html">Supersequent implementation</a> post (it's like invoking the <code>super</code> method but will invoke the current class' base or earlier category implementation, not just a genuine <code>super</code> method and is more flexible &mdash; though slower &mdash; than method swizzling).</p>
+
+<p>Of course, we only want this override to return the mock object at specific times. This is why the <code>mockWindowController</code> must be explicitly set back to <code>nil</code> at the end of the method.</p>
+
+<blockquote><strong>Notice that the category overrides init, not alloc:</strong> technically, overriding <code>alloc</code> would prevent any method being invoked on <code>WhereIsMyMacWindowController</code> (making the test perfectly decoupled from other classes) however this would mean that we'd need to invoke <code>init</code> on the mock object and <code>OCClassMockObject</code> does not let you mock any methods that it implements for itself (this includes all of the <code>NSProxy</code> methods plus <code>initWithClass:</code> and <code>mockedClass</code>). So instead, we override <code>init</code> and make the acceptable tradeoff to allow <code>+[WhereIsMyMacWindowController alloc]</code> to be invoked.<br/><br/>A related point is that <code>OCClassMockObject</code> can't mock <code>retain</code> or <code>release</code>. This is why manual checks on the <code>retainCount</code> are used instead of asking the mock object to expect a <code>retain</code>. If you expect <code>autorelease</code> to be used instead of <code>release</code>, you'd need to wrap the tested method invocation in an <code>NSAutoreleasePool</code> to flush the <code>autorelease</code> before testing the <code>retainCount</code>.</blockquote>
+
+<p>A final point about this test: it uses <code>object_getInstanceVariable</code> and <code>object_setInstanceVariable</code> to get the <code>windowController</code> from the <code>appDelegate</code> instead of the property accessor. The reason for this is that <code>object_getInstanceVariable</code> directly reads the value from the object without invoking any accessor methods that might have secondary effects. Some code presented elsewhere uses <code>valueForKey:</code> to achieve the same effect but the problem with this is that <code>valueForKey:</code> will use the <code>window</code> getter method if it exists &mdash; we want to directly test that the actual instance variable is set on the class without interference.</p>
+
+<h3>applicationWillTerminate:</h3>
+
+<p>The final tests for the <code>WhereIsMyMacAppDelegate</code> are for the <code>applicationWillTerminate:</code> method. This method should close window and release it.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">testApplicationWillTerminate</span>
+<span class="p">{</span>
+    <span class="n">WhereIsMyMacAppDelegate</span> <span class="o">*</span><span class="n">appDelegate</span> <span class="o">=</span>
+        <span class="p">[[[</span><span class="n">WhereIsMyMacAppDelegate</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span>
+    
+    <span class="kt">id</span> <span class="n">mockWindowController</span> <span class="o">=</span> <span class="p">[</span><span class="n">OCMockObject</span> <span class="nl">mockForClass</span><span class="p">:[</span><span class="n">WhereIsMyMacWindowController</span> <span class="k">class</span><span class="p">]];</span>
+    <span class="p">[</span><span class="n">mockWindowController</span> <span class="k">retain</span><span class="p">];</span>
+    <span class="n">object_setInstanceVariable</span><span class="p">(</span><span class="n">appDelegate</span><span class="p">,</span> <span class="sa"></span><span class="s">&#34;windowController&#34;</span><span class="p">,</span> <span class="n">mockWindowController</span><span class="p">);</span>
+    
+    <span class="n">NSUInteger</span> <span class="n">preRetainCount</span> <span class="o">=</span> <span class="p">[</span><span class="n">mockWindowController</span> <span class="n">retainCount</span><span class="p">];</span>
+    <span class="p">[[</span><span class="n">mockWindowController</span> <span class="n">expect</span><span class="p">]</span> <span class="n">close</span><span class="p">];</span>
+
+    <span class="p">[</span><span class="n">appDelegate</span> <span class="nl">applicationWillTerminate</span><span class="p">:</span><span class="nb">nil</span><span class="p">];</span>
+    
+    <span class="p">[</span><span class="n">mockWindowController</span> <span class="n">verify</span><span class="p">];</span>
+
+    <span class="n">NSUInteger</span> <span class="n">postRetainCount</span> <span class="o">=</span> <span class="p">[</span><span class="n">mockWindowController</span> <span class="n">retainCount</span><span class="p">];</span>
+    <span class="n">STAssertEquals</span><span class="p">(</span><span class="n">postRetainCount</span><span class="p">,</span> <span class="n">preRetainCount</span><span class="p">,</span> <span class="s">@&#34;Window controller not released&#34;</span><span class="p">);</span>
+
+    <span class="kt">id</span> <span class="n">windowController</span><span class="p">;</span>
+    <span class="n">object_getInstanceVariable</span><span class="p">(</span><span class="n">appDelegate</span><span class="p">,</span> <span class="sa"></span><span class="s">&#34;windowController&#34;</span><span class="p">,</span> <span class="p">(</span><span class="kt">void</span> <span class="o">**</span><span class="p">)</span><span class="o">&amp;</span><span class="n">windowController</span><span class="p">);</span>
+    <span class="n">STAssertNil</span><span class="p">(</span><span class="n">windowController</span><span class="p">,</span> <span class="s">@&#34;Window controller property not set to nil&#34;</span><span class="p">);</span>
+<span class="p">}</span></code></pre></div>
+
+<p>After creating an <code>appDelegate</code> to test, this method creates a mock <code>WhereIsMyMacWindowController</code>, tells it to expect a <code>close</code> invocation, sets it as the <code>windowController</code> on the <code>appDelegate</code> to this new mock object, invokes <code>applicationWillTerminate:</code> on the <code>appDelegate</code>, verifies that the <code>close</code> method was invoked, ensures that the <code>retainCount</code> is decremented by one and that the <code>windowController</code> instance variable is set to <code>nil</code>.</p>
+
+<p>That's three failing tests. One is more of an integration test than a unit test (since it relies on the <code>NSApplcation</code> operating in place) but the others are genuine isolated unit tests on the <code>WhereIsMyMacAppDelegate</code>. The implementation to pass these tests is less interesting but you can have a look at the sample project to see how I added code to pass these tests.</p>
+
+<h2>Window Controller Tests</h2>
+
+<h3>loadWindow integration</h3>
+
+<p>As with the application delegate, the first test is an integration test. We need to test that the <code>loadWindow</code> method will load the required user interface elements from files in the bundle. This is similar to <a href="http://chanson.livejournal.com/148204.html">Chris Hanson's "Trust by verify" approach</a> except that I test the loading of the window separately from the <code>windowDidLoad</code> and <code>window</code> methods.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">testLoadWindow</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="n">windowController</span> <span class="n">loadWindow</span><span class="p">];</span>
+
+    <span class="n">WebView</span> <span class="o">*</span><span class="n">webView</span><span class="p">;</span>
+    <span class="n">object_getInstanceVariable</span><span class="p">(</span><span class="n">windowController</span><span class="p">,</span> <span class="sa"></span><span class="s">&#34;webView&#34;</span><span class="p">,</span> <span class="p">(</span><span class="kt">void</span> <span class="o">**</span><span class="p">)</span><span class="o">&amp;</span><span class="n">webView</span><span class="p">);</span>
+    <span class="n">CLLocationManager</span> <span class="o">*</span><span class="n">locationManager</span><span class="p">;</span>
+    <span class="n">object_getInstanceVariable</span><span class="p">(</span><span class="n">windowController</span><span class="p">,</span> <span class="sa"></span><span class="s">&#34;locationManager&#34;</span><span class="p">,</span> <span class="p">(</span><span class="kt">void</span> <span class="o">**</span><span class="p">)</span><span class="o">&amp;</span><span class="n">locationManager</span><span class="p">);</span>
+    <span class="n">NSTextField</span> <span class="o">*</span><span class="n">locationLabel</span><span class="p">;</span>
+    <span class="n">object_getInstanceVariable</span><span class="p">(</span><span class="n">windowController</span><span class="p">,</span> <span class="sa"></span><span class="s">&#34;locationLabel&#34;</span><span class="p">,</span> <span class="p">(</span><span class="kt">void</span> <span class="o">**</span><span class="p">)</span><span class="o">&amp;</span><span class="n">locationLabel</span><span class="p">);</span>
+    <span class="n">NSTextField</span> <span class="o">*</span><span class="n">accuracyLabel</span><span class="p">;</span>
+    <span class="n">object_getInstanceVariable</span><span class="p">(</span><span class="n">windowController</span><span class="p">,</span> <span class="sa"></span><span class="s">&#34;accuracyLabel&#34;</span><span class="p">,</span> <span class="p">(</span><span class="kt">void</span> <span class="o">**</span><span class="p">)</span><span class="o">&amp;</span><span class="n">accuracyLabel</span><span class="p">);</span>
+    <span class="n">NSButton</span> <span class="o">*</span><span class="n">openInBrowserButton</span><span class="p">;</span>
+    <span class="n">object_getInstanceVariable</span><span class="p">(</span><span class="n">windowController</span><span class="p">,</span> <span class="sa"></span><span class="s">&#34;openInBrowserButton&#34;</span><span class="p">,</span> <span class="p">(</span><span class="kt">void</span> <span class="o">**</span><span class="p">)</span><span class="o">&amp;</span><span class="n">openInBrowserButton</span><span class="p">);</span>
+    
+    <span class="n">STAssertTrue</span><span class="p">([</span><span class="n">windowController</span> <span class="n">isWindowLoaded</span><span class="p">],</span> <span class="s">@&#34;Window failed to load&#34;</span><span class="p">);</span>
+    <span class="n">STAssertNotNil</span><span class="p">(</span><span class="n">webView</span><span class="p">,</span> <span class="s">@&#34;webView ivar not set on load&#34;</span><span class="p">);</span>
+    <span class="n">STAssertNotNil</span><span class="p">(</span><span class="n">locationLabel</span><span class="p">,</span> <span class="s">@&#34;locationLabel ivar not set on load&#34;</span><span class="p">);</span>
+    <span class="n">STAssertNotNil</span><span class="p">(</span><span class="n">accuracyLabel</span><span class="p">,</span> <span class="s">@&#34;accuracyLabel ivar not set on load&#34;</span><span class="p">);</span>
+    <span class="n">STAssertNotNil</span><span class="p">(</span><span class="n">openInBrowserButton</span><span class="p">,</span> <span class="s">@&#34;openInBrowserButton ivar not set on load&#34;</span><span class="p">);</span>
+    <span class="n">STAssertEqualObjects</span><span class="p">(</span><span class="n">windowController</span><span class="p">,</span> <span class="p">[</span><span class="n">openInBrowserButton</span> <span class="n">target</span><span class="p">],</span>
+        <span class="s">@&#34;openInBrowserButton button doesn&#39;t target window controller&#34;</span><span class="p">);</span>
+    <span class="n">STAssertTrue</span><span class="p">([</span><span class="n">openInBrowserButton</span> <span class="n">action</span><span class="p">]</span> <span class="o">==</span> <span class="k">@selector</span><span class="p">(</span><span class="nl">openInDefaultBrowser</span><span class="p">:),</span>
+        <span class="s">@&#34;openInBrowserButton button doesn&#39;t invoke openInDefaultBrowser:&#34;</span><span class="p">);</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The <code>windowController</code> is a fixture that's allocated in the <code>setUp</code> method. The majority of this method then gets the instance variables from the <code>windowController</code> after the <code>loadWindow</code> method is invoked and tests that the required properties are all set.</p>
+
+<p>We can now test the <code>windowDidLoad</code> method as a separate step to the <code>loadWindow</code>. The <code>windowDidLoad</code> should create a <code>CLLocationManager</code> object, set the window controller as the <code>delegate</code> and start location updates.</p>
+
+<h3>windowDidLoad</h3>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">testWindowDidLoad</span>
+<span class="p">{</span>
+    <span class="n">mockLocationManager</span> <span class="o">=</span> <span class="p">[</span><span class="n">OCMockObject</span> <span class="nl">mockForClass</span><span class="p">:[</span><span class="n">CLLocationManager</span> <span class="k">class</span><span class="p">]];</span>
+    <span class="p">[[</span><span class="n">mockLocationManager</span> <span class="n">expect</span><span class="p">]</span> <span class="nl">setDelegate</span><span class="p">:</span><span class="n">windowController</span><span class="p">];</span>
+    <span class="p">[[</span><span class="n">mockLocationManager</span> <span class="n">expect</span><span class="p">]</span> <span class="n">startUpdatingLocation</span><span class="p">];</span>
+
+    <span class="p">[</span><span class="n">windowController</span> <span class="n">windowDidLoad</span><span class="p">];</span>
+
+    <span class="p">[</span><span class="n">mockLocationManager</span> <span class="n">verify</span><span class="p">];</span>
+    
+    <span class="n">object_setInstanceVariable</span><span class="p">(</span><span class="n">windowController</span><span class="p">,</span> <span class="sa"></span><span class="s">&#34;locationManager&#34;</span><span class="p">,</span> <span class="nb">nil</span><span class="p">);</span>
+    <span class="n">mockLocationManager</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This uses the same category override approach that was used in the <code>testApplicationDidFinishLaunching</code> method to swap in a mock <code>CLLocationManager</code> and ensure that the appropriate methods are invoked.</p>
+
+<h3>locationManager:didUpdateToLocation:fromLocation:</h3>
+
+<p>Next step: verify that the correct Google Maps location is loaded in the <code>WebView</code>'s <code>mainFrame</code> when a given coordinate is passed to the <code>WhereIsMyMacWindowController</code> implementation of the <code>-[CLLocationManagerDelegate locationManager:didUpdateToLocation:fromLocation:]</code> method.</p>
+
+<p>This test method is pretty big but the essence is that:</p>
+
+<ul><li>The web view and its main frame are mocked.</li>
+<li>The main frame is told to expect specific a specific HTML string that's loaded from a pre-created file.</li>
+<li>The method is then passed the exact location that should trigger that HTML string.</li>
+<li>The mock web frame is then asked to verify that the expected HTML string was loaded.</li>
+<li>The window's labels are also tested to ensure they receive the correct values.</ul>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">testUpdateToLocation</span>
+<span class="p">{</span>
+    <span class="n">NSString</span> <span class="o">*</span><span class="n">htmlString</span> <span class="o">=</span>
+        <span class="p">[</span><span class="n">NSString</span> 
+            <span class="nl">stringWithContentsOfFile</span><span class="p">:</span>
+                <span class="p">[[</span><span class="n">NSBundle</span> <span class="nl">bundleWithIdentifier</span><span class="p">:</span><span class="s">@&#34;com.yourcompany.UnitTests&#34;</span><span class="p">]</span>
+                    <span class="nl">pathForResource</span><span class="p">:</span><span class="s">@&#34;WebPageTestContent&#34;</span> <span class="nl">ofType</span><span class="p">:</span><span class="s">@&#34;html&#34;</span><span class="p">]</span>
+            <span class="nl">encoding</span><span class="p">:</span><span class="n">NSUTF8StringEncoding</span>
+            <span class="nl">error</span><span class="p">:</span><span class="nb">NULL</span><span class="p">];</span>
+    <span class="kt">id</span> <span class="n">mockWebView</span> <span class="o">=</span> <span class="p">[</span><span class="n">OCMockObject</span> <span class="nl">mockForClass</span><span class="p">:[</span><span class="n">WebView</span> <span class="k">class</span><span class="p">]];</span>
+    <span class="kt">id</span> <span class="n">mockWebFrame</span> <span class="o">=</span> <span class="p">[</span><span class="n">OCMockObject</span> <span class="nl">mockForClass</span><span class="p">:[</span><span class="n">WebFrame</span> <span class="k">class</span><span class="p">]];</span>
+    <span class="p">[[[</span><span class="n">mockWebView</span> <span class="n">stub</span><span class="p">]</span> <span class="nl">andReturn</span><span class="p">:</span><span class="n">mockWebFrame</span><span class="p">]</span> <span class="n">mainFrame</span><span class="p">];</span>
+    <span class="p">[[</span><span class="n">mockWebFrame</span> <span class="n">expect</span><span class="p">]</span>
+        <span class="nl">loadHTMLString</span><span class="p">:</span><span class="n">htmlString</span>
+        <span class="nl">baseURL</span><span class="p">:</span><span class="nb">nil</span><span class="p">];</span>
+    <span class="n">object_setInstanceVariable</span><span class="p">(</span><span class="n">windowController</span><span class="p">,</span> <span class="sa"></span><span class="s">&#34;webView&#34;</span><span class="p">,</span> <span class="n">mockWebView</span><span class="p">);</span>
+
+    <span class="n">NSTextField</span> <span class="o">*</span><span class="n">locationLabel</span> <span class="o">=</span> <span class="p">[[[</span><span class="n">NSTextField</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span>
+    <span class="n">NSTextField</span> <span class="o">*</span><span class="n">accuracyLabel</span> <span class="o">=</span> <span class="p">[[[</span><span class="n">NSTextField</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span>
+    <span class="n">object_setInstanceVariable</span><span class="p">(</span><span class="n">windowController</span><span class="p">,</span> <span class="sa"></span><span class="s">&#34;locationLabel&#34;</span><span class="p">,</span> <span class="n">locationLabel</span><span class="p">);</span>
+    <span class="n">object_setInstanceVariable</span><span class="p">(</span><span class="n">windowController</span><span class="p">,</span> <span class="sa"></span><span class="s">&#34;accuracyLabel&#34;</span><span class="p">,</span> <span class="n">accuracyLabel</span><span class="p">);</span>
+
+    <span class="n">CLLocationCoordinate2D</span> <span class="n">coord</span><span class="p">;</span>
+    <span class="n">coord</span><span class="p">.</span><span class="n">longitude</span> <span class="o">=</span> <span class="mf">144.96326388</span><span class="p">;</span>
+    <span class="n">coord</span><span class="p">.</span><span class="n">latitude</span> <span class="o">=</span> <span class="o">-</span><span class="mf">37.80996889</span><span class="p">;</span>
+    <span class="n">CLLocation</span> <span class="o">*</span><span class="n">location</span> <span class="o">=</span>
+        <span class="p">[[[</span><span class="n">CLLocation</span> <span class="n">alloc</span><span class="p">]</span>
+            <span class="nl">initWithCoordinate</span><span class="p">:</span><span class="n">coord</span>
+            <span class="nl">altitude</span><span class="p">:</span><span class="mi">0</span>
+            <span class="nl">horizontalAccuracy</span><span class="p">:</span><span class="n">kCLLocationAccuracyBest</span>
+            <span class="nl">verticalAccuracy</span><span class="p">:</span><span class="n">kCLLocationAccuracyHundredMeters</span>
+            <span class="nl">timestamp</span><span class="p">:[</span><span class="n">NSDate</span> <span class="n">date</span><span class="p">]]</span>
+        <span class="n">autorelease</span><span class="p">];</span>
+    
+    <span class="p">[</span><span class="n">windowController</span>
+        <span class="nl">locationManager</span><span class="p">:</span><span class="nb">nil</span>
+        <span class="nl">didUpdateToLocation</span><span class="p">:</span><span class="n">location</span>
+        <span class="nl">fromLocation</span><span class="p">:</span><span class="nb">nil</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">windowController</span>
+        <span class="nl">locationManager</span><span class="p">:</span><span class="nb">nil</span>
+        <span class="nl">didUpdateToLocation</span><span class="p">:</span><span class="n">location</span>
+        <span class="nl">fromLocation</span><span class="p">:</span><span class="n">location</span><span class="p">];</span>
+    
+    <span class="p">[</span><span class="n">mockWebFrame</span> <span class="n">verify</span><span class="p">];</span>
+    
+    <span class="n">STAssertEqualObjects</span><span class="p">(</span>
+        <span class="p">([</span><span class="n">locationLabel</span> <span class="n">stringValue</span><span class="p">]),</span>
+        <span class="p">([</span><span class="n">NSString</span> <span class="nl">stringWithFormat</span><span class="p">:</span><span class="s">@&#34;%f, %f&#34;</span><span class="p">,</span> <span class="n">coord</span><span class="p">.</span><span class="n">latitude</span><span class="p">,</span> <span class="n">coord</span><span class="p">.</span><span class="n">longitude</span><span class="p">]),</span>
+        <span class="s">@&#34;Location label not set.&#34;</span><span class="p">);</span>
+    <span class="n">STAssertEqualObjects</span><span class="p">(</span>
+        <span class="p">([</span><span class="n">accuracyLabel</span> <span class="n">stringValue</span><span class="p">]),</span>
+        <span class="p">([</span><span class="n">NSString</span> <span class="nl">stringWithFormat</span><span class="p">:</span><span class="s">@&#34;%f&#34;</span><span class="p">,</span> <span class="n">kCLLocationAccuracyBest</span><span class="p">]),</span>
+        <span class="s">@&#34;Location label not set.&#34;</span><span class="p">);</span>
+<span class="p">}</span></code></pre></div>
+
+<p>An interesting point to notice here is that the <code>WebPageTestContent</code> file is loaded from a bundle that isn't the <code>mainBundle</code>. This is because the test resides in the <code>UnitTests.octest</code> bundle, not the application's bundle (which is the "main" bundle).</p>
+
+<h3>locationManager:didFailWithError: and openInDefaultBrowser:</h3>
+
+<p>I'll leave out the code for the <code>locationManager:didFailWithError:</code> test &mdash; it's largely the same as the previous test but with a different HTML string to load in the web view's main frame. You can see it in the downloaded project if you wish.</p>
+
+<p>Similarly, <code>openInDefaultBrowser:</code> is just a URL, generated from the current location and sent to the shared <code>NSWorkspace</code> (which we mock through category overrides) so the test contains largely the same elements &mdash; so I'll omit the code for this test too. Again, check the downloaded project if you're interested.</p>
+
+<h3>dealloc:</h3>
+
+<p>All that remains is to create tests for the <code>dealloc</code> method to ensure that the <code>locationManager</code> receives a <code>stopUpdatingLocation</code> and a <code>release</code> message.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">testDealloc</span>
+<span class="p">{</span>
+    <span class="kt">id</span> <span class="n">mockLocationManager</span> <span class="o">=</span> <span class="p">[</span><span class="n">OCMockObject</span> <span class="nl">mockForClass</span><span class="p">:[</span><span class="n">CLLocationManager</span> <span class="k">class</span><span class="p">]];</span>
+    <span class="n">NSUInteger</span> <span class="n">preRetainCount</span> <span class="o">=</span> <span class="p">[</span><span class="n">mockLocationManager</span> <span class="n">retainCount</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">mockLocationManager</span> <span class="k">retain</span><span class="p">];</span>
+    <span class="n">object_setInstanceVariable</span><span class="p">(</span><span class="n">windowController</span><span class="p">,</span> <span class="sa"></span><span class="s">&#34;locationManager&#34;</span><span class="p">,</span> <span class="n">mockLocationManager</span><span class="p">);</span>
+    
+    <span class="p">[[</span><span class="n">mockLocationManager</span> <span class="n">expect</span><span class="p">]</span> <span class="n">stopUpdatingLocation</span><span class="p">];</span>
+
+    <span class="p">[</span><span class="n">windowController</span> <span class="n">dealloc</span><span class="p">];</span>
+    
+    <span class="p">[</span><span class="n">mockLocationManager</span> <span class="n">verify</span><span class="p">];</span>
+
+    <span class="n">NSUInteger</span> <span class="n">postRetainCount</span> <span class="o">=</span> <span class="p">[</span><span class="n">mockLocationManager</span> <span class="n">retainCount</span><span class="p">];</span>
+    <span class="n">STAssertEquals</span><span class="p">(</span><span class="n">postRetainCount</span><span class="p">,</span> <span class="n">preRetainCount</span><span class="p">,</span> <span class="s">@&#34;Location manager not released&#34;</span><span class="p">);</span>
+    
+    <span class="n">windowController</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Notice that we have to set <code>windowController</code> to <code>nil</code> at the end. This is because invoking <code>dealloc</code> on the <code>windowController</code> fixture has deallocated it and we need to ensure that the <code>tearDown</code> method doesn't try to invoke <code>release</code> on it.</p>
+
+<p>Six failing tests for the <code>WhereIsMyMacWindowController</code>. You can look at the downloadable project to see the code added to pass these tests.</p>
+
+<h2>Conclusion</h2>
+
+<blockquote>Download the complete <a href="../../assets/objc-era/WhereIsMyMac-WithUnitTests.zip">WhereIsMyMac-WithUnitTests.zip</a> (139kb).<br/><br/>
+
+<strong>Warning:</strong> Custom executables (like the <em>UnitTestWhereIsMyMac</em> discussed in this post) are part of user data in the project file. If you make changes that you want to share with someone else, you will need to rename the <em>(your username).pbxuser</em> file in the .xcodeproj bundle to <em>default.pbxuser</em> (so that it applies to all users).<br/><br/>
+
+This project includes <a href="http://www.mulle-kybernetik.com/software/OCMock/">OCMock.framework</a>, which is Copyright (c) 2004-2009 by Mulle Kybernetik. OCMock is covered by its own license (contained in the <em>OCMock.framework/Versions/A/Resources/License.txt</em> file).</blockquote>
+
+<p>In this post, I created a Mac project, created unit tests for all required functionality (plus two integration tests) and ultimately added code to make the project pass those tests. I've shown the configuration required for unit testing targets in Xcode and the implementation of the tests themselves, which show how to isolate units of a program (using mock objects and category overrides) for properly decoupled unit testing.</p>
+
+<p>Unit tests for all created code does not mean that the project is "fully tested". There are lots of aspects associated with integration, runtime and memory behaviors, user events and the behaviors of the Cocoa frameworks that are not covered by these tests. Of course, this is the limit of "unit testing" for classes that operate in an application framework &mdash; to test these other aspects requires different kinds of tests.</p>
+
+<p>Next week, I'll be presenting the same post developed for the iPhone. I apologize that this will result in two posts that almost the same but there are enough differences between the two that I couldn't squeeze both into a reasonable sized post. I also hope that by separating the posts, the result will be easier for dedicated Mac or iPhone programmers to follow.</p>
+
+<p>Finally, a disclaimer: please don't consider the existence of this post as a recommendation that you should necessarily write your applications with full unit tests. It is important to look at the work involved and weigh the associated time costs and against your project's need for unit level validation. There are alternative approaches for maintaining code quality that have different associated costs and benefits which I hope to discuss and compare in a later post.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="multiple-copy-buffers-cursor-and-tab.html">Multiple copy buffers, cursor and tab key tricks in Xcode</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="sample-iphone-application-with-complete.html">A sample iPhone application with complete unit tests</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

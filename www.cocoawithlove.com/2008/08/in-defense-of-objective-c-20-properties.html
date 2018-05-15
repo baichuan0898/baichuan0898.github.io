@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>In defense of Objective-C 2.0 Properties</title>
+  <meta name="description" content="Of all the new features in Objective-C 2.0, none were as controversial as declared properties. Judging from the attacks, much of the controversy stems from a misunderstanding about the role that properties occupy in a class. In this post, I&#39;ll explain why properties are useful in Objective-C &amp;mdash; and it isn&#39;t auto-generated getters and setters or the dot syntax." />
+
+  <meta name="twitter:title" content="In defense of Objective-C 2.0 Properties"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2008/08/in-defense-of-objective-c-20-properties.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Of all the new features in Objective-C 2.0, none were as controversial as declared properties. Judging from the attacks, much of the controversy stems from a misunderstanding about the role that properties occupy in a class. In this post, I&#39;ll explain why properties are useful in Objective-C &amp;mdash; and it isn&#39;t auto-generated getters and setters or the dot syntax."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="in-defense-of-objective-c-20-properties.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="118px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">In defense of Objective-C 2.0 Properties</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2008-08-16">August 16, 2008</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/objective-c.html">Objective-C</a>, <a href="../../categories/object-oriented-design.html">object-oriented design</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>Of all the new features in Objective-C 2.0, none were as controversial as declared properties. Judging from the attacks, much of the controversy stems from a misunderstanding about the role that properties occupy in a class. In this post, I'll explain why properties are useful in Objective-C &mdash; and it isn't auto-generated getters and setters or the dot syntax.</p></span>
+
+<span class="fullpost">
+
+<h2>Confusion, controversy and hate</h2>
+
+<p>My esteemed colleagues in the world of Objective-C blogging are not universally friendly towards Objective-C 2.0's Properties. In case you've missed the vitriol, let me draw your attention to:</p>
+
+<ul>
+<li><a href="http://www.cimgf.com/2008/07/08/a-case-against-dot-syntax/">Cocoa Is My Girlfriend &mdash; A case against dot syntax</a><br/>
+<em>"It is purely syntactic sugar and adds nothing to the language. However, there are so many cons that I cannot suggest that anyone use it in any situation."</em></li>
+
+<li><a href="http://www.stuffonfire.com/2006/12/08/does-objective-c-really-need-properties/">Stuff on fire &mdash; Does Objective-C Really Need Properties?</a><br/>
+<em>"No, synthesized accessors and setters are cool, properties are not. The property syntax sucks rocks, and even the concept sucks rocks. What is it? Is it an ivar? A proxy for another object’s ivar (because it could be)? Is it the return value of a method? Because if it is, why are we doing object.property instead of [object property]?"</em></li>
+
+<li><a href="http://www.cocoadev.com/index.pl?AreObjectiveCTwoPropertiesUgly">Cocoadev &mdash; Are Objective-C 2.0 Properties Ugly?</a><br/>
+<em>"I do find the new Objective-C 2 @property implementation to be ugly and confusing. I think it makes a mess of a fine, simple and elegant language."</em></li>
+
+<li><a href="http://bitquabit.com/2006/08/objective-c-20-the-bad-the-horrible-and-the-ugly/">Bitquabit &mdash; Objective-C 2.0: the Bad, the Horrible, and the Ugly</a><br/>
+<em>"Objective-C 2.0 also adds properties. This has me fundamentally irked."<br/>
+"This is another example of Objective-C now modifying C syntax, only this modification is not simply inconsistent; it's deadly."</em></li></ul>
+
+<p>I love a good drama. And next season, I hear that the show's writers are really going to knock it up another notch.</p>
+
+<h2>Not the purpose</h2>
+
+<p>The syntax used for accessing properties is the direct target of most hatred. Detractors claim that the syntax is a pointless, foreign addition and that existing method syntax could be used instead. I think such complainants misunderstand the purpose of properties which leads to misunderstanding the purpose of the dot syntax.</p> 
+
+<p>So let's start by clarifying the purpose of properties. Let me state very clearly:</p>
+
+<ol>
+<li>The purpose of properties is <em>not</em> to provide auto-generated getter and setter methods.</li>
+<li>The purpose of properties is <em>not</em> to replace method syntax with dot syntax.</li>
+<li>The purpose of properties is <em>not</em> to make attributes public in a different way.</li>
+</ol>
+
+<p>Obviously, these things can occur through properties but if they do, then they are an artefact or convenience offered by the implementation while working towards the real purpose.</p>
+
+<p>As support for these statements, let me point out:</p>
+
+<ol><li>Auto-generated methods are a convenience permitted because properties clearly declare how they are accessed. But they are a convenience, not a rationale. Many properties do not use the @synthesize feature.</li>
+<li>Properties and methods are distinct concepts and should never be used with the other's syntax. Syntax interchange is possible as an artefact of Objective-C's implementation of properties, not an invitation to exploit confusion.</li>
+<li>Properties do not require an ivar of the same name. They may use a different ivar or store the data in a completely different form. Properties and attributes are not directly related.</li></ol>
+
+<h2>The purpose</h2>
+
+<blockquote><strong>Properties</strong><br/>A clean, abstracted way to expose state values of an object.<br/>&nbsp;<br/>Properties are one of two metaphors exposed by an object, the other being Methods (which are "a clean, abstracted way to perform an action").</blockquote>
+
+<p>Attributes (ivars) do not occupt the same role as properties (even when public) because they are not abstracted. You cannot override an attribute. You cannot change how an attribute is stored and maintain interface compatibility.</p>
+
+<p>Methods can perform the same work as a property (to fetch state or to set state) but they do so by contract not by design.</p>
+
+<p>Prior to the introduction of properties, methods were required to perform the work of a property. To enable this, documentation had to explain that the method existed to access state, not perform an action. The same documentation also became  filled with getter methods referring to their corresponding setter methods. Setter methods pointing out the appropriate getter methods.</p>
+
+<p>Prior to properties, get and set access to state-like values existed but only because code in multiple places was loosely coupled to present a concept unsupported by the underlying language. Properties declare the existence of state values clearly and eliminate the separation between getter and setter methods.</p>
+
+<h2>New syntax is foreign but it needs to be new</h2>
+
+<p>The key complaint about the dot syntax is that the syntax looks foreign compared to Objective-C's message send syntax. Why use a new syntax at all? Why not simply invoke the underlying getter or setter methods directly?</p>
+
+<p>Because properties are a different metaphor and imply different behavior and expectations than a method invocation.</p>
+
+<p>Also, dot syntax allows the same syntax to be used for both get and set, keeping these two concepts properly tied together. Further, it keeps state access separate from performing actions.</p>
+
+<p>That getter and setter methods are used to implement a property should be viewed as an implementation detail, not really part of the interface. To maintain abstraction, you should never directly invoke the methods of a property.</p>
+
+<h2>Abstraction overload</h2>
+
+<p>It is true that properties represent a new abstraction concept in Objective-C and there are some people who view more abstractions as bad as they lead to <a href="http://en.wikipedia.org/wiki/Leaky_abstraction">leaky abstractions</a>. This is a fair complaint: don't use a new abstraction unless you are comfortable with it and you feel your code needs it. Do not use properties just because they are there.</p>
+
+<p>Use properties if you want to separate state and action, gaining the advantage of implicitly conveyed meanings.</p>
+
+<p>With respect to traditional accessor methods, properties imply "always accessible" (no special setup required). Properties imply "short and simple" (no complicated calculations). Reading from a property implies "nothing will change". Properties are independent of other each other in most cases.</p>
+
+<p>With an accessor method, as opposed to a property, there is the implication of "invoker beware" &mdash; more powerful but requiring greater understanding to ensure that the method will succeed.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="nsarray-or-nsset-nsdictionary-or.html">NSArray or NSSet, NSDictionary or NSMapTable</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="safely-fetching-nsmanagedobject-by-uri.html">Safely fetching an NSManagedObject by URI</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Reference counted releases in Swift</title>
+  <meta name="description" content="A discussion about reference counted lifetimes in Swift; how the lifetime of scope variables differs from C&#43;&#43; and Objective-C, how releases are reordered by the Swift compiler and the conventional use of &lt;code&gt;withExtendedLifetime&lt;/code&gt; versus my unconventional usage." />
+
+  <meta name="twitter:title" content="Reference counted releases in Swift"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/blog/resources-releases-reentrancy.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="A discussion about reference counted lifetimes in Swift; how the lifetime of scope variables differs from C&#43;&#43; and Objective-C, how releases are reordered by the Swift compiler and the conventional use of &lt;code&gt;withExtendedLifetime&lt;/code&gt; versus my unconventional usage."/>
+
+  <link rel="icon" href="../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../css/main.css" />
+  <link rel="canonical" href="resources-releases-reentrancy.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../index.html"><img class="heartandcup" src="../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../about/index.html">about</a>
+        <a class="page-link" href="../archive/index.html">archive</a>
+        <a class="page-link" href="../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Reference counted releases in Swift</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2016-12-27">December 27, 2016</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../tags/swift.html">swift</a>
+		 
+	</div>
+</header>
+
+
+<main role="main">
+	<article itemscope itemtype="http://schema.org/BlogPosting">
+		<div class="post-content" itemprop="articleBody">
+			
+
+<p>I <a href="cwlsignal.html">released</a> my <a href="https://github.com/mattgallagher/CwlSignal">CwlSignal project</a> a few weeks ago and since then, I&rsquo;ve received several questions about my unconventional use of Swift&rsquo;s <code>withExtendedLifetime</code> in that code.</p>
+
+<p>To explain the topic properly, I wanted to briefly look at <em>when</em> the Swift compiler chooses to release reference counted objects in Swift. It&rsquo;s a tricky topic since The Swift Programming Language is too high level to offer details and other documentation in the Swift repository is sometimes incomplete.</p>
+
+<p>Instead of documentation, I&rsquo;ve resorted to looking at the Swift compiler to try and understand exactly what optimizations the compiler applies to re-order release instructions. Based on the observed behavior, I&rsquo;ll talk about when you can expect your objects to be released, what you might need to do to keep them alive and how you can structure your code differently to help the compiler do its job.</p>
+
+<p>I&rsquo;ll eventually circle back to <code>withExtendedLifetime</code> and discuss its <em>intended</em> purpose before talking about why I use it in my code for an unconventional reason.</p>
+
+<nav id="TableOfContents"><span class="toc-heading">Contents</span>
+<ul>
+<li>
+<ul>
+<li><a href="#scope-lifetimes">Scope lifetimes</a></li>
+<li><a href="#lifetimes-shorter-than-the-whole-scope">Lifetimes shorter than the whole scope</a></li>
+<li><a href="#extending-an-arc-lifetime">Extending an ARC lifetime</a></li>
+<li><a href="#looking-at-releases-in-the-swift-compiler">Looking at releases in the Swift compiler</a></li>
+<li><a href="#uh-oh-a-bug-correction-surprising-behavior-in-swift-3-0-x">Uh-oh, a <del>bug</del> (correction: surprising behavior) in Swift 3.0.x</a></li>
+<li><a href="#update-details-from-some-swift-developers">Update: details from some Swift developers</a></li>
+<li><a href="#the-conventional-use-case-for-withextendedlifetime">The conventional use-case for <code>withExtendedLifetime</code></a></li>
+<li><a href="#unconventional-uses-of-withextendedlifetime">Unconventional uses of <code>withExtendedLifetime</code></a></li>
+<li><a href="#conclusion">Conclusion</a>
+<ul>
+<li><a href="#looking-forward">Looking forward&hellip;</a></li>
+</ul></li>
+</ul></li>
+</ul>
+</nav>
+
+<h2 id="scope-lifetimes">Scope lifetimes</h2>
+
+<p>In C++ and some other languages, it is guaranteed that all &ldquo;l-values&rdquo; (values assigned to a variable) will live as long as the scope that declares the variable. This behavior is the principle behind constructs like scoped locks in C++:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-cpp" data-lang="cpp"><span class="n">std</span><span class="o">::</span><span class="n">unique_lock</span><span class="o">&lt;</span><span class="n">std</span><span class="o">::</span><span class="n">mutex</span><span class="o">&gt;</span> <span class="n">lock</span><span class="p">(</span><span class="k">this</span><span class="o">-&gt;</span><span class="n">mutex</span><span class="p">);</span>
+<span class="n">doSomeInternalWork</span><span class="p">();</span></code></pre></div>
+
+<p>Since <code>lock</code> is guaranteed to live to the end of the scope, its destructor (which automatically unlocks the mutex) will not run until after the work function, protecting it under the mutex.</p>
+
+<p>If we were to write the same code in Swift, if might look like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">let</span> <span class="nv">lock</span> <span class="p">=</span> <span class="n">ScopedLock</span><span class="p">(</span><span class="kc">self</span><span class="p">.</span><span class="n">mutex</span><span class="p">)</span>
+<span class="kc">self</span><span class="p">.</span><span class="n">doSomeInternalWork</span><span class="p">()</span></code></pre></div>
+
+<p>the code would work but you probably shouldn&rsquo;t use this code structure in Swift.</p>
+
+<p>The reason you shouldn&rsquo;t use this approach is because Swift&rsquo;s automatic reference counting (ARC) doesn&rsquo;t guarantee that scope variables – like <code>lock</code> in this example – will stay alive for the whole scope. ARC guarantees that scope variables will stay alive until their last usage – but <code>lock</code> isn&rsquo;t actually used at <em>all</em>, it is merely assigned, so according to the loosest interpretation of ARC, <code>lock</code> could be released <em>immediately</em>.</p>
+
+<p>However, like I said, the Swift equivalent works in the current version of the Swift compiler. Is this just a coincidence? Will this change in future? What can we expect.</p>
+
+<p>Let&rsquo;s try to find out through exploring code examples.</p>
+
+<h2 id="lifetimes-shorter-than-the-whole-scope">Lifetimes shorter than the whole scope</h2>
+
+<p>To demonstrate a variable with a lifetime shorter than the whole scope due to Automatic Reference Counting, let&rsquo;s look at an Objective-C example:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">First</span> <span class="o">*</span><span class="n">f</span> <span class="o">=</span> <span class="p">[[</span><span class="n">First</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">];</span>
+<span class="n">consumesAnyObject</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+<span class="n">Second</span> <span class="o">*</span><span class="n">s</span> <span class="o">=</span> <span class="p">[[</span><span class="n">Second</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">];</span>
+<span class="n">consumesAnyObject</span><span class="p">(</span><span class="n">s</span><span class="p">)</span></code></pre></div>
+
+<p>The <code>consumesAnyObject</code> declares its parameter <code>ns_consumed</code> (equivalent to Swift&rsquo;s default behavior of passing parameters by ownership).</p>
+
+<p>The end result is that the lifetime of <code>f</code> ends at the first <code>consumesAnyObject</code> and it is deallocated immediately after this call – in the middle of the scope. This is what automatic reference counting can do – and why you shouldn&rsquo;t rely on its for something as scope lifetime dependent as the C++ style scoped lock.</p>
+
+<p>Does Swift behave this way? No, at least, not in the current 3.0.2 version. The equivalent code sees both <code>f</code> and <code>s</code> released in after the <em>second</em> <code>consumesAnyObject</code> call:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">let</span> <span class="nv">f</span> <span class="p">=</span> <span class="n">First</span><span class="p">();</span>
+<span class="n">consumesAnyObject</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+
+<span class="kd">let</span> <span class="nv">s</span> <span class="p">=</span> <span class="n">Second</span><span class="p">();</span>
+<span class="n">consumesAnyObject</span><span class="p">(</span><span class="n">s</span><span class="p">)</span></code></pre></div>
+
+<h2 id="extending-an-arc-lifetime">Extending an ARC lifetime</h2>
+
+<p>Let&rsquo;s imagine though that we had found a situation where the lifetime shorted. We can combat this with the Swift function call <code>withExtendedLifetime</code>. This lets us clearly state that we want the lifetime of an object to extend over a series of subsequent calls:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">let</span> <span class="nv">lock</span> <span class="p">=</span> <span class="n">ScopedLock</span><span class="p">(</span><span class="kc">self</span><span class="p">.</span><span class="n">mutex</span><span class="p">)</span>
+<span class="bp">withExtendedLifetime</span><span class="p">(</span><span class="n">lock</span><span class="p">)</span> <span class="p">{</span>
+   <span class="kc">self</span><span class="p">.</span><span class="n">doSomeInternalWork</span><span class="p">();</span>
+<span class="p">}</span></code></pre></div>
+
+<p>But given that I was unable to find an example in Swift where this was necessary, is <code>withExtendedLifetime</code> largely useless?</p>
+
+<p>Thus far, the information we have looked at appears contradictory.</p>
+
+<p>On the one hand:</p>
+
+<ul>
+<li>ARC guarantees lifetimes only to the last <em>usage</em></li>
+<li>Objective-C&rsquo;s ARC rules will let a lifetime end immediately after any &ldquo;consuming&rdquo; usage</li>
+<li>Swift contains <code>withExtendedLifetime</code>, apparently because there&rsquo;s a need to &ldquo;extend&rdquo; lifetimes</li>
+</ul>
+
+<p>On the other hand:</p>
+
+<ul>
+<li>there&rsquo;s no obvious situation where we need to extend lifetimes in Swift; all lifetimes appear to run until the end of the scope, both in Debug and Release builds.</li>
+</ul>
+
+<p>How does any of this make sense and what are the hard facts?</p>
+
+<p>Sadly, the documentation is of limited help. The <a href="https://developer.apple.com/library/content/documentation/Swift/Conceptual/Swift_Programming_Language/AutomaticReferenceCounting.html">Swift Programming Language</a> is far too high level on the topic to fully explain the rules underlying Swift&rsquo;s automatic reference counting. The <a href="https://github.com/apple/swift/blob/master/docs/ARCOptimization.rst">ARCOptimization.rst document</a> is filled with prominent, useful sounding section headers followed by &ldquo;TODO: Fill this in&rdquo; and does not discuss when a lifetime might be shortened. The Clang <a href="http://clang.llvm.org/docs/AutomaticReferenceCounting.html">Automatic Reference Counting</a> document is much bigger but as I&rsquo;ve already demonstrated, Swift appears to play by a slightly different set of rules.</p>
+
+<h2 id="looking-at-releases-in-the-swift-compiler">Looking at releases in the Swift compiler</h2>
+
+<p>Let&rsquo;s try to work out what&rsquo;s happening by looking at the Swift compiler.</p>
+
+<p>Releases in Swift are created by the &ldquo;SILGen&rdquo; (Swift intermediate language generator) code in Swift. SIL generation of any statement can emit releases for &ldquo;r-values&rdquo; (values used without being assigned to a variable) but releases for &ldquo;l-values&rdquo; that we&rsquo;ve been looking at for most of this article occur in <code>emitCleanups</code> invoked from <code>SILGenFunction::emitEpilogBB</code> for the containing &ldquo;basic block&rdquo; in the <a href="https://github.com/apple/swift/blob/master/lib/SILGen/SILGenEpilog.cpp">SILGenEpilog.cpp</a> file.</p>
+
+<p>So &ldquo;l-values&rdquo; are left to the block&rsquo;s epilogue and cleaned up in LIFO order. This would indicate Swift <em>does</em> behave like C++ and other scope lifetime languages.</p>
+
+<p>But that&rsquo;s not the whole story.</p>
+
+<p>If you&rsquo;re compiling with optimizations enabled (&ldquo;-O&rdquo;, e.g. Release builds) then eventually, the SIL Optimizer will apply the <code>SILTransform</code> from <code>createLateReleaseHoisting</code> over the code, as defined in <a href="https://github.com/apple/swift/blob/master/lib/SILOptimizer/Transforms/ARCCodeMotion.cpp">ARCCodeMotion.cpp</a>. This looks through releases – including those in the epilog – and moves them to the earliest possible point in the function.</p>
+
+<p>So &ldquo;l-values&rdquo; are released as soon as possible, conceiveably moving to an earlier point in the function.</p>
+
+<p>Once again though, that&rsquo;s not the whole story. We need to define &ldquo;as soon as possible&rdquo;. It turns out that releases are only moved ahead of instructions that do not &ldquo;block&rdquo; them. What blocks the move of a release? Almost everything.</p>
+
+<p>Looking at <code>mayHaveSymmetricInterference</code> in <a href="https://github.com/apple/swift/blob/master/lib/SILOptimizer/Analysis/ARCAnalysis.cpp">ARCAnalysis.cpp</a>, a release cannot be moved forward over:</p>
+
+<ol>
+<li>memory accesses to the object&rsquo;s address</li>
+<li>memory accesses to anything in a memory graph connected to object</li>
+<li>memory accesses to any address accessed in the object&rsquo;s <code>deinit</code> function</li>
+<li>memory accesses to anything in a memory graph connected to any address accessed in the object&rsquo;s <code>deinit</code> function</li>
+<li>any function whose interactions with object, its memory graph or <code>deinit</code> function cannot be absolutely determined</li>
+</ol>
+
+<p>That last point is the biggest; outside of basic instructions there is usually some aspect of a function that can&rsquo;t be absolutely determined.</p>
+
+<p>These requirements significantly limit the ability of <code>ARCCodeMotion</code> to do <em>anything</em>. In an overwhelming number of cases, epilog releases won&rsquo;t move at all. However, you can see why these restrictions are in-place: the optimizer should not be changing the order of &ldquo;release&rdquo; instructions if that change has any observable effect.</p>
+
+<h2 id="uh-oh-a-bug-correction-surprising-behavior-in-swift-3-0-x">Uh-oh, a <del>bug</del> (correction: surprising behavior) in Swift 3.0.x</h2>
+
+<blockquote>
+<p><strong>Update</strong>: according to responses from some Swift developers, the behavior in this section, surprising though it may be, is not considered a bug. See the next section for a discussion.</p>
+</blockquote>
+
+<p>Thus far, I&rsquo;ve been looking at the code in the Swift repository&rsquo;s <em>master</em> branch. The current version of Xcode, 8.2.1, bundles Swift 3.0.2. Unfortunately, the release optimization code used in this release is considerably older than the code on <em>master</em> and contains a few <del>serious bugs</del> (correction: seriously surprising behaviors).</p>
+
+<p>Let&rsquo;s look at the following example:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">test1</span><span class="p">()</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">f</span> <span class="p">=</span> <span class="n">First</span><span class="p">()</span>
+   <span class="kd">let</span> <span class="nv">s</span> <span class="p">=</span> <span class="n">Second</span><span class="p">()</span>
+<span class="p">}</span></code></pre></div>
+
+<p>in this function, Swift will release <code>s</code> first, then <code>f</code> (following LIFO order, i.e. stack order). This is the <em>expected</em> behavior.</p>
+
+<p>However, if <code>First</code>, <code>Second</code> and a function named <code>something</code> that takes an <code>Any</code> parameter (it needs to be an existential to trigger this bug) exist but cannot be inlined (perhaps because they&rsquo;re outside the current compilation unit), then the following code:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">test2</span><span class="p">()</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">f</span> <span class="p">=</span> <span class="n">First</span><span class="p">()</span>
+   <span class="n">something</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+   <span class="kd">let</span> <span class="nv">s</span> <span class="p">=</span> <span class="n">Second</span><span class="p">()</span>
+<span class="p">}</span></code></pre></div>
+
+<p>will observably release <code>f</code> first, then <code>s</code> (breaking LIFO order). Note that <code>f</code> is still released in the epilog, after the <code>let s = Second()</code> line; the only change is that the compiler re-orders the two releases.</p>
+
+<p>How bad could changing the order of releases be? Deadlock bad; this reordering can cause some dramatic reorderings that can seriously interfere with execution order.</p>
+
+<p>Let&rsquo;s look at one of the worst cases I&rsquo;ve encountered:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">perform</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="n">UserData</span><span class="p">)</span> <span class="p">{</span>
+   <span class="n">something</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+   <span class="k">do</span> <span class="p">{</span>
+      <span class="kd">let</span> <span class="nv">resource</span> <span class="p">=</span> <span class="n">MutexLockedResource</span><span class="p">()</span>
+      <span class="n">resource</span><span class="p">.</span><span class="n">doSomethingElse</span><span class="p">()</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>In this arrangement, the <code>data</code> parameter is released <em>during</em> the lifetime for <code>resource</code> (i.e. inside the mutex). This could potentially cause a deadlock if <code>data</code> is not retained elsewhere and the <code>deinit</code> on <code>UserData</code> tries to re-acquire the <code>MutexLockedResource</code>.</p>
+
+<p>This might seem like a contrived example but I&rsquo;ve encountered multiple deadlocks and other sequencing problems that I&rsquo;ve needed to work around, each caused by an unexpected re-ordering of <code>deinit</code> calls where variables in parent scopes were released during the lifetime of variables from child scopes. It&rsquo;s a difficult problem to work around since it is so unexpected and Swift provides no ability to force ordering on <code>deinit</code>s.</p>
+
+<p>Fortunately, the new ARC optimizer, <code>ARCCodeMotion</code>, appears to fix this and other problems. It is currently part of the Swift 3.1 branch so it will likely be a part of that release. In my testing, none of the release re-ordering problems described in this section occur with the new <code>ARCCodeMotion</code> transform.</p>
+
+<h2 id="update-details-from-some-swift-developers">Update: details from some Swift developers</h2>
+
+<p>Joe Groff, a developer on the Swift team <a href="https://twitter.com/jckarter/status/814522857325608960">writes</a>:</p>
+
+<blockquote>
+<p><strong>jckarter</strong>: @cocoawithlove Swift&rsquo;s semantics are like ObjC&rsquo;s. That the compiler doesn&rsquo;t shorten lifetimes now is no guarantee it won&rsquo;t later.</p>
+</blockquote>
+
+<p>We should expect lifetimes to shorten, like the Objective-C example given above, in future. Good to know; <code>withExtendedLifetime</code> will be useful!</p>
+
+<p>Another developer on the Swift team, Michael Gottesman, <a href="https://twitter.com/gottesmang/status/814561037865271296">writes</a>:</p>
+
+<blockquote>
+<p><strong>gottesmang</strong>: @s_tolksdorf @jckarter @cocoawithlove We do discuss this in the swift docs. See here: <a href="https://github.com/apple/swift/blob/master/docs/ARCOptimization.rst#deinit-model">github.com/apple/swift/bl&hellip;</a></p>
+</blockquote>
+
+<p>I linked this document above and I did read it. Clearly though, I failed to absorb that section. It does state that &ldquo;interference&rdquo; in a <code>deinit</code> method will not be considered when reordering releases, so <code>deinit</code> invocations can be arbitrarily reordered with respect to each other.</p>
+
+<p>I guess I expected this might be the case. Example 1 in the &ldquo;Uh-oh, a bug&rdquo; section is not considered a bug.</p>
+
+<blockquote>
+<p><strong>jckarter</strong>: @cocoawithlove Reordering of deinits isn&rsquo;t a bug. You shouldn&rsquo;t rely on LIFO order of local variable releases.</p>
+</blockquote>
+
+<p>This is implied by the same documentation Michael Gottesman linked, however, <a href="https://twitter.com/cocoawithlove/status/814733718568898560">I responded</a> with a comment that I think Example 2 in the &ldquo;Uh-oh, a bug&rdquo; section <em>should</em> be considered a bug, despite the fact that its cause is the same as Example 1.</p>
+
+<blockquote>
+<p><strong>cocoawithlove</strong>: @jckarter I&rsquo;m okay with lack of LIFO deinit, but: an obj not used in child scope should deinit before or after child scope, never during.</p>
+</blockquote>
+
+<p>Twitter&rsquo;s a difficult medium to make a clear point so I&rsquo;ll clarify here. My reason for considering that second example more serious than the first is that I feel that an object from a parent scope, that is not used a child scope, should not interleave effects with effects from the child scope – even when these effects are release effects and the scope is just an otherwise pointless <code>do</code> scope.</p>
+
+<p>Let&rsquo;s move the <code>do</code> scope into a child function and see how that goes:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">perform</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="n">UserData</span><span class="p">)</span> <span class="p">{</span>
+   <span class="n">something</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+   <span class="n">completelySeparateChildFunction</span><span class="p">()</span>
+<span class="p">}</span></code></pre></div>
+
+<p>In this code, compiled under the current Swift 3.0.2, if the <code>completelySeparateChildFunction</code> is inlined, the <code>data</code> parameter will be released during a mutex which exists purely in the <code>completelySeparateChildFunction</code>. It&rsquo;s a potential deadlock triggered by interleaving our code with code we can&rsquo;t even see. And even if we know what <code>completelySeparateChildFunction</code> does, Swift offers no way that our <code>perform</code> function can prevent this interference (the only certain approach to prevent this interference is to mark <code>completelySeparateChildFunction</code> as <code>@inline(never)</code>).</p>
+
+<p>Interleaving of effects between parent and child scopes is simply too big a violation of the principle of least surprise. These things are <em>clearly</em> distinct in the structure of our code, they should not intersect unless we <em>explicitly</em> cause them to intersect.</p>
+
+<h2 id="the-conventional-use-case-for-withextendedlifetime">The conventional use-case for <code>withExtendedLifetime</code></h2>
+
+<p>I gave the following example and claimed that <code>withExtendedLifetime</code> is largely useless.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">let</span> <span class="nv">lock</span> <span class="p">=</span> <span class="n">ScopedLock</span><span class="p">(</span><span class="kc">self</span><span class="p">.</span><span class="n">mutex</span><span class="p">)</span>
+<span class="bp">withExtendedLifetime</span><span class="p">(</span><span class="n">lock</span><span class="p">)</span> <span class="p">{</span>
+   <span class="kc">self</span><span class="p">.</span><span class="n">doSomeInternalWork</span><span class="p">();</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Until such time as Swift starts ending lifetimes earlier (see the previous section) Swift simply isn&rsquo;t forcing our hands to keep <code>lock</code> alive (although a safety conscious programmer should probably use <code>withExtendedLifetime</code> anyway).</p>
+
+<p>There is a situation where Swift does force our hands and that&rsquo;s with r-values. The following code strictly <em>does</em> required <code>withExtendedLifetime</code>:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="bp">withExtendedLifetime</span><span class="p">(</span><span class="n">ScopedLock</span><span class="p">(</span><span class="kc">self</span><span class="p">.</span><span class="n">mutex</span><span class="p">))</span> <span class="p">{</span>
+   <span class="kc">self</span><span class="p">.</span><span class="n">doSomeInternalWork</span><span class="p">();</span>
+<span class="p">}</span></code></pre></div>
+
+<p>I rarely actually use <code>withExtendedLifetime</code> in this way though. You need to have an r-value object with side-effects that affect the scoped code for this to be useful – and the <code>deinit</code> should not have strict ordering requirements or it will hit the surprising behaviors discussed in the previous two sections. That&rsquo;s a combination of requirements that doesn&rsquo;t come up very often.</p>
+
+<p>However, there is a usable tip here: the difference between l-values and r-values is usually not optimized away by the compiler for reference counted objects. Reference counted r-values are usually more precise and more efficient than reference counted l-values since their release will occur before the next non-release statement. If there are statements between the <code>withExtendedLifetime</code> call and the end of the surrounding scope, an r-value will be released <em>before</em> those statements whereas an l-value will usually be released after.</p>
+
+<p>Keep this point in mind: if you don&rsquo;t <em>need</em> to assign an object to a parameter, it&rsquo;s better to avoid it.</p>
+
+<h2 id="unconventional-uses-of-withextendedlifetime">Unconventional uses of <code>withExtendedLifetime</code></h2>
+
+<p>So the conventional use cases for <code>withExtendedLifetime</code> are pretty rare. I still use it but my usage tends to be a little unconventional.</p>
+
+<p>A common requirement in the CwlSignal project is deferring the release of user-supplied data to outside a mutex (so any <code>deinit</code> on the user-supplied data can&rsquo;t trigger a deadlock by re-entering the mutex). This is done in CwlSignal with code that looks like:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="n">deferredWork</span><span class="p">.</span><span class="n">append</span> <span class="p">{</span> <span class="bp">withExtendedLifetime</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="p">{}</span> <span class="p">}</span></code></pre></div>
+
+<p>The <code>deferredWork</code> variable is just a list of closures that will be run once the mutex is exited. However, the closure we&rsquo;re appending doesn&rsquo;t need to <em>do</em> anything, except capture the <code>data</code> value. I don&rsquo;t do <em>literally</em> nothing though, instead I call <code>withExtendedLifetime</code>.</p>
+
+<p>We could try literally doing nothing. We&rsquo;d still need to tell Swift that we want to capture the <code>data</code> variable which we can do through a capture list:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="n">deferredWork</span><span class="p">.</span><span class="n">append</span> <span class="p">{</span> <span class="p">[</span><span class="n">data</span><span class="p">]</span> <span class="k">in</span> <span class="p">}</span></code></pre></div>
+
+<p>but the compiler will complain:</p>
+
+<pre><code>warning: Capture &quot;data&quot; was never used
+</code></pre>
+
+<p>So I use <code>withExtendedLifetime</code> to tell the compiler &ldquo;Calm down, I&rsquo;m using it.&rdquo;</p>
+
+<p>There are similar examples with &ldquo;dead stores&rdquo;. The CwlSignal project includes a function that looks a little like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">public</span> <span class="kd">static</span> <span class="kd">func</span> <span class="nf">never</span><span class="p">()</span> <span class="p">-&gt;</span> <span class="n">Signal</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="p">{</span>
+   <span class="kd">var</span> <span class="nv">input</span><span class="p">:</span> <span class="n">SignalInput</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;?</span> <span class="p">=</span> <span class="kc">nil</span>
+   <span class="k">return</span> <span class="n">Signal</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">.</span><span class="n">generate</span> <span class="p">{</span> <span class="n">i</span> <span class="k">in</span>
+      <span class="n">input</span> <span class="p">=</span> <span class="n">i</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The purpose of the code inside the closure is simply to hold onto any <code>i</code> value it receives so that <code>i</code> lives as long as the closure itself. This is done by storing <code>i</code> in the mutable captured variable <code>input</code>.</p>
+
+<p>All of that is fine except that the compiler sees <code>input = i</code> as a dead store.</p>
+
+<pre><code>warning: variable 'input' was written to, but never read
+</code></pre>
+
+<p>Of course, keeping the object alive <em>is</em> the usage so we <em>want</em> a dead store. To make this clear to the compiler, I use the <code>withExtendedLifetime(input) {}</code> so the compiler has something that it interprets as &ldquo;using&rdquo; the value.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">public</span> <span class="kd">static</span> <span class="kd">func</span> <span class="nf">never</span><span class="p">()</span> <span class="p">-&gt;</span> <span class="n">Signal</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="p">{</span>
+   <span class="kd">var</span> <span class="nv">input</span><span class="p">:</span> <span class="n">SignalInput</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;?</span> <span class="p">=</span> <span class="kc">nil</span>
+   <span class="k">return</span> <span class="n">Signal</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">.</span><span class="n">generate</span> <span class="p">{</span> <span class="n">i</span> <span class="k">in</span>
+      <span class="n">input</span> <span class="p">=</span> <span class="n">i</span>
+      <span class="bp">withExtendedLifetime</span><span class="p">(</span><span class="n">input</span><span class="p">)</span> <span class="p">{}</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The reason to use <code>withExtendedLifetime</code> for this purpose is that it is effectively a no-op but its message to the compiler &ldquo;I am using this variable here&rdquo; will prevent complaints that variables aren&rsquo;t being used. Since I&rsquo;m performing the dead store for the purpose of lifetime manipulation, <code>withExtendedLifetime</code> is also vaguely appropriate, even though this isn&rsquo;t its conventional use-case.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>Swift&rsquo;s current behavior is quite conservative about release reordering. The Swift developers have pointed out that just because this is the case now, doesn&rsquo;t mean it will continue to be the case in future – they clearly <em>intend</em> for mid-scope releases to occur more frequently than currently happens. This will eventually bring Swift&rsquo;s release ordering a little closer to those of Objective-C.</p>
+
+<p>I performed a cursory code analysis to determine under what circumstances a release instruction might be re-ordered in the current versions of Swift (up to and including the Swift 3.1 prerelease branch). The truth is that at the moment, releases are rarely reordered much at all. Lack of knowledge about memory graphs and reachability usually keeps epilog releases trapped in the epilog. When these releases are reordered, the effect is usually <em>completely</em> undetectable.</p>
+
+<p>The <code>withExtendedLifetime</code> function has its intended uses – to extend the lifetime of an object over a relatively narrow closure scope. Given Swift&rsquo;s current, highly conservative behavior, it is most clearly useful for r-values and when using <code>withUnsafePointer</code> into an object that is not retained elsewhere. Safety conscious users should probably use it in broader contexts since Swift may force your hand in future.</p>
+
+<p>However, I usually use <code>withExtendedLifetime</code> as a compiler warning silencer when I&rsquo;m performing ownership transfer operations without any other semantic purpose. The function has no effect other than a private call to <code>_fixLifetime</code> (which merely forces the SIL layer to keep the object alive) so I find it well suited to the task.</p>
+
+<h3 id="looking-forward">Looking forward&hellip;</h3>
+
+<p>There&rsquo;s more code from the CwlSignal project that I want to talk about. The next article will talk about a handy utility that you can use independently of CwlSignal to manage a fiddly legacy from Objective-C.</p>
+
+		</div>
+	</article>
+</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="reactive-programming-what-and-why.html">What is reactive programming and why should I use it?</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="key-value-observing-wrapper.html">A key-value observing wrapper</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../feed.json">JSON</a>, <a href="../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

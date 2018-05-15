@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Gathering system information in Swift with sysctl</title>
+  <meta name="description" content="Another debug analysis post, this time looking at gathering basic system information for attaching to diagnostic reports and other forms of reporting." />
+
+  <meta name="twitter:title" content="Gathering system information in Swift with sysctl"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/blog/2016/03/08/swift-wrapper-for-sysctl.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Another debug analysis post, this time looking at gathering basic system information for attaching to diagnostic reports and other forms of reporting."/>
+
+  <link rel="icon" href="../../../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../../../css/main.css" />
+  <link rel="canonical" href="swift-wrapper-for-sysctl.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../../../index.html"><img class="heartandcup" src="../../../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../../../about/index.html">about</a>
+        <a class="page-link" href="../../../../archive/index.html">archive</a>
+        <a class="page-link" href="../../../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Gathering system information in Swift with sysctl</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2016-03-08">March 8, 2016</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../../../tags/swift.html">Swift</a>, <a href="../../../../tags/debug-analysis.html">debug analysis</a>
+		 
+	</div>
+</header>
+
+
+<main role="main">
+	<article itemscope itemtype="http://schema.org/BlogPosting">
+		<div class="post-content" itemprop="articleBody">
+			
+
+<p>In the <a href="../../02/28/stack-traces-in-swift.html">previous article</a>, I looked at gathering stack traces to record what your own process is doing. In debug analysis, though, information about <em>what</em> a process has done is only half the picture: we often need to know about the environment in which the process ran to understand <em>why</em> the process has behaved a certain way.</p>
+
+<p>In this article, I&rsquo;ll look at gathering a narrow set of basic information about the host system for the purpose of debug analysis. System information can be obtained through a number of different APIs, each with their own advantages, disadvantages and idiosyncracies but I&rsquo;ll be focussing on a core function available across OS X and iOS: <code>sysctl</code>. The function itself is cumbersome and full of classic C quirks so I&rsquo;ll also share a Swift wrapper for <code>sysctl</code> to make it slightly less irksome.</p>
+
+<nav id="TableOfContents"><span class="toc-heading">Contents</span>
+<ul>
+<li>
+<ul>
+<li><a href="#introduction">Introduction</a></li>
+<li><a href="#nsprocessinfo-and-uidevice">NSProcessInfo and UIDevice</a></li>
+<li><a href="#uname">uname</a></li>
+<li><a href="#looking-for-the-source">Looking for the source</a></li>
+<li><a href="#what-else-can-sysctl-do">What else can <code>sysctl</code> do?</a></li>
+<li><a href="#improving-sysctl-s-interface-with-a-nested-set-of-wrappers">Improving sysctl&rsquo;s interface with a nested set of wrappers</a></li>
+<li><a href="#usage">Usage</a></li>
+<li><a href="#conclusion">Conclusion</a></li>
+</ul></li>
+</ul>
+</nav>
+
+<h2 id="introduction">Introduction</h2>
+
+<p>As with the previous article, this article concerns debug analysis. Specifically, analyzing information about what has happened after a problem occurs to try and determine what led to the problem. This time, instead of capturing information about our own actions, I want to look at capturing information about the host system.</p>
+
+<p>To illustrate what I mean, let&rsquo;s look at what&rsquo;s in a typical Mac OS X diagnostic report. We can look at any of the &ldquo;.diag&rdquo; files in the &ldquo;/Library/Logs/DiagnosticReports&rdquo; folder. A typical dianostic report on my computer contains:</p>
+
+<ol>
+<li>The date</li>
+<li>Name and version information for program that was running when the report was created</li>
+<li>Specific details about what error or condition triggered the report</li>
+<li>A stack trace for the program that was running</li>
+<li>The following information about the host computer&hellip;</li>
+</ol>
+
+<pre><code>OS Version:     Mac OS X 10.11.3 (Build 15D21)
+Architecture:   x86_64
+Hardware model:  MacPro4,1
+Active cpus:    8
+</code></pre>
+
+<p>This is the host information I want to gather.</p>
+
+<h2 id="nsprocessinfo-and-uidevice">NSProcessInfo and UIDevice</h2>
+
+<p>Let&rsquo;s look and see if we can gather this information from any common Cocoa location.</p>
+
+<p>The Foundation singleton <code>NSProcessInfo.processInfo()</code> has properties <code>operatingSystemVersionString</code> and <code>activeProcessorCount</code> which could give:</p>
+
+<pre><code>OS Version:     Version 10.11.3 (Build 15D21)
+Active cpus:    8
+</code></pre>
+
+<p>the iOS-only singleton <code>UIDevice.currentDevice()</code> also has <code>systemName</code> and <code>model</code> which would let you amend that to:</p>
+
+<pre><code>OS Version:     iPhone OS Version 9.2.1 (Build 13D20)
+Hardware model:  iPhone
+Active cpus:    2
+</code></pre>
+
+<p>Unfortunately though, &ldquo;iPhone&rdquo; is not a very helpful model description (this ran on my iPhone 6s which has a true model name of &ldquo;iPhone8,1&rdquo;).</p>
+
+<p>The &ldquo;Hardware model&rdquo;, as listed in common diagnostic reports, is not available through Objective-C/Swift APIs. For this information, we need to look elsewhere.</p>
+
+<h2 id="uname">uname</h2>
+
+<p>Cocoa classes don&rsquo;t really help us get the hardware model. Instead, let&rsquo;s turn to a C function named <code>uname</code>. Calling <code>uname</code> function fills in a struct named <code>utsname</code> with the following values:</p>
+
+<pre><code>sysname = &quot;Darwin&quot;
+nodename = &quot;Matt-Gallaghers-iPhone&quot;
+release = &quot;15.0.0&quot;
+version = &quot;Darwin Kernel Version 15.0.0: Wed Dec  9 22:19:38 PST 2015; root:xnu-3248.31.3~2/RELEASE_ARM64_S8000&quot;
+machine = &quot;iPhone8,1&quot;
+</code></pre>
+
+<p>We have the full model name. We can combine this with information from <code>NSProcessInfo</code> and we have all the basic information we need, right?</p>
+
+<p>Let&rsquo;s try the same thing on a &ldquo;MacPro4,1&rdquo; running Mac OS X&hellip;</p>
+
+<pre><code>sysname = &quot;Darwin&quot;
+nodename = &quot;MacPro.local&quot;
+release = &quot;15.3.0&quot;
+version = &quot;Darwin Kernel Version 15.3.0: Thu Dec 10 18:40:58 PST 2015; root:xnu-3248.30.4~1/RELEASE_X86_64&quot;
+machine = &quot;x86_64&quot;
+</code></pre>
+
+<p>The model name is gone, replaced instead by the CPU family. So we can&rsquo;t get the &ldquo;Hardware model&rdquo; on the Mac using <code>uname</code>.</p>
+
+<h2 id="looking-for-the-source">Looking for the source</h2>
+
+<p>Why is <code>uname</code> inconsistent between platforms? What&rsquo;s happening?</p>
+
+<p>Let&rsquo;s look at where <code>uname</code> gets its information and see what&rsquo;s going on. We can view the source code for <a href="http://www.opensource.apple.com/source/Libc/Libc-167/gen.subproj/uname.c"><code>uname</code> on opensource.apple.com</a>. The <code>machine</code> field is filled in by the following code:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-c" data-lang="c"><span class="n">mib</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">CTL_HW</span><span class="p">;</span>
+<span class="n">mib</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">HW_MACHINE</span><span class="p">;</span>
+<span class="n">len</span> <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">name</span><span class="o">-&gt;</span><span class="n">machine</span><span class="p">);</span>
+<span class="k">if</span> <span class="p">(</span><span class="n">sysctl</span><span class="p">(</span><span class="n">mib</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">name</span><span class="o">-&gt;</span><span class="n">machine</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">len</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+   <span class="n">rval</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span></code></pre></div>
+
+<p>So <code>uname</code> isn&rsquo;t the source of the information. The value actually comes from another function named <code>sysctl</code>.</p>
+
+<p>Of course, <code>sysctl</code> isn&rsquo;t the source either. Following that rabbit hole all the way down gives:</p>
+
+<ol>
+<li><a href="http://www.opensource.apple.com/source/xnu/xnu-1456.1.26/bsd/kern/kern_newsysctl.c">sysctl</a> gets its information from different OID handlers</li>
+<li><a href="http://www.opensource.apple.com/source/xnu/xnu-1456.1.26/bsd/kern/kern_mib.c">sysctl_hw_generic</a> handles the information for most of the <code>CTL_HW</code> OIDs, including <code>HW_MACHINE</code>.</li>
+<li><a href="http://www.opensource.apple.com/source/xnu/xnu-792.13.8/iokit/Kernel/IOPlatformExpert.cpp">PEGetMachineName</a> handles the <code>HW_MACHINE</code> OID.</li>
+<li>Depending on CPU, one of the <a href="http://www.opensource.apple.com/source/AppleI386GenericPlatform/AppleI386GenericPlatform-5/AppleI386PlatformExpert.cpp">IOPlatformExpert::getMachineName</a> implementations (essentially a driver for the CPU) will return the machine name.</li>
+</ol>
+
+<p>The value is hardcoded into the <code>getMachineName</code> function so this is the true source, although it&rsquo;s largely irrelevant to us since the <code>sysctl</code> API remains the final layer that we can easily access.</p>
+
+<p>Does this answer why <code>uname</code> is inconsistent between OS X and iOS? Let&rsquo;s have a look at the output from <code>sysctl</code> on these platforms:</p>
+
+<table>
+<thead>
+<tr>
+<th></th>
+<th>OS X</th>
+<th>iOS</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td><code>HW_MACHINE</code></td>
+<td>x86_64</td>
+<td>iPhone8,1</td>
+</tr>
+
+<tr>
+<td><code>HW_MODEL</code></td>
+<td>MacPro4,1</td>
+<td>N71mAP</td>
+</tr>
+</tbody>
+</table>
+
+<div class="caption">"sysctl" results for selected "CTL_HW" subkeys on iOS and OS X</div>
+
+<p>That &ldquo;N71mAP&rdquo; value is the iPhone&rsquo;s CPU model – not completely the same as &ldquo;x86_64&rdquo; for an Intel W3520 but similar. So it looks like the inconsistency is due to <code>HW_MACHINE</code> and <code>HW_MODEL</code> results from <code>sysctl</code> getting swapped around – without access to the source code, I don&rsquo;t if this is a mistake or a deliberate decision (it looks like an accidental mixup) but in any case, the iOS behavior has remained steady since the iOS platform was released.</p>
+
+<p>With this knowledge, we can finally get a &ldquo;Hardware model&rdquo; value by using <code>sysctl</code> to get the <code>HW_MODEL</code> for OS X and <code>HW_MACHINE</code> for iOS systems.</p>
+
+<h2 id="what-else-can-sysctl-do">What else can <code>sysctl</code> do?</h2>
+
+<p>For my own purposes, I rarely go much deeper; basic machine and model information is enough to satisfy the diagnostic information needs for which I employ <code>sysctl</code>. However, the <code>HW_MODEL</code> and <code>HW_MACHINE</code> values that I&rsquo;ve focussed on in this article are only a small fraction of a huge range of values you can get from <code>sysctl</code>.</p>
+
+<p>You can see <em>almost</em> all of these values on OS X by running <code>sysctl -A</code> on the command line. More than 1000 keys and values will be shown.</p>
+
+<p>I say &ldquo;almost&rdquo; though because a few keys are not shown. Curiously, there&rsquo;s a handful of values that are hidden from this list by default, including <code>HW_MODEL</code> and <code>HW_MACHINE</code>. To get the full list of values, you can download the <a href="http://www.opensource.apple.com/source/system_cmds/system_cmds-671.10.3/sysctl.tproj/sysctl.c">source to the <code>sysctl</code> command line tool</a> and on line 992, change the final <code>0</code> argument passed to <code>show_var</code> to <code>1</code>. Running the result gives a few dozen extra values you can query.</p>
+
+<p>On iOS, there are a couple hundred fewer <code>sysctl</code> values available (806 on my iPhone versus 1098 on my Mac) with many of the missing values omitted from the hardware – <code>CTL_HW</code> – section. While this is annoying, fortunately most of the relevant traits of an iOS system (CPU type, capabilities and clock rate) are locked to the model so it&rsquo;s not a major catastrophe. In any case, be wary of the fact that <code>sysctl</code> on iOS may return errors (specifically, a POSIX error 2) for many values that are valid on OS X.</p>
+
+<h2 id="improving-sysctl-s-interface-with-a-nested-set-of-wrappers">Improving sysctl&rsquo;s interface with a nested set of wrappers</h2>
+
+<p>The <code>sysctl</code> function itself is not incredibly complicated but it is a little ugly in Swift:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">public</span> <span class="kd">func</span> <span class="nf">sysctl</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">UnsafeMutablePointer</span><span class="p">&lt;</span><span class="nb">Int32</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">namelen</span><span class="p">:</span> <span class="n">u_int</span><span class="p">,</span>
+   <span class="n">oldp</span><span class="p">:</span> <span class="nb">UnsafeMutablePointer</span><span class="p">&lt;</span><span class="nb">Void</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">oldlenp</span><span class="p">:</span> <span class="nb">UnsafeMutablePointer</span><span class="p">&lt;</span><span class="nb">Int</span><span class="o">&gt;</span><span class="p">,</span>
+   <span class="n">newp</span><span class="p">:</span> <span class="nb">UnsafeMutablePointer</span><span class="p">&lt;</span><span class="nb">Void</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">newlenp</span><span class="p">:</span> <span class="nb">Int</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Int32</span></code></pre></div>
+
+<p>You pass a C array of <code>Int32</code> which uniquely identifies the value you&rsquo;re after and you pass a buffer via <code>oldp</code> that&rsquo;s <code>oldlenp</code> long and the value will be written there (I&rsquo;m going to completely ignore using <code>sysctl</code> to <em>set</em> values since it&rsquo;s very rare to do that in an app).</p>
+
+<p>The reason why <code>sysctl</code> feels so cumbersome in Swift is:</p>
+
+<ul>
+<li>Creating an array of <code>Int32</code> and passing that by pointer for the first parameter is a nuisance in Swift</li>
+<li>You basically need to call <code>sysctl</code> twice: once with <code>oldp</code> equal to <code>nil</code> to get the size required for the result buffer and then a second time with a properly allocated buffer.</li>
+<li>The result is returned as an untyped buffer of bytes which you then need to interpret correctly.</li>
+<li>There are a few different ways in which failure can occur and we want to reduce these different ways to idiomatic Swift errors or preconditions.</li>
+</ul>
+
+<p>For these reasons, I use a wrapper around <code>sysctl</code> which has the following interface:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">public</span> <span class="kd">func</span> <span class="nf">sysctl</span><span class="p">(</span><span class="n">levels</span><span class="p">:</span> <span class="p">[</span><span class="nb">Int32</span><span class="p">])</span> <span class="kr">throws</span> <span class="p">-&gt;</span> <span class="p">[</span><span class="nb">Int8</span><span class="p">]</span></code></pre></div>
+
+<p>This lets you write <code>let modelAsArrayOfChar = sysctl([CTL_HW, HW_MODEL])</code> to get the hardware model as an array of <code>Int8</code>.</p>
+
+<p>Of course, a <code>[Int8]</code> isn&rsquo;t particularly useful so I call this function from inside subsequent functions that further refine the process:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">public</span> <span class="kd">func</span> <span class="nf">sysctlString</span><span class="p">(</span><span class="n">levels</span><span class="p">:</span> <span class="nb">Int32</span><span class="p">...)</span> <span class="kr">throws</span> <span class="p">-&gt;</span> <span class="nb">String</span></code></pre></div>
+
+<p>This function lets you pass in the <code>levels</code> as a comma separated list and converts the result to a regular Swift <code>String</code> so we can get the model as a string in a single line: <code>let modelString = try sysctlAsString(CTL_HW, HW_MODEL)</code>.</p>
+
+<p>An alternative overload lets you use the <code>sysctl</code> names instead of <code>Int32</code> identifiers:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">public</span> <span class="kd">func</span> <span class="nf">sysctlString</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">String</span><span class="p">)</span> <span class="kr">throws</span> <span class="p">-&gt;</span> <span class="nb">String</span></code></pre></div>
+
+<p>for which we&rsquo;d write <code>let modelString = try sysctlAsString(&quot;hw.model&quot;)</code>.</p>
+
+<p>There&rsquo;s still more that we can do: we can eliminate the <code>try</code>, entirely. Risking fatal errors should always be kept to a minimum but for core <code>sysctl</code> values, the error code path is effectively unreachable (see &lsquo;Effectively unreachable code paths&rsquo; in <a href="http://localhost:4000/blog/2016/01/25/partial-functions-part-one-avoidance.html">Partial Functions in Swift, Part1</a>) so forcing &ldquo;no error&rdquo; with <code>try!</code> is a valid approach for these code values.</p>
+
+<p>This then leads to the final wrapper around these functions, a static struct exposing the core values, without error handling:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">public</span> <span class="kd">struct</span> <span class="nc">Sysctl</span> <span class="p">{</span>
+   <span class="kd">public</span> <span class="kd">static</span> <span class="kd">var</span> <span class="nv">model</span><span class="p">:</span> <span class="nb">String</span>
+<span class="p">}</span></code></pre></div>
+
+<p>For these convenience <code>var</code>s on this <code>Sysctl</code> struct, I&rsquo;ve taken the opportunity to swap <code>HW_MACHINE</code> and <code>HW_MODEL</code> results on iOS so that its behavior is more in line with OS X. The result is that you can use <code>Sysctl.model</code> to get the &ldquo;Hardware model&rdquo; on either OS X or iOS.</p>
+
+<h2 id="usage">Usage</h2>
+
+<blockquote>
+<p>The project containing this <code>sysctl</code> wrapper is available on github: <a href="https://github.com/mattgallagher/CwlUtils">mattgallagher/CwlUtils</a>.</p>
+</blockquote>
+
+<p>The <a href="https://github.com/mattgallagher/CwlUtils/blob/master/Sources/CwlUtils/CwlSysctl.swift?ts=3">CwlSysctl.swift</a> file is fully self-contained so you can just copy the file, if that&rsquo;s all you need. Otherwise, the <a href="https://github.com/mattgallagher/CwlUtils/blob/master/README.md">ReadMe.md file for the project</a> contains detailed information on cloning the whole repository and adding the framework it produces to your own projects.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>The <code>sysctl</code> function is a fundamental kernel/machine information tool on OS X and iOS. There&rsquo;s more information about network interfaces in SystemConfiguration and there&rsquo;s more about attached hardware devices in the IOKit registry, but these locations don&rsquo;t hold all of the same information that <code>sysctl</code> offers (and IOKit isn&rsquo;t available on iOS anyway).</p>
+
+<p>Despite the fundamental nature of this function, its clumsy interface often leaves it as an API of last resort behind Foundation classes and simpler C functions. I hope I&rsquo;ve shown that if you&rsquo;re interested in a description of the host&rsquo;s &ldquo;Hardware model&rdquo;, it should be first choice.</p>
+
+		</div>
+	</article>
+</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../../02/28/stack-traces-in-swift.html">Tracking tasks with stack traces in Swift</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../17/non-pure-errors.html">Errors: unexpected, composite, non-pure, external.</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../../../feed.json">JSON</a>, <a href="../../../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

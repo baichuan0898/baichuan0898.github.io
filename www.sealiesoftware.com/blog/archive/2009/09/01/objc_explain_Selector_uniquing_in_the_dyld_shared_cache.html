@@ -1,0 +1,203 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<!--
+Local Variables:
+sgml-default-dtd-file: "~/html-loose.ced"
+End:
+-->
+<html>
+  <head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+
+    <title>Hamster Emporium: [objc explain]: Selector uniquing in the dyld shared cache</title>
+    <link title="RSS 2.0" href="../../../../rss.xml.rss" type="application/rss+xml" rel="alternate">
+  </head>
+  <body bgcolor="#ffffff">
+    <table cellpadding="0" cellspacing="0">
+      <tr>
+	  <td valign="top" align="left">
+	    <a href="../../../../index.html"><img src="http://www.sealiesoftware.com/hamster.jpg" alt="" width="108" height="160"></a><br><br>
+	    <b>blog</b><br>
+	    <a href="../../../../index.html">recent</a><br>
+	    <a href="../../../index.html">archive</a><br>
+	    <a href="http://twitter.com/gparker">twitter</a><br>
+	    <br>
+	    <b>projects</b><br>
+	    <a href="http://www.apple.com/macosx/">Mac OS X</a><br>
+	    <a href="http://www.sealiesoftware.com/keyboard/index.html">Keyboard</a><br>
+	     &nbsp; <a href="http://www.sealiesoftware.com/keyboard/index.html">backlight</a><br>
+	    <a href="http://www.sealiesoftware.com/cscmenu/index.html">CSC Menu</a><br>
+	    <a href="http://www.sealiesoftware.com/valgrind/index.html">Valgrind</a><br>
+	    <a href="http://www.sealiesoftware.com/fringe/index.html">Fringe Player</a><br>
+	    <a href="http://www.sealiesoftware.com/pssh/index.html">pssh</a><br>
+	    <a href="http://www.sealiesoftware.com/peal/index.html">Peal</a><br>
+	    <a href="http://www.sealiesoftware.com/frankenmouse/index.html">Frankenmouse</a><br>
+	    <br>
+	  </td>
+	  <td>
+	    &nbsp; &nbsp;
+	  </td>
+	  <td valign="top">
+	      <h2>Hamster Emporium archive</h2>
+  <p>
+     &lt;&lt; &nbsp; <a href="../05/Colorized_keyboard_backlight.html">Colorized keyboard backlight</a> &nbsp; | &nbsp;  
+    <a href="../../../index.html">archive</a>
+     &nbsp; | &nbsp; <a href="../../08/28/objc_explain_Thread-local_garbage_collection.html">[objc explain]: Thread-local garbage collection</a> &nbsp; &gt;&gt; 
+  </p>
+  <table cellpadding="0" cellspacing="3">
+      <tr>
+	<td>
+	  <a href="objc_explain_Selector_uniquing_in_the_dyld_shared_cache.html"><img src="http://www.sealiesoftware.com/link.gif" width="14" height="16" border="0" alt="(link)"></a>
+	</td>
+	<td>
+	  <b><font size="+1">[objc explain]: Selector uniquing in the dyld shared cache</font></b> &nbsp; 
+	  <font size="-1">(<a href="objc_explain_Selector_uniquing_in_the_dyld_shared_cache.html">2009-09-01 2:10 AM</a>)</font>
+	</td>
+      </tr>
+      <tr>
+	<td>
+	  &nbsp;
+	</td>
+	<td>
+	        <p>
+	Mac OS X Snow Leopard cuts in half the launch-time overhead of
+	starting the Objective-C runtime, and simultaneously saves a few
+	hundred KB of memory per app. This comes for free to every app,
+	courtesy of one of the few pieces of Mac OS X that lives below
+	even the Objective-C runtime: dyld.
+      </p>
+<h4>dyld and the shared cache</h4>
+      <p>
+	dyld is the dynamic loader and linker. When your process starts,
+	dyld loads your executable and its shared libraries into memory,
+	links the cross-library C function and variable references
+	together, and starts execution on its way towards
+	<code>main()</code>. 
+      </p>
+      <p>
+	In theory a shared library could be different every time your
+	program is run. In practice, you get the same version of
+	the shared libraries almost every time you run, and so does every
+	other process on the system. The system takes advantage of this by
+	building the dyld shared cache. The shared cache contains a copy
+	of many system libraries, with most of dyld's linking and loading
+	work done in advance. Every process can then share that shared
+	cache, saving memory and launch time. 
+      </p>
+      <p>
+	(Incidentally, the shared cache beats the pants off the pre-Leopard
+	prebinding system that was supposed to achieve the same
+	optimizations. Remember the post-install "Optimizing System
+	Performance" step that often took longer than the install itself?
+	That was prebinding being updated. Rebuilding the shared cache is 
+	so blazingly fast that the installer doesn't bother to report it
+	anymore.) 
+      </p>
+      <h4>Objective-C selector uniquing</h4>
+      <p>
+	Leopard's dyld shared cache is great for C code, but it didn't do
+	anything to help Objective-C's startup overhead. The single
+	biggest launch cost for Objective-C is selector uniquing. The app
+	and every shared library contain their own copies of selector
+	names like "alloc" and "init". The runtime needs to choose a
+	single canonical SEL pointer value for each selector name, and
+	then update the metadata for every call site and method list to 
+	use the blessed unique value. This means building a big hash table
+	(memory), calling <code>strcmp()</code> a lot (time), and
+	modifying copy-on-write metadata (more memory). 
+      </p>
+      <p>
+	There are tens of thousands of unique selectors present in a
+	typical process. If you run <code>`strings
+	/usr/lib/libobjc.dylib`</code> on Leopard you can see the
+	thirty-thousand-line 
+	<a
+	href="http://www.opensource.apple.com/source/objc4/objc4-371/runtime/objc-sel-table.h">built-in
+	selector table</a> that was a previous attempt to reduce the
+	memory 
+	cost. Even so the cost goes up with every new class and
+	method added to Cocoa.framework; left unchecked, an identical app
+	would take longer to launch and use more memory after every OS
+	upgrade. 
+      </p>
+      <p>
+	The obvious solution? Do the work of selector uniquing in the dyld
+	shared cache. Build a selector table into the shared cache itself,
+	and update the selector references in the cached copy of the
+	shared libraries. Then you save memory because every process
+	shares the same selector table, and save time because the runtime
+	does not need to rebuild it during every app launch. The runtime
+	only needs to fix the selector references from the app itself. The
+	catch? 
+	Selectors are too dynamic to be implemented as C symbols, so the
+	shared cache construction tool needed to be taught how to read and
+	write Objective-C's metadata. 
+      </p>
+      <h4>Optimization WIN</h4>
+      <p>
+	Snow Leopard's dyld shared cache uniques Objective-C selectors,
+	and Snow Leopard's Objective-C runtime recognizes when the
+	selectors in a shared library are already uniqued courtesy of the
+	shared cache. About half of the runtime's initialization time is
+	eliminated, making warm app launch several tenths of a second
+	faster. Typical memory savings is 200-500 KB per process, 
+	adding up to a few megabytes system-wide. When this optimization
+	ships on the iPhone OS side, it's estimated to save 1 MB on a 128
+	MB device. The iPhone performance team would pay any number of
+	arms and legs for that kind of gain. 
+      </p>
+      <p>
+	You can watch the system in action with various debugging flags.
+      </p>
+      <p>
+      <code>$ sudo /usr/bin/update_dyld_shared_cache -debug -verify<br>
+[...]<br>
+update_dyld_shared_cache: for x86_64, uniquing objc selectors<br>
+update_dyld_shared_cache: for x86_64, found 68761 unique objc selectors<br>
+update_dyld_shared_cache: for x86_64, 541736/590908 bytes (91%) used in	libobjc unique selector section<br>
+update_dyld_shared_cache: for x86_64, updated 205230 selector references<br>
+</code>
+      </p>
+      <p>
+      <code>$ OBJC_PRINT_PREOPTIMIZATION=YES /usr/bin/defaults<br>
+objc[424]: PREOPTIMIZATION: selector preoptimization ENABLED (version 3)<br>
+objc[424]: PREOPTIMIZATION: honoring preoptimized selectors in /usr/lib/libobjc.A.dylib<br>
+objc[424]: PREOPTIMIZATION: honoring preoptimized selectors in /System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation<br>
+objc[424]: PREOPTIMIZATION: honoring preoptimized selectors in /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/Metadata.framework/Versions/A/Metadata<br>
+objc[424]: PREOPTIMIZATION: honoring preoptimized selectors in /System/Library/Frameworks/Foundation.framework/Versions/C/Foundation<br>
+</code>
+</p>
+      <p>
+	You can estimate the memory savings with the
+	<code><a href="http://developer.apple.com/mac/library/documentation/Darwin/Reference/ManPages/man1/allmemory.1.html">allmemory</a></code> tool. Record post-launch memory usage of an
+	app run with and without environment variable
+	<code>OBJC_DISABLE_PREOPTIMIZATION=YES</code>. Look for the count
+	of dirty pages; each dirty page is 4 KB eaten by that
+	process. With 64-bit TextEdit I see the dirty page count jump from
+	725 to 1069 after disabling the optimization. This is an
+	overestimate - many of those pages would have been not-dirty in
+	Leopard because of the old built-in selector table - but it does
+	show the magnitude of the win.
+      </p>
+      <p>
+	The Objective-C runtime does more than just selector uniquing
+	during launch. Future improvements to the dyld shared cache may
+	precompute some of that other work, to further improve launch
+	time, save memory, and reduce the cost of linking to Objective-C
+	code that you don't actually use. But selector uniquing as seen in
+	Snow Leopard is by far the biggest bang for the buck.
+      </p>
+
+	  </td>
+      </tr>
+  </table>
+
+	  </td>
+	</tr>
+    </table>
+    <hr>
+    <img align="right" src="http://www.sealiesoftware.com/sealie.gif" alt="seal!" width="114" height="69">
+    Greg Parker<br>
+    <a href="mailto:gparker-www@sealiesoftware.com">gparker-www@sealiesoftware.com</a><br>
+    <a href="http://www.sealiesoftware.com/index.html">Sealie Software</a>
+  </body>
+</html>

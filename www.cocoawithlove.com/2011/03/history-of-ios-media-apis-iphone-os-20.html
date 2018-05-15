@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>A history of iOS media APIs (iPhone OS 2.0 to iOS 4.3)</title>
+  <meta name="description" content="After initially starting with a small set of fairly basic media APIs in iPhone OS 2.0, the APIs and the features they provide have dramatically increased in the past 2 years and provided a rapidly moving target for developers trying to remain current. In this post, I&#39;ll try to summarize all of the different APIs in iOS 4.3 for playing media, when they arrived, what their purposes are, what their limitations are and what it&#39;s been like to remain up-to-date and support new features." />
+
+  <meta name="twitter:title" content="A history of iOS media APIs (iPhone OS 2.0 to iOS 4.3)"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2011/03/history-of-ios-media-apis-iphone-os-20.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="After initially starting with a small set of fairly basic media APIs in iPhone OS 2.0, the APIs and the features they provide have dramatically increased in the past 2 years and provided a rapidly moving target for developers trying to remain current. In this post, I&#39;ll try to summarize all of the different APIs in iOS 4.3 for playing media, when they arrived, what their purposes are, what their limitations are and what it&#39;s been like to remain up-to-date and support new features."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="history-of-ios-media-apis-iphone-os-20.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="118px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">A history of iOS media APIs (iPhone OS 2.0 to iOS 4.3)</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2011-03-20">March 20, 2011</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/coreaudio.html">CoreAudio</a>, <a href="../../categories/uikit.html">UIKit</a>, <a href="../../categories/cocoa-touch.html">Cocoa Touch</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>After initially starting with a small set of fairly basic media APIs in iPhone OS 2.0, the APIs and the features they provide have dramatically increased in the past 2 years and provided a rapidly moving target for developers trying to remain current. In this post, I'll try to summarize all of the different APIs in iOS 4.3 for playing media, when they arrived, what their purposes are, what their limitations are and what it's been like to remain up-to-date and support new features.</p></span>
+
+<span class="fullpost">
+
+<h2>Introduction</h2>
+
+<p>This post has two purposes:</p>
+
+<ol><li>To detail the different media APIs in iOS and to explain the scenarios to which they are best suited.</li>
+<li>To show how many updates have been made to the media APIs and what that has meant to any iOS developer attempting to keep their media applications compiling successfully against the latest SDKs and up-to-date with the latest media features in iOS.</li>
+</ol>
+
+<p>Note: I'll be limiting discussion to time-based media in this post, i.e. audio and video APIs. I realize that still photos are "media" but since photos are generally handled as basic graphics, they are handled in a very different manner to audio and video which use specialized hardware processing and handling in iOS.</p>
+
+<p>I was inspired to write this post while working on <a href="http://zqueue.com/streamtome/index.html">StreamToMe</a> version 3.5.2 &mdash; an update to one of my applications to improve the experience of users running iOS 4.3. Nominally, iOS 4.3 only added logging features to some media classes and added an "<code>allowsAirPlay</code>" property to the <code>MPMoviePlayerController</code>. Despite these seemingly limited changes to the APIs, StreamToMe still required some significant changes to work smoothly and deliver the features that users expect in iOS 4.3.</p>
+
+<p>But I'm getting ahead of myself.</p>
+
+<h2>iPhone OS 2.0</h2>
+
+<h3>Playback APIs</h3>
+
+<p>The first version of iPhone OS available to developers arrived with 5 media playing APIs:</p>
+
+<ul>
+<li>AudioUnits/AUGraphs</li>
+<li>AudioQueues</li>
+<li><code>MPMoviePlayerController</code></li>
+<li><code>AudioServicesPlaySystemSound</code></li>
+<li><code>UIWebView</code></li>
+</ul>
+
+<p><strong><a href="http://developer.apple.com/library/ios/#documentation/AudioUnit/Reference/AudioUnit_Framework/_index.html%23//apple_ref/doc/uid/TP40007295">AudioUnits</a>/<a href="http://developer.apple.com/library/ios/#documentation/AudioToolbox/Reference/AUGraphServicesReference/Reference/reference.html%23//apple_ref/doc/uid/TP40007289">AUGraphs</a></strong> are the "low-level" API in both Mac OS and iOS. If you want to process audio in any way, mix more than one source of audio, want to generate your own samples or otherwise access the raw Linear-PCM values, these have always been the best option &mdash; in many cases, close to the <em>only</em> option.</p>
+
+<p>I've previously written a post showing what is probably the simplest possible AudioUnit program: <a href="../../2010/10/ios-tone-generator-introduction-to.html">an iOS Tone Generator</a>. Of course, most people require considerably more complexity than this. A good next step if you're trying to learn about lower level audio APIs is the <a href="http://developer.apple.com/library/ios/samplecode/MixerHost/Introduction/Intro.html">MixerHost sample project</a> you'll find in the iOS documentation. Apple tend to favor C++ wrappers around these C APIs so you may also want to be familiar with the classes in AUPublic folder &mdash; you can start to see how these are used by looking at the very similar <a href="http://developer.apple.com/library/ios/samplecode/iPhoneMultichannelMixerTest/Introduction/Intro.html">iPhoneMultichannelMixerTest</a>.</p>
+
+<p><strong><a href="http://developer.apple.com/library/mac/#documentation/MusicAudio/Reference/AudioQueueReference/Reference/reference.html">AudioQueues</a></strong> are for playing or recording buffers of data. <code>AudioQueueNewInput</code> remains a common means of capturing microphone input and <code>AudioQueueNewOutput</code> is a common way to play to the speaker. The AudioQueue API is, like AudioUnits, a pure C API still requires a fairly meticulous set up. Where AudioUnits require that you push PCM samples into buffers yourself, AudioQueues let you push the buffers and not worry about the sample format. In fact, AudioQueues generally deal with buffers of still-compressed MP3 or AAC data.</p>
+
+<p>I've written a series of posts on using AudioQueues (in conjunction with AudioFileStream) to play from an HTTP stream starting with <a href="../../2008/09/streaming-and-playing-live-mp3-stream.html">Streaming and playing an MP3</a> stream and ending with <a href="../../2010/03/streaming-mp3aac-audio-again.html">Streaming MP3/AAC audio again</a>
+
+<p><strong><a href="http://developer.apple.com/library/mac/#documentation/AudioToolbox/Reference/SystemSoundServicesReference/Reference/reference.html">AudioServicesPlaySystemSound</a></strong> will play up to 30 second segments. Its purpose is really for brief UI or notification sounds played asynchronously. You create the sound using <code>AudioServicesCreateSystemSoundID</code> and then play with <code>AudioServicesPlaySystemSound</code>. Not much more to say than that.</p>
+
+<p>Living out on its own in iPhone OS 2.0, was <strong><a href="http://developer.apple.com/library/ios/documentation/mediaplayer/reference/MPMoviePlayerController_Class/Reference/Reference.html">MPMoviePlayerController</a></strong> &mdash; the only Objective-C class for media playback in iPhone OS 2.0. It offered no programmatic control other than <code>play</code>, no options to configure the UI or movie and no feedback about state. You gave it a URL (either file or HTTP) and it presented the interface, handled the entire experience and posted a notification when it was done. The canonical code example used to be the <a href="http://developer.apple.com/library/ios/samplecode/MoviePlayer_iPhone/Introduction/Intro.html#//apple_ref/doc/uid/DTS40007798">MoviePlayer</a> sample project but this has not been updated since iOS 3.0 and since iOS 4.0 broke backwards compatibility with this class, you'll need to ensure that the <code>MPMoviePlayerController</code>'s view is inserted into the view hierarchy before this project will work.</p>
+
+<p><strong><a href="http://developer.apple.com/library/ios/documentation/uikit/reference/UIWebView_Class/Reference/Reference.html">UIWebView</a></strong> offered an experience similar to <code>MPMoviePlayerController</code> but had an added advantage: it was the only way to output over the TV out dock cables until iOS 3.2 (<code>MPMoviePlayerController</code>, despite being implemented by the same internal private classes, has this functionality disabled). While playing a movie through <code>UIWebView</code> didn't break in iOS 4 like <code>MPMoviePlayerController</code> did, the ability to play to the TV went away without explanation.</p>
+
+<h3>Media support APIs</h3>
+
+<ul>
+<li>AudioFile</li>
+<li>AudioFileStream</li>
+<li>AudioSession</li>
+<li>OpenAL</li>
+<li><code>MPVolumeSettingsAlertShow</code></li>
+<li><code>MPVolumeView</code></li>
+</ul>
+
+<p><strong><a href="http://developer.apple.com/library/ios/documentation/MusicAudio/Reference/AudioFileConvertRef/Reference/reference.html">AudioFile</a></strong> offers a fairly rich set of metadata and parsing functions for files that are fully saved to disk. <strong><a href="http://developer.apple.com/library/mac/documentation/MusicAudio/Reference/AudioStreamReference/Reference/reference.html">AudioFileStream</a></strong> offers a limited subset of the AudioFile functionality but has the advantage that the file doesn't need to be fully saved or downloaded &mdash; it can be a continuous source or progressive source.</p>
+
+<p><strong><a href="http://developer.apple.com/library/ios/documentation/AudioToolbox/Reference/AudioSessionServicesReference/Reference/reference.html">AudioSession</a></strong> is mostly for handling audio routing (is the audio going to the headphones or the speaker) and for determining how your application's audio is blended with audio that other applications may be playing. If you need to handle interruptions (like when an iPhone rings) this API will help you.</p>
+
+<p><strong>OpenAL</strong> is an audio standard for controlling the positioning of the audio in 3D &mdash; mostly used for games. You can look at the <a href="http://developer.apple.com/library/ios/#samplecode/oalTouch/Introduction/Intro.html">oalTouch</a> sample project for an example of how to set this up in iOS.</p>
+
+<p>The <strong><a href="http://developer.apple.com/library/ios/documentation/mediaplayer/reference/MediaPlayerFunctionsReference/Reference/reference.html">MPVolumeSettingsAlertShow</a></strong> and related functions show a dialog so the user can change the volume. The <strong><a href="http://developer.apple.com/library/ios/documentation/mediaplayer/reference/MPVolumeView_Class/Reference/Reference.html">MPVolumeView</a></strong> is a slider so that the user can change the volume.</p>
+
+<h3>Code maintenance considerations</h3>
+
+<p>Code written using AudioUnits, AudioQueues, AudioSessions and <code>AudioServicesPlaySystemSound</code> for iPhone OS 2.0 will generally continue to work in the latest version of iOS (iOS 4.3). Despite additions to these APIs, backwards compatibility remains high. However, many new classes like <code>AVAudioPlayer</code>, <code>AVPlayer</code>, <code>AVAudioRecorder</code>, <code>AVAudioSession</code> and <code>AVCaptureSession</code> provide alternative ways of doing similar things so you may need to consider these alternatives compared to these earlier APIs.</p>
+
+<p>As I mentioned, <code>MPMoviePlayerController</code> code written for iPhone OS 2.0 but linked against iOS 4.3 SDKs will likely not work since this code requires a view be inserted into the hierarchy starting with iOS 3.2.</p>
+
+<p><code>UIWebView</code> stopped outputting over TV out in iOS 3.2 so there's no longer a real reason to use a web view instead of a real movie view.</p>
+
+<p>I rarely use the AudioFile APIs anymore. It's not due to compatibility issues but instead I feel it's been superceded: AudioFileStream (rather than AudioFile) is required for streaming or progressive downloads, <code>AVAudioPlayer</code> (iOS 2.2) is easier for playing files stored on the device (apparently it uses AudioFile/AudioQueue internally) and ExtAudioFile (iOS 2.1) can convert between media formats using the hardware and hence can plug into an AUGraph better.</p>
+
+<p>In my experience, the <code>MPVolumeView</code> slider is more commonly used than the <code>MPVolumeSettingsAlertShow</code> dialog &mdash; with <code>MPVolumeView</code> supporting AirPlay audio in iOS 4.2 and later, the <code>MPVolumeView</code> become even more compelling. It used to infuriate me that in the simulator, the <code>MPVolumeView</code> simply didn't appear &mdash; it worked fine on the device but didn't draw itself in simulator (many hours were lost around wondering if its absence was a bug). The <code>MPVolumeView</code> still doesn't appear in the simulator (for no reason I can understand) but at least it now draws a label saying "No volume available".</p>
+
+<h2>iPhone OS 2.1</h2>
+
+<p>Arriving just 2 months after iPhone OS 2, iPhone OS 2.1 brought audio conversion as the main addition to the SDK. The <strong><a href="http://developer.apple.com/library/ios/DOCUMENTATION/MusicAudio/Reference/AudioConverterServicesReference/Reference/reference.html">AudioConverter</a></strong> functions introduced various forms of PCM conversions and conversions to and from compressed audio formats (MP3 and AAC).</p>
+
+<p>The ability to convert MP3/AAC was important since it could take advantage of the audio hardware (previously decompression required software handling which consumes much more battery power).</p>
+
+<p>Since the primary purpose for audio conversion is to allow a file &mdash; like an MP3 &mdash; to be opened and fed into a processing pipeline like an AUGraph, the <strong><a href="http://developer.apple.com/library/ios/documentation/MusicAudio/Reference/ExtendedAudioFileServicesReference/Reference/reference.html">ExtAudioFile</a></strong> functions were also added to streamline this process.</p>
+
+<h3>Code maintenance considerations</h3>
+
+<p>If you had code that decompressed audio in software or performed PCM conversion in anything less than an optimal manner, it was now a waste of CPU cycles relative to newer code that used these APIs.</p>
+
+<h2>iPhone OS 2.2</h2>
+
+<p>Arriving just 2 months after iPhone OS 2.1 (now just 4 months after iPhone OS 2) the iPhone OS 2.2 update introduced the <strong><a href="http://developer.apple.com/library/ios/DOCUMENTATION/AVFoundation/Reference/AVAudioPlayerClassReference/">AVAudioPlayer</a></strong> &mdash; the first Objective-C API for dedicated audio playback in iPhone OS. The <code>AVAudioPlayer</code> requires that the file be fully saved on your iOS device (so it isn't suitable for continuous streams, network streams or progressive downloads).</p>
+
+<h3>Code maintenance considerations</h3>
+
+<p>If you had code that used AudioFile and AudioQueue, chances are that it would have been much easier to write your program using <code>AVAudioPlayer</code> instead &mdash; however, AudioFile and AudioQueue continue to work, so there was no need to update to <code>AVAudioPlayer</code>. Later on, <code>AVPlayer</code> superceded almost all of <code>AVAudioPlayer</code>'s functionality (with the exception of audio metering and playing from a non-URL buffer) so you need to consider if this is still the class you want to use.</p>
+
+<h2>iPhone OS 3.0</h2>
+
+<p>Arriving approximately 1 year after iPhone OS 2.0, iPhone OS 3.0 brought the following media APIs:</p>
+
+<ul>
+<li><code>AVAudioRecorder</code></li>
+<li><code>AVAudioSession</code></li>
+<li><code>MPMediaQuery</code>, <code>MPMediaPickerController</code> and <code>MPMusicPlayerController</code> classes</li>
+</ul>
+
+<p><strong><a href="http://developer.apple.com/library/ios/documentation/AVFoundation/Reference/AVAudioRecorder_ClassReference/Reference/Reference.html">AVAudioRecorder</a></strong> provided the first Objective-C approach for recording sound. It offers a simple way to record sound to a file but doesn't allow processing of the sound on-the-fly (for that, <code>AudioQueueNewInput</code> is still required).</p>
+
+<p><strong><a href="http://developer.apple.com/library/ios/documentation/AVFoundation/Reference/AVAudioSession_ClassReference/Reference/Reference.html">AVAudioSession</a></strong> provided an Objective-C approach for managing the application's audio session but bizarrely, it still lacks any facility for handling routing changes (i.e. a switch from the headphones to the speaker or to the dock connector). For this reason, I still generally avoid this class &mdash; the AudioSession C functions are clean an simple enough that sacrificing functionality for the improved simplicity of <code>AVAudioSession</code> doesn't seem like a great tradeoff.</p>
+
+<p>The <strong><a href="http://developer.apple.com/library/ios/documentation/mediaplayer/reference/MPMediaQuery_ClassReference/Reference/Reference.html">MPMediaQuery</a></strong>, <strong><a href="http://developer.apple.com/library/ios/documentation/mediaplayer/reference/MPMediaPickerController_ClassReference/Reference/Reference.html">MPMediaPickerController</a></strong> classes and <strong><a href="http://developer.apple.com/library/ios/documentation/mediaplayer/reference/MPMusicPlayerController_ClassReference/Reference/Reference.html">MPMusicPlayerController</a></strong> added the ability to browse, control or play music from the user's iTunes library on the device. This allows you to offer basic library browsing and playing capability. In iPhone OS 3, there was no way to apply different processing to the files &mdash; you had to use <code>MPMusicPlayerController</code>.</p>
+
+<p>Arguably though, the 2 biggest media additions in iPhone OS 3 didn't require a new API: <strong>HTTP live streaming</strong> and video capture on the iPhone 3Gs. Video capture was added into the existing <code><a href="http://developer.apple.com/library/ios/documentation/uikit/reference/UIImagePickerController_Class/UIImagePickerController/UIImagePickerController.html">UIImagePickerController</a></code> and the <code>MPMoviePlayerController</code> added handling of HTTP live streaming.</p>
+
+<p>While <code>MPMoviePlayerController</code> has always supported opening an MP4 file over HTTP, this has three major disadvantages:</p>
+
+<ol>
+<li>It is not really optimized for streaming (so the many HTTP byte range requests required can end up being slow).</li>
+<li>An MP4 file can't be generated on-the-fly (so it's not suitable for continuous sources, live remuxed sources or live transcoded sources).</li>
+<li>You can't dynamically change bitrate on an MP4 file (you can't handle 3G and WiFi bitrates in a single URL).</li></ol>
+
+<p>All of which were addressed by Apple's HTTP live streaming.</p>
+
+<h3>Code maintenance considerations</h3>
+
+<p>HTTP live streaming did bring with it the following additional problems:</p>
+
+<ol>
+<li>As a new protocol, the segmented MPEG-TS and M3U8 files required completely new software to generate them.</li>
+<li>It was initially only supported by MPMoviePlayerController (no other interface could be used except UIWebView which was just a different way of presenting the same interface).</li>
+<li>You don't have any access to the transport layer &mdash; all communication is handled by Apple's internal libraries making careful control of network access difficult or impossible.</li>
+</ol>
+
+<p>The <code>MPMusicPlayerController</code>'s remote controlling of the iPod application is still relevant but since iOS 4.0 introduced the ability to get the URL and play the music in AVAudioPlayer or AVPlayer instead, <code>MPMusicPlayerController</code>'s playback capabilities seem limited.</p>
+
+<p>Despite adding video to <code>UIImagePickerController</code>, you still were not able to get a live image from the camera or programmatically take a picture. Still image capture didn't arrive until iPhone OS 3.1. Actual movie capture didn't arrive until iOS 4.</p>
+
+<p>In iPhone OS 3, you couldn't get a URL for MPMediaQuery results, meaning that you could play files from the user's iTunes library but couldn't do anything interesting. It wasn't until iOS 4 that you could finally get a URL (a weird "ipod-library" URL) that could be used to open the file in lower-level audio APIs to actually perform processing, mixing or other more interesting effects to music.</p>
+
+<p>With HTTP live streaming in place, Apple introduced bitrate restrictions for media into the App Store submission guidelines. This meant that you needed to update your code to throttle streaming audio connections over 3G yourself (a tricky thing to do since <code>NSURLConnection</code> won't generally do this and you need to resort to <code>CFHTTPReadStream</code>), and all HTTP live streams over 3G needed to have a 64kbps fallback variant. If you've ever tried to squeeze video into 64kbps, you'll know how tight a restriction that is.</p>
+
+<p><code>AVAudioSession</code>'s inability to handle routing changes prevented it from properly superceding the older AudioSession functions.</p>
+
+<h2>iPhone OS 3.1</h2>
+
+<p><strong><a href="http://developer.apple.com/library/ios/documentation/uikit/reference/UIVideoEditorController_ClassReference/Reference/Reference.html">UIVideoEditorController</a></strong> was the only significant media addition in iPhone OS 3.1. It allowed you to present the trimming/re-encoding interface for videos stored in the user's Photo Library.</p>
+
+<h2>iOS 3.2</h2>
+
+<p>The first iPad release and the first release to be named "iOS" made two changes that were significant to for media playback: the addition of multiple screen support and a radical overhaul of the <code>MPMoviePlayerController</code>.</p>
+
+<p>Prior to iOS 3.2, the only App Store legal way to output via the dock connector to a TV was to load a movie in a <code>UIWebView</code> and let the movie player in the web view connect to the TV screen and output via the dock connector. With the iPad, you could finally use <strong><a href="http://developer.apple.com/library/ios/documentation/uikit/reference/UIScreen_Class/Reference/UIScreen.html">UIScreen</a> to find additional screens</strong> and place your views on that screen instead of the main screen.</p>
+
+<p><strong>MPMoviePlayerController was finally overhauled</strong> to provide a lot of the feature it sorely needed:</p>
+
+<ul><li>Inline (non-fullscreen) playback if desired, with smooth switching between fullscreen and non-fullscreen</li>
+<li>Ability to programmatically seek and get the current playback point</li>
+<li>Ability to set the control style (including disabling the standard user-interface entirely)</li>
+<li>Provided a location to actually insert a background image if desired</li></ul>
+
+<p>The "set and forget" movie player was reborn as <strong><a href="http://developer.apple.com/library/ios/documentation/mediaplayer/reference/mpmovieplayerviewcontroller_class/Reference/Reference.html">MPMoviePlayerViewController</a></strong>, a <code>UIViewController</code> that handles all display and handling automatically and which handles all communication with its internal <code>MPMoviePlayerController</code> automatically.</p>
+
+<h3>Code maintenance considerations</h3>
+
+<p>While older <code>MPMoviePlayerController</code> code linked against previous SDKs would continue to work, if you ever linked the code against a iOS 3.2 SDK or newer, it would now fail since the new <code>MPMoviePlayerController</code> requires its view be inserted into the view hierarchy or that fullscreen be set to YES.</p>
+
+<p>Remember: Apple rarely allow you to link against anything except the newest SDK, so any attempt to recompile old projects with <code>MPMoviePlayerController</code> code will result in no video being shown unless you update the code. For this reason, Apple's MoviePlayer sample project continues to not work (they haven't updated since iPhone OS 3.0).</p>
+
+<p>Given the size of the iPad screen, users now expect a non-fullscreen view to be possible.</p>
+
+<p>The "Done" button of the <code>MPMoviePlayerController</code> (visible in fullscreen) no longer ends the movie. It just pauses it and shrinks it to the inline (non-fullscreen) view. This creates another new trait of the <code>MPMoviePlayerController</code> that you must adapt to handle.</p>
+
+<h2>iOS 4.0</h2>
+
+<p>The biggest update since iPhone OS 2.0, iOS 4 brought a huge number of changes to media APIs.</p>
+
+<ul>
+<li><code>ALAsset</code> (and related classes)</li>
+<li><code>AVCaptureSession</code> (and related classes)</li>
+<li><code>AVComposition</code> (and related classes)</li>
+<li><code>AVPlayer</code>, <code>AVPlayerItem</code>, <code>AVAsset</code> (and related classes)</li>
+<li>The ability to get the URL for an <code>MPMediaItem</code></li>
+<li><code>startVideoCapture</code> and <code>stopVideoCapture</code> in <code>UIImagePickerController</code></li>
+<li><code>UIScreen</code> and <code>MPMoviePlayerController</code> changes from iOS 3.2 brought to non-iPad devices</li>
+<li>Background audio</li>
+<li><code>beginReceivingRemoteControlEvents</code> and <code>endReceivingRemoteControlEvents</code></li>
+</ul>
+
+<p>The huge additions to the <a href="http://developer.apple.com/library/ios/#DOCUMENTATION/AVFoundation/Reference/AVFoundationFramework/_index.html%23//apple_ref/doc/uid/TP40008072">AVFoundation.framework</a> &mdash; particularly the <strong><a href="http://developer.apple.com/library/ios/documentation/AVFoundation/Reference/AVPlayer_Class/Reference/Reference.html">AVPlayer</a></strong> and <strong><a href="http://developer.apple.com/library/ios/DOCUMENTATION/AVFoundation/Reference/AVComposition_Class/Reference/Reference.html">AVComposition</a></strong> class hierarchies &mdash; reflect Apple providing APIs that replace what Quicktime's API used to provide on the Mac: sophisticated media handling that could be used to implement a complete music or movie editing program if required. Ultimately, since Quicktime 7 is deprecated in favor of Quicktime X on the Mac, I expect that these APIs will probably appear in a future version of Mac OS X and represent multi-track mixing, editing and composition in Cocoa for the future.</p>
+
+<p><code>AVPlayer</code> in iOS 4.0 ultimately didn't offer any advantages over <code>MPMoviePlayerController</code> for playing regular media. <code>AVPlayer</code> is required for playing <code>AVCompositions</code> but for regular files, it was largely the same as <code>MPMoviePlayerController</code> with the user interface disabled (made possible since iOS 3.2).</p>
+
+<p>The <strong><a href="http://developer.apple.com/library/ios/documentation/AssetsLibrary/Reference/ALAsset_Class/Reference/Reference.html">ALAsset</a></strong> classes finally provided a way to search through the photo and video media without using the <code>UIImagePickerController</code>. It also provided a better way to handle reading and writing photo and video media to the user's photo library.</p>
+
+<p><strong><a href="http://developer.apple.com/library/ios/documentation/AVFoundation/Reference/AVCaptureSession_Class/Reference/Reference.html">AVCaptureSesssion</a></strong> and the other AVCapture classes finally provided the ability to capture video data without the <code>UIImagePickerController</code> interface and perform realtime processing of video data. The classes also included the ability to handle audio capture too, providing an alternative to the <code>AudioQueueNewInput</code> function for processing audio while it is recording (remember <code>AVAudioRecorder</code> will still let you record audio direct to a file without processing).</p>
+
+<p><strong><a href="http://developer.apple.com/library/ios/documentation/iphone/conceptual/iphoneosprogrammingguide/BackgroundExecution/BackgroundExecution.html">Background audio</a></strong> was largely painless &mdash; just a setting in your Info.plist &mdash; although trying to get videos to continue playing their audio in the background is a near impossibility (you need to disable the video track or if you're using HTTP live streaming, you need to restart the stream without video or iOS will forcibly pause playback when you hit the background).</p>
+
+<h3>Code maintenance considerations</h3>
+
+<p>iOS 4.0 required updating of all <code>MPMoviePlayerController</code> code for non-iPad devices in the same way that iOS 3.2 required updating for the iPad.</p>
+
+<p><code>AVPlayer</code> has no built-in interface. You must entirely create it yourself. This remains a problem for anyone who needs to use <code>AVPlayer</code> instead of the standard <code>MPMoviePlayerController</code> because implementing video playback controls can take a long time and requires a lot of subtle features.</p>
+
+<p><code>UIWebView</code> stopped playing to the TV in iOS 4. No idea why but this functionality has not returned.</p>
+
+<p>The inline (non-fullscreen) iPhone/iPod version of the <code>MPMoviePlayerController</code> user interface offers no button to return to fullscreen when playing audio. This creates an annoying difference between the iPhone/iPod and iPad versions of the <code>MPMoviePlayerController</code> which you need to handle.</p>
+
+<h2>iOS 4.1</h2>
+
+<p>The biggest update in this version was the <code><a href="http://developer.apple.com/library/ios/documentation/AVFoundation/Reference/AVQueuePlayer_Class/Reference/Reference.html">AVQueuePlayer</a></code>. The iOS 4.0 headers actually hinted at being able to queue multiple items for an <code>AVPlayer</code> but obviously this functionality was held over.</p>
+
+<p><strong>AVQueuePlayer</strong> is an important class as it is the only player in iOS that will attempt to cache subsequent items for play to allow nearly gapless playback between items in a list. Like <code>AVPlayer</code> though, it has no user-interface so if you want to use this player, you need to write your own interface completely.</p>
+
+<h3>Code maintenance considerations</h3>
+
+<p><code>AVQueuePlayer</code> would be the unambiguously best player in iOS if it:</p>
+
+<ul>
+<li>could provide an inbuilt UI if requested</li>
+<li>could use AirPlay video</li>
+</ul>
+
+<p>Until these features are brought to <code>AVQueuePlayer</code>, there are still reasons why you would need to use <code>MPMoviePlayerController</code> instead.</p>
+
+<h2>iOS 4.2</h2>
+
+<p>The first version of iOS to merge iPad and iPhone/iPod lines. For media APIs, it added the CoreMIDI framework and AirPlay audio support.</p>
+
+<p><strong>AirPlay audio</strong> ended up being very simple: any existing <code><a href="http://developer.apple.com/library/ios/#documentation/mediaplayer/reference/MPVolumeView_Class/Reference/Reference.html">MPVolumeView</a></code> would allow you to select an AirPlay destination for your application's audio. Many applications required zero code changes if they already featured an <code>MPVolumeView</code>.</p>
+
+<p>I have no experience with this framework but from the look of it, <strong><a href="http://developer.apple.com/library/ios/documentation/MusicAudio/Reference/CACoreMIDIRef/_index.html">CoreMIDI</a></strong> appears to be for controlling MIDI devices over the network, not for actually playing/synthesizing on the iPhone/iPod/iPad so it is perhaps only tangentially related to media on an iOS device.</p>
+
+<h3>Code maintenance considerations</h3>
+
+<p>If any <code>MPVolumeView</code>s in your program are too small, they won't be able to show the AirPlay controls, so a new minimum width requirement is effectively established.</p>
+
+<h2>iOS 4.3</h2>
+
+<p>The biggest addition in iOS 4.3 was <strong>AirPlay video</strong>. In essence this only required you set the flag <code><a href="http://developer.apple.com/library/ios/documentation/mediaplayer/reference/MPMoviePlayerController_Class/Reference/Reference.html#//apple_ref/doc/uid/TP40006953-CH3-SW108">allowsAirPlay</a></code> to <code>YES</code> on the <code>MPMoviePlayerController</code>.</p>
+
+<p>Additionally a large set of <strong>logging, error tracking and statistics gathering</strong> APIs were added to the AV media classes (<a href="file:///Developer/Platforms/iPhoneOS.platform/Developer/Documentation/DocSets/com.apple.adc.documentation.AppleiOS4_3.iOSLibrary.docset/Contents/Resources/Documents/documentation/AVFoundation/Reference/AVPlayerItemAccessLog_Class/Reference/Reference.html#//apple_ref/occ/cl/AVPlayerItemAccessLog">AVPlayerItemAccessLog</a>, <a href="file:///Developer/Platforms/iPhoneOS.platform/Developer/Documentation/DocSets/com.apple.adc.documentation.AppleiOS4_3.iOSLibrary.docset/Contents/Resources/Documents/documentation/AVFoundation/Reference/AVPlayerItemErrorLog_Class/Reference/Reference.html#//apple_ref/occ/cl/AVPlayerItemErrorLog">AVPlayerItemErrorLog</a>) and <code>MPMoviePlayerController</code> (<a href="http://developer.apple.com/library/ios/documentation/MediaPlayer/Reference/MPMovieAccessLog_Class/Reference/Reference.html">MPMovieAccessLog</a>, <a href="http://developer.apple.com/library/ios/documentation/MediaPlayer/Reference/MPMovieErrorLog_Class/Reference/Reference.html">MPMovieErrorLog</a>).</p>
+
+<h3>Code maintenance considerations</h3>
+
+<p>The <code>allowsAirPlay</code> flag on the <code>MPMoviePlayerController</code> carries with it an implicit requirement: that you're actually using <code>MPMoviePlayerController</code>. If you've been playing media with a different API, then you'll need to switch to <code>MPMoviePlayerController</code> to take advantage of AirPlay video. This was the biggest change that StreamToMe required for iOS 4.3 &mdash; since StreamToMe uses the <code>AVQueuePlayer</code> by default (for its superior track transitions and more detailed track and asset control) it needed to allow switching to the <code>MPMoviePlayerController</code> in the case where AirPlay video is desired. For a program as focussed on media play as StreamToMe, allowing a runtime switch between two interfaces at the core of the program was a big effort. Fortunately, StreamToMe has always had <code>MPMoviePlayerController</code> code for supported iOS prior to 4.1 but this was the first time a dynamic switch between interfaces had been needed.</p>
+
+<p>The second change, much less expected since it wasn't really documented, it that iOS 4.3 no longer lets you observe the <code>playerItem.asset.tracks</code> key path of an <code>AVQueuePlayer</code>, instead you must now observe <code>playerItem.tracks.assetTrack</code> key path to get the same value. Technically while linked against iOS 4.2, you can still observe the old key path even when running on iOS 4.3 but it suddenly incurs a dramatic performance hit. Finding the exact cause of this issue was time consuming &mdash; as I said, it wasn't documented in any change notes I could find.</p>
+
+<p>The final point that made compatibility difficult: if you have an <code>MPMoviePlayerController</code> with <code>allowsAirPlay</code> set to <code>YES</code> and <code>useApplicationAudioSession</code> set to <code>NO</code>, and the <code>MPMoviePlayerController</code> wants to launch straight to the Apple TV without displaying on the local device first, then the entire movie player interface disappears, never to return. This is undoubtedly a temporary bug but it provided another unexpected reason to make maintenance updates to StreamToMe.</p>
+
+<h2>Conclusion</h2>
+
+<p>This has been a lot of classes and functions to summarize. I hope I haven't missed anything important.</p>
+
+<p>Obviously, I'm closer to the media APIs than to some other traits of iOS (so I might have a skewed perspective on their prominence) but I think that the media APIs are close to the most, if not the most updated area of iOS. Attempting to keep media applications up-to-date with the latest media features available remains a busy task.</p>
+
+<p>Of course despite the huge amount of work (on the part of both Apple and the 3rd party application developers) these additions have certainly improved the media experience in iOS. The original iPhone OS felt hugely limiting at the time and users were certainly crying out for the additions that have appeared. The idea that the only movie player interface used to be fullscreen, the only audio playback API was AudioQueue or raw AudioUnits, there was no programmatic camera access and no access to the iPod library in the original iPhone OS highlights how many more options are now available.</p>
+
+<p>Of course, the constant changes to the API also leave me feeling embarrassed when they trip me up or otherwise get ahead of my release schedules. The StreamToMe 3.5.2 update is coming soon, I promise!</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../01/advanced-drawing-using-appkit.html">Advanced drawing using AppKit</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="mac-quartzgl-2d-drawing-on-graphics.html">Mac QuartzGL (2D drawing on the graphics card) performance</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

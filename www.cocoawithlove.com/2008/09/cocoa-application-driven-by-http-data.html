@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>A Cocoa application driven by HTTP data</title>
+  <meta name="description" content="Here&#39;s a tiny application that queries a webpage via HTTP, parses and searches the response and presents the results in a neatly formatted window. In essence, it&#39;s what many Dashboard widgets and iPhone apps do but I&#39;ll show you how to do it in a regular Cocoa application.&lt;/p&gt;&lt;p&gt;Brought to you by FuelView, an iPhone application I wrote for fetching FuelWatch information in Western Australia." />
+
+  <meta name="twitter:title" content="A Cocoa application driven by HTTP data"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2008/09/cocoa-application-driven-by-http-data.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Here&#39;s a tiny application that queries a webpage via HTTP, parses and searches the response and presents the results in a neatly formatted window. In essence, it&#39;s what many Dashboard widgets and iPhone apps do but I&#39;ll show you how to do it in a regular Cocoa application.&lt;/p&gt;&lt;p&gt;Brought to you by FuelView, an iPhone application I wrote for fetching FuelWatch information in Western Australia."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="cocoa-application-driven-by-http-data.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">A Cocoa application driven by HTTP data</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2008-09-20">September 20, 2008</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/self-promotion.html">self promotion</a>, <a href="../../categories/foundation.html">Foundation</a>, <a href="../../categories/webkit.html">WebKit</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>Here's a tiny application that queries a webpage via HTTP, parses and searches the response and presents the results in a neatly formatted window. In essence, it's what many Dashboard widgets and iPhone apps do but I'll show you how to do it in a regular Cocoa application.</p><p>Brought to you by <a href="https://itunes.apple.com/au/app/fuelview/id290932924?mt=8">FuelView</a>, an iPhone application I wrote for fetching FuelWatch information in Western Australia.</p></span>
+
+<span class="fullpost">
+<h2>Introduction</h2>
+<p>Most Dashboard widgets work by fetching data via HTTP and formatting the response for easy viewing. This type of widget does nothing your web browser can't do but because it's focussed on a specific goal, it can be faster and present a better experience within its more narrow bounds.</p>
+
+<h2>Similar but Cocoa</h2>
+
+<p>This fetch/parse/search/present behavior need not be limited to widgets. I'll show you how you can replicate this in a Cocoa application. The example I'll present will show the "New to the store" items from the Apple Store.</p>
+
+<p>Here's a screenshot of this application in action:</p>
+
+<img src="../../assets/objc-era/newtothestore.png" width="523" height="270" />
+
+<p>The data presented in the application's window comes from the list of "New to the store" items on the <a href="http://store.apple.com">http://store.apple.com</a> webpage, as circled in the following screenshot:</p>
+
+<img src="../../assets/objc-era/storewebpage.png" width="508" height="420" />
+
+&nbsp;
+
+<h2>The steps involved</h2>
+
+<p>As I've already stated, this type of web retrieval application requires the following steps:</p>
+
+<ul><li>Fetch over HTTP</li>
+<li>Parse the response into a structured format</li>
+<li>Search the parsed response and extract the desired information</li>
+<li>Format and present to the user</li></ul>
+
+<h2>Fetch over HTTP</h2>
+
+<p><span class="monospace">NSURLConnection</span> handles data transfer over HTTP in Cocoa. All you need to do is give it a URL to fetch and it make it happen.</p>
+
+<p>You can drive an <span class="monospace">NSURLConnection</span> synchronously using <span class="monospace">sendSynchronousRequest:returningResponse:error:</span> (which admittedly takes less code than what I'm about to show you) but that will block the entire thread until the response is received (almost always a bad idea).</p>
+
+<p>For a class with an <span class="monospace">NSMutableData</span> member named <span class="monospace">responseData</span> and an <span class="monospace">NSURL</span> member named <span class="monospace">baseURL</span>, here's how to fetch the page at <span class="monospace">http://store.apple.com</span> into that data member asynchronously:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc">    <span class="n">responseData</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSMutableData</span> <span class="n">data</span><span class="p">]</span> <span class="k">retain</span><span class="p">];</span>
+    <span class="n">baseURL</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSURL</span> <span class="nl">URLWithString</span><span class="p">:</span><span class="s">@&#34;http://store.apple.com&#34;</span><span class="p">]</span> <span class="k">retain</span><span class="p">];</span>
+
+    <span class="n">NSURLRequest</span> <span class="o">*</span><span class="n">request</span> <span class="o">=</span>
+        <span class="p">[</span><span class="n">NSURLRequest</span> <span class="nl">requestWithURL</span><span class="p">:[</span><span class="n">NSURL</span> <span class="nl">URLWithString</span><span class="p">:</span><span class="s">@&#34;http://store.apple.com&#34;</span><span class="p">]];</span>
+    <span class="p">[[[</span><span class="n">NSURLConnection</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithRequest</span><span class="p">:</span><span class="n">request</span> <span class="nl">delegate</span><span class="p">:</span><span class="nb">self</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span></code></pre></div>
+
+<p>For this asynchronous approach to work, the delegate object (<span class="monospace">self</span> in this case) must also implement the following methods:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">connection:</span><span class="p">(</span><span class="n">NSURLConnection</span> <span class="o">*</span><span class="p">)</span><span class="nv">connection</span> <span class="nf">didReceiveResponse:</span><span class="p">(</span><span class="n">NSURLResponse</span> <span class="o">*</span><span class="p">)</span><span class="nv">response</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="n">responseData</span> <span class="nl">setLength</span><span class="p">:</span><span class="mi">0</span><span class="p">];</span>
+<span class="p">}</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">connection:</span><span class="p">(</span><span class="n">NSURLConnection</span> <span class="o">*</span><span class="p">)</span><span class="nv">connection</span> <span class="nf">didReceiveData:</span><span class="p">(</span><span class="n">NSData</span> <span class="o">*</span><span class="p">)</span><span class="nv">data</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="n">responseData</span> <span class="nl">appendData</span><span class="p">:</span><span class="n">data</span><span class="p">];</span>
+<span class="p">}</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">connection:</span><span class="p">(</span><span class="n">NSURLConnection</span> <span class="o">*</span><span class="p">)</span><span class="nv">connection</span> <span class="nf">didFailWithError:</span><span class="p">(</span><span class="n">NSError</span> <span class="o">*</span><span class="p">)</span><span class="nv">error</span>
+<span class="p">{</span>
+    <span class="p">[[</span><span class="n">NSAlert</span> <span class="nl">alertWithError</span><span class="p">:</span><span class="n">error</span><span class="p">]</span> <span class="n">runModal</span><span class="p">];</span>
+<span class="p">}</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">connectionDidFinishLoading:</span><span class="p">(</span><span class="n">NSURLConnection</span> <span class="o">*</span><span class="p">)</span><span class="nv">connection</span>
+<span class="p">{</span>
+    <span class="c1">// Once this method is invoked, &#34;responseData&#34; contains the complete result
+</span><span class="c1"></span><span class="p">}</span></code></pre></div>
+
+<p>In addition to this required <span class="monospace">NSURLConnection</span> functionality, the sample app implements another method here to track what the final URL will be (since redirections may occur).</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">NSURLRequest</span> <span class="o">*</span><span class="p">)</span><span class="nf">connection:</span><span class="p">(</span><span class="n">NSURLConnection</span> <span class="o">*</span><span class="p">)</span><span class="nv">connection</span>
+    <span class="nf">willSendRequest:</span><span class="p">(</span><span class="n">NSURLRequest</span> <span class="o">*</span><span class="p">)</span><span class="nv">request</span>
+    <span class="nf">redirectResponse:</span><span class="p">(</span><span class="n">NSURLResponse</span> <span class="o">*</span><span class="p">)</span><span class="nv">redirectResponse</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="n">baseURL</span> <span class="n">autorelease</span><span class="p">];</span>
+    <span class="n">baseURL</span> <span class="o">=</span> <span class="p">[[</span><span class="n">request</span> <span class="n">URL</span><span class="p">]</span> <span class="k">retain</span><span class="p">];</span>
+    <span class="k">return</span> <span class="n">request</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Having the correct base URL for the webpage will allow us to perform relative to absolute URL conversion below if needed.</p>
+
+<h2>Parsing and Searching an HTML document</h2>
+
+<p>The response from an HTTP request is normally HTML &mdash; a long chunk of text. In order to make useful sense of this, you'll want to use the right tools to extract useful information.</p>
+
+<p>There are lots of examples of people using text searching and regular expressions to find data in webpages. These examples are doing it wrong.</p>
+
+<p><span class="monospace">NSXMLDocument</span> and an XPath query are your friends. They really make finding elements within a webpage, RSS feed or XML documents very easy.</p>
+
+<p>The following code is inserted in the body of the <span class="monospace">connectionDidFinishLoading:</span> method shown above:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc">    <span class="n">NSError</span> <span class="o">*</span><span class="n">error</span><span class="p">;</span>
+    <span class="n">NSXMLDocument</span> <span class="o">*</span><span class="n">document</span> <span class="o">=</span>
+        <span class="p">[[</span><span class="n">NSXMLDocument</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithData</span><span class="p">:</span><span class="n">responseData</span> <span class="nl">options</span><span class="p">:</span><span class="n">NSXMLDocumentTidyHTML</span> <span class="nl">error</span><span class="p">:</span><span class="o">&amp;</span><span class="n">error</span><span class="p">];</span>
+    
+    <span class="c1">// Deliberately ignore the error: with most HTML it will be filled with
+</span><span class="c1"></span>    <span class="c1">// numerous &#34;tidy&#34; warnings.
+</span><span class="c1"></span>    
+    <span class="n">NSXMLElement</span> <span class="o">*</span><span class="n">rootNode</span> <span class="o">=</span> <span class="p">[</span><span class="n">document</span> <span class="n">rootElement</span><span class="p">];</span>
+    
+    <span class="n">NSString</span> <span class="o">*</span><span class="n">xpathQueryString</span> <span class="o">=</span>
+        <span class="s">@&#34;//div[@id=&#39;newtothestore&#39;]/div[@class=&#39;modulecontent&#39;]/div[@id=&#39;new-to-store&#39;]/div[@class=&#39;list_content&#39;]/ul/li/a&#34;</span><span class="p">;</span>
+    <span class="n">NSArray</span> <span class="o">*</span><span class="n">newItemsNodes</span> <span class="o">=</span> <span class="p">[</span><span class="n">rootNode</span> <span class="nl">nodesForXPath</span><span class="p">:</span><span class="n">xpathQueryString</span> <span class="nl">error</span><span class="p">:</span><span class="o">&amp;</span><span class="n">error</span><span class="p">];</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">error</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="p">[[</span><span class="n">NSAlert</span> <span class="nl">alertWithError</span><span class="p">:</span><span class="n">error</span><span class="p">]</span> <span class="n">runModal</span><span class="p">];</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span></code></pre></div>
+
+<p>The XPath query is the core of the search operation. Simple, yet incredibly adept at extracting data from a structured document.</p>
+
+<p>This query here looks for all the "<span class="monospace">a</span>" tags (HTML links) in the list under the "newtothestore" <span class="monospace">div</span>.</p>
+
+<h2>Format and present to the user</h2>
+
+<p>In the sample application, the table view at the left of the window is populated from the <span class="monospace">NSArray</span> named <span class="monospace">newItems</span> on the <span class="monospace">NewItemsClient</span> object (to which all methods discussed so far belong). Since the user interface has been configured in Interface Builder to handle this populating automatically, all that needs to be done is to update <span class="monospace">newItems</span> in a Key-Value-Observing compliant fashion.</p>
+
+<p>This code fragment should be inserted immediately below the previous code fragment:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc">    <span class="p">[</span><span class="nb">self</span> <span class="nl">willChangeValueForKey</span><span class="p">:</span><span class="s">@&#34;newItems&#34;</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">newItems</span> <span class="k">release</span><span class="p">];</span>
+    <span class="n">newItems</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSMutableArray</span> <span class="n">array</span><span class="p">]</span> <span class="k">retain</span><span class="p">];</span>
+    <span class="k">for</span> <span class="p">(</span><span class="n">NSXMLElement</span> <span class="o">*</span><span class="n">node</span> <span class="k">in</span> <span class="n">newItemsNodes</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">NSString</span> <span class="o">*</span><span class="n">relativeString</span> <span class="o">=</span> <span class="p">[[</span><span class="n">node</span> <span class="nl">attributeForName</span><span class="p">:</span><span class="s">@&#34;href&#34;</span><span class="p">]</span> <span class="n">stringValue</span><span class="p">];</span>
+        <span class="n">NSURL</span> <span class="o">*</span><span class="n">url</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSURL</span> <span class="nl">URLWithString</span><span class="p">:</span><span class="n">relativeString</span> <span class="nl">relativeToURL</span><span class="p">:</span><span class="n">baseURL</span><span class="p">];</span>
+        
+        <span class="n">NSString</span> <span class="o">*</span><span class="n">linkText</span> <span class="o">=</span> <span class="p">[[</span><span class="n">node</span> <span class="nl">childAtIndex</span><span class="p">:</span><span class="mi">0</span><span class="p">]</span> <span class="n">stringValue</span><span class="p">];</span>
+        
+        <span class="p">[</span><span class="n">newItems</span> <span class="nl">addObject</span><span class="p">:</span>
+            <span class="p">[</span><span class="n">NSDictionary</span> <span class="nl">dictionaryWithObjectsAndKeys</span><span class="p">:</span>
+                <span class="p">[</span><span class="n">url</span> <span class="n">absoluteString</span><span class="p">],</span> <span class="s">@&#34;linkURL&#34;</span><span class="p">,</span>
+                <span class="n">linkText</span><span class="p">,</span> <span class="s">@&#34;linkText&#34;</span><span class="p">,</span>
+                <span class="nb">nil</span><span class="p">]];</span>
+    <span class="p">}</span>
+    <span class="p">[</span><span class="nb">self</span> <span class="nl">didChangeValueForKey</span><span class="p">:</span><span class="s">@&#34;newItems&#34;</span><span class="p">];</span></code></pre></div>
+
+<p>The final result has the <span class="monospace">newItems</span> array filled with absolute URLs and link text from the items in the "New to the store" list.</p>
+
+<p>The user interface, as assembled in Interface Builder, handles the details of displaying the "linkText" from each item. A connector object tracks selection changes in the table and displays the "linkURL" of the selected item in the <span class="monospace">WebView</span>.</p>
+
+<blockquote>You can <a href="../../assets/objc-era/NewToTheStore.zip">download the complete XCode project</a> for the example presented. It's XCode 3.1 but should also load in 3.0 (with a warning you can ignore).</blockquote>
+
+<h2>Conclusion</h2>
+
+<p>I hope I've shown that the Dashboard widget niche of "small applications driven by web-retrieved data" is quickly and simply achievable in Cocoa.</p>
+
+<p>The example fetched from HTML but the techniques would be similar or identical for RSS or general XML data fetched over HTTP.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="drawing-gloss-gradients-in-coregraphics.html">Drawing gloss gradients in CoreGraphics</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="streaming-and-playing-live-mp3-stream.html">Streaming and playing an MP3 stream</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

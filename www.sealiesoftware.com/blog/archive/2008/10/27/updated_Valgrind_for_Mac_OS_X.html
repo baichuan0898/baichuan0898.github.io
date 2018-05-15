@@ -1,0 +1,87 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<!--
+Local Variables:
+sgml-default-dtd-file: "~/html-loose.ced"
+End:
+-->
+<html>
+  <head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+
+    <title>Hamster Emporium: updated: Valgrind for Mac OS X</title>
+    <link title="RSS 2.0" href="../../../../rss.xml.rss" type="application/rss+xml" rel="alternate">
+  </head>
+  <body bgcolor="#ffffff">
+    <table cellpadding="0" cellspacing="0">
+      <tr>
+	  <td valign="top" align="left">
+	    <a href="../../../../index.html"><img src="http://www.sealiesoftware.com/hamster.jpg" alt="" width="108" height="160"></a><br><br>
+	    <b>blog</b><br>
+	    <a href="../../../../index.html">recent</a><br>
+	    <a href="../../../index.html">archive</a><br>
+	    <a href="http://twitter.com/gparker">twitter</a><br>
+	    <br>
+	    <b>projects</b><br>
+	    <a href="http://www.apple.com/macosx/">Mac OS X</a><br>
+	    <a href="http://www.sealiesoftware.com/keyboard/index.html">Keyboard</a><br>
+	     &nbsp; <a href="http://www.sealiesoftware.com/keyboard/index.html">backlight</a><br>
+	    <a href="http://www.sealiesoftware.com/cscmenu/index.html">CSC Menu</a><br>
+	    <a href="http://www.sealiesoftware.com/valgrind/index.html">Valgrind</a><br>
+	    <a href="http://www.sealiesoftware.com/fringe/index.html">Fringe Player</a><br>
+	    <a href="http://www.sealiesoftware.com/pssh/index.html">pssh</a><br>
+	    <a href="http://www.sealiesoftware.com/peal/index.html">Peal</a><br>
+	    <a href="http://www.sealiesoftware.com/frankenmouse/index.html">Frankenmouse</a><br>
+	    <br>
+	  </td>
+	  <td>
+	    &nbsp; &nbsp;
+	  </td>
+	  <td valign="top">
+	      <h2>Hamster Emporium archive</h2>
+  <p>
+     &lt;&lt; &nbsp; <a href="../30/objc_explain_objc_msgSend_stret.html">[objc explain]: objc_msgSend_stret</a> &nbsp; | &nbsp;  
+    <a href="../../../index.html">archive</a>
+     &nbsp; | &nbsp; <a href="../14/Space_is_time_how_your_CS_theory_class_lied_to_you.html">Space is time: how your CS theory class lied to you</a> &nbsp; &gt;&gt; 
+  </p>
+  <table cellpadding="0" cellspacing="3">
+      <tr>
+	<td>
+	  <a href="updated_Valgrind_for_Mac_OS_X.html"><img src="http://www.sealiesoftware.com/link.gif" width="14" height="16" border="0" alt="(link)"></a>
+	</td>
+	<td>
+	  <b><font size="+1">updated: Valgrind for Mac OS X</font></b> &nbsp; 
+	  <font size="-1">(<a href="updated_Valgrind_for_Mac_OS_X.html">2008-10-27 5:47 PM</a>)</font>
+	</td>
+      </tr>
+      <tr>
+	<td>
+	  &nbsp;
+	</td>
+	<td>
+	        <p>
+	Update for <a href="http://www.sealiesoftware.com/valgrind/index.html">Valgrind for Mac OS
+	X</a>: fixes a hang at launch when reading debug info. 
+      </p>
+      <p>
+	The entire difference between valgrind-opensource-3 and
+	valgrind-opensource-4 is:
+	<pre>
+    -#if !defined(VGO_DARWIN)
+    +#if !defined(VGO_darwin)</pre>
+	D'oh!
+      </p>
+
+	  </td>
+      </tr>
+  </table>
+
+	  </td>
+	</tr>
+    </table>
+    <hr>
+    <img align="right" src="http://www.sealiesoftware.com/sealie.gif" alt="seal!" width="114" height="69">
+    Greg Parker<br>
+    <a href="mailto:gparker-www@sealiesoftware.com">gparker-www@sealiesoftware.com</a><br>
+    <a href="http://www.sealiesoftware.com/index.html">Sealie Software</a>
+  </body>
+</html>

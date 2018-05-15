@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Creating alpha masks from text on the iPhone and Mac</title>
+  <meta name="description" content="Alpha masks are a powerful way to create graphical effects in your program. In this post, I&#39;ll show you how to create an alpha mask from a text string and use that mask to create text-based effects with an image. I&#39;ll also show you how to do this on the iPhone and the Mac, so you can see the differences between these platforms in this area." />
+
+  <meta name="twitter:title" content="Creating alpha masks from text on the iPhone and Mac"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/09/creating-alpha-masks-from-text-on.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Alpha masks are a powerful way to create graphical effects in your program. In this post, I&#39;ll show you how to create an alpha mask from a text string and use that mask to create text-based effects with an image. I&#39;ll also show you how to do this on the iPhone and the Mac, so you can see the differences between these platforms in this area."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="creating-alpha-masks-from-text-on.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Creating alpha masks from text on the iPhone and Mac</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-09-09">September 9, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/uikit.html">UIKit</a>, <a href="../../categories/appkit.html">AppKit</a>, <a href="../../categories/coregraphics.html">CoreGraphics</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>Alpha masks are a powerful way to create graphical effects in your program. In this post, I'll show you how to create an alpha mask from a text string and use that mask to create text-based effects with an image. I'll also show you how to do this on the iPhone and the Mac, so you can see the differences between these platforms in this area.</p></span><span class="fullpost"><h2>Introduction</h2><p>In this post I will present the following sample application:</p><img src="../../assets/objc-era/textmasking.png" width="240" height="361" /><p>The program shows the current time, updating every second, on the Mac or iPhone. Within the bounds of the text, the image of the space shuttle is displayed at 100% opacity. Everywhere else, it displays at 30% opacity.</p><p>This is done by drawing the image of the shuttle over a white background using an alpha mask &mdash; where the mask is white (100% opaque) for the text and dark gray (30% opaque) for the background.</p><blockquote>Download the <a href="../../assets/objc-era/TextMasking-iPhone.zip">TextMasking-iPhone.zip</a> (37kB) and the <a href="../../assets/objc-era/TextMasking-Mac.zip">TextMasking-Mac.zip</a> (42kB) projects.</blockquote><h2>Clipping regions in Core Graphics</h2><p>Clipping and masking are the two key ways of limiting the effect that drawing has in CoreGraphics.</p><p>With a clipping region, we create a hard boundary. When a clipping region is used, every pixel drawn inside the region is fully shown (completely opaque), and no pixels outside the region are affected (completely transparent). For example, the following code:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">CGContextBeginPath</span><span class="p">(</span><span class="n">context</span><span class="p">);</span>
+<span class="n">CGContextAddRect</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">CGRectMake</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">80</span><span class="p">,</span> <span class="mi">80</span><span class="p">));</span>
+<span class="n">CGContextAddRect</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">CGRectMake</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">40</span><span class="p">,</span> <span class="mi">40</span><span class="p">));</span>
+<span class="n">CGContextEOClip</span><span class="p">(</span><span class="n">context</span><span class="p">);</span></code></pre></div>
+
+<p>will ensure that subsequent drawing only has an effect if it is inside the rectangle (x=10, y=10, width=80, height=80) but outside the rectangle (x=20, y=20, width=10, height=10).</p><blockquote>The "EO" in <code>CGContextEOClip</code> stands for "Even-Odd". When you use this function instead of <code>CGContextClip</code>, subsequent nested regions (an even or an odd number of nestings) continue to toggle clipping on and off. That is why the second <code>CGContextAddRect</code> is excluded from the clipping region. If I had used <code>CGContextClip</code>, the nested rectangle would have no effect (it is <em>already</em> inside the clipping region).</blockquote><h2>Clipping with image masks in Core Graphics</h2><p>A mask affects the opacity/transparency of drawn pixels like a clipping region but the affected areas are specified by the color values in an image, not from a region. This is the approach used in the sample applications. A mask is used instead of a clipping region for two reasons:</p><ul><li>A mask allows varying levels of transparency, not just on or off (for the partially transparent regions in the image).</li><li>On the iPhone, it's very difficult to get the region outline of text characters (on the Mac you can use <code>appendBezierPathWithGlyph:inFont:</code>), making a clipping region from a text boundary impractical.</li></ul><h2>Creating a mask</h2><p>The Mac and the iPhone differ significantly on how the mask image must be created.</p><p>On the iPhone, it is possible to copy the current graphics context to an image before it is drawn to screen and use that as the mask.</p><p>On the Mac this doesn't work. The Mac requires that masking images be grayscale without an alpha channel &mdash; you could copy the current graphics context in the same way but it can't be used as a mask image. We'll need to create a context that meets these specific requirements.</p><h3>On the iPhone:</h3><p>Drawing the text to the current graphics context and copying that to an image on the iPhone:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">CGContextRef</span> <span class="n">context</span> <span class="o">=</span> <span class="n">UIGraphicsGetCurrentContext</span><span class="p">();</span>
+
+<span class="c1">// Draw a dark gray background
+</span><span class="c1"></span><span class="p">[[</span><span class="n">UIColor</span> <span class="n">darkGrayColor</span><span class="p">]</span> <span class="n">setFill</span><span class="p">];</span>
+<span class="n">CGContextFillRect</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">rect</span><span class="p">);</span>
+
+<span class="c1">// Draw the text upside-down
+</span><span class="c1"></span><span class="n">CGContextSaveGState</span><span class="p">(</span><span class="n">context</span><span class="p">);</span>
+<span class="n">CGContextTranslateCTM</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">rect</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span><span class="p">);</span>
+<span class="n">CGContextScaleCTM</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="o">-</span><span class="mf">1.0</span><span class="p">);</span>
+<span class="p">[[</span><span class="n">UIColor</span> <span class="n">whiteColor</span><span class="p">]</span> <span class="n">setFill</span><span class="p">];</span>
+<span class="p">[</span><span class="n">text</span> <span class="nl">drawInRect</span><span class="p">:</span><span class="n">rect</span> <span class="nl">withFont</span><span class="p">:[</span><span class="n">UIFont</span> <span class="nl">fontWithName</span><span class="p">:</span><span class="s">@&#34;HelveticaNeue-Bold&#34;</span> <span class="nl">size</span><span class="p">:</span><span class="mi">124</span><span class="p">]];</span>
+<span class="n">CGContextRestoreGState</span><span class="p">(</span><span class="n">context</span><span class="p">);</span>
+
+<span class="c1">// Create an image mask from what we&#39;ve drawn so far
+</span><span class="c1"></span><span class="n">CGImageRef</span> <span class="n">alphaMask</span> <span class="o">=</span> <span class="n">CGBitmapContextCreateImage</span><span class="p">(</span><span class="n">context</span><span class="p">);</span></code></pre></div>
+
+<p>The only tricky part here is that the image will be flipped when we draw it back again, so we need to draw the text upside-down &mdash; other than that, the iPhone has it easy here.</p><h3>On the Mac</h3><p>Since the Mac must have the bitmap image as a <code>CGColorSpaceCreateDeviceGray();</code> image without an alpha channel, we can't just copy a screen context to use as our mask. Instead, we need to create a new context with the settings we require and perform all drawing there.</p><p>This has one advantage: we can set the context to <code>flipped:NO</code> so that we don't need to draw upside-down to have it render correctly.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="c1">// Create a grayscale context for the mask
+</span><span class="c1"></span><span class="n">CGColorSpaceRef</span> <span class="n">colorspace</span> <span class="o">=</span> <span class="n">CGColorSpaceCreateDeviceGray</span><span class="p">();</span>
+<span class="n">CGContextRef</span> <span class="n">maskContext</span> <span class="o">=</span>
+<span class="n">CGBitmapContextCreate</span><span class="p">(</span>
+    <span class="nb">NULL</span><span class="p">,</span>
+    <span class="nb">self</span><span class="p">.</span><span class="n">bounds</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">width</span><span class="p">,</span>
+    <span class="nb">self</span><span class="p">.</span><span class="n">bounds</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span><span class="p">,</span>
+    <span class="mi">8</span><span class="p">,</span>
+    <span class="nb">self</span><span class="p">.</span><span class="n">bounds</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">width</span><span class="p">,</span>
+    <span class="n">colorspace</span><span class="p">,</span>
+    <span class="mi">0</span><span class="p">);</span>
+<span class="n">CGColorSpaceRelease</span><span class="p">(</span><span class="n">colorspace</span><span class="p">);</span>
+
+<span class="c1">// Switch to the context for drawing
+</span><span class="c1"></span><span class="n">NSGraphicsContext</span> <span class="o">*</span><span class="n">maskGraphicsContext</span> <span class="o">=</span>
+    <span class="p">[</span><span class="n">NSGraphicsContext</span>
+        <span class="nl">graphicsContextWithGraphicsPort</span><span class="p">:</span><span class="n">maskContext</span>
+        <span class="nl">flipped</span><span class="p">:</span><span class="nb">NO</span><span class="p">];</span>
+<span class="p">[</span><span class="n">NSGraphicsContext</span> <span class="n">saveGraphicsState</span><span class="p">];</span>
+<span class="p">[</span><span class="n">NSGraphicsContext</span> <span class="nl">setCurrentContext</span><span class="p">:</span><span class="n">maskGraphicsContext</span><span class="p">];</span>
+
+<span class="c1">// Draw a black background
+</span><span class="c1"></span><span class="p">[[</span><span class="n">NSColor</span> <span class="n">darkGrayColor</span><span class="p">]</span> <span class="n">setFill</span><span class="p">];</span>
+<span class="n">CGContextFillRect</span><span class="p">(</span><span class="n">maskContext</span><span class="p">,</span> <span class="n">rect</span><span class="p">);</span>
+
+<span class="c1">// Draw the text right-way-up (non-flipped context)
+</span><span class="c1"></span><span class="p">[</span><span class="n">text</span>
+    <span class="nl">drawInRect</span><span class="p">:</span><span class="n">rect</span>
+    <span class="nl">withAttributes</span><span class="p">:</span>
+        <span class="p">[</span><span class="n">NSDictionary</span> <span class="nl">dictionaryWithObjectsAndKeys</span><span class="p">:</span>
+            <span class="p">[</span><span class="n">NSFont</span> <span class="nl">fontWithName</span><span class="p">:</span><span class="s">@&#34;HelveticaNeue-Bold&#34;</span> <span class="nl">size</span><span class="p">:</span><span class="mi">124</span><span class="p">],</span> <span class="n">NSFontAttributeName</span><span class="p">,</span>
+            <span class="p">[</span><span class="n">NSColor</span> <span class="n">whiteColor</span><span class="p">],</span> <span class="n">NSForegroundColorAttributeName</span><span class="p">,</span>
+        <span class="nb">nil</span><span class="p">]];</span>
+
+<span class="c1">// Switch back to the window&#39;s context
+</span><span class="c1"></span><span class="p">[</span><span class="n">NSGraphicsContext</span> <span class="n">restoreGraphicsState</span><span class="p">];</span>
+
+<span class="c1">// Create an image mask from what we&#39;ve drawn so far
+</span><span class="c1"></span><span class="n">CGImageRef</span> <span class="n">alphaMask</span> <span class="o">=</span> <span class="n">CGBitmapContextCreateImage</span><span class="p">(</span><span class="n">maskContext</span><span class="p">);</span></code></pre></div>
+
+<h2>Using the mask</h2><p>Using the mask is much easier than creating it:</p><ol><li>Save the state of the current context (so that we can go back to a non-masked state when we're done).</li><li>Apply the mask using <code>CGContextClipToMask</code>.</li><li>Perform whatever drawing we want masked.</li><li>Restore the saved context state to remove the mask again.</li></ol><p>The iPhone version is:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="c1">// Draw a white background (clear the window)
+</span><span class="c1"></span><span class="p">[[</span><span class="n">UIColor</span> <span class="n">whiteColor</span><span class="p">]</span> <span class="n">setFill</span><span class="p">];</span>
+<span class="n">CGContextFillRect</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">rect</span><span class="p">);</span>
+
+<span class="c1">// Draw the image, clipped by the mask
+</span><span class="c1"></span><span class="n">CGContextSaveGState</span><span class="p">(</span><span class="n">context</span><span class="p">);</span>
+<span class="n">CGContextClipToMask</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">rect</span><span class="p">,</span> <span class="n">alphaMask</span><span class="p">);</span>
+<span class="p">[[</span><span class="n">UIImage</span> <span class="nl">imageNamed</span><span class="p">:</span><span class="s">@&#34;shuttle.jpg&#34;</span><span class="p">]</span> <span class="nl">drawInRect</span><span class="p">:</span><span class="n">rect</span><span class="p">];</span>
+<span class="n">CGContextRestoreGState</span><span class="p">(</span><span class="n">context</span><span class="p">);</span>
+<span class="n">CGImageRelease</span><span class="p">(</span><span class="n">alphaMask</span><span class="p">);</span></code></pre></div>
+
+<p>The Mac version substitutes <code>NSColor</code> and <code>NSImage</code> for <code>UIColor</code> and <code>UIImage</code> but is otherwise the same.</p><h2>Conclusion</h2><blockquote>Download the <a href="../../assets/objc-era/TextMasking-iPhone.zip">TextMasking-iPhone.zip</a> (37kB) and the <a href="../../assets/objc-era/TextMasking-Mac.zip">TextMasking-Mac.zip</a> (42kB) projects.</blockquote><p>Clipping and masking are two of the most powerful operations available when drawing in code but as highly abstract concepts they can be difficult to use for the first time since a mistake normally results in nothing happening (a difficult scenario from which to learn).</p><p>I have only briefly shown region-based clipping. If you don't need the partial transparency offered by masks and can draw your shapes as a region then it is faster than a mask (since it doesn't need to allocate or load the mask image). Obviously, the option you choose should be based on the output you require.</p><p>The examples shown here don't cache anything &mdash; they allocate and dispose of all data structures every time the <code>drawRect:</code> method is called. In a proper program, you should not allocate the mask image every time you draw. You can allocate the mask once and simply set the context back to it to update it.</p></span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="nssplitview-delegate-for-priority-based.html">An NSSplitView delegate for priority based resizing</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="building-for-earlier-os-versions-in.html">Building for earlier OS versions from Snow Leopard</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

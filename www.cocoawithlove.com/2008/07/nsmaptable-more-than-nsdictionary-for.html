@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>NSMapTable: more than an NSDictionary for weak pointers</title>
+  <meta name="description" content="NSMapTable is collection class that was introduced in Mac OS X 10.5 (Leopard). At first glance, it would appear to be most useful as an NSDictionary replacement that can choose between &#34;strong&#34; and &#34;weak&#34; pointers. In this post, I&#39;ll show you why it is also useful outside garbage collection and how it can do things that NSDictionary can&#39;t (or shouldn&#39;t) do." />
+
+  <meta name="twitter:title" content="NSMapTable: more than an NSDictionary for weak pointers"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2008/07/nsmaptable-more-than-nsdictionary-for.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="NSMapTable is collection class that was introduced in Mac OS X 10.5 (Leopard). At first glance, it would appear to be most useful as an NSDictionary replacement that can choose between &#34;strong&#34; and &#34;weak&#34; pointers. In this post, I&#39;ll show you why it is also useful outside garbage collection and how it can do things that NSDictionary can&#39;t (or shouldn&#39;t) do."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="nsmaptable-more-than-nsdictionary-for.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">NSMapTable: more than an NSDictionary for weak pointers</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2008-07-06">July 6, 2008</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/foundation.html">Foundation</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>NSMapTable is collection class that was introduced in Mac OS X 10.5 (Leopard). At first glance, it would appear to be most useful as an NSDictionary replacement that can choose between "strong" and "weak" pointers. In this post, I'll show you why it is also useful outside garbage collection and how it can do things that NSDictionary can't (or shouldn't) do.</p></span>
+
+<span class="fullpost">
+<h2>More Cocoa for your Leopard</h2>
+<p>Cocoa added a few new collections classes in Mac OS X 10.5 (Leopard). These included:</p>
+<ul>
+<li><span class="monospace"><a href="http://developer.apple.com/documentation/Cocoa/Reference/Foundation/Classes/NSPointerArray_Class/index.html">NSPointerArray</a></span></li>
+<li><span class="monospace"><a href="http://developer.apple.com/documentation/Cocoa/Reference/NSHashTable_class/index.html">NSHashTable</a></span></li>
+<li><span class="monospace"><a href="http://developer.apple.com/documentation/Cocoa/Reference/NSMapTable_class/index.html">NSMapTable</a></span></li>
+</ul>
+
+<p><span class="monospace">NSPointerArray</span> is completely new but most of <span class="monospace">NSHashTable</span> and <span class="monospace">NSMapTable</span>'s functionality was previously available through the <a href="http://developer.apple.com/documentation/Cocoa/Reference/Foundation/Miscellaneous/Foundation_Functions/Reference/reference.html">opaque Foundation C <span class="monospace">struct</span>s of the same names</a>.</p>
+
+<p>In some respects, these new classes work like <span class="monospace">NSMutableArray</span>,  <span class="monospace">NSMutableSet</span> and <span class="monospace">NSMutableDictionary</span> respectively but give the option of working with "weak" garbage collected pointers. If you're using Objective-C 2.0 with Garbage Collection, you should <a href="http://developer.apple.com/documentation/Cocoa/Conceptual/GarbageCollection/Articles/gcDesignPatterns.html">know what "weak" means</a> with respect to your pointers, so the advantage of using this option should be clear.</p>
+
+<p><span class="monospace">NSPointerArray</span> can also be used for pure pointers (pointers that are not necessarily Objective-C classes) but the <span class="monospace">NSHashTable</span> and <span class="monospace">NSMutableArray</span> classes both require their contents to be Objective-C objects.</p>
+
+<p>In a general sense though, <span class="monospace">NSPointerArray</span> and <span class="monospace">NSHashTable</span> fill the same design role as <span class="monospace">NSMutableArray</span> and <span class="monospace">NSMutableSet</span> (an ordered array and an unordered set respectively).</p>
+
+<p><span class="monospace">NSMapTable</span> is different because it can fill roles in your design that <span class="monospace">NSMutableDictionary</span> couldn't (or shouldn't).</p>
+
+<h2>Limitations of NSDictionary</h2>
+
+<p><span class="monospace">NSDictionary</span> provides a key-to-object mapping. In essence, <span class="monospace">NSDictionary</span> stores the "objects" in locations indexed by the "keys".</p>
+
+<p>Since the objects are stored at specific locations, <span class="monospace">NSDictionary</span> requires that the key's value doesn't change (otherwise the object would suddenly be at the wrong location for its key). To ensure this requirement is maintained, <span class="monospace">NSDictionary</span> always copies the keys to its own private location.</p>
+
+<p>This key copying behavior is fundamental to how <span class="monospace">NSDictionary</span> works but is also a limitation: you can only use an Objective-C object as a key in an <span class="monospace">NSDictionary</span> if it supports the <span class="monospace">NSCopying</span> protocol. Further, the key should be small and efficient enough that copying is does not burden CPU or memory.</p>
+
+<p>This means that <span class="monospace">NSDictionary</span> is really only suited to "value"-type objects as keys (eg. small strings and numbers). It is not ideal for modelling mappings from fully fledged objects to other objects.</p>
+
+<h2>Object to Object mappings</h2>
+
+<p><span class="monospace">NSMapTable</span> (as the name implies) is more suited to mapping in a general sense. Depending on how it is constructed, <span class="monospace">NSMapTable</span> can handle the "key-to-object" style mapping of an <span class="monospace">NSDictionary</span> but it can also handle "object-to-object" mappings &mdash; also known as an "<a href="http://en.wikipedia.org/wiki/Associative_array">associative array</a>" or simply a "<a href="http://www.sgi.com/tech/stl/Map.html">map</a>".</p>
+
+<p>For example, an <span class="monospace">NSMapTable</span> constructed as follows:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSMapTable</span> <span class="o">*</span><span class="n">keyToObjectMapping</span> <span class="o">=</span>
+    <span class="p">[</span><span class="n">NSMapTable</span>
+        <span class="nl">mapTableWithKeyOptions</span><span class="p">:</span><span class="n">NSMapTableCopyIn</span>
+        <span class="nl">valueOptions</span><span class="p">:</span><span class="n">NSMapTableStrongMemory</span><span class="p">];</span></code></pre></div>
+
+<p>will work much the same as an <span class="monospace">NSMutableDictionary</span>, copying its "key" values and retaining its "object" values.</p>
+
+<p>A pure object-to-object mapping could be constructed as follows:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSMapTable</span> <span class="o">*</span><span class="n">objectToObjectMapping</span> <span class="o">=</span>
+    <span class="p">[</span><span class="n">NSMapTable</span> <span class="n">mapTableWithStrongToStrongObjects</span><span class="p">];</span></code></pre></div>
+
+<p>An object-to-object behavior could previously be emulated using an <span class="monospace">NSDictionary</span> if all the keys were <span class="monospace">NSNumber</span>s containing the memory address of the source object in the mapping (don't laugh, I've seen it done) but outside of this run-around, <span class="monospace">NSMapTable</span> offers a true object-to-object mapping for the first time in a Cocoa collection class.</p>
+
+<h2>Options for NSMapTable</h2>
+
+<p>The options provided to <span class="monospace">NSMapTable</span> are composed of three parts: a "memory option", a "personality option" and the "copy in" flag. You may use one option for each part (there are default behaviors that will be used if no option is provided for the part). The parts are all bit flags (binary "or" them together to combine parts).</p>
+
+<p>Officially, <span class="monospace">NSMapTable</span> allows the following options:</p>
+<ul>
+<li><span class="monospace">NSMapTableStrongMemory</span> (a "memory option")</li>
+<li><span class="monospace">NSMapTableWeakMemory</span> (a "memory option")</li>
+<li><span class="monospace">NSMapTableObjectPointerPersonality</span> (a "personality option")</li>
+<li><span class="monospace">NSMapTableCopyIn</span> (a "copy option")</li></ul>
+
+<p><span class="monospace">NSMapTableStrongMemory</span> is the default "memory option". However, the default "personality option" and the default "copy in" behaviors don't have names so these two values can be considered implicitly included in the list.</p>
+
+<h3>Memory options</h3>
+
+<p>Since "strong" and "weak" are terms associated with Garbage Collection in Objective-C, it may not be obvious that these options can be used outside of Garbage Collected code (manually managed memory as Apple calls it).</p>
+
+<p>Outside garbage collection, the following definitions apply:</p>
+
+<ul><li><strong><em>strong</em></strong>: use retain and release</li>
+<li><strong><em>weak</em></strong>: don't use retain and release</li></ul>
+
+<p><span class="monospace">NSMapTable</span> only permits <span class="monospace">NSPointerFunctionsOptions</span> "personality options" that correspond to Objective-C objects. There are other <span class="monospace">NSPointerFunctionsOptions</span> "personality options" where the behavior for "strong" pointers does not include retain and release but these options are not permitted for <span class="monospace">NSMapTable</span>.</p>
+
+<blockquote><em>A warning about using "weak" outside of garbage collection:</em><br>The pointer will not be zeroed as in a garbage collected environment so you must be careful not to dereference the pointer if it is released.</blockquote>
+
+<h3>Personality options</h3>
+
+<p>The <span class="monospace">NSMapTableObjectPointerPersonality</span> option is used to control whether the <span class="monospace">isEqualTo:</span> and <span class="monospace">hash</span> methods on the object are used when adding the object to the collection.</p>
+
+<ul><li><em><span class="monospace">NSMapTableObjectPointerPersonality</span> specified</em><br/>
+The object's pointer value is used for direct comparison and bit-shifted hash generation (<span class="monospace">isEqualTo:</span> and <span class="monospace">hash</span> methods are <em>not</em> used).</li>
+
+<li><em><span class="monospace">NSMapTableObjectPointerPersonality</span> <strong>not</strong> specified</em> (default behavior)<br/>
+The <span class="monospace">hash</span> and <span class="monospace">isEqualTo:</span> methods will invoked on the key to determine a storage location in the <span class="monospace">NSMapTable</span>. The return values of these methods should not change (be immutable) for the duration that the key is used in the <span class="monospace">NSMapTable</span>.</li></ul>
+
+<p>Both behaviors imply that the content implements the <span class="monospace">NSObject</span> protocol, so methods in this protocol may also be invoked on the keys and objects. In particular, the <span class="monospace">description</span> method may be invoked on <span class="monospace">NSMapTable</span> contained keys and objects regardless of the personality option used. The <span class="monospace">NSMapTable</span> will only support <span class="monospace">NSCoding</span> if all keys and objects implement the <span class="monospace">NSCoding</span> protocol too.</p>
+
+<h3>Copy options</h3>
+
+<p>If <span class="monospace">NSMapTableCopyIn</span> is specified, the <span class="monospace">NSMapTable</span> makes its own copies of data using the <span class="monospace">NSCopying</span> protocol when they are added. If you don't specify this option (default behavior) no copy will be made.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../06/hidden-xcode-build-debug-and-template.html">Hidden Xcode build, debug and template settings</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="coregraphics-curves-and-lines-sample.html">CoreGraphics curves and lines: a sample app</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

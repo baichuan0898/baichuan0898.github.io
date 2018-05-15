@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Tracking tasks with stack traces in Swift</title>
+  <meta name="description" content="In this tongue-twister titled article, I discuss capturing control flow information with stack traces during ongoing tasks to aid debugging. Also included: a reimplementation of NSThread.callStackReturnAddresses in Swift for faster and more flexible stack traces." />
+
+  <meta name="twitter:title" content="Tracking tasks with stack traces in Swift"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/blog/2016/02/28/stack-traces-in-swift.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="In this tongue-twister titled article, I discuss capturing control flow information with stack traces during ongoing tasks to aid debugging. Also included: a reimplementation of NSThread.callStackReturnAddresses in Swift for faster and more flexible stack traces."/>
+
+  <link rel="icon" href="../../../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../../../css/main.css" />
+  <link rel="canonical" href="stack-traces-in-swift.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../../../index.html"><img class="heartandcup" src="../../../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../../../about/index.html">about</a>
+        <a class="page-link" href="../../../../archive/index.html">archive</a>
+        <a class="page-link" href="../../../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Tracking tasks with stack traces in Swift</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2016-02-28">February 28, 2016</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../../../tags/swift.html">Swift</a>, <a href="../../../../tags/debug-analysis.html">debug analysis</a>
+		 
+	</div>
+</header>
+
+
+<main role="main">
+	<article itemscope itemtype="http://schema.org/BlogPosting">
+		<div class="post-content" itemprop="articleBody">
+			
+
+<p>Debugging tasks with complex or asynchronous control flow can be difficult since it renders useless one of the most important debugging tools we have: the debugger stack trace. To overcome this, we can have our tasks capture their own stack traces in debug builds to aid debugging by reconstructing the path that long-running task objects take through the program.</p>
+
+<p>This article will also share my own custom code for creating and symbolicating stack traces that&rsquo;s a little faster and more flexible than the existing code for doing this in Swift.</p>
+
+<nav id="TableOfContents"><span class="toc-heading">Contents</span>
+<ul>
+<li>
+<ul>
+<li><a href="#introduction">Introduction</a></li>
+<li><a href="#we-could-use-a-log-file">We could use a log file</a></li>
+<li><a href="#a-journal-of-stack-traces-instead">A journal of stack traces instead</a></li>
+<li><a href="#wait-why-are-we-doing-this-at-all">Wait&hellip; why are we doing this at all?</a></li>
+<li><a href="#capturing-the-stack-trace">Capturing the stack trace</a></li>
+<li><a href="#rolling-my-own">Rolling my own</a></li>
+<li><a href="#a-simple-example-using-these-functions">A simple example using these functions</a></li>
+<li><a href="#implementation-of-callstackreturnaddresses">Implementation of callStackReturnAddresses</a></li>
+<li><a href="#usage">Usage</a>
+<ul>
+<li><a href="#packaging-note">Packaging note</a></li>
+</ul></li>
+<li><a href="#conclusion">Conclusion</a></li>
+</ul></li>
+</ul>
+</nav>
+
+<h2 id="introduction">Introduction</h2>
+
+<p>One of the best ways to analyze a program for the source of an error is a debugger stack trace.</p>
+
+<p>Imagine we create a task object in function (1), then we pass the task object into another function (2), which then passes the task object into a third function (3) which represents the end of the task. In this example, path the object takes through the program and the call stack are the same thing:</p>
+
+<p><img src="../../../../assets/blog/three_node_graph.svg" alt="a linear, three node graph" /></p>
+
+<p>If, by the end of function (3), we don&rsquo;t have the expected result, we can set a breakpoint at the end of function (3) and the stack trace in the debugger will show functions (2) and (1) ahead of function (3) on the stack. We&rsquo;ll know the path our task took through functions between creation and completion. If the task is processed purely as a series of nested calls, then the debugger stack trace at the deepest point will capture the entire history of the task and reconstructing the control flow is as simple as reading this stack trace.</p>
+
+<p>Unfortunately, many tasks are not so simple. Objects are not just passed into functions but also returned from functions, eliminating their source frames from the call stack in the process. Objects are also passed between threads, eliminating all prior steps in their lifetime from the call stack.</p>
+
+<p>Imagine our simple three step path for the object instead looked like this:</p>
+
+<p><img src="../../../../assets/blog/three_layer_graph.svg" alt="a non-linear, three node graph" /></p>
+
+<p>In this diagram, function (2) calls function (1) where the task object is created. Function (1) then returns the task object to function (2) which then asynchronously passes the object to function (3).</p>
+
+<p>Function (1) is lost from the stack trace as soon as it returns to function (2) then function (2) is also lost from the stack trace when function (3) is invoked asynchronously. When we find a problem at the end of function (3), we&rsquo;ve lost the history of control flow for the object through our program.</p>
+
+<p>How can we maintain enough information about our computation to perform useful reactive analysis at step (3) under these circumstances?</p>
+
+<h2 id="we-could-use-a-log-file">We could use a log file</h2>
+
+<p>Traditionally, we address this type of control flow tracking problem with a log file. We log the construction of the task object, we log when we hand the object from one thread to another and we log its conclusion. By reading through the log file, we can see what events occurred and when.</p>
+
+<p>The biggest problem with a log file though is controlling the amount of information it contains. A log file is usually program-wide and records events from all tasks in a single location. If multiple tasks are occurring simultaneously, they will be interleaved in the log file. If you have many tasks in your program, the log can become unreasonably difficult to read.</p>
+
+<p>Another problem with log files is that they&rsquo;re only as helpful as the information you choose to write – they don&rsquo;t implicitly gather information. Good logging requires a non-zero amount of time to write a good log message.</p>
+
+<p>Finally, logging only captures information from the current scope. This makes logging information far less helpful in reusable code where you&rsquo;re more likely to be interested in the call site than the reusable callee.</p>
+
+<h2 id="a-journal-of-stack-traces-instead">A journal of stack traces instead</h2>
+
+<p>Instead of using log files to track asynchronous tasks, I prefer to use a structure that I call a &ldquo;task journal&rdquo;. It&rsquo;s not a complicated data structure. Here&rsquo;s an example:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="cp">#if</span> <span class="cp">DEBUG</span>
+   <span class="kd">var</span> <span class="nv">taskJournal</span><span class="p">:</span> <span class="p">[[</span><span class="nb">UInt</span><span class="p">]]</span> <span class="p">=</span> <span class="p">[</span><span class="n">callStackReturnAddresses</span><span class="p">()]</span>
+<span class="cp">#endif</span></code></pre></div>
+
+<p>Its an array of stack traces, where a stack trace is simply an array of return addresses (<code>UInt</code>) that we can use to reconstruct functions and offsets within those functions at a later time.</p>
+
+<p>Relative to a log file for tracking control flow, this task journal has the following advantages:</p>
+
+<ol>
+<li>it stays out of the way until you need it (it&rsquo;s not blasted into a common location)</li>
+<li>it&rsquo;s unique for the task (remains readable, even when multiple tasks are occurring at once)</li>
+<li>it captures information about callers, making it useful in <em>reusable</em> classes</li>
+</ol>
+
+<p>The initial stack trace (as captured by <code>callStackReturnAddresses</code>) is added on initialization of the <code>taskJournal</code> and when your task reaches an interesting sequence point (conditional branch, interface boundary or other handover point), you append a stack trace.</p>
+
+<div class="aside">Log files have many other purposes outside of tracking control flow; I'm not proposing stack traces as a replacement for log files. Log files remain the best solution for tracking progress across an aggregation of multiple tasks. Log files can also be persistent and user-readable, allowing them to be useful outside of simple debug analysis.</div>
+
+<p>Coming from a log files, it&rsquo;s natural to think you might need to include a message with the stack trace but the message is usually &ldquo;I am here&rdquo;, something that is already implicit in the stack trace.</p>
+
+<p>This doesn&rsquo;t mean you shouldn&rsquo;t store additional metadata with tasks – information like &ldquo;this task was created with parameters X, Y and Z&rdquo; or &ldquo;task received error message E&rdquo; is very helpful – but it should usually be stored in a custom format for your task context. The key purpose of the task journal is to have metadata that doesn&rsquo;t require any custom formatting, structures or messages – you just add sequence points when you want.</p>
+
+<h2 id="wait-why-are-we-doing-this-at-all">Wait&hellip; why are we doing this at all?</h2>
+
+<p>Since Xcode 6, Xcode can automatically record backtraces when queueing blocks asynchronously using dispatch queues so you can follow a call stack across multiple asynchronous calls. You can watch this in action in <a href="https://developer.apple.com/videos/play/wwdc2014/413/">Debugging in Xcode 6 from WWDC2014</a>.</p>
+
+<p>Do we still need to do stack trace capturing for ourselves?</p>
+
+<p>Xcode will only record backtraces when queuing on a dispatch queue. You&rsquo;re not in control of these backtraces so you can&rsquo;t request them in other situations. There are therefore lots of examples of important control flow behaviors that this doesn&rsquo;t capture:</p>
+
+<ol>
+<li>Ongoing tasks that don&rsquo;t use dispatch, including common tasks like network connections and user input</li>
+<li>Operations on a single thread like basic function calls or taking one branch instead of another</li>
+</ol>
+
+<p>Even when the control flow you want to track is asynchronous invocation of blocks on dispatch queues, recorded backtraces in Xcode relies on implicit behavior. Sometimes it works and sometimes it doesn&rsquo;t and you get no feedback when the backtrace simply doesn&rsquo;t appear. For example: in Xcode 7.2.1, Xcode&rsquo;s recorded backtraces don&rsquo;t appear to work at all for me in xctest targets. I don&rsquo;t know if it&rsquo;s a &ldquo;known limitation&rdquo; or a bug but it leaves me needing an alternative.</p>
+
+<h2 id="capturing-the-stack-trace">Capturing the stack trace</h2>
+
+<p>Now, I&rsquo;ve written <code>callStackReturnAddresses</code> in the examples above to capture the current stack trace. There isn&rsquo;t a free function with that name in Swift or Cocoa.</p>
+
+<p>There is a class function with that name on <code>NSThread</code>, so we could write:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">var</span> <span class="nv">taskJournal</span><span class="p">:</span> <span class="p">[[</span><span class="nb">UInt</span><span class="p">]]</span> <span class="p">=</span> <span class="p">[</span><span class="n">Thread</span><span class="p">.</span><span class="n">callStackReturnAddresses</span><span class="p">()]</span></code></pre></div>
+
+<p>Unfortunately, neither <code>NSThread</code>, nor any other class in Foundation, exposes a way to easily convert addresses to symbols at a later time when needed.</p>
+
+<p>There is an alternative function on <code>NSThread</code>:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">let</span> <span class="nv">trace</span> <span class="p">=</span> <span class="n">NSThread</span><span class="p">.</span><span class="n">callStackSymbols</span><span class="p">()</span></code></pre></div>
+
+<p>which immediately converts the return addresses to symbols but that&rsquo;s really too time consuming to attach to our main task machinery (we only want to convert to symbols after an error occurs, not on our critical path where we may need to capture hundreds or thousands of stack traces per second).</p>
+
+<p>For performance reasons then, we need to stick to basic return addresses and we&rsquo;ll need to convert them to symbols ourselves with the C function <code>dladdr</code>. At a minimum: <code>NSThread.callStackReturnAddresses</code> isn&rsquo;t going to be a complete solution.</p>
+
+<p>But I have another issue with the <code>NSThread</code> implementation: you can&rsquo;t skip over the top couple of stack frames and you can&rsquo;t limit the number of captured frames. With <code>NSThread.callStackReturnAddresses</code>, you must always capture the whole stack and then crop the result down to the information you actually need – which forces reallocates and wastes time.</p>
+
+<p>We&rsquo;d have a bit more flexibility if we could use the C function <code>backtrace</code> but in Swift, we can&rsquo;t. The <code>backtrace</code> function comes from the &ldquo;execinfo.h&rdquo; header and is implemented as part of libSystem on OS X and iOS (which all Swift programs link against) but for whatever reason, the &ldquo;execinfo.h&rdquo; contents are not exposed to Swift programs.</p>
+
+<h2 id="rolling-my-own">Rolling my own</h2>
+
+<p>While the functionality of <code>NSThread.callStackReturnAddresses</code> is probably enough for most people, I was dissatisfied enough that I bothered to re-implement it in Swift with the features I wanted:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="c1">/// Traverses the frames on current stack and gathers the return addresses for traversed</span>
+<span class="c1">/// stack frames as an array of UInt.</span>
+<span class="c1">/// - parameter skip: number of stack frames to skip over before copying return addresses</span>
+<span class="c1">///   to the result array.</span>
+<span class="c1">/// - parameter maximumAddresses: limit on the number of return addresses to return</span>
+<span class="c1">///   (default is `Int.max`)</span>
+<span class="c1">/// - returns: The array of return addresses on the current stack within the</span>
+<span class="c1">///   skip/maximumAddresses bounds.</span>
+<span class="p">@</span><span class="n">inline</span><span class="p">(</span><span class="n">never</span><span class="p">)</span>
+<span class="kd">public</span> <span class="kd">func</span> <span class="nf">callStackReturnAddresses</span><span class="p">(</span><span class="n">skip</span><span class="p">:</span> <span class="nb">UInt</span> <span class="p">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">maximumAddresses</span><span class="p">:</span> <span class="nb">Int</span> <span class="p">=</span> <span class="nb">Int</span><span class="p">.</span><span class="bp">max</span><span class="p">)</span> <span class="p">-&gt;</span>
+   <span class="p">[</span><span class="nb">UInt</span><span class="p">]</span></code></pre></div>
+
+<p>To support the function, I also wrote:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="c1">/// When applied to the output of callStackReturnAddresses, produces identical output to</span>
+<span class="c1">/// the execinfo function &#34;backtrace_symbols&#34; or Thread.callStackSymbols</span>
+<span class="c1">/// - parameter addresses: an array of memory addresses, generally as produced by</span>
+<span class="c1">///   `callStackReturnAddresses`</span>
+<span class="c1">/// - returns: an array of formatted, symbolicated stack frame descriptions.</span>
+<span class="kd">public</span> <span class="kd">func</span> <span class="nf">symbolsForCallStack</span><span class="p">(</span><span class="n">addresses</span><span class="p">:</span> <span class="p">[</span><span class="nb">UInt</span><span class="p">])</span> <span class="p">-&gt;</span> <span class="p">[</span><span class="nb">String</span><span class="p">]</span></code></pre></div>
+
+<p>which can take the <code>[UInt]</code> and produce call stack symbols in an identical format to <code>Thread.callStackSymbols()</code> but in an on-demand fashion.</p>
+
+<h2 id="a-simple-example-using-these-functions">A simple example using these functions</h2>
+
+<p>I have a class that I sometimes use called <code>DeferredWork</code>. This object wraps a closure that is deferred to run at a later date. The class has a strict usage requirement: the work <em>must</em> be run at some point before the <code>DeferredWork</code> object is deleted but it is not automatically run; it must be done manually.</p>
+
+<p>A simplified version of the class looks like this (NOTE: this code assumes <code>DEBUG</code> is defined in debug builds):</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">class</span> <span class="nc">DeferredWork</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">work</span><span class="p">:</span> <span class="p">()</span> <span class="p">-&gt;</span> <span class="nb">Void</span>
+
+<span class="cp">#if</span> <span class="cp">DEBUG</span>
+   <span class="c1">// The task journal captures the stack trace on construction</span>
+   <span class="kd">var</span> <span class="nv">taskJournal</span><span class="p">:</span> <span class="p">[[</span><span class="nb">UInt</span><span class="p">]]</span> <span class="p">=</span> <span class="p">[</span><span class="n">callStackReturnAddresses</span><span class="p">()]</span>
+   <span class="kd">var</span> <span class="nv">didRun</span> <span class="p">=</span> <span class="kc">false</span>
+<span class="cp">#endif</span>
+
+   <span class="kd">init</span><span class="p">(</span><span class="n">work</span><span class="p">:</span> <span class="p">()</span> <span class="p">-&gt;</span> <span class="nb">Void</span><span class="p">)</span> <span class="p">{</span>
+      <span class="kc">self</span><span class="p">.</span><span class="n">work</span> <span class="p">=</span> <span class="n">work</span>
+   <span class="p">}</span>
+   
+   <span class="kd">func</span> <span class="nf">run</span><span class="p">()</span> <span class="p">{</span>
+      <span class="n">work</span><span class="p">()</span>
+<span class="cp">#if</span> <span class="cp">DEBUG</span>
+      <span class="n">didRun</span> <span class="p">=</span> <span class="kc">true</span>
+<span class="cp">#endif</span>
+   <span class="p">}</span>
+
+   <span class="kd">func</span> <span class="nf">recordHandover</span><span class="p">()</span> <span class="p">{</span>
+<span class="cp">#if</span> <span class="cp">DEBUG</span>
+      <span class="c1">// We can append additional stack traces whenever we wish.</span>
+      <span class="c1">// For DeferredWork, this is intended to be done on ownership changes.</span>
+      <span class="n">taskJournal</span><span class="p">.</span><span class="n">append</span><span class="p">(</span><span class="n">callStackReturnAddresses</span><span class="p">())</span>
+<span class="cp">#endif</span>
+   <span class="p">}</span>
+   
+<span class="cp">#if</span> <span class="cp">DEBUG</span>
+   <span class="kd">deinit</span> <span class="p">{</span>
+      <span class="k">if</span> <span class="o">!</span><span class="n">didRun</span> <span class="p">{</span>
+         <span class="c1">// A &#34;didn&#39;t run&#34; condition at this point constitutes a failure.</span>
+         <span class="c1">// We symbolicate and format the stack traces and trigger a fatal error.</span>
+         <span class="kd">let</span> <span class="nv">traces</span> <span class="p">=</span> <span class="n">taskJournal</span><span class="p">.</span><span class="bp">map</span> <span class="p">{</span>
+            <span class="n">symbolsForCallStackAddresses</span><span class="p">(</span><span class="nv">$0</span><span class="p">).</span><span class="n">joinWithSeparator</span><span class="p">(</span><span class="s">&#34;</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">)</span>
+         <span class="p">}</span>
+         <span class="bp">preconditionFailure</span><span class="p">(</span><span class="s">&#34;Failed to perform work deferred at location:</span><span class="se">\n</span><span class="s">&#34;</span> <span class="o">+</span>
+            <span class="n">traces</span><span class="p">.</span><span class="n">joinWithSeparator</span><span class="p">(</span><span class="s">&#34;</span><span class="se">\n\n</span><span class="s">With handover at:</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">))</span>
+      <span class="p">}</span>
+   <span class="p">}</span>
+<span class="cp">#endif</span>
+<span class="p">}</span></code></pre></div>
+
+<p>To explain how this works: when the <code>DeferredWork</code> class is created, it takes ownership of the <code>work</code> closure and agrees to run this closure at a later time. The location of the construction is saved as the first element in the <code>taskJournal</code>.</p>
+
+<p>If the <code>DeferredWork</code> is handed over to another owner, the <code>recordHandover</code> function can be manually invoked, recording the change in ownership.</p>
+
+<p>Ultimately, if there is a problem – for this class a &ldquo;problem&rdquo; is a failure to invoke <code>run</code> before <code>deinit</code> – we know where the <code>work</code> closure came from we know the chain of custody that brought it to the current location and we can rapidly track down the precise location where the failure to run occurred.</p>
+
+<p>Let&rsquo;s look at how this solves the problematic three-step control flow I showed above:</p>
+
+<p><img src="../../../../assets/blog/three_layer_graph.svg" alt="a non-linear, three node graph" /></p>
+
+<p><code>DeferredWork.init</code> is function (1). The <code>recordHandover</code> function should be called immediately before the asynchronous call at the end of function (2). The <code>deinit</code> function is invoked at the end of function (3) when the <code>DeferredWork</code> object falls out of scope. If the <code>run</code> function is not called at any time during function (2) or function (3) then we can immediately see the path the object took through our program and decide where we&rsquo;ve made our mistake.</p>
+
+<h2 id="implementation-of-callstackreturnaddresses">Implementation of callStackReturnAddresses</h2>
+
+<p>As with all code, I&rsquo;d prefer to implement everything in Swift but Swift lacks an equivalent of to the gcc/clang builtin function <code>__builtin_frame_address</code> which is critical for locating the current stack frame. I&rsquo;ve written a C function named <code>frame_address</code> that returns <code>__builtin_frame_address(1)</code> and exposed this function to Swift in the bridging header.</p>
+
+<p>Using this function, the internals of <code>callStackReturnAddresses</code> are very simple. I store the result from <code>frame_address</code> in a struct named <code>StackFrame</code> (which is nothing more than few functions wrapped around a <code>uintptr_t</code> that stores the result from <code>frame_address</code>)</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">let</span> <span class="nv">frame</span> <span class="p">=</span> <span class="n">StackFrame</span><span class="p">(</span><span class="n">address</span><span class="p">:</span> <span class="n">frame_address</span><span class="p">())</span></code></pre></div>
+
+<p>Traversing through a stack is as simple as dereferencing the frame pointer (since the value at the frame pointer is the address of the previous frame):</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">let</span> <span class="nv">nextFrameAddress</span> <span class="p">=</span> <span class="nb">UnsafeMutablePointer</span><span class="p">&lt;</span><span class="n">uintptr_t</span><span class="o">&gt;</span><span class="p">(</span><span class="n">bitPattern</span><span class="p">:</span><span class="n">frame</span><span class="p">.</span><span class="n">address</span><span class="p">).</span><span class="n">memory</span></code></pre></div>
+
+<p>Getting return addresses from each frame is also easy since it is stored immediately after the frame pointer in each frame:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">let</span> <span class="nv">returnAddress</span> <span class="p">=</span> <span class="nb">UnsafeMutablePointer</span><span class="p">&lt;</span><span class="n">uintptr_t</span><span class="o">&gt;</span><span class="p">(</span><span class="n">bitPattern</span><span class="p">:</span><span class="n">frame</span><span class="p">.</span><span class="n">address</span><span class="p">).</span><span class="n">advancedBy</span><span class="p">(</span><span class="mi">1</span><span class="p">).</span><span class="n">memory</span></code></pre></div>
+
+<p>So we just do this repeatedly through the stack until we exceed the stack bounds.</p>
+
+<p>The resulting <code>callStackReturnAddresses</code> function is about twice as fast as <code>NSThread.callStackReturnAddresses</code> on the basic tests I&rsquo;ve tried (roughly 2 million invocations per second per core on my Mac versus 1 million invocations per second for <code>Thread.callStackReturnAddresses</code>). It&rsquo;s easily fast enough to gather lots of data in Debug builds – even for fairly intensive computational paths.</p>
+
+<h2 id="usage">Usage</h2>
+
+<blockquote>
+<p>The project containing this code is available on github: <a href="https://github.com/mattgallagher/CwlUtils">mattgallagher/CwlUtils</a>.</p>
+</blockquote>
+
+<ol>
+<li>In a subdirectory of your project&rsquo;s directory, run <code>git clone https://github.com/mattgallagher/CwlUtils.git</code></li>
+<li>Drag the &ldquo;CwlUtils.xcodeproj&rdquo; file into your own project&rsquo;s file tree in Xcode</li>
+<li>Click on your project in the file tree to access project settings and click on the target to which you want to add CwlUtils.</li>
+<li>Click on the &ldquo;Build Phases&rdquo; tab and under &ldquo;Target Dependencies&rdquo; click &ldquo;+&rdquo; and add the CwlUtils_OSX or CwlUtils_iOS target as appropriate for your target&rsquo;s platform.</li>
+<li>Still on &ldquo;Build Phases&rdquo;, if you don&rsquo;t already have a &ldquo;Copy Files&rdquo; build phase with a &ldquo;Destination: Frameworks&rdquo;, add one. In this build phase, add &ldquo;CwlUtils.framework&rdquo;. NOTE: there will be <em>two</em> frameworks in the list with the same name (one is OS X and the other is iOS). The &ldquo;CwlUtils.framework&rdquo; will appear above the corresponding CwlUtils OS X or iOS testing target.</li>
+</ol>
+
+<p>Note about step (1): it is not required to create the checkout inside your project&rsquo;s directory but if you check the code out in a shared location and then open it in multiple parent projects simultaneously, Xcode will complain – it&rsquo;s usually easier to create a new copy inside each of your projects.</p>
+
+<h3 id="packaging-note">Packaging note</h3>
+
+<p>This and the next few code posts I write are going to be part of a single framework, CwlUtils. To be blunt, I&rsquo;m not really happy with this monolithic framework approach. Ideally, much of the code I&rsquo;m hoping to produce would be separate, isolated classes that would be pulled together, on-demand, by a dependency manager. However, the existing third-party solutions for dependency management in Swift don&rsquo;t work elegantly in this scenario (not entirely their fault since static linking and transparent Xcode integration are not possible).</p>
+
+<p>I&rsquo;ll definitely revisit this when the official Swift Package Manager is shipped as part of Xcode but at the moment, a dependency-free, monolithic framework is it. If you&rsquo;re only interested in a small piece of code that I&rsquo;ve written, you&rsquo;ll need to extract it for yourself.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>I&rsquo;ve talked about ease and benefits of recording stack traces for ongoing tasks to aid debugging. Tracking down why a result is incorrect after asynchronous invocations or other complex control flows can be completely impractical without this information so it&rsquo;s a good technique to keep in mind.</p>
+
+		</div>
+	</article>
+</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../16/use_it_or_lose_it_why_safe_c_is_sometimes_unsafe_swift.html">Use it or lose it: why safe C is sometimes unsafe Swift</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../../03/08/swift-wrapper-for-sysctl.html">Gathering system information in Swift with sysctl</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../../../feed.json">JSON</a>, <a href="../../../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

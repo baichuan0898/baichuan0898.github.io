@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Parametric acceleration curves in Core Animation</title>
+  <meta name="description" content="CAMediaTimerFunction is used to control basic acceleration along a path in Core Animation but is very limited in what in can do. In this post, I look at the mathematics behind CAMediaTimerFunction and present a sample application that simulates some functions that CAMediaTimerFunction can&#39;t achieve by using parametric CAKeyframeAnimation values." />
+
+  <meta name="twitter:title" content="Parametric acceleration curves in Core Animation"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2008/09/parametric-acceleration-curves-in-core.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="CAMediaTimerFunction is used to control basic acceleration along a path in Core Animation but is very limited in what in can do. In this post, I look at the mathematics behind CAMediaTimerFunction and present a sample application that simulates some functions that CAMediaTimerFunction can&#39;t achieve by using parametric CAKeyframeAnimation values."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="parametric-acceleration-curves-in-core.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Parametric acceleration curves in Core Animation</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2008-09-09">September 9, 2008</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/numerical-methods.html">numerical methods</a>, <a href="../../categories/appkit.html">AppKit</a>, <a href="../../categories/coreanimation.html">CoreAnimation</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>CAMediaTimerFunction is used to control basic acceleration along a path in Core Animation but is very limited in what in can do. In this post, I look at the mathematics behind CAMediaTimerFunction and present a sample application that simulates some functions that CAMediaTimerFunction can't achieve by using parametric CAKeyframeAnimation values.</p></span>
+
+<span class="fullpost">
+
+<h2>Introduction</h2>
+
+<p>If you animate an object along a straight line in <a href="http://developer.apple.com/documentation/Cocoa/Conceptual/CoreAnimation_guide/Introduction/Introduction.html">Core Animation</a>, you can have the object move at a constant speed along the whole path or you can specify that the object accelerate up to speed at the beginning and decelerate to a halt at the end (ease-in/ease-out). The class <span class="monospace"><a href="http://developer.apple.com/documentation/Cocoa/Reference/CAMediaTimingFunction_class/Introduction/Introduction.html">CAMediaTimerFunction</a></span> specifies this behaviour.</p>
+
+<p>If you want something quite different, like <a href="http://en.wikipedia.org/wiki/Exponential_decay">exponential slow-down</a> along the path, then sadly, <span class="monospace">CAMediaTimerFunction</span> can't do that. Furthermore, you can't subclass <span class="monospace">CAMediaTimerFunction</span> to modify its behavior. We can still perform exponential slow-down in Core Animation but we'll need to do it a different way.</p>
+
+<img src="../../assets/objc-era/mediatimercapabilities.png" width="550" height="175" />
+
+<p>These graphs are screenshots from the <a href="../../assets/objc-era/AnimationAcceleration.zip">"AnimationAcceleration" sample app</a> (described below). It can handle all of these acceleration types.</p>
+
+<h2>The mathematics of ease-in/ease-out animation</h2>
+<p>In Core Animation, the animation classes derived from <span class="monospace"><a href="http://developer.apple.com/documentation/GraphicsImaging/Reference/CAAnimation_class/Introduction/Introduction.html">CAAnimation</a></span> allow you to set the <span class="monospace">timingFunction</span> (a <span class="monospace">CAMediaTimerFunction</span> object). The primary purpose of this property is to allow you to control the "smoothness" of the animation at the endpoints (linear speed or ease-in/ease-out).</p>
+
+<p><span class="monospace">CAMediaTimerFunction</span> uses a <a href="http://en.wikipedia.org/wiki/B%C3%A9zier_curve">cubic B&eacute;zier</a> to convert input time values into output time values. The documentation doesn't make it explicitly clear how the B&eacute;zier is used to map time values. So let's look at that first.</p>
+
+<p>A cubic B&eacute;zier is described by the parametric equation:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">F</span><span class="p">(</span><span class="n">t</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span><span class="o">&lt;</span><span class="n">sup</span><span class="o">&gt;</span><span class="mi">3</span><span class="o">&lt;/</span><span class="n">sup</span><span class="o">&gt;</span><span class="n">P</span><span class="o">&lt;</span><span class="n">sub</span><span class="o">&gt;</span><span class="mi">0</span><span class="o">&lt;/</span><span class="n">sub</span><span class="o">&gt;</span> <span class="o">+</span> <span class="mi">3</span><span class="n">t</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span><span class="o">&lt;</span><span class="n">sup</span><span class="o">&gt;</span><span class="mi">2</span><span class="o">&lt;/</span><span class="n">sup</span><span class="o">&gt;</span><span class="n">P</span><span class="o">&lt;</span><span class="n">sub</span><span class="o">&gt;</span><span class="mi">1</span><span class="o">&lt;/</span><span class="n">sub</span><span class="o">&gt;</span> <span class="o">+</span> <span class="mi">3</span><span class="n">t</span><span class="o">&lt;</span><span class="n">sup</span><span class="o">&gt;</span><span class="mi">2</span><span class="o">&lt;/</span><span class="n">sup</span><span class="o">&gt;</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">t</span><span class="p">)</span><span class="n">P</span><span class="o">&lt;</span><span class="n">sub</span><span class="o">&gt;</span><span class="mi">2</span><span class="o">&lt;/</span><span class="n">sub</span><span class="o">&gt;</span> <span class="o">+</span> <span class="n">t</span><span class="o">&lt;</span><span class="n">sup</span><span class="o">&gt;</span><span class="mi">3</span><span class="o">&lt;/</span><span class="n">sup</span><span class="o">&gt;</span><span class="n">P</span><span class="o">&lt;</span><span class="n">sub</span><span class="o">&gt;</span><span class="mi">3</span><span class="o">&lt;/</span><span class="n">sub</span><span class="o">&gt;</span></code></pre></div>
+
+<p>where the B&eacute;zier is specified by the four control points P<sub>0</sub>, P<sub>1</sub>, P<sub>2</sub> and P<sub>3</sub> (each of which is a pair of coordinates &mdash; an X and a Y coordinate) and the parameter "t" moves from zero at P<sub>0</sub> to one at P<sub>3</sub> (i.e. t &isin; [0, 1]). The whole function produces an output point F for every t value (where F contains an X and a Y coordinate like each of the P values).</p>
+
+<p><span class="monospace">CAMediaTimerFunction</span> does <em>not</em> use the input time as the "t" value in this equation. Instead, input time is used as the X value of F and the output time is obtained by solving for the Y value of F at the same "t" point. This is more flexible than using "t" as the input value but is more computationally complex since you must solve the cubic.</p>
+
+<h2>Things CAMediaTimerFunction can't do</h2>
+
+<p>Since it uses a cubic B&eacute;zier, <span class="monospace">CAMediaTimerFunction</span> can only provide time mappings that can be described by a 3rd-order polynomial.</p>
+
+<p>This means the following are achievable:</p>
+
+<ul><li>constant slope mappings</li>
+<li>quadratic mappings (parabolic)</li>
+<li>cubic mapping (including simple "s"-shaped curves)</li></ul>
+
+<p>but the following can't be achieved:</p>
+
+<ul><li>exponentials</li>
+<li>sine waves</li>
+<li>polynomials higher than 3rd order</li></ul>
+
+<h2>Solution: CAKeyframeAnimation</h2>
+
+<p>The <span class="monospace"><a href="http://developer.apple.com/documentation/GraphicsImaging/Reference/CAKeyframeAnimation_class/Introduction/Introduction.html">CAKeyframeAnimation</a></span> class lets us specify every single point along an animation path. If we generate enough keyframes, we can model any equation we want. In this way, we can overcome the limitations of <span class="monospace">CAMediaTimerFunction</span> &mdash; we use flat linear time but distribute the keyframes to achieve the same effect.</p>
+
+<p>To solve the problem, we'll need to recreate the parametric mapping nature of <span class="monospace">CAMediaTimerFunction</span> but using any arbitrary mapping function that we choose.</p>
+
+<h2>Sample app: AnimationAcceleration</h2>
+
+<p>Download the <a href="../../assets/objc-era/AnimationAcceleration.zip">"AnimationAcceleration" sample app</a>. It is an XCode 3.1 project but should load correctly XCode 3.0 or later.</p> 
+
+<p>The sample application shows uses parametric functions to generate keyframes so that the red dot moves along its linear path (the vertical axis at the left of screen) at different rates of acceleration. The gray dot at the bottom moves at a constant speed, marking out time.</p>
+
+<img src="../../assets/objc-era/animationaccelerationscreenshot.png" width="278" height="333" />
+
+<p>The acceleration curves used include</p>
+<ul><li><em>Linear</em><br/><ul>Achievable using <span class="monospace">CAMediaTimerFunction</span>.</ul></li>
+<li><em>Ease-in/Ease-out</em><br/><ul>I've implemented this using a cubic B&eacute;zier mapping from "t" to X (to contrast with <span class="monospace">CAMediaTimerFunction</span>'s X of F to Y of F mapping). This acceleration uses the maximum amount of "t" to X ease-in/ease-out acceleration possible but is still weak compared with X to Y mapping &mdash; demonstrating why Apple went through the extra effort to provide X to Y mapping instead.</ul></li>
+<li><em>Quadratic</em><br/><ul>Achievable using <span class="monospace">CAMediaTimerFunction</span>.</ul></li>
+<li><em>Exponential Decay</em><br/><ul>Cannot be achieved using <span class="monospace">CAMediaTimerFunction</span>.</ul></li>
+<li><em>Second-order Response Curve</em><br/><ul>Technically, this curve models the voltage response of a second order circuit to a <a href="http://en.wikipedia.org/wiki/Step_response">step change in voltage</a>. I like it because it also produces a spring-like oscillation around the destination similar to <a href="http://en.wikipedia.org/wiki/Damped_Simple_Harmonic_Motion#Damped_harmonic_oscillator">damped harmonic motion</a>. Since this curve actually overshoots the destination, it demonstrates a result that would be impossible in a bounded mapping function like <span class="monospace">CAMediaTimerFunction</span>, even if subclassing <span class="monospace">CAMediaTimerFunction</span> was possible.</ul></li></ul></p>
+
+<p>In the program, each of the curves is described parametrically by an <span class="monospace">NSObject&lt;Evaluate&gt;</span> object which implements the <span class="monospace">evaluateAt:</span> method. The <span class="monospace">CAKeyframeAnimation</span> subclass <span class="monospace">AccelerationAnimation</span> then implements the following method to generate all the keyframe values using the results from this method.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">calculateKeyFramesWithEvaluationObject:</span><span class="p">(</span><span class="n">NSObject</span><span class="o">&lt;</span><span class="n">Evaluate</span><span class="o">&gt;</span> <span class="o">*</span><span class="p">)</span><span class="nv">evaluationObject</span>
+    <span class="nf">startValue:</span><span class="p">(</span><span class="kt">double</span><span class="p">)</span><span class="nv">startValue</span>
+    <span class="nf">endValue:</span><span class="p">(</span><span class="kt">double</span><span class="p">)</span><span class="nv">endValue</span>
+    <span class="nf">interstitialSteps:</span><span class="p">(</span><span class="n">NSUInteger</span><span class="p">)</span><span class="nv">steps</span>
+<span class="p">{</span>
+    <span class="n">NSUInteger</span> <span class="n">count</span> <span class="o">=</span> <span class="n">steps</span> <span class="o">+</span> <span class="mi">2</span><span class="p">;</span>
+    
+    <span class="n">NSMutableArray</span> <span class="o">*</span><span class="n">valueArray</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSMutableArray</span> <span class="nl">arrayWithCapacity</span><span class="p">:</span><span class="n">count</span><span class="p">];</span>
+
+    <span class="kt">double</span> <span class="n">progress</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">;</span>
+    <span class="kt">double</span> <span class="n">increment</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="kt">double</span><span class="p">)(</span><span class="n">count</span> <span class="o">-</span> <span class="mi">1</span><span class="p">);</span>
+    <span class="n">NSUInteger</span> <span class="n">i</span><span class="p">;</span>
+    <span class="k">for</span> <span class="p">(</span><span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">count</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="kt">double</span> <span class="n">value</span> <span class="o">=</span>
+            <span class="n">startValue</span> <span class="o">+</span>
+            <span class="p">[</span><span class="n">evaluationObject</span> <span class="nl">evaluateAt</span><span class="p">:</span><span class="n">progress</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="n">endValue</span> <span class="o">-</span> <span class="n">startValue</span><span class="p">);</span>
+        <span class="p">[</span><span class="n">valueArray</span> <span class="nl">addObject</span><span class="p">:[</span><span class="n">NSNumber</span> <span class="nl">numberWithDouble</span><span class="p">:</span><span class="n">value</span><span class="p">]];</span>
+        
+        <span class="n">progress</span> <span class="o">+=</span> <span class="n">increment</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="p">[</span><span class="nb">self</span> <span class="nl">setValues</span><span class="p">:</span><span class="n">valueArray</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The keyframe values generated by this method will work for single property animation (in this case, the "position.y" coordinate of the red dot). If you wanted to animate in two dimension (e.g. "position" instead of "position.y"), then you could implement a similar method that accepted <span class="monospace">startValue</span> and <span class="monospace">endValue</span> as <span class="monospace">NSPoint</span>s and performed similar parametric interpolation for the X and Y coordinates.</p>
+
+<p>This animation is applied to the <span class="monospace">acceleratedDot</span> (the red dot) layer as follows:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">[</span><span class="n">CATransaction</span> <span class="n">begin</span><span class="p">];</span>
+<span class="p">[</span><span class="n">CATransaction</span>
+    <span class="nl">setValue</span><span class="p">:[</span><span class="n">NSNumber</span> <span class="nl">numberWithFloat</span><span class="p">:</span><span class="mf">2.5</span><span class="p">]</span>
+    <span class="nl">forKey</span><span class="p">:</span><span class="n">kCATransactionAnimationDuration</span><span class="p">];</span>
+<span class="n">AccelerationAnimation</span> <span class="o">*</span><span class="n">animation</span> <span class="o">=</span>
+    <span class="p">[</span><span class="n">AccelerationAnimation</span>
+        <span class="nl">animationWithKeyPath</span><span class="p">:</span><span class="s">@&#34;position.y&#34;</span>
+        <span class="nl">startValue</span><span class="p">:[</span><span class="nb">self</span> <span class="n">originPoint</span><span class="p">].</span><span class="n">y</span>
+        <span class="nl">endValue</span><span class="p">:[</span><span class="nb">self</span> <span class="n">maxYPoint</span><span class="p">].</span><span class="n">y</span>
+        <span class="nl">evaluationObject</span><span class="p">:[</span><span class="n">currentConfiguration</span> <span class="nl">objectForKey</span><span class="p">:</span><span class="s">@&#34;evaluator&#34;</span><span class="p">]</span>
+        <span class="nl">interstitialSteps</span><span class="p">:</span><span class="n">INTERSTITIAL_STEPS</span><span class="p">];</span>
+<span class="p">[</span><span class="n">animation</span> <span class="nl">setDelegate</span><span class="p">:</span><span class="nb">self</span><span class="p">];</span>
+<span class="p">[[</span><span class="n">acceleratedDot</span> <span class="n">layer</span><span class="p">]</span>
+    <span class="nl">setValue</span><span class="p">:[</span><span class="n">NSNumber</span> <span class="nl">numberWithDouble</span><span class="p">:[</span><span class="nb">self</span> <span class="n">maxYPoint</span><span class="p">].</span><span class="n">y</span><span class="p">]</span>
+    <span class="nl">forKeyPath</span><span class="p">:</span><span class="s">@&#34;position.y&#34;</span><span class="p">];</span>
+<span class="p">[[</span><span class="n">acceleratedDot</span> <span class="n">layer</span><span class="p">]</span> <span class="nl">addAnimation</span><span class="p">:</span><span class="n">animation</span> <span class="nl">forKey</span><span class="p">:</span><span class="s">@&#34;position&#34;</span><span class="p">];</span>
+<span class="p">[</span><span class="n">CATransaction</span> <span class="n">commit</span><span class="p">];</span></code></pre></div>
+
+<p>where the <span class="monospace">originPoint</span> and <span class="monospace">maxYPoint</span> methods return the two endpoints of the red dot's path. The destination point is applied using <span class="monospace">setValue:forKeyPath:</span> so that the object will remain at the destination after the <span class="monospace">AccelerationAnimation</span> completes.</p>
+
+<h2>Conclusion</h2>
+
+<p>Core Animation is heavily geared towards <a href="http://developer.apple.com/documentation/Cocoa/Conceptual/CoreAnimation_guide/Articles/AnimatingLayers.html#//apple_ref/doc/uid/TP40006085-SW7">implicit</a> animations that are simple point-to-point transitions &mdash; not a bad thing since this is the overwhelmingly common case.</p>
+
+<p>Explicit animations along elaborate paths (in this case, elaborate along the time dimension) take significantly more code. You also must choose how many keyframes are required for a smooth path. However, parametric animation using <span class="monospace">CAKeyframeAnimation</span> opens up any acceleration curve you want and you still gain the benefits of the rest of Core Animation (<span class="monospace">CALayer</span>, separate animation thread, <span class="monospace">NSView</span> integration, etc).</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../08/application-design-in-appkit.html">Application Design in AppKit</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="drawing-gloss-gradients-in-coregraphics.html">Drawing gloss gradients in CoreGraphics</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Synthesizing a touch event on the iPhone</title>
+  <meta name="description" content="The iPhone lacks specific methods to create UIEvent and UITouch objects. I&#39;ll show you how to add this functionality so you can write programmatically driven user-interfaces." />
+
+  <meta name="twitter:title" content="Synthesizing a touch event on the iPhone"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2008/10/synthesizing-touch-event-on-iphone.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="The iPhone lacks specific methods to create UIEvent and UITouch objects. I&#39;ll show you how to add this functionality so you can write programmatically driven user-interfaces."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="synthesizing-touch-event-on-iphone.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Synthesizing a touch event on the iPhone</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2008-10-17">October 17, 2008</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/testing.html">testing</a>, <a href="../../categories/cocoa-touch.html">Cocoa Touch</a>, <a href="../../categories/fun-hacks.html">fun hacks</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>The iPhone lacks specific methods to create UIEvent and UITouch objects. I'll show you how to add this functionality so you can write programmatically driven user-interfaces.</p></span>
+
+<span class="fullpost">
+
+<blockquote>
+<strong>Update #1</strong>: Added a "Device SDK" version that will link correctly outside of the "Simulator SDK".<br/>
+<strong>Update #2</strong>: Two bugs have been fixed since the code was originally posted... the objects in the <code>UIEvent</code> member <code>_keyedTouches</code> are now <code>NSSet</code>s and the <code>_view</code> and <code>_window</code> in <code>UITouch</code> are now retained.<br/>
+<strong>Update #3</strong>: changes to the <code>UITouch</code> and <code>UIEvent</code> categories as well as <code>performTouchInView:</code> to support SDK 2.2 changes.<br/>
+<strong>Update #4</strong>: Support for SDK 3.0.</blockquote>
+
+<h2>A warning before we begin...</h2>
+
+<p>The content of this post is for <strong><em>debugging and testing only</em></strong>. Do not submit this code in an application to the App Store. Doing so will likely result in:</p>
+
+<ul><li>A bad UI experience for your users.</li>
+<li>An app that breaks on every OS update.</li>
+<li>Rejection of your application.</li>
+</ul>
+
+<p>Synthesized touches are never the right way to trigger actions in a real application. The only useful use for this post is in automated user testing (see my later post <a href="../11/automated-user-interface-testing-on.html">Automated User Interface Testing on the iPhone</a>).</p>
+
+<h2>User-interface testing</h2>
+<p>When running application tests, it is helpful to be able to generate user events to test your user-interface. That way, you can run user-interface tests automatically instead of manually.</p>
+
+<p>On Cocoa Senior (also known as "the Mac") we have methods like the gargantuan:</p>
+<ul><span class="monospace">mouseEventWithType:location:modifierFlags:timestamp:<br/>
+<ul>windowNumber:context:eventNumber:clickCount:pressure:</span></ul></ul>
+<p>to generate events.</p>
+
+<p>Cocoa Junior on the iPhone doesn't have any methods like this, so we must work out how to achieve it ourselves.</p>
+
+<h2>UITouch category</h2>
+
+<p>A basic touch event normally consists of three objects:</p>
+
+<ul><li>The <span class="monospace">UITouch</span> object &mdash; which will be used for the touch down and touch up</li>
+<li>A first <span class="monospace">UIEvent</span> to wrap the touch down</li>
+<li>A second <span class="monospace">UIEvent</span> to wrap the touch up</li></ul>
+
+<p>Lets look first at creating the <span class="monospace">UITouch</span> object. Since most of the fields in this object are private, we can't sublcass it or set them directly &mdash; everything must be done on a category. My category goes something like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@implementation</span> <span class="nc">UITouch</span> <span class="nl">(Synthesize)</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nf">initInView:</span><span class="p">(</span><span class="n">UIView</span> <span class="o">*</span><span class="p">)</span><span class="nv">view</span>
+<span class="p">{</span>
+    <span class="nb">self</span> <span class="o">=</span> <span class="p">[</span><span class="nb">super</span> <span class="n">init</span><span class="p">];</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nb">self</span> <span class="o">!=</span> <span class="nb">nil</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">CGRect</span> <span class="n">frameInWindow</span><span class="p">;</span>
+        <span class="k">if</span> <span class="p">([</span><span class="n">view</span> <span class="nl">isKindOfClass</span><span class="p">:[</span><span class="n">UIWindow</span> <span class="k">class</span><span class="p">]])</span>
+        <span class="p">{</span>
+            <span class="n">frameInWindow</span> <span class="o">=</span> <span class="n">view</span><span class="p">.</span><span class="n">frame</span><span class="p">;</span>
+        <span class="p">}</span>
+        <span class="k">else</span>
+        <span class="p">{</span>
+            <span class="n">frameInWindow</span> <span class="o">=</span>
+                <span class="p">[</span><span class="n">view</span><span class="p">.</span><span class="n">window</span> <span class="nl">convertRect</span><span class="p">:</span><span class="n">view</span><span class="p">.</span><span class="n">frame</span> <span class="nl">fromView</span><span class="p">:</span><span class="n">view</span><span class="p">.</span><span class="n">superview</span><span class="p">];</span>
+        <span class="p">}</span>
+         
+        <span class="n">_tapCount</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+        <span class="n">_locationInWindow</span> <span class="o">=</span>
+            <span class="n">CGPointMake</span><span class="p">(</span>
+                <span class="n">frameInWindow</span><span class="p">.</span><span class="n">origin</span><span class="p">.</span><span class="n">x</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">frameInWindow</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">width</span><span class="p">,</span>
+                <span class="n">frameInWindow</span><span class="p">.</span><span class="n">origin</span><span class="p">.</span><span class="n">y</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">frameInWindow</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span><span class="p">);</span>
+        <span class="n">_previousLocationInWindow</span> <span class="o">=</span> <span class="n">_locationInWindow</span><span class="p">;</span>
+
+        <span class="n">UIView</span> <span class="o">*</span><span class="n">target</span> <span class="o">=</span> <span class="p">[</span><span class="n">view</span><span class="p">.</span><span class="n">window</span> <span class="nl">hitTest</span><span class="p">:</span><span class="n">_locationInWindow</span> <span class="nl">withEvent</span><span class="p">:</span><span class="nb">nil</span><span class="p">];</span>
+        <span class="n">_view</span> <span class="o">=</span> <span class="p">[</span><span class="n">target</span> <span class="k">retain</span><span class="p">];</span>
+        <span class="n">_window</span> <span class="o">=</span> <span class="p">[</span><span class="n">view</span><span class="p">.</span><span class="n">window</span> <span class="k">retain</span><span class="p">];</span>
+        <span class="n">_phase</span> <span class="o">=</span> <span class="n">UITouchPhaseBegan</span><span class="p">;</span>
+        <span class="n">_touchFlags</span><span class="p">.</span><span class="n">_firstTouchForView</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+        <span class="n">_touchFlags</span><span class="p">.</span><span class="n">_isTap</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+        <span class="n">_timestamp</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSDate</span> <span class="n">timeIntervalSinceReferenceDate</span><span class="p">];</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="nb">self</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">changeToPhase:</span><span class="p">(</span><span class="n">UITouchPhase</span><span class="p">)</span><span class="nv">phase</span>
+<span class="p">{</span>
+    <span class="n">_phase</span> <span class="o">=</span> <span class="n">phase</span><span class="p">;</span>
+    <span class="n">_timestamp</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSDate</span> <span class="n">timeIntervalSinceReferenceDate</span><span class="p">];</span>
+<span class="p">}</span>
+
+<span class="k">@end</span></code></pre></div>
+
+<p>This method builds a touch in the center of the specified <span class="monospace">UIView</span> (window coordinates must be used).</p>
+
+<p>You should note that this category includes the <span class="monospace">changeToPhase:</span> method. This <span class="monospace">phase</span> (set to <span class="monospace">UITouchPhaseBegan</span> in the <span class="monospace">initInView:</span> method) refers to the begin/drag/ended state of the touch operation. We need a method to change the state because the same <span class="monospace">UITouch</span> object must be used for touch began and touch ended events (otherwise the whole windowing system crashes).</p>
+
+<h2>UIEvent category</h2>
+
+<p>The <span class="monospace">UIEvent</span> object is mostly handled through an existing private method (<code>_initWithEvent:touches:)</code>. There are two difficulties with this method though:</p>
+
+<ul><li>We must provide it a <code>GSEvent</code> object (or something very close to it)</li>
+<li>We must allocate the object as a UITouchesEvent on SDK 3.0 and later but as a UIEvent on earlier versions.</li>
+</ul>
+
+<p>Here's how all that will look:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@interface</span> <span class="nc">UIEvent</span> <span class="nl">(Creation)</span>
+<span class="p">-</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nf">_initWithEvent:</span><span class="p">(</span><span class="n">GSEventProxy</span> <span class="o">*</span><span class="p">)</span><span class="nv">fp8</span> <span class="nf">touches:</span><span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nv">fp12</span><span class="p">;</span>
+<span class="k">@end</span>
+
+<span class="k">@implementation</span> <span class="nc">UIEvent</span> <span class="nl">(Synthesize)</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nf">initWithTouch:</span><span class="p">(</span><span class="n">UITouch</span> <span class="o">*</span><span class="p">)</span><span class="nv">touch</span>
+<span class="p">{</span>
+    <span class="n">CGPoint</span> <span class="n">location</span> <span class="o">=</span> <span class="p">[</span><span class="n">touch</span> <span class="nl">locationInView</span><span class="p">:</span><span class="n">touch</span><span class="p">.</span><span class="n">window</span><span class="p">];</span>
+    <span class="n">GSEventProxy</span> <span class="o">*</span><span class="n">gsEventProxy</span> <span class="o">=</span> <span class="p">[[</span><span class="n">GSEventProxy</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">];</span>
+    <span class="n">gsEventProxy</span><span class="o">-&gt;</span><span class="n">x1</span> <span class="o">=</span> <span class="n">location</span><span class="p">.</span><span class="n">x</span><span class="p">;</span>
+    <span class="n">gsEventProxy</span><span class="o">-&gt;</span><span class="n">y1</span> <span class="o">=</span> <span class="n">location</span><span class="p">.</span><span class="n">y</span><span class="p">;</span>
+    <span class="n">gsEventProxy</span><span class="o">-&gt;</span><span class="n">x2</span> <span class="o">=</span> <span class="n">location</span><span class="p">.</span><span class="n">x</span><span class="p">;</span>
+    <span class="n">gsEventProxy</span><span class="o">-&gt;</span><span class="n">y2</span> <span class="o">=</span> <span class="n">location</span><span class="p">.</span><span class="n">y</span><span class="p">;</span>
+    <span class="n">gsEventProxy</span><span class="o">-&gt;</span><span class="n">x3</span> <span class="o">=</span> <span class="n">location</span><span class="p">.</span><span class="n">x</span><span class="p">;</span>
+    <span class="n">gsEventProxy</span><span class="o">-&gt;</span><span class="n">y3</span> <span class="o">=</span> <span class="n">location</span><span class="p">.</span><span class="n">y</span><span class="p">;</span>
+    <span class="n">gsEventProxy</span><span class="o">-&gt;</span><span class="n">sizeX</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">;</span>
+    <span class="n">gsEventProxy</span><span class="o">-&gt;</span><span class="n">sizeY</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">;</span>
+    <span class="n">gsEventProxy</span><span class="o">-&gt;</span><span class="n">flags</span> <span class="o">=</span> <span class="p">([</span><span class="n">touch</span> <span class="n">phase</span><span class="p">]</span> <span class="o">==</span> <span class="n">UITouchPhaseEnded</span><span class="p">)</span> <span class="o">?</span> <span class="mh">0x1010180</span> <span class="o">:</span> <span class="mh">0x3010180</span><span class="p">;</span>
+    <span class="n">gsEventProxy</span><span class="o">-&gt;</span><span class="n">type</span> <span class="o">=</span> <span class="mi">3001</span><span class="p">;</span>    
+    
+    <span class="c1">//
+</span><span class="c1"></span>    <span class="c1">// On SDK versions 3.0 and greater, we need to reallocate as a
+</span><span class="c1"></span>    <span class="c1">// UITouchesEvent.
+</span><span class="c1"></span>    <span class="c1">//
+</span><span class="c1"></span>    <span class="kt">Class</span> <span class="n">touchesEventClass</span> <span class="o">=</span> <span class="n">objc_getClass</span><span class="p">(</span><span class="sa"></span><span class="s">&#34;UITouchesEvent&#34;</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">touchesEventClass</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="p">[[</span><span class="nb">self</span> <span class="k">class</span><span class="p">]</span> <span class="nl">isEqual</span><span class="p">:</span><span class="n">touchesEventClass</span><span class="p">])</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="nb">self</span> <span class="k">release</span><span class="p">];</span>
+        <span class="nb">self</span> <span class="o">=</span> <span class="p">[</span><span class="n">touchesEventClass</span> <span class="n">alloc</span><span class="p">];</span>
+    <span class="p">}</span>
+    
+    <span class="nb">self</span> <span class="o">=</span> <span class="p">[</span><span class="nb">self</span> <span class="nl">_initWithEvent</span><span class="p">:</span><span class="n">gsEventProxy</span> <span class="nl">touches</span><span class="p">:[</span><span class="n">NSSet</span> <span class="nl">setWithObject</span><span class="p">:</span><span class="n">touch</span><span class="p">]];</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nb">self</span> <span class="o">!=</span> <span class="nb">nil</span><span class="p">)</span>
+    <span class="p">{</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="nb">self</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">@end</span></code></pre></div>
+
+<p>You can see that most of the setup is simply concerned with filling in the fields of the <code>GSEventProxy</code> object which is the pretend object that we substitute in place of the actual <code>GSEvent</code> object (which can't be easily allocated).</p>
+
+<p>The fields and values used are determined simply by staring at real <code>GSEvent</code> structures in the debugger until the values for fields could be determined.</p>
+
+<p>The definition of this object follows. You'll need to place it before the previous <code>UIEvent</code> category implemention.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@interface</span> <span class="nc">GSEventProxy</span> : <span class="nc">NSObject</span>
+<span class="p">{</span>
+<span class="k">@public</span>
+    <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">flags</span><span class="p">;</span>
+    <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">type</span><span class="p">;</span>
+    <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">ignored1</span><span class="p">;</span>
+    <span class="kt">float</span> <span class="n">x1</span><span class="p">;</span>
+    <span class="kt">float</span> <span class="n">y1</span><span class="p">;</span>
+    <span class="kt">float</span> <span class="n">x2</span><span class="p">;</span>
+    <span class="kt">float</span> <span class="n">y2</span><span class="p">;</span>
+    <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">ignored2</span><span class="p">[</span><span class="mi">10</span><span class="p">];</span>
+    <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">ignored3</span><span class="p">[</span><span class="mi">7</span><span class="p">];</span>
+    <span class="kt">float</span> <span class="n">sizeX</span><span class="p">;</span>
+    <span class="kt">float</span> <span class="n">sizeY</span><span class="p">;</span>
+    <span class="kt">float</span> <span class="n">x3</span><span class="p">;</span>
+    <span class="kt">float</span> <span class="n">y3</span><span class="p">;</span>
+    <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">ignored4</span><span class="p">[</span><span class="mi">3</span><span class="p">];</span>
+<span class="p">}</span>
+<span class="k">@end</span>
+<span class="k">@implementation</span> <span class="nc">GSEventProxy</span>
+<span class="k">@end</span></code></pre></div>
+
+<h2>Sending the event</h2>
+
+<p>There is no API to route the events to the appropriate view &mdash; so we will just invoke the methods directly on the view ourselves.</p>
+
+<p>Using the above categories to create the <span class="monospace">UITouch</span> and <span class="monospace">UIEvent</span> objects, dispatching a touch event to a <span class="monospace">UIView</span> looks like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">performTouchInView:</span><span class="p">(</span><span class="n">UIView</span> <span class="o">*</span><span class="p">)</span><span class="nv">view</span>
+<span class="p">{</span>
+    <span class="n">UITouch</span> <span class="o">*</span><span class="n">touch</span> <span class="o">=</span> <span class="p">[[</span><span class="n">UITouch</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initInView</span><span class="p">:</span><span class="n">view</span><span class="p">];</span>
+    <span class="n">UIEvent</span> <span class="o">*</span><span class="n">eventDown</span> <span class="o">=</span> <span class="p">[[</span><span class="n">UIEvent</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithTouch</span><span class="p">:</span><span class="n">touch</span><span class="p">];</span>
+    
+    <span class="p">[</span><span class="n">touch</span><span class="p">.</span><span class="n">view</span> <span class="nl">touchesBegan</span><span class="p">:[</span><span class="n">eventDown</span> <span class="n">allTouches</span><span class="p">]</span> <span class="nl">withEvent</span><span class="p">:</span><span class="n">eventDown</span><span class="p">];</span>
+    
+    <span class="p">[</span><span class="n">touch</span> <span class="nl">setPhase</span><span class="p">:</span><span class="n">UITouchPhaseEnded</span><span class="p">];</span>
+    <span class="n">UIEvent</span> <span class="o">*</span><span class="n">eventUp</span> <span class="o">=</span> <span class="p">[[</span><span class="n">UIEvent</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithTouch</span><span class="p">:</span><span class="n">touch</span><span class="p">];</span>
+    
+    <span class="p">[</span><span class="n">touch</span><span class="p">.</span><span class="n">view</span> <span class="nl">touchesEnded</span><span class="p">:[</span><span class="n">eventUp</span> <span class="n">allTouches</span><span class="p">]</span> <span class="nl">withEvent</span><span class="p">:</span><span class="n">eventUp</span><span class="p">];</span>
+    
+    <span class="p">[</span><span class="n">eventDown</span> <span class="k">release</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">eventUp</span> <span class="k">release</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">touch</span> <span class="k">release</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<h2>Legality of use and risks</h2>
+
+<p>The approach used in this post constitutes <em>using an undisclosed API</em> &mdash; it is therefore illegal to submit applications to the App Store that use this approach, according to the iPhone SDK Agreement.</p>
+
+<p>In terms of risks, this type of undisclosed API use has a high probability of breaking on every update to the iPhone OS &mdash; yet another reason why this code is for in-house developer use only.</p>
+
+<p>If you use this code, <strong>only use it in a separate target for testing purposes only</strong>. Do not submit this code to the App Store.</p>
+
+<h2>Conclusion</h2>
+
+<blockquote>You can download a copy of TouchSynthesis.m as part of the <a href="../../assets/objc-era/SelfTesting.zip">SelfTesting project</a> (from my later post <a href="../11/automated-user-interface-testing-on.html">Automated User Interface Testing on the iPhone</a>).</blockquote>
+
+<p>I have only tested this for performing touch events in <span class="monospace">UITableViewCell</span>s in a <span class="monospace">UINavigationController</span> &mdash; navigating a hierarchy to verify that the hierarchy works. Of course, once you've programmatically navigated, you must also read back from the hierarchy to ensure that required features are present &mdash; but that's a post for a different time.</p>
+
+<p>Working directly with the fields of a class is always a little risky. I'm sure there are <span class="monospace">UIView</span>s that won't work well with this type of synthetic touch. Apple is also free to change the meaning of any fields at any time so this code is prone to break frequently.</p>
+
+<p>Finally, remember to keep this type of testing code in a separate target so it isn't included in the application you submit to the App Store. I don't want to see your projects break or be rejected because you're trying to invoke use undisclosed APIs in your final application.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="worldtimeconverter-dates-and-timezones.html">WorldTimeConverter: Dates and timezones in Cocoa</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="debugging-tips-for-objective-c.html">Debugging tips for Objective-C programming</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

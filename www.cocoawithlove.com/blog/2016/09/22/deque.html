@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Optimizing a copy-on-write double-ended queue in Swift</title>
+  <meta name="description" content="I present an implementation of a a double-ended queue type (deque) in Swift and look at what is required to implement copy-on-write in an optimized way so that this double-ended queue is faster than Array when used as a first-in-first-out (FIFO) queue." />
+
+  <meta name="twitter:title" content="Optimizing a copy-on-write double-ended queue in Swift"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/blog/2016/09/22/deque.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="I present an implementation of a a double-ended queue type (deque) in Swift and look at what is required to implement copy-on-write in an optimized way so that this double-ended queue is faster than Array when used as a first-in-first-out (FIFO) queue."/>
+
+  <link rel="icon" href="../../../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../../../css/main.css" />
+  <link rel="canonical" href="deque.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../../../index.html"><img class="heartandcup" src="../../../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../../../about/index.html">about</a>
+        <a class="page-link" href="../../../../archive/index.html">archive</a>
+        <a class="page-link" href="../../../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Optimizing a copy-on-write double-ended queue in Swift</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2016-09-22">September 22, 2016</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../../../tags/swift.html">Swift</a>, <a href="../../../../tags/fundamentals.html">fundamentals</a>
+		 
+	</div>
+</header>
+
+
+<main role="main">
+	<article itemscope itemtype="http://schema.org/BlogPosting">
+		<div class="post-content" itemprop="articleBody">
+			
+
+<p>I implemented a double-ended queue type (deque) in Swift to satisfy a particular need in one of my programs. The algorithm itself isn&rsquo;t very interesting and I&rsquo;ll only discuss it briefly.</p>
+
+<p>Instead, I&rsquo;ll focus on the challenges involved in implementing a copy-on-write type in Swift and optimizing the code to satisfy my core aim of running at least as fast as <code>Array</code> when used as a first-in-first-out (FIFO) queue for queue lengths around 20 items.</p>
+
+<p>It turns out to be a tricky optimization task due to problems with the functions used to access the copy-on-write buffer. Join me for a look at optimizing a Swift copy-on-write collection.</p>
+
+<nav id="TableOfContents"><span class="toc-heading">Contents</span>
+<ul>
+<li>
+<ul>
+<li><a href="#introduction">Introduction</a></li>
+<li><a href="#copy-on-write-in-swift">Copy-on-write in Swift</a></li>
+<li><a href="#overview-of-the-deque-design">Overview of the Deque design</a></li>
+<li><a href="#storing-values-safely-in-an-uninitialized-buffer">Storing values safely in an uninitialized buffer</a></li>
+<li><a href="#limitations-of-managedbuffer">Limitations of ManagedBuffer</a></li>
+<li><a href="#here-s-one-i-prepared-earlier">Here&rsquo;s one I prepared earlier</a></li>
+<li><a href="#problem-number-1-specialization-needed">Problem number 1: Specialization needed</a></li>
+<li><a href="#problem-number-2-managedbuffer-doesn-t-inline-properly">Problem number 2: ManagedBuffer doesn&rsquo;t inline properly</a></li>
+<li><a href="#problem-number-3-underlying-closures-still-won-t-behave">Problem number 3: Underlying closures still won&rsquo;t behave</a></li>
+<li><a href="#isn-t-this-risky">Isn&rsquo;t this risky?</a></li>
+<li><a href="#comparing-with-std-deque">Comparing with std::deque</a></li>
+<li><a href="#usage">Usage</a></li>
+<li><a href="#conclusion">Conclusion</a>
+<ul>
+<li><a href="#looking-forward">Looking forward&hellip;</a></li>
+</ul></li>
+</ul></li>
+</ul>
+</nav>
+
+<h2 id="introduction">Introduction</h2>
+
+<p>The Swift standard library doesn&rsquo;t have many built-in container types. It was Swift 1.2 before it introduced a basic <code>Set</code> type. While there are a number of utility storage types, like <code>CollectionOfOne</code>, in general, Swift offers an <code>Array</code>, <code>Dictionary</code> and <code>Set</code> as the only general purpose collection types.</p>
+
+<p>Swift lacks any type ideally suited as a FIFO queue. In other standard libraries, this is commonly handled by a double-ended queue or <code>Deque</code> type.</p>
+
+<p>You won&rsquo;t find a double-ended queue in the Foundation library either but the <code>CFArray</code>/<code>NSMutableArray</code> addresses this deficiency by devolving into a binary heap under queue-like operations. This lets you use an <code>NSMutableArray</code> as a double-ended queue. A million years ago (in 2005) the <a href="http://ridiculousfish.com/blog/">Ridiculous Fish blog</a> wrote about this in an article elaborately titled: &ldquo;<a href="http://ridiculousfish.com/blog/posts/array.html">Array</a>&rdquo;. It&rsquo;s a fascinating read, if you haven&rsquo;t read it before. However, elements in an <code>NSMutableArray</code> need to be heap allocated and the container itself is not copy-on-write – neither of which seem ideal in Swift so I didn&rsquo;t want to use this option.</p>
+
+<p>There is an <a href="https://github.com/lorentey/Deque">existing, commonly used <code>Deque</code> implementation</a> which appears to be solid and well maintained. However, I was predominantly interested in queues of length 0 to 20 with an initial capacity of zero and under these conditions, I found this implementation performed slower than <code>Array</code>. I chose not to use this option because I wanted a better focus on this small queue, small memory footprint use-case.</p>
+
+<p>I could try to graft a Swift copy-on-write wrapper onto a C++ <code>std::deque</code> but ultimately, I chose not to take this option either – although I&rsquo;d still like to try this in future as I&rsquo;m curious to work out what would be involved in using C++ to store Swift data (I assume C++ would function as little more than byte-level storage).</p>
+
+<p>Ultimately, I found myself in a position where I would need to write the type myself. I wanted to satisfy the following aims:</p>
+
+<ol>
+<li>Copy-on-write</li>
+<li>No heap allocation until the first element is added</li>
+<li>Automatic growing and downsizing of storage (down to a minimum capacity)</li>
+<li>As fast as <code>Array</code> (or faster) for pushing 10 elements then popping them all in a FIFO fashion, considerably faster for 50.</li>
+<li>Implement all of <code>RandomAccessCollection</code>, <code>RangeReplaceableCollection</code>, <code>ExpressibleByArrayLiteral</code> and <code>CustomDebugStringConvertible</code></li>
+</ol>
+
+<p>Since it is the easiest type of double-ended queue to implement, I&rsquo;ll be implementing a &ldquo;circular-buffer&rdquo; style double-ended queue – one where the first element is allowed to have an &ldquo;offset&rdquo; from the front of the storage and successive pops from one end and pushes to the other will cause initialized values in the queue to offset within the storage until they wrap around at the end.</p>
+
+<p><img src="../../../../assets/blog/deque1.svg" alt="Figure 1: a ring-buffer showing the indices of four initialized elements in a storage of capacity six" /></p>
+
+<div class="caption">a circular-buffer showing the indices of four initialized elements in a storage of capacity six</div>
+
+<p><img src="../../../../assets/blog/deque2.svg" alt="Figure 2: the valid indices after removing the first three elements and appending three more" /></p>
+
+<div class="caption">the valid indices after removing the first three elements and appending three more</div>
+
+<p>An <code>Array</code> would continually move the values so index <code>0</code> was always at the start of the buffer. By comparison, the circular-buffer allows the index <code>0</code> element to be offset within the buffer. The caveat is that the storage might not be contiguous, it may overrun the end of the storage and wrap around to the beginning again.</p>
+
+<p>This is not usually the most optimal approach to a double-ended queue (that would involve a more complex split-buffer or heap storage) but we&rsquo;ll see how it goes.</p>
+
+<h2 id="copy-on-write-in-swift">Copy-on-write in Swift</h2>
+
+<p>In Swift, idiomatic collection types are usually &ldquo;copy-on-write&rdquo;. This means that assigning a collection to a new variable merely increases the reference count to the original. Subsequent attempts to mutate a multiply referenced collection cause the mutated reference to copy itself to a unique location and mutate the unique, rather than shared version.</p>
+
+<p>This is how <code>Array</code>, <code>Dictionary</code> and <code>Set</code> behave.</p>
+
+<p>For this to work, the underlying storage of the collection must be a reference counted class type. To avoid a redundant allocation (one for the reference counted class type and one for the raw storage buffer) we use the <code>create</code> function on <code>ManagedBufferPointer&lt;Header, Element&gt;</code> to allocate a class type (usually a subclass of <code>ManagedBuffer&lt;Header, Element&gt;</code>) and a raw storage buffer in a single allocation.</p>
+
+<p>Combined with the <code>isKnownUniquelyReferenced</code> function (which tests if any class type is singly or multiply reference) this gives us all the tools required.</p>
+
+<h2 id="overview-of-the-deque-design">Overview of the Deque design</h2>
+
+<p>A rough description of a <code>Deque</code> type using a <code>ManagedBuffer&lt;Header, Element&gt;</code> would then look like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">public</span> <span class="kd">struct</span> <span class="nc">Deque</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">:</span> <span class="n">RandomAccessCollection</span><span class="p">,</span> <span class="n">RangeReplaceableCollection</span><span class="p">,</span>
+   <span class="n">ExpressibleByArrayLiteral</span><span class="p">,</span> <span class="n">CustomDebugStringConvertible</span> <span class="p">{</span>
+   <span class="kd">public</span> <span class="kd">typealias</span> <span class="n">Index</span> <span class="p">=</span> <span class="nb">Int</span>
+   <span class="kd">public</span> <span class="kd">typealias</span> <span class="n">Indices</span> <span class="p">=</span> <span class="n">CountableRange</span><span class="p">&lt;</span><span class="nb">Int</span><span class="o">&gt;</span>
+   <span class="kd">public</span> <span class="kd">typealias</span> <span class="n">Element</span> <span class="p">=</span> <span class="n">T</span>
+
+   <span class="kd">var</span> <span class="nv">buffer</span><span class="p">:</span> <span class="n">ManagedBuffer</span><span class="p">&lt;</span><span class="n">DequeHeader</span><span class="p">,</span> <span class="n">T</span><span class="o">&gt;?</span> <span class="p">=</span> <span class="kc">nil</span>
+   
+   <span class="kd">public</span> <span class="kd">init</span><span class="p">()</span>
+   <span class="kd">public</span> <span class="kd">init</span><span class="p">(</span><span class="n">arrayLiteral</span><span class="p">:</span> <span class="n">T</span><span class="p">...)</span>
+   <span class="kd">public</span> <span class="kd">var</span> <span class="nv">debugDescription</span><span class="p">:</span> <span class="nb">String</span>
+   <span class="kd">public</span> <span class="kd">subscript</span><span class="p">(</span><span class="kc">_</span> <span class="n">at</span><span class="p">:</span> <span class="n">Index</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="n">T</span>
+   <span class="kd">public</span> <span class="kd">var</span> <span class="nv">startIndex</span><span class="p">:</span> <span class="n">Index</span>
+   <span class="kd">public</span> <span class="kd">var</span> <span class="nv">endIndex</span><span class="p">:</span> <span class="n">Index</span>
+   
+   <span class="kd">public</span> <span class="kr">mutating</span> <span class="kd">func</span> <span class="nf">replaceSubrange</span><span class="p">&lt;</span><span class="n">C</span><span class="o">&gt;</span><span class="p">(</span><span class="kc">_</span> <span class="n">subrange</span><span class="p">:</span> <span class="nb">Range</span><span class="p">&lt;</span><span class="nb">Int</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">with</span> <span class="n">newElements</span><span class="p">:</span> <span class="n">C</span><span class="p">)</span>
+      <span class="k">where</span> <span class="n">C</span><span class="p">:</span> <span class="n">Collection</span><span class="p">,</span> <span class="n">C</span><span class="p">.</span><span class="n">Iterator</span><span class="p">.</span><span class="n">Element</span> <span class="p">==</span> <span class="n">T</span> <span class="p">{</span>
+      <span class="k">if</span> <span class="n">isKnownUniquelyReferenced</span><span class="p">(&amp;</span><span class="n">buffer</span><span class="p">)</span> <span class="o">&amp;&amp;</span> <span class="cm">/* values fit in existing storage */</span> <span class="p">{</span>
+         <span class="c1">// Mutate in place</span>
+      <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+         <span class="c1">// Use the `create` method on ManagedBuffer</span>
+      <span class="p">}</span>
+   <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kd">struct</span> <span class="nc">DequeHeader</span> <span class="p">{</span>
+   <span class="kd">var</span> <span class="nv">offset</span><span class="p">:</span> <span class="nb">Int</span>
+   <span class="kd">var</span> <span class="nv">count</span><span class="p">:</span> <span class="nb">Int</span>
+   <span class="kd">var</span> <span class="nv">capacity</span><span class="p">:</span> <span class="nb">Int</span>
+<span class="p">}</span></code></pre></div>
+
+<p>That&rsquo;s the entire set of required methods, properties and typealiases. You get quite a bit for free from the <code>Collection</code> protocols that all ultimately gets channeled through the <code>subscript</code> or the <code>replaceSubrange</code> function. It gets a lot more difficult if the <code>Index</code> isn&rsquo;t <code>Int</code> but fortunately that&rsquo;s not the case here.</p>
+
+<h2 id="storing-values-safely-in-an-uninitialized-buffer">Storing values safely in an uninitialized buffer</h2>
+
+<p>The first tricky hurdle to overcome is safely maintaining reference counts for data stored in an unsafe buffer.</p>
+
+<p>In typical Swift programming, automatic reference counting lets us ignore reference counts. This is not typical Swift programming. When the buffer is allocated, it is &ldquo;uninitialized&rdquo; (doesn&rsquo;t contain a normal value). If we were to try and assign values into the buffer normally:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="n">buffer</span><span class="p">.</span><span class="n">withUnsafeMutablePointerToElements</span> <span class="p">{</span> <span class="n">pointer</span> <span class="k">in</span>
+   <span class="n">pointer</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="p">=</span> <span class="n">newValue</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Swift&rsquo;s automatic reference counting would try to automatically release the object at <code>pointer[index]</code> before assigning <code>newValue</code> to that location. This is a problem: when uninitialized, the location could be garbage data and attempting to release its contents could cause a EXC_BAD_ACCESS or other crash or misbehavior.</p>
+
+<p>The way around this problem is that we must manually manage all memory in the buffer. This means copying values into the buffer with <code>initialize</code>:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="n">buffer</span><span class="p">.</span><span class="n">withUnsafeMutablePointerToElements</span> <span class="p">{</span> <span class="n">pointer</span> <span class="k">in</span>
+   <span class="n">pointer</span><span class="p">.</span><span class="n">advanced</span><span class="p">(</span><span class="n">by</span><span class="p">:</span> <span class="n">index</span><span class="p">).</span><span class="n">initialize</span><span class="p">(</span><span class="n">to</span><span class="p">:</span> <span class="n">newValue</span><span class="p">)</span>
+<span class="p">}</span></code></pre></div>
+
+<p>or if we&rsquo;re moving values from one buffer to another (releasing in the old location):</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="n">oldBuffer</span><span class="p">.</span><span class="n">withUnsafeMutablePointerToElements</span> <span class="p">{</span> <span class="n">oldPointer</span> <span class="k">in</span>
+   <span class="n">newBuffer</span><span class="p">.</span><span class="n">withUnsafeMutablePointerToElements</span> <span class="p">{</span> <span class="n">newPointer</span> <span class="k">in</span>
+      <span class="n">newPointer</span><span class="p">.</span><span class="n">advanced</span><span class="p">(</span><span class="n">by</span><span class="p">:</span> <span class="n">newIndex</span><span class="p">).</span><span class="n">moveInitialize</span><span class="p">(</span><span class="n">from</span><span class="p">:</span> <span class="n">oldPointer</span><span class="p">.</span><span class="n">advanced</span><span class="p">(</span><span class="n">by</span><span class="p">:</span>
+         <span class="n">oldIndex</span><span class="p">),</span> <span class="bp">count</span><span class="p">:</span> <span class="n">moveCount</span><span class="p">)</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>and when we&rsquo;re done, we need to release the values:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="n">buffer</span><span class="p">.</span><span class="n">withUnsafeMutablePointerToElements</span> <span class="p">{</span> <span class="n">pointer</span> <span class="k">in</span>
+   <span class="n">pointer</span><span class="p">.</span><span class="n">advanced</span><span class="p">(</span><span class="n">by</span><span class="p">:</span> <span class="n">offset</span><span class="p">).</span><span class="n">deinitialize</span><span class="p">(</span><span class="bp">count</span><span class="p">:</span> <span class="n">valueCount</span><span class="p">)</span>
+<span class="p">}</span></code></pre></div>
+
+<h2 id="limitations-of-managedbuffer">Limitations of ManagedBuffer</h2>
+
+<p>So we&rsquo;re responsible for manually maintaining reference counts – including manually releasing values before the buffer is destroyed.</p>
+
+<p>In most cases, this means that we need to perform <code>deinitialize</code> in a <code>deinit</code> method. This means that we <em>can&rsquo;t</em> rely on the default <code>ManagedBuffer</code> class alone: while it calls <code>deinitialize</code> on the <code>Header</code>, it doesn&rsquo;t do anything with the <code>Element</code> buffer.</p>
+
+<p>At a minimum, we need to subclass <code>ManagedBuffer</code> and add a <code>deinitialize</code> for any values that are still in the buffer at <code>deinit</code> time.</p>
+
+<h2 id="here-s-one-i-prepared-earlier">Here&rsquo;s one I prepared earlier</h2>
+
+<p>I went ahead and implemented the entire <code>Deque</code> based on the information I&rsquo;ve discussed so far. The implementation is a little tedious but isn&rsquo;t very difficult. It&rsquo;s about 350 lines (including comments and blank lines). You can <a href="https://github.com/mattgallagher/CwlUtils/blob/7d1793833501987dd511f5c4e94e25623809c18e/CwlUtils/CwlDeque.swift?ts=3">view the initial version here</a>. Later in this article, I will refer back to this version as the &ldquo;unoptimized&rdquo; version (although it also contains a few bugs that have subsequently been fixed on &ldquo;master&rdquo;, so please don&rsquo;t directly use this version).</p>
+
+<p>While not required, I included optimized versions of the following functions:</p>
+
+<ul>
+<li><code>append(_:)</code></li>
+<li><code>insert(_:, at:)</code></li>
+<li><code>remove(at:)</code></li>
+</ul>
+
+<p>to improve performance for commonly expected operations.</p>
+
+<p>The implementation also includes a runtime specified <code>minimumCapacity</code> so that the queue can dynamically grow and shrink but won&rsquo;t shrink below the minimum (the default value of this is zero and falling back to zero capacity causes the entire <code>buffer</code> object tob be deallocated).</p>
+
+<p>Since the key metric that I&rsquo;m using the gauge success or failure is how this compares relative to <code>Array</code> for small queues, I be evaluating performance with the following test:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">let</span> <span class="nv">outerCount</span> <span class="p">=</span> <span class="mi">100_000</span>
+<span class="kd">let</span> <span class="nv">innerCount</span> <span class="p">=</span> <span class="mi">20</span>
+<span class="kd">var</span> <span class="nv">accumulator</span> <span class="p">=</span> <span class="mi">0</span>
+<span class="k">for</span> <span class="kc">_</span> <span class="k">in</span> <span class="mf">1.</span><span class="p">..</span><span class="n">outerCount</span> <span class="p">{</span>
+   <span class="kd">var</span> <span class="nv">deque</span> <span class="p">=</span> <span class="n">Deque</span><span class="p">&lt;</span><span class="nb">Int</span><span class="o">&gt;</span><span class="p">()</span>
+   <span class="k">for</span> <span class="n">i</span> <span class="k">in</span> <span class="mf">1.</span><span class="p">..</span><span class="n">innerCount</span> <span class="p">{</span>
+      <span class="n">deque</span><span class="p">.</span><span class="n">append</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+      <span class="n">accumulator</span> <span class="o">^=</span> <span class="p">(</span><span class="n">deque</span><span class="p">.</span><span class="bp">last</span> <span class="p">??</span> <span class="mi">0</span><span class="p">)</span>
+   <span class="p">}</span>
+   <span class="k">for</span> <span class="kc">_</span> <span class="k">in</span> <span class="mf">1.</span><span class="p">..</span><span class="n">innerCount</span> <span class="p">{</span>
+      <span class="n">accumulator</span> <span class="o">^=</span> <span class="p">(</span><span class="n">deque</span><span class="p">.</span><span class="bp">first</span> <span class="p">??</span> <span class="mi">0</span><span class="p">)</span>
+      <span class="n">deque</span><span class="p">.</span><span class="n">remove</span><span class="p">(</span><span class="n">at</span><span class="p">:</span> <span class="mi">0</span><span class="p">)</span>
+   <span class="p">}</span>
+<span class="p">}</span>
+<span class="n">XCTAssert</span><span class="p">(</span><span class="n">accumulator</span> <span class="p">==</span> <span class="mi">0</span><span class="p">)</span></code></pre></div>
+
+<p>This test case appends 20 elements sequentially at the end of a new queue and then removes them sequentially from the front. This process is them repeated 100000 times.</p>
+
+<p>I&rsquo;ll compare against <code>Array</code>. The only difference between the two tests is the <code>var deque = Deque&lt;Int&gt;</code> line will be <code>var deque = Array&lt;Int&gt;</code> for the <code>Array</code> version.</p>
+
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Time taken (seconds)</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td>Initial <code>Deque</code> implementation</td>
+<td>16.217</td>
+</tr>
+
+<tr>
+<td><code>Array</code></td>
+<td>0.214</td>
+</tr>
+</tbody>
+</table>
+
+<p>That&rsquo;s not good. What&rsquo;s the problem?</p>
+
+<h2 id="problem-number-1-specialization-needed">Problem number 1: Specialization needed</h2>
+
+<p>The first difficulty is that, relative to third-party code, the standard library cheats. Where my <code>Deque</code> implementation was compiled into a separate module and therefore received no generic specialization, the Swift standard library is always compiled as though it is part of the same module – so it can always take advantage of generic specialization.</p>
+
+<p>The separate module for my <code>Deque</code> implementation is preventing specialization of the <code>Deque</code> type and functions and causing the following accessor into the buffer:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="n">buffer</span><span class="p">.</span><span class="n">withUnsafeMutablePointerToElements</span> <span class="p">{</span> <span class="n">header</span><span class="p">,</span> <span class="n">elements</span> <span class="k">in</span>
+   <span class="n">elements</span><span class="p">.</span><span class="n">advanced</span><span class="p">(</span><span class="n">by</span><span class="p">:</span> <span class="n">header</span><span class="p">.</span><span class="n">pointee</span><span class="p">.</span><span class="n">offset</span><span class="p">).</span><span class="n">initialize</span><span class="p">(</span><span class="n">to</span><span class="p">:</span> <span class="n">newValue</span><span class="p">)</span>
+<span class="p">}</span></code></pre></div>
+
+<p>to use capturing closures with heap allocation overhead, and this is responsible for most of the execution time.</p>
+
+<p>Performance problems associated with separate modules is <a href="../../06/02/threads-and-mutexes.html">a problem I&rsquo;ve discussed previously</a>. The solution is similar: ensure that the <code>Deque</code> and the test case are linked as part of the same module and ensure that &ldquo;Whole program optimization&rdquo; is enabled.</p>
+
+<table>
+<thead>
+<tr>
+<th align="right"></th>
+<th>Time taken (seconds)</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td align="right">Initial <code>Deque</code> compiled in the same module</td>
+<td>0.589</td>
+</tr>
+
+<tr>
+<td align="right"><code>Array</code></td>
+<td>0.204</td>
+</tr>
+</tbody>
+</table>
+
+<p>Okay, that&rsquo;s more than an order of magnitude better but it&rsquo;s still not great. What&rsquo;s the problem now?</p>
+
+<h2 id="problem-number-2-managedbuffer-doesn-t-inline-properly">Problem number 2: ManagedBuffer doesn&rsquo;t inline properly</h2>
+
+<p>It turns out that despite being fully specialized, Swift is <em>still</em> not inlining some of the closures. For reasons I can&rsquo;t quite understand, Swift is refusing to inline the <code>withUnsafeMutablePointers</code> and related functions.</p>
+
+<p>I therefore implemented the <code>ManagedBuffer</code> versions of these functions on my own <code>DequeBuffer</code> and stopped my <code>DequeBuffer</code> being a subclass of <code>ManagedBuffer</code>:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kr">final</span> <span class="kd">class</span> <span class="nc">DequeBuffer</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="p">{</span>
+   <span class="kd">class</span> <span class="nc">func</span> <span class="n">create</span><span class="p">(</span><span class="n">capacity</span><span class="p">:</span> <span class="nb">Int</span><span class="p">,</span> <span class="bp">count</span><span class="p">:</span> <span class="nb">Int</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="n">DequeBuffer</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="p">{</span>
+      <span class="kd">let</span> <span class="nv">p</span> <span class="p">=</span> <span class="n">ManagedBufferPointer</span><span class="p">&lt;</span><span class="n">DequeHeader</span><span class="p">,</span> <span class="n">T</span><span class="o">&gt;</span><span class="p">(</span><span class="n">bufferClass</span><span class="p">:</span> <span class="kc">self</span><span class="p">,</span> <span class="n">minimumCapacity</span><span class="p">:</span>
+         <span class="n">capacity</span><span class="p">)</span> <span class="p">{</span> <span class="n">buffer</span><span class="p">,</span> <span class="n">capacityFunction</span> <span class="k">in</span>
+         <span class="n">DequeHeader</span><span class="p">(</span><span class="n">offset</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="bp">count</span><span class="p">:</span> <span class="bp">count</span><span class="p">,</span> <span class="n">capacity</span><span class="p">:</span> <span class="n">capacity</span><span class="p">)</span>
+      <span class="p">}</span>
+         
+      <span class="k">return</span> <span class="bp">unsafeDowncast</span><span class="p">(</span><span class="n">p</span><span class="p">.</span><span class="n">buffer</span><span class="p">,</span> <span class="n">to</span><span class="p">:</span> <span class="n">DequeBuffer</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">.</span><span class="kc">self</span><span class="p">)</span>
+   <span class="p">}</span>
+   <span class="kd">func</span> <span class="nf">withUnsafeMutablePointers</span><span class="p">&lt;</span><span class="n">R</span><span class="o">&gt;</span><span class="p">(</span><span class="kc">_</span> <span class="n">body</span><span class="p">:</span> <span class="p">(</span><span class="nb">UnsafeMutablePointer</span><span class="p">&lt;</span><span class="n">DequeHeader</span><span class="o">&gt;</span><span class="p">,</span>
+      <span class="nb">UnsafeMutablePointer</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">)</span> <span class="kr">throws</span> <span class="p">-&gt;</span> <span class="n">R</span><span class="p">)</span> <span class="kr">rethrows</span> <span class="p">-&gt;</span> <span class="n">R</span> <span class="p">{</span>
+      <span class="k">return</span> <span class="k">try</span> <span class="n">ManagedBufferPointer</span><span class="p">&lt;</span><span class="n">DequeHeader</span><span class="p">,</span> <span class="n">T</span><span class="o">&gt;</span><span class="p">(</span><span class="n">unsafeBufferObject</span><span class="p">:</span>
+         <span class="kc">self</span><span class="p">).</span><span class="bp">withUnsafeMutablePointers</span><span class="p">(</span><span class="n">body</span><span class="p">)</span>
+   <span class="p">}</span>
+   <span class="kd">func</span> <span class="nf">withUnsafeMutablePointerToElements</span><span class="p">&lt;</span><span class="n">R</span><span class="o">&gt;</span><span class="p">(</span><span class="kc">_</span> <span class="n">body</span><span class="p">:</span> <span class="p">(</span><span class="nb">UnsafeMutablePointer</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">)</span> <span class="kr">throws</span>
+      <span class="p">-&gt;</span> <span class="n">R</span><span class="p">)</span> <span class="kr">rethrows</span> <span class="p">-&gt;</span> <span class="n">R</span> <span class="p">{</span>
+      <span class="k">return</span> <span class="k">try</span> <span class="n">ManagedBufferPointer</span><span class="p">&lt;</span><span class="n">DequeHeader</span><span class="p">,</span> <span class="n">T</span><span class="o">&gt;</span><span class="p">(</span><span class="n">unsafeBufferObject</span><span class="p">:</span>
+         <span class="kc">self</span><span class="p">).</span><span class="n">withUnsafeMutablePointerToElements</span><span class="p">(</span><span class="n">body</span><span class="p">)</span>
+   <span class="p">}</span>
+   <span class="kd">func</span> <span class="nf">withUnsafeMutablePointerToHeader</span><span class="p">&lt;</span><span class="n">R</span><span class="o">&gt;</span><span class="p">(</span><span class="kc">_</span> <span class="n">body</span><span class="p">:</span> <span class="p">(</span><span class="nb">UnsafeMutablePointer</span><span class="p">&lt;</span><span class="n">DequeHeader</span><span class="o">&gt;</span><span class="p">)</span>
+      <span class="kr">throws</span> <span class="p">-&gt;</span> <span class="n">R</span><span class="p">)</span> <span class="kr">rethrows</span> <span class="p">-&gt;</span> <span class="n">R</span> <span class="p">{</span>
+      <span class="k">return</span> <span class="k">try</span> <span class="n">ManagedBufferPointer</span><span class="p">&lt;</span><span class="n">DequeHeader</span><span class="p">,</span> <span class="n">T</span><span class="o">&gt;</span><span class="p">(</span><span class="n">unsafeBufferObject</span><span class="p">:</span>
+         <span class="kc">self</span><span class="p">).</span><span class="n">withUnsafeMutablePointerToHeader</span><span class="p">(</span><span class="n">body</span><span class="p">)</span>
+   <span class="p">}</span>
+   <span class="kd">deinit</span> <span class="p">{</span>
+      <span class="bp">withUnsafeMutablePointers</span> <span class="p">{</span> <span class="n">header</span><span class="p">,</span> <span class="n">body</span> <span class="k">in</span>
+         <span class="n">Deque</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">.</span><span class="n">deinitialize</span><span class="p">(</span><span class="n">range</span><span class="p">:</span> <span class="mf">0.</span><span class="p">.&lt;</span><span class="n">header</span><span class="p">.</span><span class="n">pointee</span><span class="p">.</span><span class="bp">count</span><span class="p">,</span> <span class="n">header</span><span class="p">:</span> <span class="n">header</span><span class="p">,</span> <span class="n">body</span><span class="p">:</span> <span class="n">body</span><span class="p">)</span>
+      <span class="p">}</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<table>
+<thead>
+<tr>
+<th align="right"></th>
+<th>Time taken (seconds)</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td align="right"><code>Deque</code> with custom buffer class</td>
+<td>0.354</td>
+</tr>
+
+<tr>
+<td align="right"><code>Array</code></td>
+<td>0.207</td>
+</tr>
+</tbody>
+</table>
+
+<p>Okay but we&rsquo;re still a factor of 2 slower than desired.</p>
+
+<h2 id="problem-number-3-underlying-closures-still-won-t-behave">Problem number 3: Underlying closures still won&rsquo;t behave</h2>
+
+<p>Bypassing the <code>ManagedBufferwithUnsafeMutablePointers</code> function with my own implementation improved things but now profiling reports the underlying <code>ManagedBufferPointer.withUnsafeMutablePointers</code> function as the biggest time consumer.</p>
+
+<p>Out of frustration, I dug into the Swift standard library source code to work out exactly what the <code>ManagedBufferPointer.withUnsafeMutablePointers</code> function does so I could bypass it.</p>
+
+<p>The following unsafe accessors and helpers on my <code>DequeBuffer</code> type is the result:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">static</span> <span class="kd">var</span> <span class="nv">headerOffset</span><span class="p">:</span> <span class="nb">Int</span> <span class="p">{</span>
+   <span class="k">return</span> <span class="nb">Int</span><span class="p">(</span><span class="n">roundUp</span><span class="p">(</span><span class="nb">UInt</span><span class="p">(</span><span class="n">MemoryLayout</span><span class="p">&lt;</span><span class="n">HeapObject</span><span class="o">&gt;</span><span class="p">.</span><span class="n">size</span><span class="p">),</span> <span class="n">toAlignment</span><span class="p">:</span>
+      <span class="n">MemoryLayout</span><span class="p">&lt;</span><span class="n">DequeHeader</span><span class="o">&gt;</span><span class="p">.</span><span class="n">alignment</span><span class="p">))</span>
+<span class="p">}</span>
+<span class="kd">static</span> <span class="kd">var</span> <span class="nv">elementOffset</span><span class="p">:</span> <span class="nb">Int</span> <span class="p">{</span>
+   <span class="k">return</span> <span class="nb">Int</span><span class="p">(</span><span class="n">roundUp</span><span class="p">(</span><span class="nb">UInt</span><span class="p">(</span><span class="n">headerOffset</span><span class="p">)</span> <span class="o">+</span> <span class="nb">UInt</span><span class="p">(</span><span class="n">MemoryLayout</span><span class="p">&lt;</span><span class="n">DequeHeader</span><span class="o">&gt;</span><span class="p">.</span><span class="n">size</span><span class="p">),</span>
+      <span class="n">toAlignment</span><span class="p">:</span> <span class="n">MemoryLayout</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">.</span><span class="n">alignment</span><span class="p">))</span>
+<span class="p">}</span>
+<span class="kd">var</span> <span class="nv">unsafeElements</span><span class="p">:</span> <span class="nb">UnsafeMutablePointer</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="p">{</span>
+   <span class="k">return</span> <span class="nb">Unmanaged</span><span class="p">&lt;</span><span class="n">DequeBuffer</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;&gt;</span><span class="p">.</span><span class="n">passUnretained</span><span class="p">(</span><span class="kc">self</span><span class="p">).</span><span class="n">toOpaque</span><span class="p">().</span><span class="n">advanced</span><span class="p">(</span><span class="n">by</span><span class="p">:</span>
+      <span class="n">DequeBuffer</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">.</span><span class="n">elementOffset</span><span class="p">).</span><span class="n">assumingMemoryBound</span><span class="p">(</span><span class="n">to</span><span class="p">:</span> <span class="n">T</span><span class="p">.</span><span class="kc">self</span><span class="p">)</span>
+<span class="p">}</span>
+<span class="kd">var</span> <span class="nv">unsafeHeader</span><span class="p">:</span> <span class="nb">UnsafeMutablePointer</span><span class="p">&lt;</span><span class="n">DequeHeader</span><span class="o">&gt;</span> <span class="p">{</span>
+   <span class="k">return</span> <span class="nb">Unmanaged</span><span class="p">&lt;</span><span class="n">DequeBuffer</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;&gt;</span><span class="p">.</span><span class="n">passUnretained</span><span class="p">(</span><span class="kc">self</span><span class="p">).</span><span class="n">toOpaque</span><span class="p">().</span><span class="n">advanced</span><span class="p">(</span><span class="n">by</span><span class="p">:</span>
+      <span class="n">DequeBuffer</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">.</span><span class="n">headerOffset</span><span class="p">).</span><span class="n">assumingMemoryBound</span><span class="p">(</span><span class="n">to</span><span class="p">:</span> <span class="n">DequeHeader</span><span class="p">.</span><span class="kc">self</span><span class="p">)</span>
+<span class="p">}</span></code></pre></div>
+
+<p>I then use these accessors inside my <code>withUnsafeMutablePointers</code> implementations instead of calling down into <code>ManagedBufferPointer</code>.</p>
+
+<p>As you can see, all I&rsquo;m really doing is advancing the <code>self</code> pointer to the correct locations for the <code>Header</code> and <code>Elements</code> in the buffer allocated by <code>ManagedBufferPointer</code> – which is the same work that <code>ManagedBufferPointer</code> would perform. My code cannot run the <code>defer { _fixLifetime(_nativeBuffer) }</code> call that the <code>ManagedBufferPointer.withUnsafeMutablePointers</code> call runs but my understanding is that this is implied by instance method invocation on <code>self</code> so the lifetime should be safely ensured.</p>
+
+<table>
+<thead>
+<tr>
+<th align="right"></th>
+<th>Time taken (seconds)</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td align="right">Final <code>Deque</code> implementation</td>
+<td>0.132</td>
+</tr>
+
+<tr>
+<td align="right"><code>Array</code></td>
+<td>0.205</td>
+</tr>
+</tbody>
+</table>
+
+<p>We&rsquo;re finally faster than Swift&rsquo;s builtin <code>Array</code> type in this test case.</p>
+
+<h2 id="isn-t-this-risky">Isn&rsquo;t this risky?</h2>
+
+<p>I&rsquo;m offsetting a pointer into the middle of a buffer I didn&rsquo;t allocate and assuming the layout within the buffer won&rsquo;t change in future.</p>
+
+<p>Isn&rsquo;t this an ugly hack? Doesn&rsquo;t this go against the &ldquo;maintainable apps&rdquo; aim that I declared for Cocoa with Love in &ldquo;<a href="../../01/25/a-new-era-for-cocoa-with-love.html">A new era for Cocoa with Love</a>&rdquo;?</p>
+
+<p>Yes and yes.</p>
+
+<p>It&rsquo;s disappointing but the reality is that if we implement the <code>Deque</code> using <code>ManagedBufferPointer</code> to allocate the underlying storage, we&rsquo;re forced to choose between an &ldquo;optimized&rdquo; version that delivers reasonable performance or an &ldquo;unoptimized&rdquo; version that is so slow that it isn&rsquo;t really competitive with <code>Array</code> until queue lengths reach 80 to 200 (depending on initial capacity).</p>
+
+<p>Frankly, the performance problems with the &ldquo;unoptimized&rdquo; version limit its usefulness so much that it&rsquo;s practically useless. If you&rsquo;re paranoid about memory safety, then you&rsquo;d be better off simply using an <code>Array</code> or writing a <code>Deque</code> without <code>ManagedBufferPointer</code>.</p>
+
+<p>I&rsquo;ve chosen to go with the optimized version and guard against any potential unsafety with <code>assert</code> statements on construction of <code>DequeBuffer</code> that confirm the values returned from accessors remain the same as the results from <code>ManagedBufferPointer</code> would be. This should guard against the layout changing and the pointers being invalid.</p>
+
+<p>Since the external interface of the class is identical in both cases, it should be trivial to copy the <code>DequeBuffer</code> implementation from the &ldquo;unoptimized&rdquo; version back into the main version after the issues in Swift causing performance problems here are fixed.</p>
+
+<h2 id="comparing-with-std-deque">Comparing with std::deque</h2>
+
+<p>Beating the Swift <code>Array</code> isn&rsquo;t really a giant accomplishment: it&rsquo;s not designed to be high performance in this case. Let&rsquo;s instead compare with something designed for use as a FIFO queue.</p>
+
+<p>Here&rsquo;s how <code>Deque</code> compares with libc++&rsquo;s <code>std::deque</code>:</p>
+
+<table>
+<thead>
+<tr>
+<th align="right"></th>
+<th>Time taken (seconds)</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td align="right">Final <code>Deque</code> implementation</td>
+<td>0.132</td>
+</tr>
+
+<tr>
+<td align="right"><code>std::deque</code></td>
+<td>0.043</td>
+</tr>
+</tbody>
+</table>
+
+<p>Ouch. How did we get beaten again?</p>
+
+<p>While <code>std::deque</code>&rsquo;s &ldquo;split-buffer&rdquo; is a more efficient implementation than our &ldquo;circular-buffer&rdquo; implementation (since extending the capacity doesn&rsquo;t require moving the existing contents to the newly allocated buffer), that&rsquo;s not the source of the problem here.</p>
+
+<p>The source of the problem is that <code>std::deque</code> performs just 2 allocations to exceed a capacity of 20 (two allocations of 16 elements) whereas my implementation takes 4 allocations (reallocations for 2, 6, 14 and 30 elements).</p>
+
+<p>If I set a minimum capacity of <code>20</code> on construction of my <code>Deque</code>, the numbers go the other way:</p>
+
+<table>
+<thead>
+<tr>
+<th align="right"></th>
+<th>Time taken (seconds)</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td align="right">Final <code>Deque</code> with minimum capacity of 20</td>
+<td>0.039</td>
+</tr>
+
+<tr>
+<td align="right"><code>std::deque</code></td>
+<td>0.045</td>
+</tr>
+</tbody>
+</table>
+
+<p>Hardly a fair fight when I rig the conditions like this but the point is that the two are competitive, give or take allocation patterns, and that&rsquo;s sufficient.</p>
+
+<h2 id="usage">Usage</h2>
+
+<blockquote>
+<p>The project containing this <code>Deque</code> implementation is available on github: <a href="https://github.com/mattgallagher/CwlUtils">mattgallagher/CwlUtils</a>.</p>
+</blockquote>
+
+<p>The <a href="https://github.com/mattgallagher/CwlUtils/blob/master/Sources/CwlUtils/CwlDeque.swift?ts=3">CwlDeque.swift</a> file is fully self-contained so you can just copy the file, if that&rsquo;s all you need. Otherwise, the <a href="https://github.com/mattgallagher/CwlUtils/blob/master/README.md">ReadMe.md file for the project</a> contains detailed information on cloning the whole repository and adding the framework it produces to your own projects.</p>
+
+<p><strong>NOTE:</strong> the CwlUtils project compiles CwlDeque.swift inside its own module. If you want best performance, it&rsquo;s better to take the CwlDeque.swift file and compile it inside your own module instead.</p>
+
+<p>As mentioned earlier, the repository also contains <a href="https://github.com/mattgallagher/CwlUtils/blob/7d1793833501987dd511f5c4e94e25623809c18e/CwlUtils/CwlDeque.swift?ts=3">the &ldquo;conservative&rdquo; version of CwlDeque.swift</a> that omits the unsafe pointer offsets.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>This was partly fun, partly an exercise in frustration.</p>
+
+<p>It was fun to implement a basic copy-on-write, circular-buffer deque in Swift. Needing to carefully initialize and deinitialize to manually manage reference counts seems like a delightful throwback to pre-ARC Objective-C but it&rsquo;s straightforward once you realize that it&rsquo;s required.</p>
+
+<p>The frustration came as I tried to understand the cause of performance problems. While I know a little about the Swift compiler internals, optimizing code like this is still largely a black-box exercise for me: looking at profiling results and haphazardly trying things on problem areas, hoping the situation will improve somehow. I don&rsquo;t really know why <code>ManagedBuffer</code> and <code>ManagedBufferPointer</code> refused to inline correctly or if I could have fixed the problem a different way. I do know that I shouldn&rsquo;t have needed to do anything – the conservative and optimized versions should have had identical performance.</p>
+
+<p>The final solution delivers excellent performance but I&rsquo;m not happy with the pointer arithmetic it required. With the <code>assert</code> statements double checking the pointer arithmetic, it should remain correct but ultimately, I look forward to reverting the <code>ManagedBufferPointer</code> avoidance changes once Swift addresses the underlying cause of the performance problems.</p>
+
+<h3 id="looking-forward">Looking forward&hellip;</h3>
+
+<p>In a future article, I will be sharing my primary use case for this Deque type (although it will likely be a few months before I get there).</p>
+
+		</div>
+	</article>
+</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../14/updating-cocoawithlove.html">Updating Cocoa with Love for Swift 3</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../../../specifying-execution-contexts.html">Specifying function execution contexts</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../../../feed.json">JSON</a>, <a href="../../../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

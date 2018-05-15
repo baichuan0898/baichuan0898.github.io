@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Foundation</title>
+  <meta name="description" content="" />
+
+  <meta name="twitter:title" content="Foundation"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/categories/foundation.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content=""/>
+
+  <link rel="icon" href="../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../css/main.css" />
+  <link rel="canonical" href="foundation.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../index.html"><img class="heartandcup" src="../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../about/index.html">about</a>
+        <a class="page-link" href="../archive/index.html">archive</a>
+        <a class="page-link" href="../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../assets/site/banner.svg" width="720px" height="118px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+		<h1 class="list-title">Articles tagged "Foundation"</h1>
+
+<ul class="post-list">
+	
+      <li>
+    <h2><a class="post-link" href="../2011/05/classes-for-fetching-and-parsing-xml-or.html">Classes for fetching and parsing XML or JSON via HTTP</a></h2>
+    <p class="post-meta">May 30, 2011 (an Objective-C era article)</p>
+    <div class="content">In this post I show two reusable classes for fetching data via HTTP: one that parses the result as XML and another that parses as JSON. These are relatively simple tasks but due to the number of required steps, they can become tiresome if you don't have robust, reusable code for the task. These classes will work on iOS or on the Mac but the optional error alerts and password dialogs are only implemented for iOS.</div>
+    <div class="read-more"><a href="../2011/05/classes-for-fetching-and-parsing-xml-or.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2010/10/testing-if-arbitrary-pointer-is-valid.html">Testing if an arbitrary pointer is a valid object pointer</a></h2>
+    <p class="post-meta">Oct 6, 2010 (an Objective-C era article)</p>
+    <div class="content">In this post, I look at an approach for testing if an arbitrary pointer is a pointer to a valid Objective-C object. The result from the test is not absolutely accurate and can interfere with gdb debugging if the pointer isn't a valid memory location, so this is not something you'd want to do often (and certainly not in production code). But it can be a handy debugging tool for when you're staring blindly at memory you didn't allocate.</div>
+    <div class="read-more"><a href="../2010/10/testing-if-arbitrary-pointer-is-valid.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2010/09/minimalist-cocoa-programming.html">Minimalist Cocoa programming</a></h2>
+    <p class="post-meta">Sep 20, 2010 (an Objective-C era article)</p>
+    <div class="content">In this post, I build and run a Cocoa Mac application on the command-line. This might not sound like a very difficult goal but I'll attempt to follow an additional constraint: use as few tools, components, classes and even lines of code as possible; truly minimalist Cocoa programming. The goal is to create an application that qualifies as a proper Mac application (including a menubar and a window) but without using Xcode, without an Info.plist file, without NIB files, without Interface Builder and without even using a text editor other than the Terminal itself.</div>
+    <div class="read-more"><a href="../2010/09/minimalist-cocoa-programming.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2010/06/sorting-nsmutablearray-with-random.html">Sorting an NSMutableArray with a random comparison method</a></h2>
+    <p class="post-meta">Jun 10, 2010 (an Objective-C era article)</p>
+    <div class="content">If you sorted an <code>NSMutableArray</code> with a comparison method that randomly returns either higher or lower, would the result be an even, random distribution? Spoiler: no it won't but the actual distribution is interesting nonetheless. I'll show you what would happen if you did sort this way (and also show you how to correctly randomize an array if you did want an even distribution).</div>
+    <div class="read-more"><a href="../2010/06/sorting-nsmutablearray-with-random.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2010/06/avoiding-deadlocks-and-latency-in.html">Avoiding deadlocks and latency in libdispatch</a></h2>
+    <p class="post-meta">Jun 2, 2010 (an Objective-C era article)</p>
+    <div class="content">The system-wide thread pool of libdispatch's global queue is an easy way to efficiently manage concurrent operations but it is not the solution to all threading problems and it is not without its own class of problems. In this post I look at deadlocks and latency problems that are inherent in thread-pool based solutions like libdispatch's global concurrent queue so that you will know when you should use this option and when you need something else.</div>
+    <div class="read-more"><a href="../2010/06/avoiding-deadlocks-and-latency-in.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2010/05/finding-or-creating-application-support.html">Finding or creating the application support directory</a></h2>
+    <p class="post-meta">May 6, 2010 (an Objective-C era article)</p>
+    <div class="content">A simple post this week but one which optimizes a common task: locating the application support directory for the current application, creating it if it doesn't exist. The result makes accessing the current application's support directory a single line and provides a structure for locating and creating folders at other standard locations with similar ease.</div>
+    <div class="read-more"><a href="../2010/05/finding-or-creating-application-support.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2010/04/porting-mac-program-to-windows-using.html">Porting a Mac program to Windows using The Cocotron</a></h2>
+    <p class="post-meta">Apr 27, 2010 (an Objective-C era article)</p>
+    <div class="content">In this last of three posts about porting a Mac application to Windows, I look at the steps involved in setting up The Cocotron with a remote debugging session between Xcode and the application running on Windows. I'll also talk about the code that didn't "just work" and some of the approaches I used to fix the program and get it working.</div>
+    <div class="read-more"><a href="../2010/04/porting-mac-program-to-windows-using.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2010/04/design-of-multi-platform-app-using.html">Design of a multi-platform app using The Cocotron</a></h2>
+    <p class="post-meta">Apr 21, 2010 (an Objective-C era article)</p>
+    <div class="content">In this post, I'll talk about how multi-platform applications are structured and talk about some of the different ways that applications separate core logic from platform specific behaviors. I'll talk about how using a porting layer like The Cocotron fits into these designs and why using The Cocotron doesn't necessarily mean that you're ignoring best-practice or creating a second-class application.</div>
+    <div class="read-more"><a href="../2010/04/design-of-multi-platform-app-using.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2010/02/resolving-path-containing-mixture-of.html">Resolving a path containing a mixture of aliases and symlinks</a></h2>
+    <p class="post-meta">Feb 21, 2010 (an Objective-C era article)</p>
+    <div class="content">Resolving symlinks in a path is very easy in Cocoa (it can be done in a single statement) but aliases require more work. Additionally the commands for resolving symlinks and aliases are incompatible with each other &mdash; meaning that you can resolve a path containing symlinks or aliases but not a mixture of the two. In this post, I present a category on <code>NSString</code> that will allow you to resolve a path containing any combination of symlinks or aliases as simply as resolving symlinks alone.</div>
+    <div class="read-more"><a href="../2010/02/resolving-path-containing-mixture-of.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2010/01/5-key-value-coding-approaches-in-cocoa.html">5 key-value coding approaches in Cocoa</a></h2>
+    <p class="post-meta">Jan 25, 2010 (an Objective-C era article)</p>
+    <div class="content">Key-value coding (KVC) is a way of decoupling a generic action from the specific properties it may need to act upon. It is most commonly associated with the <code>NSKeyValueCoding</code> protocol but there are a number of other ways to achieve the same effect. In this post, I look at why key-value coding is important and show you 5 different ways &mdash; each with their own particular advantages &mdash; to implement this pattern.</div>
+    <div class="read-more"><a href="../2010/01/5-key-value-coding-approaches-in-cocoa.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2010/01/what-is-meta-class-in-objective-c.html">What is a meta-class in Objective-C?</a></h2>
+    <p class="post-meta">Jan 17, 2010 (an Objective-C era article)</p>
+    <div class="content">In this post, I look at one of the stranger concepts in Objective-C &mdash; the meta-class. Every class in Objective-C has its own associated meta-class but since you rarely ever use a meta-class directly, they can remain enigmatic. I'll start by looking at how to create a class at runtime. By examining the "class pair" that this creates, I'll explain what the meta-class is and also cover the more general topic of what it means for data to be an object or a class in Objective-C.</div>
+    <div class="read-more"><a href="../2010/01/what-is-meta-class-in-objective-c.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2009/11/writing-parser-using-nsscanner-csv.html">Writing a parser using NSScanner (a CSV parsing example)</a></h2>
+    <p class="post-meta">Nov 30, 2009 (an Objective-C era article)</p>
+    <div class="content">Comma-separated value (CSV) files are one of the most commonly used data formats for exchanging rows of simple data. There are many implementations of CSV parsing for Cocoa strings but the purpose of this post is to use the example of an RFC4180 compliant CSV parser implementation to show you the basics of writing a recursive descent parser for importing data into your Cocoa applications.</div>
+    <div class="read-more"><a href="../2009/11/writing-parser-using-nsscanner-csv.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2009/11/drop-in-fix-for-problems-with-nshost.html">A drop-in fix for the problems with NSHost</a></h2>
+    <p class="post-meta">Nov 14, 2009 (an Objective-C era article)</p>
+    <div class="content">As pointed out by Mike Ash in his recent Friday Q&A 2009-11-13: Dangerous Cocoa Calls, <code>NSHost</code> is not thread-safe for use outside of the main thread and due to potentially slow, synchronous network access is not really suitable for use on the main thread either. Fortunately, in Cocoa there are often ways to transparently fix classes that don't work as they should. In this post, I'll show you how you can transparently patch <code>NSHost</code> using a drop-in solution and provide a non-blocking solution for <code>NSHost</code> lookups.</div>
+    <div class="read-more"><a href="../2009/11/drop-in-fix-for-problems-with-nshost.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2009/10/how-blocks-are-implemented-and.html">How blocks are implemented (and the consequences)</a></h2>
+    <p class="post-meta">Oct 18, 2009 (an Objective-C era article)</p>
+    <div class="content">This post is a look at how clang implements blocks and how this implementation leads to a number of strange behaviors including local variables that end up global, Objective-C objects allocated on the stack instead of the heap, C variables that behave like C++ references, Objective-C objects in non-Objective-C languages, copy methods that don't copy and retain methods that don't retain.</div>
+    <div class="read-more"><a href="../2009/10/how-blocks-are-implemented-and.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2009/09/optimizing-loading-of-very-large-table.html">Optimizing the loading of a very large table on the iPhone</a></h2>
+    <p class="post-meta">Sep 28, 2009 (an Objective-C era article)</p>
+    <div class="content">In this post, I look at a <code>UITableView</code> on the iPhone which loads its data from a server and look at how its performance scales from single rows to tens of thousands of rows. I'll examine which aspects of the iPhone scale well and which become a burden as a displayed dataset moves from trivially sized to large sizes.</div>
+    <div class="read-more"><a href="../2009/09/optimizing-loading-of-very-large-table.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2009/08/safe-threaded-design-and-inter-thread.html">Safe, threaded design and inter-thread communication</a></h2>
+    <p class="post-meta">Aug 9, 2009 (an Objective-C era article)</p>
+    <div class="content">The Foundation framework provides all the tools you need for inter-thread communication &mdash; without needing to handling locks and synchronization yourself. I'll show you Cocoa's tools for inter-thread communication, notifications and easy synchronization &mdash; including far simpler code for posting NSNotifications on the main thread than the Cocoa documentation suggests.</div>
+    <div class="read-more"><a href="../2009/08/safe-threaded-design-and-inter-thread.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2009/07/temporary-files-and-folders-in-cocoa.html">Temporary files and folders in Cocoa</a></h2>
+    <p class="post-meta">Jul 23, 2009 (an Objective-C era article)</p>
+    <div class="content">If you need to use temporary files in your application and you search the Cocoa documentation for "temporary file", you're unlikely to find anything that explains how to create one. Since temporary files and folders are subject to a number of security issues and race conditions when done wrong, it is important to know the correct way to create them. I'll show you some code that you can copy and paste into your applications to create temporary files and folders safely.</div>
+    <div class="read-more"><a href="../2009/07/temporary-files-and-folders-in-cocoa.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2009/07/simple-extensible-http-server-in-cocoa.html">A simple, extensible HTTP server in Cocoa</a></h2>
+    <p class="post-meta">Jul 13, 2009 (an Objective-C era article)</p>
+    <div class="content">HTTP is one of the simpler protocols to implement for communication between computers. On the iPhone, since there are no APIs for data synchronization or file sharing, embedding an HTTP server is one of the best ways to transfer data from your iPhone application to a computer. In this post I'll show you how to write your own simple but extensible HTTP server. The server classes will also work on Mac OS X (Cocoa un-Touched).</div>
+    <div class="read-more"><a href="../2009/07/simple-extensible-http-server-in-cocoa.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2009/07/hashvalue-object-for-holding-md5-and.html">HashValue: an object for holding MD5 and SHA hashes</a></h2>
+    <p class="post-meta">Jul 6, 2009 (an Objective-C era article)</p>
+    <div class="content">Hash values are small, convenient values that you can generate from larger blocks of data for easy indexing, sorting and tracking. The traditional approach for generating MD5 and SHA hashes on Unix platforms to is to use command-line programs like openssl and md5. Apple provide easier approaches in the CommonCrypto library: here's how to use it, along with an NSValue subclass to wrap the result for interoperability with other Cocoa classes.</div>
+    <div class="read-more"><a href="../2009/07/hashvalue-object-for-holding-md5-and.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2009/06/verifying-that-string-is-email-address.html">Verifying that a string contains an email address using NSPredicate</a></h2>
+    <p class="post-meta">Jun 23, 2009 (an Objective-C era article)</p>
+    <div class="content">To celebrate the official release of iPhone OS 3.0 this week, I will show you how to verify that an NSString contains a syntactically valid email address using NSPredicate &mdash; a class that joins the iPhone SDK 3.0 as part of the Core Data additions. This code will work on Mac OS X too since, as with the rest of Core Data, NSPredicate has been part of Mac OS X since 10.4 (Tiger).</div>
+    <div class="read-more"><a href="../2009/06/verifying-that-string-is-email-address.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2009/06/base64-encoding-options-on-mac-and.html">Base64 encoding options on the Mac and iPhone</a></h2>
+    <p class="post-meta">Jun 3, 2009 (an Objective-C era article)</p>
+    <div class="content">On Unix platforms, a common approach for Base64 encoding is to use libcrypto (the OpenSSL library). However, like most C libraries, you need to wrap it to integrate with Objective-C data types (like NSData and NSString) and it isn't available on the iPhone. I'll show you how to handle base64 encoding/decoding with OpenSSL and without so you can handle the Mac and iPhone equally.</div>
+    <div class="read-more"><a href="../2009/06/base64-encoding-options-on-mac-and.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2009/05/simple-methods-for-date-formatting-and.html">Simple methods for date formatting and transcoding</a></h2>
+    <p class="post-meta">May 25, 2009 (an Objective-C era article)</p>
+    <div class="content">There is no single-line method for converting between formatting date strings and date objects in Cocoa &mdash; the API opts for flexibility rather than simplicity. Unfortunately, this combines with documentation that omits, misdirects and occasionally misinforms, making NSDateFormatter one of the more confusing classes for new Cocoa programmers. In this post, I'll try to address some of the documentation issues and I'll present some methods that will turn NSDate into a formatted string or convert between date strings in a single method.</div>
+    <div class="read-more"><a href="../2009/05/simple-methods-for-date-formatting-and.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2009/05/variable-argument-lists-in-cocoa.html">Variable argument lists in Cocoa</a></h2>
+    <p class="post-meta">May 10, 2009 (an Objective-C era article)</p>
+    <div class="content">This week I'll talk about methods that take variable numbers of arguments, also known as variadic methods. I'll show you the Objective-C syntax and implementation, give a quick rundown of the ways that Cocoa classes provide variable argument support and I'll also show you a way to fake va_list parameters to handle Cocoa's variadic method equivalents at runtime.</div>
+    <div class="read-more"><a href="../2009/05/variable-argument-lists-in-cocoa.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2009/05/invoking-other-processes-in-cocoa.html">Invoking other processes in Cocoa</a></h2>
+    <p class="post-meta">May 4, 2009 (an Objective-C era article)</p>
+    <div class="content">Invoking other processes is a good way to handle some low-level tasks on the Mac. I'll show you some simple ways to invoke processes and parse their outputs in Cocoa apps as well as some advanced tricks like running a process with administrator privileges.</div>
+    <div class="read-more"><a href="../2009/05/invoking-other-processes-in-cocoa.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2009/03/using-nskeyedarchiver-to-archive-c.html">Using NSKeyedArchiver to archive a C linked-list</a></h2>
+    <p class="post-meta">Mar 28, 2009 (an Objective-C era article)</p>
+    <div class="content"><code>NSKeyedArchiver</code> provides some support for archiving C primitive types but provides no support for pointers to C structs. I'll show you how you can archive a linked list of C structs, despite the lack of support in <code>NSKeyedArchiver</code>.</div>
+    <div class="read-more"><a href="../2009/03/using-nskeyedarchiver-to-archive-c.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2009/02/breadth-first-traversal-of-graph-of.html">Breadth-first traversal of a graph of Objective-C objects</a></h2>
+    <p class="post-meta">Feb 7, 2009 (an Objective-C era article)</p>
+    <div class="content">If you have a collection of interconnected objects in Objective-C, what is the best way to traverse them all in order from nearest to furthest? Are the <code>NSMutableSet</code> methods good for tracking already-visited nodes? How much overhead does an <code>NSMutableArray</code> FIFO queue impose relative to a depth-first search (which doesn't require a FIFO queue)? Does <code>NSMutableArray</code> perform better if objects are pushed onto the front, or the back? In this post, I present answers to these questions and more.</div>
+    <div class="read-more"><a href="../2009/02/breadth-first-traversal-of-graph-of.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2009/02/interprocess-communication-snooping.html">Interprocess communication: snooping, intercepting and subverting</a></h2>
+    <p class="post-meta">Feb 1, 2009 (an Objective-C era article)</p>
+    <div class="content">When Xcode is running, Interface Builder seems to magically know which classes, methods and variables are available. Where does Interface Builder get this information? How can you recreate this effect when editing source files in an external editor without Xcode running? This is the story of how I investigated the communication between Xcode and Interface Builder, so that I could recreate it for myself.</div>
+    <div class="read-more"><a href="../2009/02/interprocess-communication-snooping.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2009/01/serving-nsmanagedobjectcontext-over.html">Serving an NSManagedObjectContext over an NSConnection</a></h2>
+    <p class="post-meta">Jan 5, 2009 (an Objective-C era article)</p>
+    <div class="content">In this post, I'll show you how you can serve a Core Data document over a network using NSConnection. This arrangement will never be as efficient or safe as writing your own code to communicate the data over the network but the promise of transparent and automatic networking seemed too tempting to pass up.</div>
+    <div class="read-more"><a href="../2009/01/serving-nsmanagedobjectcontext-over.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2008/12/ordereddictionary-subclassing-cocoa.html">OrderedDictionary: Subclassing a Cocoa class cluster</a></h2>
+    <p class="post-meta">Dec 18, 2008 (an Objective-C era article)</p>
+    <div class="content">The default Cocoa collection classes are highly capable but there are situations where you may need to override them to alter their functionality. I'll explain when and how you should do this with an example class: OrderedDictionary (an NSMutableDictionary subclass that maintains ordering of its keys).</div>
+    <div class="read-more"><a href="../2008/12/ordereddictionary-subclassing-cocoa.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2008/11/singletons-appdelegates-and-top-level.html">Singletons, AppDelegates and top-level data.</a></h2>
+    <p class="post-meta">Nov 16, 2008 (an Objective-C era article)</p>
+    <div class="content">If you require only a single instance of an object in your application, where should it go? How should you control and manage it? Here are some different approaches, their implementations, their strengths and their weaknesses.</div>
+    <div class="read-more"><a href="../2008/11/singletons-appdelegates-and-top-level.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2008/11/simplifying-your-code-using.html">Simplifying your code using NSDictionary</a></h2>
+    <p class="post-meta">Nov 10, 2008 (an Objective-C era article)</p>
+    <div class="content">Computers programs are good at mindless repetitive tasks, they are not good at broad decision trees. In this post, I will show you a way of eliminating conditionals from your code that are based on program state by using an array of <code>NSDictionary</code> objects to maintain state.</div>
+    <div class="read-more"><a href="../2008/11/simplifying-your-code-using.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2008/10/using-libxml2-for-parsing-and-xpath.html">Using libxml2 for XML parsing and XPath queries in Cocoa</a></h2>
+    <p class="post-meta">Oct 31, 2008 (an Objective-C era article)</p>
+    <div class="content">NSXMLDocument is the normal tree-based XML parser in Cocoa. But if you're writing for the iPhone, this class isn't available. Even on the Mac, sometimes you want tree-based parsing without the full overhead of NSXMLDocument. Here's how to use libxml2 to perform tree-based parsing in a Cocoa-friendly way.</div>
+    <div class="read-more"><a href="../2008/10/using-libxml2-for-parsing-and-xpath.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2008/10/worldtimeconverter-dates-and-timezones.html">WorldTimeConverter: Dates and timezones in Cocoa</a></h2>
+    <p class="post-meta">Oct 10, 2008 (an Objective-C era article)</p>
+    <div class="content">Recently, I searched for a world time converter &mdash; one that would handle future dates as well as the current time. There are web versions but I didn't find a genuine Mac OS X application that matched my desires. How hard could it be? The answer is 1 subtraction &mdash; provided you can find the right values to subtract. Read on and I'll show you how it's done.</div>
+    <div class="read-more"><a href="../2008/10/worldtimeconverter-dates-and-timezones.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2008/09/cocoa-application-driven-by-http-data.html">A Cocoa application driven by HTTP data</a></h2>
+    <p class="post-meta">Sep 20, 2008 (an Objective-C era article)</p>
+    <div class="content">Here's a tiny application that queries a webpage via HTTP, parses and searches the response and presents the results in a neatly formatted window. In essence, it's what many Dashboard widgets and iPhone apps do but I'll show you how to do it in a regular Cocoa application.</p><p>Brought to you by FuelView, an iPhone application I wrote for fetching FuelWatch information in Western Australia.</div>
+    <div class="read-more"><a href="../2008/09/cocoa-application-driven-by-http-data.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2008/08/nsarray-or-nsset-nsdictionary-or.html">NSArray or NSSet, NSDictionary or NSMapTable</a></h2>
+    <p class="post-meta">Aug 9, 2008 (an Objective-C era article)</p>
+    <div class="content">Some types of data can be held in more than one kind of collection. Unordered objects that are already guaranteed unique can be sensibly held in an NSArray or an NSSet. Anything an NSDictionary can hold can be held in an NSMapTable. In this post, I measure the performance of creating and using these different options to help you choose which one is right for you.</div>
+    <div class="read-more"><a href="../2008/08/nsarray-or-nsset-nsdictionary-or.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2008/07/key-value-information.html">Key Value Information</a></h2>
+    <p class="post-meta">Jul 27, 2008 (an Objective-C era article)</p>
+    <div class="content">NSKeyValueCoding is used throughout Cocoa (Bindings, Core Data, Collections and more) but despite being a dynamic way of connecting to an object, it doesn't provide dynamic information about its own operation &mdash; which keys an object supports or the custom methods used to get and set values. This post will look at how NSKeyValueCoding works and show you how to get supported keys and their methods for any class or object.</div>
+    <div class="read-more"><a href="../2008/07/key-value-information.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2008/07/nsmaptable-more-than-nsdictionary-for.html">NSMapTable: more than an NSDictionary for weak pointers</a></h2>
+    <p class="post-meta">Jul 6, 2008 (an Objective-C era article)</p>
+    <div class="content">NSMapTable is collection class that was introduced in Mac OS X 10.5 (Leopard). At first glance, it would appear to be most useful as an NSDictionary replacement that can choose between "strong" and "weak" pointers. In this post, I'll show you why it is also useful outside garbage collection and how it can do things that NSDictionary can't (or shouldn't) do.</div>
+    <div class="read-more"><a href="../2008/07/nsmaptable-more-than-nsdictionary-for.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2008/06/hidden-xcode-build-debug-and-template.html">Hidden Xcode build, debug and template settings</a></h2>
+    <p class="post-meta">Jun 28, 2008 (an Objective-C era article)</p>
+    <div class="content">This is a collection of the most useful hidden and hard-to-find settings in Xcode related to building, debugging and file templates.</div>
+    <div class="read-more"><a href="../2008/06/hidden-xcode-build-debug-and-template.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2008/06/doing-things-in-cocoa-with.html">Doing things in Cocoa with &#34;nil&#34;</a></h2>
+    <p class="post-meta">Jun 21, 2008 (an Objective-C era article)</p>
+    <div class="content">"nil" is a pointer to nothing. Here are some useful things that you can do with that pointer to nothing in Objective-C and Cocoa.</div>
+    <div class="read-more"><a href="../2008/06/doing-things-in-cocoa-with.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2008/06/five-approaches-to-listening-observing.html">Five approaches to listening, observing and notifying in Cocoa.</a></h2>
+    <p class="post-meta">Jun 7, 2008 (an Objective-C era article)</p>
+    <div class="content">Here are five different ways to implement the Observer design pattern (sometimes called Broadcaster/Listener, Publish/Subscribe or Notifications) in Objective-C and some reasons why each approach can be valuable.</div>
+    <div class="read-more"><a href="../2008/06/five-approaches-to-listening-observing.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2008/05/implementing-countbyenumeratingwithstat.html">Implementing countByEnumeratingWithState:objects:count:</a></h2>
+    <p class="post-meta">May 19, 2008 (an Objective-C era article)</p>
+    <div class="content">If you want to use fast enumeration on your own classes, you must implement <span countByEnumeratingWithState:objects:count:. Unfortunately, it's a confusing method. Here are two sample implementations that show the steps needed to implement this method in most cases.</div>
+    <div class="read-more"><a href="../2008/05/implementing-countbyenumeratingwithstat.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2008/05/fast-enumeration-clarifications.html">Objective-C 2.0: Fast enumeration clarifications</a></h2>
+    <p class="post-meta">May 15, 2008 (an Objective-C era article)</p>
+    <div class="content">Fast enumeration in Objective-C 2.0 is a doubly useful addition: it results in code that looks better and runs faster. Its documentation though, still contains a few points which are ambiguous or misleading. Here are some clarifications that I've uncovered.</div>
+    <div class="read-more"><a href="../2008/05/fast-enumeration-clarifications.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2008/05/square-root-numerical-fun-with.html">Square Root: Numerical fun with NSDecimalNumber</a></h2>
+    <p class="post-meta">May 9, 2008 (an Objective-C era article)</p>
+    <div class="content">NSDecimalNumber is a powerful Foundation class that holds high precision base 10 numbers. The default class only provides basic arithmetic operators, leaving you to write any advanced operations that you need. This is an example that implements a square root using NSDecimalNumber.</div>
+    <div class="read-more"><a href="../2008/05/square-root-numerical-fun-with.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2008/04/using-pointers-to-recast-in-c-is-bad.html">Type punning isn&#39;t funny: Using pointers to recast in C is bad.</a></h2>
+    <p class="post-meta">Apr 14, 2008 (an Objective-C era article)</p>
+    <div class="content">A very common C technique for reinterpreting data types has the potential to cause nasty bugs. Apple knows this, which is why the implementation of NSRectToCGRect (correctly) doesn't do what the documention claims. I show you a technique to perform reinterpret casts safely in your own code.</div>
+    <div class="read-more"><a href="../2008/04/using-pointers-to-recast-in-c-is-bad.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2008/03/construct-nsinvocation-for-any-message.html">Construct an NSInvocation for any message, just by sending</a></h2>
+    <p class="post-meta">Mar 19, 2008 (an Objective-C era article)</p>
+    <div class="content">I will show you how to use object forwarding to record any message in an NSInvocation, by simply sending the message to an object. Unlike techniques shown elsewhere, this will allow you to record any message, including NSObject messages and even the forwarding messages themselves.</div>
+    <div class="read-more"><a href="../2008/03/construct-nsinvocation-for-any-message.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+</ul>
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../feed.json">JSON</a>, <a href="../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

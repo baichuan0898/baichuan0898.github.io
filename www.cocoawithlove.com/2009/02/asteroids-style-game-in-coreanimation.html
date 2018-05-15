@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>An Asteroids-style game in CoreAnimation, Part One.</title>
+  <meta name="description" content="How would you write an arcade-style 2D game in CoreAnimation? Over the next few weeks, I&#39;ll show you how to write a resolution independent, high-speed, model-view-controller designed, Asteroids-style arcade game using CoreAnimation as the screen renderer. In this first of four parts, I&#39;ll detail the concept for the overall application and show you how to create a resolution independent window for the game." />
+
+  <meta name="twitter:title" content="An Asteroids-style game in CoreAnimation, Part One."/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/02/asteroids-style-game-in-coreanimation.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="How would you write an arcade-style 2D game in CoreAnimation? Over the next few weeks, I&#39;ll show you how to write a resolution independent, high-speed, model-view-controller designed, Asteroids-style arcade game using CoreAnimation as the screen renderer. In this first of four parts, I&#39;ll detail the concept for the overall application and show you how to create a resolution independent window for the game."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="asteroids-style-game-in-coreanimation.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">An Asteroids-style game in CoreAnimation, Part One.</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-02-17">February 17, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/coreanimation.html">CoreAnimation</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>How would you write an arcade-style 2D game in CoreAnimation? Over the next few weeks, I'll show you how to write a resolution independent, high-speed, model-view-controller designed, Asteroids-style arcade game using CoreAnimation as the screen renderer. In this first of four parts, I'll detail the concept for the overall application and show you how to create a resolution independent window for the game.</p></span>
+
+<span class="fullpost">
+
+<img src="../../assets/objc-era/quartzeroids2.png" width="420" height="300" />
+<p style="text-align:center">A screenshot of the finished game</p>
+
+<h2>CoreAnimation as a game renderer</h2>
+<p>Drawing on the Mac is normally done through either CoreGraphics or OpenGL. OpenGL is fast, supports 2D and 3D and is already used in many games. However, OpenGL is a low-level, pure-C API, so even simple rendering and animating of 2D surfaces can require a whole library of code to accomplish.</p>
+
+<p>CoreGraphics and the <code>NSView</code> hierarchy are a whole library of well-written code. They are clean to use and support a wide range of features without needing to write them yourself. Sadly, CoreGraphics is not ideal for games since it does not easily render 30 fullscreen frames per second (the minimum standard for action games) &mdash; even with Quartz Extreme and the other improvements Apple has added since Mac OS X 10.0.</p>
+
+<p>This is where CoreAnimation comes in. Apple introduced CoreAnimation in Mac OS X 10.5 (Leopard) to dramatically accelerate the animation of 2D rectangular textures. Since it integrates so well into the existing CoreGraphics and <code>NSView</code> hierarchy on the Mac, it suddenly gives CoreGraphics a way of delivering 30 (or more) fullscreen frames per second and makes a writing a game possible using nothing more than the Foundation, AppKit and QuartzCore libraries.</p>
+
+<h2>Quartzeroids One</h2>
+
+<p>The application I'll present over the next few weeks will be similar to an experiment I wrote about 8 years ago. Back then, the application was named Quartzeroids and it was an experiment to see if <code>NSView</code>s were fast enough to use for a 2D Asteroids game. The code was not good &mdash; if you find it out in the wild, keep your distance and call animal control.</p>
+
+<p>Were <code>NSView</code>s fast enough for this type of animation? No, not really. At 640 by 480, the game played at 15 frames-per-second on my iMac G3 500Mhz. Computer and operating-system improvements have improved this (newer Intel Macs can now render this old 640 by 480 screen size at more than 30 frames per second) but even newer machines cannot maintain good frame rates at proper fullscreen resolutions of 1920 by 1200 using this approach.</p>
+
+<h2>Quartzeroids Two</h2>
+
+<p>Since Apple released CoreAnimation 15 months ago, I had been wanting to revisit the idea. To further increase the difficulty, I decided the project should also contain the following features:</p>
+
+<ul><li>Resolution independence (all vector graphics and completely resizeable).</li>
+<li>Proper model-view-controller implementation where the "game-state" is the model and the view is free to reinterpret the state for the purposes of display.</li>
+<li>Fullscreen or windowed mode for display.</li></ul>
+
+<h2>Rough design</h2>
+
+<p>A rough block diagram of the program would look like this:</p>
+
+<img src="../../assets/objc-era/rect3155.png" width="480" height="362" />
+
+<p>The decisions I think were most significant are:</p>
+<ul><li>There is not a one-to-one relationship between objects in the Game Data and Layers in the Window.</li>
+<li>The updates to the Game Data are triggered by the Game Data's own timer, not directly by the controller (which can start and stop but nothing further).</li></ul>
+
+<p>The second point is most significant when the Game Data is compared to a normal application document. A normal document never updates itself &mdash; it only changes when instructions are sent from a controller. In a game however, choosing when to update is a part of the game logic (which I have included in the model) so the controller shown here is left with only the simplest level of control.</p>
+
+<p>I spent some time deliberating about whether to make the <code>GameData</code> a normal document object or a singleton. A normal document style object can be swapped with another document or recreated. A singleton is lazier and simpler since it doesn't need to be connected to every object which needs to access it (since it is globally accessible). Ultimately, the convenience of a singleton won over the hypothetical flexibility of a normal document object since the game will only ever be strictly single instance.</p>
+
+<h2>A resolution independent, constant aspect-ratio view</h2>
+
+<p>To get the code started for the project, I'll show you how the top level of the <code>CALayer</code> hierarchy (named <code>backgroundLayer</code> in the application since it shows the background for the game) is implemented inside the <code>contentView</code> for the window.</p>
+
+<p>The two hardest constraints for the <code>backgroundView</code> are maintaining a constant aspect ratio and maintaining a constant internal coordinates when the surrounding window resizes or reshapes.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">updateContentViewFrame:</span><span class="p">(</span><span class="n">NSNotification</span> <span class="o">*</span><span class="p">)</span><span class="nv">notification</span>
+<span class="p">{</span>
+    <span class="kt">double</span> <span class="n">gameWidth</span> <span class="o">=</span> <span class="p">[[</span><span class="n">GameData</span> <span class="n">sharedGameData</span><span class="p">]</span> <span class="n">gameWidth</span><span class="p">];</span>
+    <span class="kt">double</span> <span class="n">gameHeight</span> <span class="o">=</span> <span class="p">[[</span><span class="n">GameData</span> <span class="n">sharedGameData</span><span class="p">]</span> <span class="n">gameHeight</span><span class="p">];</span>
+    
+    <span class="n">NSSize</span> <span class="n">contentSize</span> <span class="o">=</span> <span class="p">[</span><span class="n">contentView</span> <span class="n">bounds</span><span class="p">].</span><span class="n">size</span><span class="p">;</span>
+
+    <span class="n">NSSize</span> <span class="n">aspectSize</span> <span class="o">=</span> <span class="n">contentSize</span><span class="p">;</span>
+    <span class="kt">double</span> <span class="n">scale</span><span class="p">;</span>
+    <span class="k">if</span> <span class="p">((</span><span class="n">aspectSize</span><span class="p">.</span><span class="n">width</span> <span class="o">/</span> <span class="n">aspectSize</span><span class="p">.</span><span class="n">height</span><span class="p">)</span> <span class="o">&gt;</span> <span class="p">(</span><span class="n">gameWidth</span> <span class="o">/</span> <span class="n">gameHeight</span><span class="p">))</span>
+    <span class="p">{</span>
+        <span class="n">scale</span> <span class="o">=</span> <span class="n">aspectSize</span><span class="p">.</span><span class="n">height</span> <span class="o">/</span> <span class="n">gameHeight</span><span class="p">;</span>
+        <span class="n">aspectSize</span><span class="p">.</span><span class="n">width</span> <span class="o">=</span> <span class="n">aspectSize</span><span class="p">.</span><span class="n">height</span> <span class="o">*</span> <span class="p">(</span><span class="n">gameWidth</span> <span class="o">/</span> <span class="n">gameHeight</span><span class="p">);</span>
+    <span class="p">}</span>
+    <span class="k">else</span>
+    <span class="p">{</span>
+        <span class="n">scale</span> <span class="o">=</span> <span class="n">aspectSize</span><span class="p">.</span><span class="n">width</span> <span class="o">/</span> <span class="n">gameWidth</span><span class="p">;</span>
+        <span class="n">aspectSize</span><span class="p">.</span><span class="n">height</span> <span class="o">=</span> <span class="n">aspectSize</span><span class="p">.</span><span class="n">width</span> <span class="o">*</span> <span class="p">(</span><span class="n">gameHeight</span> <span class="o">/</span> <span class="n">gameWidth</span><span class="p">);</span>
+    <span class="p">}</span>
+    
+    <span class="p">[</span><span class="n">CATransaction</span> <span class="n">begin</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">CATransaction</span>
+        <span class="nl">setValue</span><span class="p">:(</span><span class="kt">id</span><span class="p">)</span><span class="n">kCFBooleanTrue</span>
+        <span class="nl">forKey</span><span class="p">:</span><span class="n">kCATransactionDisableActions</span><span class="p">];</span>
+    <span class="n">backgroundLayer</span><span class="p">.</span><span class="n">transform</span> <span class="o">=</span> <span class="n">CATransform3DMakeScale</span><span class="p">(</span><span class="n">scale</span><span class="p">,</span> <span class="n">scale</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">);</span>
+    <span class="n">backgroundLayer</span><span class="p">.</span><span class="n">frame</span> <span class="o">=</span>
+        <span class="n">CGRectMake</span><span class="p">(</span>
+            <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">contentSize</span><span class="p">.</span><span class="n">width</span> <span class="o">-</span> <span class="n">aspectSize</span><span class="p">.</span><span class="n">width</span><span class="p">),</span>
+            <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">contentSize</span><span class="p">.</span><span class="n">height</span> <span class="o">-</span> <span class="n">aspectSize</span><span class="p">.</span><span class="n">height</span><span class="p">),</span>
+            <span class="n">aspectSize</span><span class="p">.</span><span class="n">width</span><span class="p">,</span>
+            <span class="n">aspectSize</span><span class="p">.</span><span class="n">height</span><span class="p">);</span>
+    <span class="p">[</span><span class="n">CATransaction</span> <span class="n">commit</span><span class="p">];</span>
+
+    <span class="p">[</span><span class="n">contentView</span> <span class="n">becomeFirstResponder</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The GameController adds this method as an observer of the <code>contentView</code>'s <code>NSViewFrameDidChangeNotification</code>. The <code>gameWidth</code> and <code>gameHeight</code> methods on the <code>GameData</code> objecct are programmed to return values with a 16:10 ratio (matching common widescreen computer aspect ratios). The <code>aspectSize</code> calculated here is then the largest size that obeys this ratio and can fit inside the <code>contentView</code>.</p>
+
+<p>Finally, the <code>CATransform3DMakeScale</code> transform, applied to the <code>backgroundLayer</code> before the frame is set, causes the <code>backgroundLayer</code> to always treat its internal coordinates as though they are <code>gameWidth</code> by <code>gameHeight</code>. This will mean that any layers our game adds to the <code>backgroundLayer</code>'s subview hierarchy will always render at a constant fraction of the <code>backgroundLayer</code>'s size. Order is important here: apply the transform after the frame is set and it will behave differently.</p>
+
+<p>The other required behavior of the window is switching to fullscreen and back. This is another task which became extremely simple in Mac OS X 10.5:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">IBAction</span><span class="p">)</span><span class="nf">toggleFullscreen:</span><span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nv">sender</span>
+<span class="p">{</span>
+    <span class="k">if</span> <span class="p">([</span><span class="n">contentView</span> <span class="n">isInFullScreenMode</span><span class="p">])</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="n">contentView</span> <span class="nl">exitFullScreenModeWithOptions</span><span class="p">:</span><span class="nb">nil</span><span class="p">];</span>
+    <span class="p">}</span>
+    <span class="k">else</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="n">contentView</span>
+            <span class="nl">enterFullScreenMode</span><span class="p">:[[</span><span class="n">contentView</span> <span class="n">window</span><span class="p">]</span> <span class="n">screen</span><span class="p">]</span>
+            <span class="nl">withOptions</span><span class="p">:</span><span class="nb">nil</span><span class="p">];</span>
+        
+        <span class="k">for</span> <span class="p">(</span><span class="n">NSView</span> <span class="o">*</span><span class="n">view</span> <span class="k">in</span> <span class="p">[</span><span class="n">NSArray</span> <span class="nl">arrayWithArray</span><span class="p">:[</span><span class="n">contentView</span> <span class="n">subviews</span><span class="p">]])</span>
+        <span class="p">{</span>
+            <span class="p">[</span><span class="n">view</span> <span class="n">removeFromSuperview</span><span class="p">];</span>
+            <span class="p">[</span><span class="n">contentView</span> <span class="nl">addSubview</span><span class="p">:</span><span class="n">view</span><span class="p">];</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The "<code>for</code>" loop is an annoying necessity: if you don't do this for a CoreAnimation layer-enabled NSView, then all child <code>NSView</code>s will fail to update correctly after a switch to fullscreen.</p>
+
+<h2>Conclusion</h2>
+
+<blockquote>You can download <a href="../../assets/objc-era/Quartzeroids2Part1.zip">Quartzeroids2 Part 1 (20kb)</a> which shows the full implementation of the window, <code>contentView</code> and <code>backgroundLayer</code>.</blockquote
+
+<p>A simple as this game is, it is too big to describe in one post &mdash; this is as far as I'll get this week. I've presented a few goals, a rough design and the window management code for the game.</p>
+
+<p>In the next post, I'll start to put objects in the game and layers in the window.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="breadth-first-traversal-of-graph-of.html">Breadth-first traversal of a graph of Objective-C objects</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="asteroids-style-game-in-coreanimation_22.html">An Asteroids-style game in CoreAnimation, Part Two.</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

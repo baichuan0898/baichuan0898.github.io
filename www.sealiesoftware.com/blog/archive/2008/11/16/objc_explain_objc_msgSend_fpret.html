@@ -1,0 +1,159 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<!--
+Local Variables:
+sgml-default-dtd-file: "~/html-loose.ced"
+End:
+-->
+<html>
+  <head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+
+    <title>Hamster Emporium: [objc explain]: objc_msgSend_fpret</title>
+    <link title="RSS 2.0" href="../../../../rss.xml.rss" type="application/rss+xml" rel="alternate">
+  </head>
+  <body bgcolor="#ffffff">
+    <table cellpadding="0" cellspacing="0">
+      <tr>
+	  <td valign="top" align="left">
+	    <a href="../../../../index.html"><img src="http://www.sealiesoftware.com/hamster.jpg" alt="" width="108" height="160"></a><br><br>
+	    <b>blog</b><br>
+	    <a href="../../../../index.html">recent</a><br>
+	    <a href="../../../index.html">archive</a><br>
+	    <a href="http://twitter.com/gparker">twitter</a><br>
+	    <br>
+	    <b>projects</b><br>
+	    <a href="http://www.apple.com/macosx/">Mac OS X</a><br>
+	    <a href="http://www.sealiesoftware.com/keyboard/index.html">Keyboard</a><br>
+	     &nbsp; <a href="http://www.sealiesoftware.com/keyboard/index.html">backlight</a><br>
+	    <a href="http://www.sealiesoftware.com/cscmenu/index.html">CSC Menu</a><br>
+	    <a href="http://www.sealiesoftware.com/valgrind/index.html">Valgrind</a><br>
+	    <a href="http://www.sealiesoftware.com/fringe/index.html">Fringe Player</a><br>
+	    <a href="http://www.sealiesoftware.com/pssh/index.html">pssh</a><br>
+	    <a href="http://www.sealiesoftware.com/peal/index.html">Peal</a><br>
+	    <a href="http://www.sealiesoftware.com/frankenmouse/index.html">Frankenmouse</a><br>
+	    <br>
+	  </td>
+	  <td>
+	    &nbsp; &nbsp;
+	  </td>
+	  <td valign="top">
+	      <h2>Hamster Emporium archive</h2>
+  <p>
+     &lt;&lt; &nbsp; <a href="../30/Infinity_isnt_as_long_as_you_think.html">Infinity isn't as long as you think</a> &nbsp; | &nbsp;  
+    <a href="../../../index.html">archive</a>
+     &nbsp; | &nbsp; <a href="../../10/30/objc_explain_objc_msgSend_stret.html">[objc explain]: objc_msgSend_stret</a> &nbsp; &gt;&gt; 
+  </p>
+  <table cellpadding="0" cellspacing="3">
+      <tr>
+	<td>
+	  <a href="objc_explain_objc_msgSend_fpret.html"><img src="http://www.sealiesoftware.com/link.gif" width="14" height="16" border="0" alt="(link)"></a>
+	</td>
+	<td>
+	  <b><font size="+1">[objc explain]: objc_msgSend_fpret</font></b> &nbsp; 
+	  <font size="-1">(<a href="objc_explain_objc_msgSend_fpret.html">2008-11-16 7:00 PM</a>)</font>
+	</td>
+      </tr>
+      <tr>
+	<td>
+	  &nbsp;
+	</td>
+	<td>
+	        <p>
+	<code>objc_msgSend</code> is the Objective-C message
+	dispatcher. <code>objc_msgSend_stret</code> is exactly the same,
+	but for methods that return values of struct types. And
+	<code>objc_msgSend_fpret</code> is for methods that return
+	floating-point values on some architectures.
+	<table border=1 cellspacing=0 cellpadding=4>
+	  <tr><td>&nbsp;</td><td><code>objc_msgSend_fpret</code> return types</td></tr>
+	  <tr><td>i386</td>
+	    <td><code>float</code>, <code>double</code>, <code>long double</code></td></tr>
+	  <tr><td>x86_64</td>
+	    <td><code>long double</code></td></tr>
+	  <tr><td>ppc</td>
+	    <td rowspan=3>none (identical to
+	  <code>objc_msgSend</code>)</td></tr>
+	  <tr><td>ppc64</td></tr>
+	  <tr><td>arm</td></tr>
+	</table>
+      </p>
+      <p>
+	<code>objc_msgSend_stret</code> exists because the parameters are
+	passed in different places for struct-returning functions. That's
+	not the problem that <code>objc_msgSend_fpret</code>
+	solves. Instead, <code>objc_msgSend_fpret</code> exists to handle
+	the return value itself correctly. Specifically, the return value
+	of a message sent to nil on i386 and x86_64.
+      </p>
+      <p>
+	Messages to nil return zero if possible. On ppc,
+	<code>objc_msgSend</code> with a nil receiver clears registers r3,
+	r4, f1, and f2 before returning. This means any pointer or integer
+	or floating-point return value will be zero, and structs are
+	undefined. On ppc, <code>objc_msgSend_fpret</code> is unnecessary,
+	because clearing f1 and f2 is harmless if the caller is actually
+	expecting a value in r3 or r4.
+      </p>
+      <p>
+	i386 is different. The floating-point registers there are
+	historically derived from the 8087 FPU for the original 8086
+	CPU. The x87 unit is an odd beast: it has eight floating-point
+	registers, but the registers themselves are used as if they were a
+	stack. Values are pushed and popped from this stack even though
+	the stack is stored in registers and has a maximum of eight
+	entries.
+      </p>
+      <p> 
+	For return values, the callee pushes the value on the x87 
+	stack and the caller pops it. This is fine for C functions, but
+	not so good when <code>objc_msgSend</code> returns
+	zero. <code>objc_msgSend</code> does not know what return type the
+	caller really wants, and it must not push a zero on the x87
+	stack unless the caller expects to pop a floating-point value.
+      </p>
+      <p>
+	The solution is <code>objc_msgSend_fpret</code>. During a message
+	to nil on i386, <code>objc_msgSend_fpret</code> pushes a zero on 
+	the x87 stack which the caller will pop, and
+	<code>objc_msgSend</code> does not. The caller knows which return
+	type the caller expects, and uses the matching dispatcher. On ppc,
+	ppc64, and arm, <code>objc_msgSend_fpret</code> is identical to
+	<code>objc_msgSend</code> and is usually unused.
+      </p>
+      <p>
+	What about x86_64? This architecture is one step forward,
+	two steps back. The good news is that return values of types
+	<code>float</code> and <code>double</code> are returned in the XMM
+	registers. <code>objc_msgSend</code> can handle that itself just
+	like ppc. The bad news is that <code>long double</code> still uses
+	the x87 stack. So <code>objc_msgSend_fpret</code> still exists,
+	but is only used for <code>long double</code> on x86_64. The worse
+	news is that C99's <code>complex long double</code> returns two
+	values on the x87 stack. So now there's
+	<code>objc_msgSend_fp2ret</code> for that case only. Currently no
+	compiler actually uses <code>objc_msgSend_fp2ret</code>, so
+	hopefully nobody is writing code that sends a message to nil on
+	x86_64 and expects a zero return value of type <code>complex long
+	double</code>. 
+      </p>
+      <p>
+	One last thing: Mac OS X 10.4 and earlier did not return zero for
+	floating-point messages to nil on ppc. Be careful if you're
+	writing code for those older systems. All other architectures have
+	always returned floating-point zero, including i386 on 10.4. 
+      </p>
+
+	  </td>
+      </tr>
+  </table>
+
+	  </td>
+	</tr>
+    </table>
+    <hr>
+    <img align="right" src="http://www.sealiesoftware.com/sealie.gif" alt="seal!" width="114" height="69">
+    Greg Parker<br>
+    <a href="mailto:gparker-www@sealiesoftware.com">gparker-www@sealiesoftware.com</a><br>
+    <a href="http://www.sealiesoftware.com/index.html">Sealie Software</a>
+  </body>
+</html>

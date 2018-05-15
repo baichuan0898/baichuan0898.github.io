@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Options for porting Objective-C/Cocoa apps to Windows</title>
+  <meta name="description" content="There are a few different options for porting Objective-C/Cocoa applications to Windows. Each option has different advantages and offers different capabilities. In this post, I&#39;ll give an overview of some of these options, their advantages and disadvantages." />
+
+  <meta name="twitter:title" content="Options for porting Objective-C/Cocoa apps to Windows"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2010/04/options-for-porting-objective-ccocoa.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="There are a few different options for porting Objective-C/Cocoa applications to Windows. Each option has different advantages and offers different capabilities. In this post, I&#39;ll give an overview of some of these options, their advantages and disadvantages."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="options-for-porting-objective-ccocoa.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="118px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Options for porting Objective-C/Cocoa apps to Windows</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2010-04-15">April 15, 2010</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/objective-c.html">Objective-C</a>, <a href="../../categories/appkit.html">AppKit</a>, <a href="../../categories/xcode.html">Xcode</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>There are a few different options for porting Objective-C/Cocoa applications to Windows. Each option has different advantages and offers different capabilities. In this post, I'll give an overview of some of these options, their advantages and disadvantages.</p></span>
+
+<span class="fullpost">
+
+<h2>Introduction</h2>
+
+<p>In this post, I'll look at the options available for porting Objective-C/Cocoa applications to Windows. There are other ways of writing compiled programs that are designed to be portable across multiple platforms (Qt, WxWidgets, Java, pure command-line C, etc) and numerous virtualized environments that are inherently platform independent (Java, Mono, etc) but this is a Cocoa blog so I'm going to ignore all of these.</p>
+
+<p>A warning: porting software from the Mac to Windows is tricky and this post is not intended to solve those tricky situations. If you decide to port an Objective-C program to another platform, expect to build a lot of software via the command-line, track down bugs in libraries you didn't write and handle weird and cryptic error messages at every stage. Keeping a common codebase across multiple platforms is good in the long-run but can actually be slower than a complete re-write to set up in the first place.</p>
+
+<h2>Recreating POSIX on Windows</h2>
+
+<p>Before I actually get to discussing porting Objective-C/Cocoa programs to Windows, I need to discuss the target environment. Specifically, the difficulty of getting the POSIX layer from the Mac to run on Windows.</p>
+
+<p>Much of what is considered to be "standard C" on the Mac actually falls outside the minimalist standard C library and is part of the BSD system on the Mac. TCP/IP sockets, many file I/O calls, getting information about the current user; these are all traits of the BSD-derived POSIX layer on the Mac.</p>
+
+<p>The first issue to solve when porting to Windows often involves looking at how to replace this BSD derived functionality. The short answer is that you normally need an API that will offer you POSIX-like behavior on Windows.</p>
+
+<p>Generally, this involves one of two approaches: Cygwin or MinGW.</p>
+
+<h3>Cygwin</h3>
+
+<p><a href="http://www.cygwin.com/">Cygwin</a> is the better known of the two because it is intended as a user-environment. It aims to recreate a full POSIX system, with full POSIX compatibility on top of Windows. Many ports of X-Windows applications from *nix systems (Linux, UNIX, etc) to Windows run on top of Cygwin because it comes the closest to offering source-level compatibility with *nix systems.</p>
+
+<p>However, Cygwin comes with a disadvantage: if you write your project using Cygwin, then your user must also have Cygwin installed. Cygwin is not really a way to write native Windows applications, it is a way to write native Cygwin applications (and Cygwin runs on top of Windows).</p>
+
+<h3>MinGW</h3>
+
+<p>The alternative to Cygwin is normally <a href="http://www.mingw.org/">MinGW</a>. MinGW is not a user environment like Cygwin. Although MSYS &mdash; a light terminal and user system &mdash; can be run on MinGW, generally the MSYS environment is only used by developers for building and testing applications, not by end users.</p>
+
+<p>MinGW uses a different philosophy to Cygwin when it comes to implementing the POSIX subsystem: MinGW attempts to implement those parts of a POSIX system that can be easily mapped onto calls within the native WIN32 API on Windows. This has the huge advantage that your target users do not need to have anything except Windows installed. Unfortunately, it also means that some features (like sockets) will behave slightly differently because they will obey the native Windows behaviors, rather than the standard POSIX behaviors.</p>
+
+<p>Where Cygwin programs are normally compiled on Windows, MinGW includes significant support for cross-compiling so that you can build Windows applications from different platforms.</p>
+
+<h2>CoreFoundation</h2>
+
+<p>The minimalist approach to compiling an Objective-C program for Windows is to use Apple's own CoreFoundation APIs and Objective-C runtime and compile them for Windows.</p>
+
+<p>CoreFoundation and the Objective-C runtime are both open source under Apple's APSL license:</p>
+
+<ul>
+<li><a href="http://www.opensource.apple.com/source/CF/">CoreFoundation</a></li>
+<li><a href="http://www.opensource.apple.com/source/CFNetwork/">CFNetwork (from Mac OS X 10.4 &mdash; <a href="http://whtconstruct.blogspot.com/2009/09/towards-reopened-cfnetwork.html">later versions not open source</a>)</a></li>
+<li><a href="http://www.opensource.apple.com/source/CommonCrypto/">CommonCrypto</a></li>
+<li><a href="http://www.opensource.apple.com/source/objc4/">Objective-C runtime</a></li>
+<li><a href="http://www.opensource.apple.com/source/Security/">Security</a></li>
+</ul>
+
+<p>This solution is not real "Cocoa" (it is only the very simple subset of CoreFoundation and a few supporting frameworks) but it does have the major advantage of being efficient, thoroughly tested and maintained by Apple.</p>
+
+<p>In fact, Apple themselves have a <a href="http://developer.apple.com/opensource/cflite.html">guide on how to use these files to compile on Linux and Windows under Cygwin</a>. You can also look at an alternate setup process on <a href="http://karaoke.kjams.com/wiki/CFLite">CFLite</a>.</p>
+
+<h3>Advantages</h3>
+
+<p>CoreFoundation is thoroughly tested and efficiently written. It also offers a high degree of compatibility between Mac to Windows.</p>
+
+<h3>Disadvantages</h3>
+
+<p>Not really Cocoa; only CoreFoundation (no Foundation or AppKit). Old version of CFNetwork.</p>
+
+<p>Historically, many people have <a href="http://www.gnu.org/philosophy/historical-apsl.html">had objections to the specific terms of the APSL</a>. The Free Software Foundation have <a href="http://www.gnu.org/philosophy/apsl.html">withdrawn their objections following version 2.0 of the APSL</a> (although they still wish it was a copy-left license, that's an issue for the licensors, not the users of the license).</p>
+
+<h2>GNUstep</h2>
+
+<p><a href="http://www.gnustep.org/">GNUstep</a> is the oldest open source implementation of OpenStep, which became Cocoa. It is well established and fairly stable. You can build GNUstep applications on Linux, Windows under Cygwin or Visual Studio or on the Mac.</p>
+
+<p>The easiest way to get started with GNUstep on Windows is to use the <a href="http://www.gnustep.org/experience/Windows.html">GNUstep Windows Installer</a>. You will need to install the System, Core and Devel components to begin coding. The advantage is that this will install all the MSYS/MinGW components required. For help with the installation process, there's a futher guide to <a href="http://wiki.gnustep.org/index.php/Installation_on_Windows">Installation on Windows</a>.</p>
+
+<h3>Advantages</h3>
+
+<p>GNUstep is a complete application framework and has been in regular development for over a decade. It will integrate with most development environments and can be built in its entirety on Windows, Linux and many other *nix systems.</p>
+
+<p>GNUstep also has a (relatively) large development community and a huge amount of <a href="http://wiki.gnustep.org/index.php/Developer_Guides">developer documentation</a> (a real rarity in the world of OpenSource).</p>
+
+<h3>Disadvantages</h3>
+
+<p>Any application written for GNUstep must be distributed with the GNUstep installer (since the whole GNUstep system must exist to allow functionality).</p>
+
+<p>GNUstep is more like its own operating system (or at least its own windowing system) than a toolkit within an existing operating system. GNUstep does not use native window drawing commands on any platform.</p>
+
+<h2>The Cocotron</h2>
+
+<p><a href="http://www.cocotron.org/">The Cocotron</a> had its first release in 2006. Its primary goal is to enable cross-compiling from Xcode on the Mac to other platforms (primarily Windows).</p>
+
+<p>This cross-compiling from Xcode is The Cocotron's key defining feature: you must build all your projects in Xcode running on a Mac, even if the deployment targets are Windows or Linux. However, this means that The Cocotron's main pipeline concentrates exactly on the task of porting Mac programs to Windows.</p>
+
+<p>The <a href="http://www.cocotron.org/Info/Getting_Started">installation for The Cocotron</a> is a multi-step process but is relatively straightforward.</p>
+
+<p>By default, The Cocotron encourages you to <a href="http://www.cocotron.org/Tools/Debugging/Insight-GDB">debug your Windows products under Windows using Insight-GDB</a> (a reasonably user-friendly wrapper around GDB running under MinGW) directly on Windows.</p>
+
+<p>An alternative approach for debugging is to use XCXDB (<a href="http://groups.google.com/group/cocotron-dev/files">download the XCXDB Installation here</a>). This allows you to remotely debug from Xcode on the Mac to your Windows machine, so you can handle all building and debugging from Xcode. XCXDB has the added advantage that it adds project templates to Xcode to make cross-compiling projects easier to create.</p>
+
+<h3>Advantages</h3>
+
+<p>Build and potentially debug everything from the original project in Xcode. The framework was designed with porting from the Mac to Windows in mind.</p>
+
+<p>Natively builds for WIN32, meaning that final products look and feel like native Windows applications and the installation is not dependant on installing another large project (AppKit, Foundation and other .DLLs must be included with the executable but they are very small).</p>
+
+<p>Simple, in-built support for NIB files, CoreData, fast enumeration, Objective-C 2.0 properties and other features that are either missing from GNUstep, external packages or still in-progress.</p>
+
+<p>Aims for source level compatibility with Mac OS X, something which is not necessarily a goal of GNUstep.</P>
+
+<h3>Disadvantages</h3>
+
+<p>The least mature of the options listed so far. It is possible to encounter bugs at low levels that you may need to fix for yourself.</p>
+
+<p>While a huge amount is implemented, you won't have to go far to encounter APIs that are not. Significant portions of some classes are not implemented at all. While the interfaces exist, they will lead to a runtime exception as the program runs over a <code>NSUnimplementedMethod()</code>.</p>
+
+<p>The current state of XCXDB remote debugging and Insight debugging are inferior to native debugging in an IDE.</p>
+
+<h2>Conclusion</h2>
+
+<p>If you're only porting a command-line program to Windows, then you're spoiled for choice &mdash; all of the options I've listed will handle that (although CoreFoundation does not offer a full Foundation API).</p>
+
+<p>I chose to implement the current <a href="http://zqueue.com/servetome/index.html">public beta of ServeToMe</a> for Windows using The Cocotron as I think The Cocotron offers the best experience for porting a graphical user-interface Mac application to Windows. The ability to build and debug the entire project from the original Xcode project was the key feature I sought. However, it was not without issues. I'll discuss how I got ServeToMe running in The Cocotron with XCXDB next week, the issues I had and their solutions.</p>
+
+<p>Despite The Cocotron's immaturity relative to GNUstep and many missing APIs, enabling a Cocoa project to be built from the Mac and deployed and debugged on Windows in a single step is a huge advantage. Further, native WIN32 at the back end (as annoying as WIN32 is to write) is better for your end-users than a system that requires Cygwin underneath.</p>
+
+<p>Of course, if you needed to target Linux with an Objective-C application or you need to build on platforms other than the Mac, you'd want to use GNUstep instead. While Cocotron   has Linux/X11 support underway, it is not really ready for mainstream adoption at this time.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="network-data-requirements-on-iphone-os.html">Network data requirements on iPhone OS devices</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="design-of-multi-platform-app-using.html">Design of a multi-platform app using The Cocotron</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

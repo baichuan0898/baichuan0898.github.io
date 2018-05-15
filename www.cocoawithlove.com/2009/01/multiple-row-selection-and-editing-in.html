@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Multiple row selection and editing in a UITableView</title>
+  <meta name="description" content="By default, UITableView only supports single-row selection. In this post, I&#39;ll show you how to implement multi-row selection, similar to the message edit interface in Mail." />
+
+  <meta name="twitter:title" content="Multiple row selection and editing in a UITableView"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/01/multiple-row-selection-and-editing-in.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="By default, UITableView only supports single-row selection. In this post, I&#39;ll show you how to implement multi-row selection, similar to the message edit interface in Mail."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="multiple-row-selection-and-editing-in.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Multiple row selection and editing in a UITableView</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-01-10">January 10, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/uikit.html">UIKit</a>, <a href="../../categories/cocoa-touch.html">Cocoa Touch</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>By default, UITableView only supports single-row selection. In this post, I'll show you how to implement multi-row selection, similar to the message edit interface in Mail.</p></span>
+
+<span class="fullpost">
+<h2>Introduction</h2>
+<p>The target behavior for this post is an editing mode for a UITableView which allows the selection of multiple rows and presents a button to perform an action on the selection rows.</p>
+
+<p>The following is a screenshot of the sample application running:</p>
+
+<img src="../../assets/objc-era/multirow.png" width="256" height="383" />
+
+<p>When not editing, neither the column of circles and check marks nor the bottom toolbar is visible. When the "Edit" button is clicked (located in place of the cancel button above), the "Edit" button is replaced by the "Cancel" button and the circles and check marks column and the bottom toolbar animate in.</p>
+
+<h2>Requirements for the implementation</h2>
+
+<p><code>UITableView</code> does not support multiple selection. We will use the method <code>tableView:didSelectRowAtIndexPath:</code> to detect touches in rows but the selected state will need to be stored separately (we cannot rely on the <code>UITableView</code>'s selection).</p>
+
+<p>We will also need a background view for displaying the selection color and a <code>UIImageView</code> for displaying the not-selected/selected indicator. Since the <code>UIImageView</code> will be hidden while not editing and the label for the row needs to move left or right when it is shown or hidden, we will also need to implement some form of layout for the <code>UITableViewCell</code>.</p>
+
+<p>Other required behaviors include switching the "Edit"/"Cancel" buttons between modes, showing/hiding the toolbar at the bottom and tracking the number of selected rows to display in the button in the toolbar.</p>
+
+<h2>Implementation</h2>
+
+<p>The implementation begins with Apple's default "Navigation-based Application" template.</p>
+
+<p>I then changed the <code>RootViewController</code> to be a subclass of the <code>GenericTableViewController</code> implementation  that I presented in my previous <a href="../../2008/12/heterogeneous-cells-in.html">Heterogeneous cells in a UITableViewController</a> post. In that post, this class was presented to aid handling of <em>different</em> cell types in one table. I use it again here with only one cell type because in this case, the <code>CellController</code> provides a convenient object in which to store the "selected" state for each row and allows me to keep each file smaller and narrower in focus because it keeps "row" behavior out of the table controller.</p>
+
+<h3>Toolbar</h3>
+
+<p>The first addition I made was that of the toolbar. This is initially hidden but needs to animate onto the screen when the edit mode is entered.</p>
+
+<p>The toolbar is constructed in the <code>viewDidLoad</code> implementation:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">actionToolbar</span> <span class="o">=</span> <span class="p">[[</span><span class="n">UIToolbar</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithFrame</span><span class="p">:</span><span class="n">CGRectMake</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">416</span><span class="p">,</span> <span class="mi">320</span><span class="p">,</span> <span class="mi">44</span><span class="p">)];</span>
+<span class="n">actionButton</span> <span class="o">=</span>
+    <span class="p">[[[</span><span class="n">UIBarButtonItem</span> <span class="n">alloc</span><span class="p">]</span>
+        <span class="nl">initWithTitle</span><span class="p">:</span><span class="s">@&#34;No Action&#34;</span>
+        <span class="nl">style</span><span class="p">:</span><span class="n">UIBarButtonItemStyleBordered</span>
+        <span class="nl">target</span><span class="p">:</span><span class="nb">self</span>
+        <span class="nl">action</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="nl">noAction</span><span class="p">:)]</span>
+    <span class="n">autorelease</span><span class="p">];</span>
+<span class="p">[</span><span class="n">actionToolbar</span> <span class="nl">setItems</span><span class="p">:[</span><span class="n">NSArray</span> <span class="nl">arrayWithObject</span><span class="p">:</span><span class="n">actionButton</span><span class="p">]];</span></code></pre></div>
+
+<p>but cannot be easily added to the view hierarchy at this time. Instead, we wait until the <code>viewDidAppear:</code> method is invoked and add it as a child of the table's parent (the <code>UINavigationController</code>'s content frame):</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">viewDidAppear:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="nb">self</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">superview</span> <span class="nl">addSubview</span><span class="p">:</span><span class="n">actionToolbar</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The initial location of the toolbar is below the bottom of the screen, so when editing begins, we need to move it up onto the screen. When editing ends, it is moved back again. This frame animation occurs in the <code>showActionToolbar:</code> method.</p>
+
+<h3>Edit Mode</h3>
+
+<p>Standard edit modes for <code>UITableView</code>s are started by calling <code>setEditing:animated:</code> on the <code>UITableView</code>. We are not going to use any of the standard <code>UITableViewCellEditingStyle</code>s, so invoking this method is not strictly required but it will propagate a notification to the <code>UITableViewCell</code>s and allow us to query the state at a later time so we will use it anyway.</p>
+
+<p>The <code>edit:</code> and <code>cancel:</code> methods switch us into and out of "Edit" mode respectively.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">edit:</span><span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nv">sender</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="nb">self</span> <span class="nl">showActionToolbar</span><span class="p">:</span><span class="nb">YES</span><span class="p">];</span>
+    
+    <span class="n">UIBarButtonItem</span> <span class="o">*</span><span class="n">cancelButton</span> <span class="o">=</span>
+        <span class="p">[[[</span><span class="n">UIBarButtonItem</span> <span class="n">alloc</span><span class="p">]</span>
+            <span class="nl">initWithTitle</span><span class="p">:</span><span class="s">@&#34;Cancel&#34;</span>
+            <span class="nl">style</span><span class="p">:</span><span class="n">UIBarButtonItemStyleDone</span>
+            <span class="nl">target</span><span class="p">:</span><span class="nb">self</span>
+            <span class="nl">action</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="nl">cancel</span><span class="p">:)]</span>
+        <span class="n">autorelease</span><span class="p">];</span>
+    <span class="p">[</span><span class="nb">self</span><span class="p">.</span><span class="n">navigationItem</span> <span class="nl">setRightBarButtonItem</span><span class="p">:</span><span class="n">cancelButton</span> <span class="nl">animated</span><span class="p">:</span><span class="nb">NO</span><span class="p">];</span>
+    <span class="p">[</span><span class="nb">self</span> <span class="n">updateSelectionCount</span><span class="p">];</span>
+    
+    <span class="p">[</span><span class="nb">self</span><span class="p">.</span><span class="n">tableView</span> <span class="nl">setEditing</span><span class="p">:</span><span class="nb">YES</span> <span class="nl">animated</span><span class="p">:</span><span class="nb">YES</span><span class="p">];</span>
+<span class="p">}</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">cancel:</span><span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nv">sender</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="nb">self</span> <span class="nl">showActionToolbar</span><span class="p">:</span><span class="nb">NO</span><span class="p">];</span>
+
+    <span class="n">UIBarButtonItem</span> <span class="o">*</span><span class="n">editButton</span> <span class="o">=</span>
+        <span class="p">[[[</span><span class="n">UIBarButtonItem</span> <span class="n">alloc</span><span class="p">]</span>
+            <span class="nl">initWithTitle</span><span class="p">:</span><span class="s">@&#34;Edit&#34;</span>
+            <span class="nl">style</span><span class="p">:</span><span class="n">UIBarButtonItemStylePlain</span>
+            <span class="nl">target</span><span class="p">:</span><span class="nb">self</span>
+            <span class="nl">action</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="nl">edit</span><span class="p">:)]</span>
+        <span class="n">autorelease</span><span class="p">];</span>
+    <span class="p">[</span><span class="nb">self</span><span class="p">.</span><span class="n">navigationItem</span> <span class="nl">setRightBarButtonItem</span><span class="p">:</span><span class="n">editButton</span> <span class="nl">animated</span><span class="p">:</span><span class="nb">NO</span><span class="p">];</span>
+
+    <span class="n">NSInteger</span> <span class="n">row</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="k">for</span> <span class="p">(</span><span class="n">MultiSelectCellController</span> <span class="o">*</span><span class="n">cellController</span> <span class="k">in</span>
+        <span class="p">[</span><span class="n">tableGroups</span> <span class="nl">objectAtIndex</span><span class="p">:</span><span class="mi">0</span><span class="p">])</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="n">cellController</span> <span class="nl">clearSelectionForTableView</span><span class="p">:</span><span class="nb">self</span><span class="p">.</span><span class="n">tableView</span>
+            <span class="nl">indexPath</span><span class="p">:[</span><span class="n">NSIndexPath</span> <span class="nl">indexPathForRow</span><span class="p">:</span><span class="n">row</span> <span class="nl">inSection</span><span class="p">:</span><span class="mi">0</span><span class="p">]];</span>
+        <span class="n">row</span><span class="o">++</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="p">[</span><span class="nb">self</span><span class="p">.</span><span class="n">tableView</span> <span class="nl">setEditing</span><span class="p">:</span><span class="nb">NO</span> <span class="nl">animated</span><span class="p">:</span><span class="nb">YES</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Here you can see the "Edit"/"Cancel" buttons being swapped, the toolbar being shown/hidden and <code>setEditing:animated:</code> being invoked. I also implement <code>tableView:canEditRowAtIndexPath:</code> to always return yes, since all rows may be edited in this table.</p>
+
+<h3>Showing/hiding the check mark column</h3>
+
+<p>When <code>setEditing:animated:</code> is invoked on the table, the table in turn invokes the <code>setEditing:animated:</code> on all visible <code>UITableViewCell</code>s, allowing each row to update for editing.</p>
+
+<p>In response to this, we need to show/hide the check mark column. We handle this in a <code>UITableViewCell</code> subclass where the <code>setEditing:animated:</code> is implemented to call <code>setNeedsLayout</code> and the <code>layoutSubviews</code> method is overridden to handle different layouts for the "Edit" an "Not Editing" modes.</p>
+
+<p>When editing, the cell's <code>contentView</code> is shifted to the right, otherwise it is layed out flush against the left side. This is all we'll need to display the extra column because the check mark column is always present in the cell. Outside of editing mode, it is layed out off the left of screen (so you can't see it). When the <code>contentView</code> is shifted right by 35 pixels during editing, the check mark column (which is located at the <code>contentView</code>'s origin minus 35 pixels horizontally) becomes visible.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setEditing:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">editing</span> <span class="nf">animated:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">animated</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="nb">self</span> <span class="n">setNeedsLayout</span><span class="p">];</span>
+<span class="p">}</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">layoutSubviews</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="n">UIView</span> <span class="nl">beginAnimations</span><span class="p">:</span><span class="nb">nil</span> <span class="nl">context</span><span class="p">:</span><span class="nb">nil</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">UIView</span> <span class="nl">setAnimationBeginsFromCurrentState</span><span class="p">:</span><span class="nb">YES</span><span class="p">];</span>
+        
+    <span class="p">[</span><span class="nb">super</span> <span class="n">layoutSubviews</span><span class="p">];</span>
+
+    <span class="k">if</span> <span class="p">(((</span><span class="n">UITableView</span> <span class="o">*</span><span class="p">)</span><span class="nb">self</span><span class="p">.</span><span class="n">superview</span><span class="p">).</span><span class="n">isEditing</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">CGRect</span> <span class="n">contentFrame</span> <span class="o">=</span> <span class="nb">self</span><span class="p">.</span><span class="n">contentView</span><span class="p">.</span><span class="n">frame</span><span class="p">;</span>
+        <span class="n">contentFrame</span><span class="p">.</span><span class="n">origin</span><span class="p">.</span><span class="n">x</span> <span class="o">=</span> <span class="n">EDITING_HORIZONTAL_OFFSET</span><span class="p">;</span>
+        <span class="nb">self</span><span class="p">.</span><span class="n">contentView</span><span class="p">.</span><span class="n">frame</span> <span class="o">=</span> <span class="n">contentFrame</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="k">else</span>
+    <span class="p">{</span>
+        <span class="n">CGRect</span> <span class="n">contentFrame</span> <span class="o">=</span> <span class="nb">self</span><span class="p">.</span><span class="n">contentView</span><span class="p">.</span><span class="n">frame</span><span class="p">;</span>
+        <span class="n">contentFrame</span><span class="p">.</span><span class="n">origin</span><span class="p">.</span><span class="n">x</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+        <span class="nb">self</span><span class="p">.</span><span class="n">contentView</span><span class="p">.</span><span class="n">frame</span> <span class="o">=</span> <span class="n">contentFrame</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="p">[</span><span class="n">UIView</span> <span class="n">commitAnimations</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The <code>setEditing:animated:</code> implementation ensures that re-layout occurs every time edit mode is entered/exited.</p>
+
+<p>Notice that no custom drawing happens here in the <code>UITableViewCell</code>. I've seen many people override <code>UITableViewCell</code> for custom drawing but I don't think it's a good idea. The <code>UITableViewCell</code> is really just a layout container and that should be the only way you use it. Custom drawing should go in the <code>backgroundView</code>, <code>selectionView</code> or <code>contentView</code> that the <code>UITableViewCell</code> contains.</p>
+
+<h3>Drawing the cell</h3>
+
+<p>I use a <code>UILabel</code> for the text rather than setting the <code>text</code> property of the cell because it makes it easier to get a transparent background for the text (which I'll need to see the blue selection color).</p>
+
+<p>I set <code>cell.selectionStyle = UITableViewCellSelectionStyleNone</code> because I don't want to use the standard selection view at all (it is limited to single rows). Instead, I achieve a selection color by creating a <code>backgroundView</code> for the cell and setting its background color to white or pale blue as appropriate.</p>
+
+<p>The selection indicator is just a <code>UIImageView</code>. As previously indicated, it is layed out 35 pixels left of the <code>contentView</code> which places it offscreen. When the <code>contentView</code> is shifted right during editing, it will become visible.</p>
+
+<p>The only other important behavior is that the <code>CellController</code> must invoke <code>updateSelectionCount</code> on the <code>RootViewController</code> when selected/deselected so that the selection count can be updated when the selection changes. I implement this in a lazy fashion by recounting all selected rows &mdash; you should probably implement this in a more efficient fashion.</p>
+
+<h2>Conclusion</h2>
+
+<blockquote>You can <a href="../../assets/objc-era/MultiRowSelect.zip">download the complete MultiRowSelect Xcode 3.1 project</a> (40kB).</blockquote>
+
+<p>The final result is a few hundred lines of code. This is not a giant mountain of code by any means but still a considerable volume given how simple "multi-row selection" might seem as a description. I think this serves to show that user-interface implementations can be very time consuming when the desired functionality is not provided by the default libraries.</p> 
+
+<p>None of the code is particularly complex but it still involves a lot of coordination between the table, table controller and cell so I hope that this sample implementation simplifies the task for anyone else who needs to implement it in the future.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="serving-nsmanagedobjectcontext-over.html">Serving an NSManagedObjectContext over an NSConnection</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="demystifying-nsapplication-by.html">Demystifying NSApplication by recreating it</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

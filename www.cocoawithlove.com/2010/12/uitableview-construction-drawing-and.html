@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>UITableView construction, drawing and management (revisited)</title>
+  <meta name="description" content="In this post, I&#39;ll show you the current classes I use to construct and manage UITableViews in a number of different projects. This code is an amalgamation and evolution of some ideas that I&#39;ve presented in a few earlier posts including my posts on heterogenous cells in a table view and easy custom table view drawing. But this implementation also chooses to do some things differently in an effort to continuously simplify the task of creating customized tables and views in iOS." />
+
+  <meta name="twitter:title" content="UITableView construction, drawing and management (revisited)"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2010/12/uitableview-construction-drawing-and.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="In this post, I&#39;ll show you the current classes I use to construct and manage UITableViews in a number of different projects. This code is an amalgamation and evolution of some ideas that I&#39;ve presented in a few earlier posts including my posts on heterogenous cells in a table view and easy custom table view drawing. But this implementation also chooses to do some things differently in an effort to continuously simplify the task of creating customized tables and views in iOS."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="uitableview-construction-drawing-and.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">UITableView construction, drawing and management (revisited)</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2010-12-19">December 19, 2010</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/uikit.html">UIKit</a>, <a href="../../categories/cocoa-touch.html">Cocoa Touch</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>In this post, I'll show you the current classes I use to construct and manage UITableViews in a number of different projects. This code is an amalgamation and evolution of some ideas that I've presented in a few earlier posts including my posts on heterogenous cells in a table view and easy custom table view drawing. But this implementation also chooses to do some things differently in an effort to continuously simplify the task of creating customized tables and views in iOS.</p></span>
+
+<span class="fullpost">
+<h2>Introduction</h2>
+<p>In this post, I present a the following sample application.</p>
+
+<img src="../../assets/objc-era/TableViewRevisited.png" width="206" height="400" />
+
+<blockquote>Download the Xcode project for the sample application: <a href="../../assets/objc-era/TableDesignRevisited.zip"> TableDesignRevisited.zip </a> (65kB)</blockquote>
+
+<p>The application contains a top-level table view with 3 sections. Each section in this table view contains a different kind of row, with different construction, drawing and behaviors. The "Simple text" rows display text and are selectable but then simply deselect with no further action. The "Rows loaded from NIBs", when tapped, push in a "Detail View Controller". The "Editable Text Fields" section contains rows you can tap to edit.</p>
+
+<p>The purpose of this sample class is to demonstrate the approach and implementation that I use for structuring views and controllers in a basic iOS application containing these types of elements.</p>
+
+<p>This post is a reply to the handful of different readers who have read some of my earlier posts on techniques and practices involving <code>UITableView</code> and <code>UITableViewController</code> and asked if my approaches have changed at all in the last couple years.</p>
+
+<h2>Key features of the sample application</h2>
+
+<p>The application's use of table views and cells demonstrates numerous, highly advantageous features:</p>
+
+<ul>
+<li><strong>heterogeneous</strong> (i.e. different kinds of) views in a single table without needing conditional code to separate their behaviors</li>
+<li><strong>fully custom drawn headers, rows and backgrounds</strong> &mdash; I realize the rows in this sample application may look very similar to Apple's normal <code>UITableViewCell</code>s in a grouped <code>UITableView</code> but if you look close, you'll notice the background of the cells is a subtle left-to-right gradient and the tables background is a subtle gradient instead of the standard table texture (and the selection color is totally different). All custom drawing can be easily modified or tweaked to make the application look novel and distinctive or it can be disabled to revert to the default drawing code.</li>
+<li>all default row and header drawing can handle <strong>either "grouped" or "plain"</strong> UITableView styles (so you're not locked into one aesthetic)</li>
+<li><strong>fully animated</strong> insertion and removal of all table view cells</li>
+<li>the app demonstrates view and cells <strong>constructed both in code and loaded from NIB files</strong> and makes the code path for loading tables and cells from NIBs fast and easy</li>
+<li>the table is <strong>managed by a custom <code>UIViewController</code>, not a <code>UITableViewController</code></strong>. This means that it avoids the <code>UITableViewController</code> limitation of only managing the <code>UITableView</code> &mdash; you can load additional views as part of the hierarchy</li>
+<li><strong>view scrolling to avoid text under the keyboard</strong> (which is the biggest advantage of <code>UITableViewController</code>) is handled by the custom <code>UIViewController</code> so this <code>UITableViewController</code> functionality is retained</li>
+</ul>
+
+<h2>Evolution over time</h2>
+
+<p>Some of these features were part of previous posts that I've written, including:</p>
+
+<ul>
+<li><a href="../../2008/12/heterogeneous-cells-in.html">Heterogeneous cells in a <code>UITableViewController</code></a></li>
+<li><a href="../../2009/03/recreating-uitableviewcontroller-to.html">Recreating <code>UITableViewController</code> to increase code reuse</a></li>
+<li><a href="../../2009/04/easy-custom-uitableview-drawing.html">Easy custom <code>UITableView</code> drawing</a></li>
+</ul>
+
+<p>The code in this post is probably closest to being a descendant of the original "Heterogeneous cells" post. Many of the ideas for simplifying the <code>UITableViewController</code> implementation remain from that post.</p>
+
+<p>Specifically, the "Heterogeneous cells" aim of handling the <code>UITableView</code> data source and delegate methods automatically in a base class carries through into this code. The approach from "Easy custom <code>UITableView</code> drawing" of customizing cell drawing by setting the subviews &mdash; not by putting drawing code into <code>UITableViewCell</code> &mdash; is also followed here.</p>
+
+<p>However, there are some changes in style and approach.</p>
+
+<h3> Reduced construction of views in code</h3>
+
+<p>Except for the simplest views, I rarely construct views in code anymore, in favor of loading most views from NIB files.</p>
+
+<p>I originally kept to NIB files because I felt that Interface Builder for iOS 2 lacked features and that precise configuration required setup in code anyway. There were also performance concerns early on which turned out not to be accurate. If you remember: there is <a href="../03/load-from-nib-or-construct-views-in.html">rarely any speed advantage to construction in code</a> and it's generally ugly to read and hard to maintain.</p>
+
+<p>So the arguments against NIB files turned out to be inaccurate or out-of-date and all that was required was code that allowed seamless use of NIB files for loading.</p>
+
+<p>While loading NIBs for <code>UIViewController</code>s is part of the standard API, it is a little less clear-cut with <code>UITableViewCell</code>s. I use an approach where only the content view of the <code>UITableViewCell</code> is typically loaded from a NIB &mdash; and it's as simple as overriding the <code>-nibName</code> method.</p>
+
+<p>No easy path for loading table section headers from NIB files exists in these classes but customized table headers are rare enough that I don't think that's important.</p>
+
+<h3>Elimination of the dedicated Cell Controller class</h3>
+
+<p>The Cell Controller class originally existed for the purpose of binding a controller directly to the data for a row and keeping control separate from the <code>UITableViewCell</code> which is a view by inheritance.</p>
+
+<p>The Cell Controller was a key feature of the a <a href="../../2008/12/heterogeneous-cells-in.html">Heterogeneous cells in a UITableViewController</a> post but frankly, it didn't integrate well with the classes around it. Additionally, connecting target/actions from subviews of a <code>UITableViewCell</code> to the Cell Controller could also cause minor problems in some cases.</p>
+
+<p>Instead, I've chosen to embrace the idea that <code>UITableViewCell</code> is really a controller (despite inheriting from <code>UIView</code>) and putting most of the cell control code there. Associated with this, I don't use the <code>UITableViewCell</code> for any drawing (that is done by the content view, background view and selected background view). The <code>UITableViewCell</code> is just the controller that loads these other views and connects them to the data.</p>
+
+<p>Eliminating the Cell Controller class had an additional advantage: greater decoupling of the row's data and the controller (which is now the <code>UITableViewCell</code> subclass). Row data is stored along with a pointer to the desired subclass of <code>UITableViewCell</code> but the connection between the two is only made when the cell is prepared for display. Until that point, the row data is not directly connected to any view controller; a much better approach that works within the <code>UITableView</code>/<code>UITableViewCell</code> architecture.</p>
+
+<h3>Fully animated, rarely using reloadData</h3>
+
+<p>An additional problem with the original Heterogeneous cells implementation was that it required all the data and cell controllers for the table to be fully constructed, then <code>-[UITableView reloadData]</code> was called to recreate the whole table in the new state.</p>
+
+<p>The new implementation is focussed on animating rows and sections into and out of the table and the methods for manipulating the rows and sections all focus on this.</p>
+
+<p>Of course, it is possible to pass <code>UITableViewRowAnimationNone</code> for the animations and this then requires that you do subsequently call <code>reloadData</code>, so the old approach is still possible.</p>
+
+<h3>Forgiving approach to row and section indices</h3>
+
+<p>The methods for manipulating row and sections in this implementation will attempt to fix row indices or create missing sections if you mess up. The intention is not to encourage laziness but rather to be forgiving if a bug slips through. It's better to have a row appear in the wrong section of the table than to have the whole program crash due to an index out-of-bounds issue.</p>
+
+<h2>The implementation and how to use it</h2>
+
+<h2>Code in the view controller</h2>
+
+<p>The <code>RootViewController</code> is the controller for the main screen (as shown in the screenshot above).</p>
+
+<p>The rows in this view are all constructed in a similar way (with different cell classes for each section and different data for each row). Here's how the rows in the "Rows loaded from NIBs" section are constructed:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">[</span><span class="nb">self</span> <span class="nl">addSectionAtIndex</span><span class="p">:</span><span class="mi">1</span> <span class="nl">withAnimation</span><span class="p">:</span><span class="n">UITableViewRowAnimationFade</span><span class="p">];</span>
+<span class="k">for</span> <span class="p">(</span><span class="n">NSInteger</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mi">4</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="nb">self</span>
+        <span class="nl">appendRowToSection</span><span class="p">:</span><span class="mi">1</span>
+        <span class="nl">cellClass</span><span class="p">:[</span><span class="n">NibLoadedCell</span> <span class="k">class</span><span class="p">]</span>
+        <span class="nl">cellData</span><span class="p">:[</span><span class="n">NSString</span> <span class="nl">stringWithFormat</span><span class="p">:</span>
+            <span class="n">NSLocalizedString</span><span class="p">(</span><span class="s">@&#34;This is row %ld&#34;</span><span class="p">,</span> <span class="s">@&#34;&#34;</span><span class="p">),</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span>
+        <span class="nl">withAnimation</span><span class="p">:(</span><span class="n">i</span> <span class="o">%</span> <span class="mi">2</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">?</span>
+            <span class="nl">UITableViewRowAnimationLeft</span> <span class="p">:</span>
+            <span class="n">UITableViewRowAnimationRight</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The view for the row is configured in this single statement. You specify:</p>
+
+<ul>
+<li>the data</li>
+<li>the Class that will be used to control and display the data when it comes into view</li>
+<li>the location of the row within the section/row hierarchy</li>
+<li>the animation used to bring the cell into view</li>
+</ul>
+
+<p>Obviously, the "data" used here is fairly simple: just <code>NSString</code> and <code>NSDictionary</code> instances. In a real program, you would pass your Model objects for each row as the <code>cellData</code> parameter.</p>
+
+<p>As with the original "Heterogeneous cells" post, there is no additional work required in the view controller once this declarative work is done; the <code>UITableViewDataSource</code> and <code>UITableViewDelegate</code> implementations are all handled automatically.</p>
+
+<p>Animation is not required; you can specify UITableViewRowAnimationNone and then follow the insertion with a call to <code>-[UITableView reloadData]</code> or <code>-[UITableView reloadSections:withRowAnimation:]</code> when you're ready for the table to refresh.</p>
+
+<h2>Code in the table view cell subclasses</h2>
+
+<p>The implementation for each row is intended to be as hassle-free as possible too. The implementation of the <code>NibLoadedCell</code>, which is totally custom drawn, custom layout, custom row height and custom action is three, tiny methods long:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">+</span> <span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nf">nibName</span>
+<span class="p">{</span>
+    <span class="k">return</span> <span class="s">@&#34;NibCell&#34;</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">handleSelectionInTableView:</span><span class="p">(</span><span class="n">UITableView</span> <span class="o">*</span><span class="p">)</span><span class="nv">aTableView</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="nb">super</span> <span class="nl">handleSelectionInTableView</span><span class="p">:</span><span class="n">aTableView</span><span class="p">];</span>
+    
+    <span class="n">NSInteger</span> <span class="n">rowIndex</span> <span class="o">=</span> <span class="p">[</span><span class="nb">self</span> <span class="n">indexPath</span><span class="p">].</span><span class="n">row</span><span class="p">;</span>
+    <span class="p">[((</span><span class="n">PageViewController</span> <span class="o">*</span><span class="p">)</span><span class="n">aTableView</span><span class="p">.</span><span class="n">delegate</span><span class="p">).</span><span class="n">navigationController</span>
+        <span class="nl">pushViewController</span><span class="p">:</span>
+            <span class="p">[[[</span><span class="n">DetailViewController</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithRowIndex</span><span class="p">:</span><span class="n">rowIndex</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">]</span>
+        <span class="nl">animated</span><span class="p">:</span><span class="nb">YES</span><span class="p">];</span>
+<span class="p">}</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">configureForData:</span><span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nv">dataObject</span>
+    <span class="nf">tableView:</span><span class="p">(</span><span class="n">UITableView</span> <span class="o">*</span><span class="p">)</span><span class="nv">aTableView</span>
+    <span class="nf">indexPath:</span><span class="p">(</span><span class="n">NSIndexPath</span> <span class="o">*</span><span class="p">)</span><span class="nv">anIndexPath</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="nb">super</span> <span class="nl">configureForData</span><span class="p">:</span><span class="n">dataObject</span> <span class="nl">tableView</span><span class="p">:</span><span class="n">aTableView</span> <span class="nl">indexPath</span><span class="p">:</span><span class="n">anIndexPath</span><span class="p">];</span>
+    
+    <span class="n">label</span><span class="p">.</span><span class="n">text</span> <span class="o">=</span> <span class="n">dataObject</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Following in the tradition of making the common case the easiest, all you need to do is set the <code>-nibName</code> and the default implementation knows how to load the nib and set a range of properties including the default row height based on the size of the view in the NIB file.</p>
+
+<p>Common behaviors like deselecting the row after selection are automatically handled by the <code>super</code> implementation of <code>handleSelectionInTableView:</code> and the default implementation of <code>configureForData:tableView:indexPath:</code> handles the setting of the custom row background and selection background.</p>
+
+<h2>Flexibility</h2>
+
+<p>The architecture allows you to do things different depending on how you want to work.</p>
+
+<p>As an example: the <code>LabelCell</code> and <code>TextFieldCell</code> are constructed in code in their <code>finishConstruction</code> implementations but the <code>NibLoadedCell</code> is loaded from a NIB by overriding the <code>-nibName</code> method and returning the name of its NIB file. Similarly, the <code>RootViewController</code>'s table is constructed in code by overriding the <code>-loadView</code> method but the <code>DetailViewController</code> comes from a NIB file simply by overriding the <code>-nibName</code> method and returning the name of its NIB file.</p>
+
+<p>The rows use the <code>PageCellBackground</code> for drawing by invoking the <code>super</code> implementation in <code>configureForData:tableView:indexPath:</code>. You can easily avoid invoking the <code>super</code> implementation here to revert to standard <code>UITableViewCell</code> drawing.</p>
+
+<p>Want the default <code>UITableView</code> headers instead of custom drawn ones? Remove the <code>self.useCustomHeaders = YES;</code> line from the <code>-viewDidLoad</code> method in <code>RootViewController</code>.</p>
+
+<p>The custom drawn views will all draw themselves in the <code>UITableViewStyleGrouped</code> or  <code>UITableViewStylePlain</code> styles. You can see the difference by changing the style of the created table in the <code>loadView</code> method of <code>RootViewController</code>.</p>
+
+<h2>How it works</h2>
+
+<p>None of the code is hugely groundbreaking in any way. Most of the code simply works because of the default behaviors in the base classes:</p>
+
+<ul>
+<li><strong>PageViewController</strong> &mdash; handles (almost) all data source and delegate methods. If you make this view controller the delegate for any UITextField in the table, it will also handle scrolling of the table and resizing of the view to keep the text field out from underneath the onscreen keyboard.</li>
+<li><strong>PageCell</strong> &mdash; loads the <code>contentView</code> for the <code>UITableViewCell</code> from a NIB file (if specified). In addition or as an alternative, you can configure or construct the <code>contentView</code> in the <code>finishConstruction</code> method. This method also provides the <code>PageViewController</code> with information about row including the row height (which can be extracted from the NIB). Other methods include an overrideable set of methods for handling the configuration of the view (used to connect the view and data or otherwise prepare the view for display) and handling touches in the view.</li>
+<li><strong>PageCellBackground</strong> &mdash; draws a custom cell background in either <code>UITableViewStylePlain</code> or <code>UITableViewStyleGroup</code> styles. The <code>PageCellBackground</code> is applied in the <code>PageCell</code>'s <code>configureForData:tableView:indexPath:</code> default implementation (so you can disable it by subclassing this method and not invoking the super implementation). Alternately, if you just want to change the aesthetic of the cell background, you can change the subclass of <code>PageCellBackground</code> used by overriding the <code>+[PageCell pageCellBackgroundClass]</code> method.</li>
+</ul>
+
+<h2>Missing features or situations this won't handle</h2>
+
+<h3>Different structures for the row data</h3>
+
+<p>As I mentioned in the original "Heterogeneous cells" post, the approach used in this implementation offers simplification over the default UITableViewController templates because it makes some assumptions about the structure of your data. Specifically, it assumes that the data for every row in the table is loaded and a <code>PageCellDescription</code> constructed for each row's data.</p>
+
+<p>The downside is that the current implementation would not integrate in its current form with any design that requires the data be store or structure in a different way. An example of a different storage arrangement is data fetched using a <code>NSFetchedResultsController</code> &mdash; you'd need a base class that works differently to integrate with <code>NSFetchedResultsController</code>'s different approach to loading and caching data.</p>
+
+<h3>Declarative handling of sections</h3>
+
+<p>As I've mentioned a couple times, the current <code>PageViewController</code> only handles <em>almost</em> all of the data source and delegate methods for the <code>UITableView</code>. The biggest omission is any handling of the section headers &mdash; setting the text for the section headers still requires implementing the <code>tableView:titleForHeaderInSection:</code>.</p>
+
+<p>Looking at the code, you could possibly make some minor improvements by handling the sections as a description data structure (in the same way that each rows is described by a <code>PageViewCellDescription</code> instance). This would allow you to bind the section's title, header and footer view and other section attributes together when you add the section to the table.</p>
+
+<p>The actual simplification this would bring is likely minor though, so I haven't bothered yet.</p>
+
+<h3>Customized for your own program</h3>
+
+<p>While the default behaviors in the <code>PageViewController</code>, <code>PageCell</code> and <code>PageCellBackground</code> view will work as they are, their purpose is to allow simple customization in your own program.</p>
+
+<p>Distinctive classes in your program should have their distinctive traits applied in subclasses but for defaults you want to establish across your entire program, it's often easiest to insert custom behaviors like custom drawing directly into <code>PageCellBackground</code> or <code>-[PageViewController tableView:viewForHeaderInSection:]</code>. There's no need to keep these defaults if your program never uses them.</p>
+
+<h2>Conclusion</h2>
+
+<blockquote>Download the Xcode project for the sample application: <a href="../../assets/objc-era/TableDesignRevisited.zip"> TableDesignRevisited.zip </a> (65kB)</blockquote>
+
+<p>The code in this post is not particularly advanced &mdash; most regular iOS programmers could easily figure it out for themselves.</p>
+
+<p>Instead, this post is just a basic reveal of how I structure my views in some of my own programs so that new developers can get ideas about how they should structure their own tables, views and controllers for basic user-interface management in iOS.</p>
+
+<p>This code represents 2 years of iteration since some of the earlier posts I've written on <code>UITableView</code>s and their management. Maybe there's an opportunity to learn from this evolution or maybe there's an opportunity to learn from my earlier na&iuml;vity and newer eccentricities. I'm certainly happy with how my approach has evolved and I think the current state of these classes represents a base from which you can very quickly implement new table-based views using much less code than starting from Apple's Xcode templates.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="version-control-for-solo-mac-developers.html">Version control for solo Mac developers</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../../2011/01/submitting-functionality-for-future.html">Submitting functionality for a future version of iOS</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

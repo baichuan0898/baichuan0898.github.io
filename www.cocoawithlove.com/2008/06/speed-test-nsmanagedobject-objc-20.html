@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Speed test: NSManagedObject ObjC-2.0 accessors</title>
+  <meta name="description" content="A quick, relative-performance test of the 3 ways of accessing NSManagedObject properties in Leopard." />
+
+  <meta name="twitter:title" content="Speed test: NSManagedObject ObjC-2.0 accessors"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2008/06/speed-test-nsmanagedobject-objc-20.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="A quick, relative-performance test of the 3 ways of accessing NSManagedObject properties in Leopard."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="speed-test-nsmanagedobject-objc-20.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Speed test: NSManagedObject ObjC-2.0 accessors</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2008-06-13">June 13, 2008</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/core-data.html">Core Data</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>A quick, relative-performance test of the 3 ways of accessing NSManagedObject properties in Leopard.</p></span>
+
+<span class="fullpost">
+
+<h2>Mac OS X Snow Leopard? I'm still not up-to-date with 10.5!</h2>
+
+<p>If you've been in a coma all week, you might not have noticed that Apple announced the next major update to Mac OS X on Monday, <a href="http://www.apple.com/macosx/snowleopard">Snow Leopard</a>. It's scheduled for "sometime next year" which means that I really should finish updating my code for the current version of Mac OS X.</p>
+
+<p>As part of this, I've been assessing whether or not I should refactor some of my old pre-Leopard code to use the new <span class="monospace">NSManagedObject</span> accessors introduced in Leopard.</p>
+
+<p>If you don't know what I'm talking about, let me show you this...</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="c1">// The old way to set an NSManagedObject string value
+</span><span class="c1"></span><span class="p">[</span><span class="n">object</span> <span class="nl">setValue</span><span class="p">:</span><span class="n">value</span> <span class="nl">forKey</span><span class="p">:</span><span class="s">@&#34;stringValue&#34;</span><span class="p">];</span>
+
+<span class="c1">// The custom accessor way to set an NSManagedObject string value
+</span><span class="c1"></span><span class="p">[</span><span class="n">object</span> <span class="nl">setStringValue</span><span class="p">:</span><span class="n">value</span><span class="p">];</span>
+
+<span class="c1">// The new alternate syntax for setting an NSManagedObject string value
+</span><span class="c1"></span><span class="n">object</span><span class="p">.</span><span class="n">stringValue</span> <span class="o">=</span> <span class="n">value</span><span class="p">;</span></code></pre></div>
+
+<p>In the "old" approach, <span class="monospace">NSManagedObject</span> had to perform string comparisons to work out which property in the <span class="monospace">NSManagedObject</span>'s entity description corresponded to the provided "key". It also had to work out if custom "getter" and "setter" methods existed and might need to be invoked.</p>
+
+<p>The "custom accessor" approach eliminates the string comparison and method lookups but prior to Leopard, you had to explicitly write these methods yourself &mdash; something time consuming enough to discourage use. In Leopard, you only need to declare these methods and you get the implementation for free.</p>
+
+<p>The "new" approach really just uses Leopard's automatically generated custom accessor methods through Objective-C 2.0 properties but only requires "property" declaration (slightly less work again than method declaration).</p>
+
+<p>With "custom accessor" methods requiring extra development work under Tiger, most of my pre-Leopard code uses the old KVC approach. Do I care? Should I update my code?</p>
+
+<h2>Give me the numbers</h2>
+
+<p>The real question is: how much difference does it make? I have lots of code which uses the "old" approach. How much improvement will I see with one of the other two approaches?</p>
+
+<p>Time for some test code:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc">    <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mi">10000</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">for</span> <span class="p">(</span><span class="n">NSManagedObject</span> <span class="o">*</span><span class="n">object</span> <span class="k">in</span> <span class="n">objects</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="cp">#if LEOPARD_OBJC_2_ACCESSORS
+</span><span class="cp"></span>                <span class="n">NSString</span> <span class="o">*</span><span class="n">value</span> <span class="o">=</span> <span class="n">object</span><span class="p">.</span><span class="n">stringValue</span><span class="p">;</span>
+                <span class="n">object</span><span class="p">.</span><span class="n">stringValue</span> <span class="o">=</span> <span class="n">value</span><span class="p">;</span>
+            <span class="cp">#elif CUSTOM_METHOD_ACCESSORS
+</span><span class="cp"></span>                <span class="n">NSString</span> <span class="o">*</span><span class="n">value</span> <span class="o">=</span> <span class="p">[</span><span class="n">object</span> <span class="n">stringValue</span><span class="p">];</span>
+                <span class="p">[</span><span class="n">object</span> <span class="nl">setStringValue</span><span class="p">:</span><span class="n">value</span><span class="p">];</span>
+            <span class="cp">#else </span><span class="c1">// Key Value Coding accessors
+</span><span class="c1"></span>                <span class="n">NSString</span> <span class="o">*</span><span class="n">value</span> <span class="o">=</span> <span class="p">[</span><span class="n">object</span> <span class="nl">valueForKey</span><span class="p">:</span><span class="s">@&#34;stringValue&#34;</span><span class="p">];</span>
+                <span class="p">[</span><span class="n">object</span> <span class="nl">setValue</span><span class="p">:</span><span class="n">value</span> <span class="nl">forKey</span><span class="p">:</span><span class="s">@&#34;stringValue&#34;</span><span class="p">];</span>
+            <span class="cp">#endif
+</span><span class="cp"></span>        <span class="p">}</span>
+    <span class="p">}</span></code></pre></div>
+
+<p>My test data is a set of 1000 entities with "stringValue" set to "Entity number %d" (where "%d" is 0001 to 1000). All data is prefaulted. All I'm doing is accessing a string value and setting it back again to the same value 10 million times.</p>
+
+<p>Performance looks like this:</p>
+
+<table>
+<thead>
+<tr><td>Access approach</td><td>Time taken</td></tr>
+</thead>
+<tr><td>Objective-C 2.0 Accessors</td><td> 16.6701 seconds</td></tr>
+<tr><td>Custom Method Accessors</td><td> 16.7978 seconds</td></tr>
+<tr><td>Key Value Coding Accessors</td><td> 31.6373 seconds</td></tr>
+</table>
+
+<p>* results generated on a Dual 2Ghz PPC G5 (Intel-only Snow Leopard makes him cry)</p>
+
+<h2>Conclusion</h2>
+
+<p>The automatically generated Leopard accessors take half the time of the Key Value Coding approach &mdash; a substantial improvement. There is no practical difference between "Objective-C 2.0 Accessors" and "Custom Method Accessors" so that is merely a matter of stylistic preference and header declarations.</p>
+
+<p>The old Key Value Coding approach still has its uses, particularly for runtime-selected key paths. It is also the only approach which requires no headers or declarations at all (although this can lead to runtime errors). But beyond that, I really should do some refactoring.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="five-approaches-to-listening-observing.html">Five approaches to listening, observing and notifying in Cocoa.</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="doing-things-in-cocoa-with.html">Doing things in Cocoa with &#34;nil&#34;</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

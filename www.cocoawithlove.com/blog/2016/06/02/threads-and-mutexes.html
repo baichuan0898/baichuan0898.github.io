@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Mutexes and closure capture in Swift</title>
+  <meta name="description" content="I&#39;m going to talk about the absence of any threading or thread synchronization language features in Swift and the concurrency proposal for Swift&#39;s future. I&#39;ll also try to get a wrapper around different mutex machinery to perform optimally." />
+
+  <meta name="twitter:title" content="Mutexes and closure capture in Swift"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/blog/2016/06/02/threads-and-mutexes.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="I&#39;m going to talk about the absence of any threading or thread synchronization language features in Swift and the concurrency proposal for Swift&#39;s future. I&#39;ll also try to get a wrapper around different mutex machinery to perform optimally."/>
+
+  <link rel="icon" href="../../../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../../../css/main.css" />
+  <link rel="canonical" href="threads-and-mutexes.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../../../index.html"><img class="heartandcup" src="../../../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../../../about/index.html">about</a>
+        <a class="page-link" href="../../../../archive/index.html">archive</a>
+        <a class="page-link" href="../../../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Mutexes and closure capture in Swift</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2016-06-02">June 2, 2016</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../../../tags/swift.html">Swift</a>, <a href="../../../../tags/asynchrony.html">asynchrony</a>
+		 
+	</div>
+</header>
+
+
+<main role="main">
+	<article itemscope itemtype="http://schema.org/BlogPosting">
+		<div class="post-content" itemprop="articleBody">
+			
+
+<p>I want to briefly talk about the absence of threading and thread synchronization language features in Swift. I&rsquo;ll discuss the &ldquo;concurrency&rdquo; proposal for Swift&rsquo;s future and how, until this feature appears, Swift threading will involve traditional mutexes and shared mutable state.</p>
+
+<p>Using a mutex in Swift isn&rsquo;t particularly difficult but I&rsquo;m going to use the topic to highlight a subtle performance nuisance in Swift: dynamic heap allocation during closure capture. We want our mutex to be fast but passing a closure to execute inside a mutex can reduce the performance by a factor of 10 due to memory allocation overhead. I&rsquo;ll look at a few different ways to solve the problem.</p>
+
+<nav id="TableOfContents"><span class="toc-heading">Contents</span>
+<ul>
+<li>
+<ul>
+<li><a href="#an-absence-of-threading-in-swift">An absence of threading in Swift</a></li>
+<li><a href="#future-concurrency-in-swift">Future &ldquo;concurrency&rdquo; in Swift</a></li>
+<li><a href="#impact-of-future-features-on-the-current-library">Impact of future features on the current library</a></li>
+<li><a href="#trying-to-find-a-fast-general-purpose-mutex">Trying to find a fast, general purpose mutex</a></li>
+<li><a href="#mutexes-and-closure-capture-pitfalls">Mutexes and closure capture pitfalls</a></li>
+<li><a href="#a-different-approach">A different approach</a></li>
+<li><a href="#semaphores-not-mutexes">Semaphores, not mutexes?</a></li>
+<li><a href="#usage">Usage</a></li>
+<li><a href="#conclusion">Conclusion</a></li>
+<li><a href="#appendix-performance-numbers">Appendix: performance numbers</a></li>
+</ul></li>
+</ul>
+</nav>
+
+<h2 id="an-absence-of-threading-in-swift">An absence of threading in Swift</h2>
+
+<p>When Swift was first announced in June 2014, I felt there were two obvious omissions from the language:</p>
+
+<ul>
+<li>error handling</li>
+<li>threading and thread synchronization</li>
+</ul>
+
+<p>Error handling was addressed in Swift 2 and was one of the key features of that release.</p>
+
+<p>Threading remains largely ignored by Swift. Instead of language features for threading, Swift includes the <code>Dispatch</code> module (libdispatch, aka Grand Central Dispatch) on all platforms and implicitly suggests: use <code>Dispatch</code> instead of expecting the language to help.</p>
+
+<p>Delegating responsibility to a bundled library seems particularly strange compared to other modern languages like Go and Rust that have made threading primitives and strict thread safety (respectively) core features of their languages. Even Objective-C&rsquo;s <code>@synchronized</code> and <code>atomic</code> properties seem like a generous offering compared to Swift&rsquo;s <em>nothing</em>.</p>
+
+<p>What&rsquo;s the reasoning behing this apparent omission in Swift?</p>
+
+<h2 id="future-concurrency-in-swift">Future &ldquo;concurrency&rdquo; in Swift</h2>
+
+<p>The answer is, somewhat tersely, discussed in the <a href="https://github.com/apple/swift/blob/c760f6dfbf0179e9aff90f7bf7375f3af5331318/docs/proposals/Concurrency.rst">&ldquo;Concurrency&rdquo; proposal in the Swift repository</a>.</p>
+
+<blockquote>
+<p>I mention this proposal to highlight that the Swift developers would like to do <em>something</em> around concurrency in the future but keep in mind what <a href="https://twitter.com/jckarter/status/739109723408994304">Swift developer Joe Groff points out</a>: &ldquo;that document is only a proposal and not an official statement of direction.&rdquo;</p>
+</blockquote>
+
+<p>This proposal appears to describe a situation where, like in <a href="http://homes.cs.washington.edu/~djg/papers/cycthreads.pdf">Cyclone</a> or <a href="http://blog.rust-lang.org/2015/04/10/Fearless-Concurrency.html">Rust</a>, references can&rsquo;t be shared between threads. Whether or not the result is anything like those languages, it appears that the plan is for Swift to eliminate shared memory between threads except for types that implement <code>Copyable</code> and are passed through strictly governed channels (called <code>Stream</code>s in the proposal). There&rsquo;s also going to be a form of coroutine (called <code>Task</code>s in the proposal) which appear to behave like pausable/resumable asynchronous dispatch blocks.</p>
+
+<p>The proposal then goes on to claim that most common threading <em>language</em> features (Go-like <code>chan</code>nels, .NET-like <code>async</code>/<code>await</code>, Erlang-style <code>actor</code>s) can then be implemented in <em>libraries</em> on top of the <code>Stream</code>/<code>Task</code>/<code>Copyable</code> primitives.</p>
+
+<p>It all sounds great but when is Swift&rsquo;s concurrency expected? Swift 4? Swift 5? Not soon.</p>
+
+<p>So it doesn&rsquo;t help us right now. In fact, it kind of gets in the way.</p>
+
+<h2 id="impact-of-future-features-on-the-current-library">Impact of future features on the current library</h2>
+
+<p>The problem right now is that Swift is avoiding simple concurrency primitives in the language or thread-safe versions of language features on the grounds that they would be replaced or obviated by future features.</p>
+
+<p>You can find explicit examples of this occurring by watching the Swift-Evolution mailing list, including:</p>
+
+<ul>
+<li><a href="https://github.com/apple/swift/pull/1454">Object references (both strong and weak) are undefined &ldquo;in the presence of read/write, write/write, or anything/destroy data races on a variable&rdquo;</a>. There&rsquo;s no intention of changing this behavior or offering a built-in &ldquo;atomic&rdquo; approach since it is &ldquo;one of the few undefined behavior rules that we embrace&rdquo;. The eventual &ldquo;fix&rdquo; for this undefined behavior will be the new concurrency model.</li>
+<li>Result types (or another means of <code>throw</code>ing over boundaries other than function interfaces) would be useful for numerous &ldquo;continuation passing style&rdquo; algorithms and have been thoroughly discussed, but ultimately <a href="https://lists.swift.org/pipermail/swift-evolution/Week-of-Mon-20160314/012545.html">will be ignored until Swift has &ldquo;provided proper language support [for coroutines or async promises]&rdquo;</a> as part of the concurrency changes.</li>
+</ul>
+
+<p>There are plenty of common features that don&rsquo;t even get as far as the mailing list, including language syntax for mutexes, synchronized functions, spawning threads and everything else &ldquo;threading&rdquo; related that requires a library to achieve in Swift.</p>
+
+<h2 id="trying-to-find-a-fast-general-purpose-mutex">Trying to find a fast, general purpose mutex</h2>
+
+<p>In short: if we want multi-threaded behavior, we need to build it ourselves using pre-existing threading and mutex features.</p>
+
+<p>The <a href="http://stackoverflow.com/questions/24045895/what-is-the-swift-equivalent-to-objective-cs-synchronized">common advice for mutexes in Swift</a> is usually: use a <code>DispatchQueue</code> and invoke <code>sync</code> on it.</p>
+
+<p>I love libdispatch but, in most cases, using <code>DispatchQueue.sync</code> as a mutex is in the slowest tier of solutions to the problem – more than an <em>order of magnitude</em> slower than other options due to unavoidable closure capture overhead for the closure passed to the <code>sync</code> function. This happens because a mutex closure needs to capture surrounding state (specifically, it needs to capture a reference to the protected resource) and this capturing involves a heap allocated closure context. Until Swift gains the ability to optimize non-escaping closures to the stack, the only way to avoid the heap allocation overhead for closures is to ensure that they are inlined – unfortunately, this is not possible across module boundaries, like the Dispatch module boundary – making <code>DispatchQueue.sync</code> an unnecessarily slow mutex in Swift.</p>
+
+<p>The next most commonly suggested option I see is <code>objc_sync_enter</code>/<code>objc_sync_exit</code>. While faster (2-3 times) than libdispatch, it&rsquo;s still a little slower than ideal (because it is always a <em>re-entrant</em> mutex) and relies on the Objective-C runtime (so it&rsquo;s limited to Apple platforms).</p>
+
+<p>The fastest option for a mutex is <code>OSSpinLock</code> – more than 20 times faster than <code>dispatch_sync</code>. Other than the common limitations of a spin-lock (high CPU usage if multiple threads actually try to enter simultaneously) there are some <a href="https://lists.swift.org/pipermail/swift-dev/Week-of-Mon-20151214/000372.html">serious problems on iOS that make it totally unusable on that platform</a>, making it useable on Mac only.</p>
+
+<p>If you&rsquo;re targetting iOS 10 or macOS 10.12, or newer, then you can use <code>os_unfair_lock_t</code>. This should have performance close to <code>OSSpinLock</code> while avoiding its most serious problems. However, this lock is not first-in-first-out (FIFO). Instead, the mutex is given to an arbitrary waiter (hence, &ldquo;unfair&rdquo;). You need to decide if this is a problem for your program but in general, this means that it shouldn&rsquo;t be your first choice for a general purpose mutex.</p>
+
+<p>All these problems leave us with <code>pthread_mutex_lock</code>/<code>pthread_mutex_unlock</code> as the only reasonable performance, portable option.</p>
+
+<h2 id="mutexes-and-closure-capture-pitfalls">Mutexes and closure capture pitfalls</h2>
+
+<p>Like most things in plain C, <code>pthread_mutex_t</code> has a pretty clunky interface, so it helps to use a Swift wrapper around it (particularly for construction and automatic cleanup). Additionally, it&rsquo;s helpful to have a &ldquo;scoped&rdquo; mutex – one which accepts a function and runs that function inside the mutex, ensuring a balanced &ldquo;lock&rdquo; and &ldquo;unlock&rdquo; either side of the function.</p>
+
+<p>I&rsquo;ll call my wrapper <code>PThreadMutex</code>. Here&rsquo;s an implementation of a simple scoped mutex function on this wrapper:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">public</span> <span class="kd">func</span> <span class="nf">sync</span><span class="p">&lt;</span><span class="n">R</span><span class="o">&gt;</span><span class="p">(</span><span class="n">execute</span><span class="p">:</span> <span class="p">()</span> <span class="p">-&gt;</span> <span class="n">R</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="n">R</span> <span class="p">{</span>
+   <span class="n">pthread_mutex_lock</span><span class="p">(&amp;</span><span class="n">m</span><span class="p">)</span>
+   <span class="k">defer</span> <span class="p">{</span> <span class="n">pthread_mutex_unlock</span><span class="p">(&amp;</span><span class="n">m</span><span class="p">)</span> <span class="p">}</span>
+   <span class="k">return</span> <span class="n">execute</span><span class="p">()</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This was supposed to be high performance but it&rsquo;s not. Can you see why?</p>
+
+<p>The problem occurs because I implement reusable functions like this in my separate <code>CwlUtils</code> module, leading to exactly the same problem that <code>DispatchQueue.sync</code> had: closure capture causing heap allocation. Due to heap allocation overhead, this function will be more than 10 times slower than it needs to be (3.124 seconds for 10 million invocations, versus an ideal 0.263 seconds).</p>
+
+<p>What exactly is being &ldquo;captured&rdquo;? Let&rsquo;s look at the following example:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="n">mutex</span><span class="p">.</span><span class="n">sync</span> <span class="p">{</span> <span class="n">doSomething</span><span class="p">(&amp;</span><span class="n">protectedMutableState</span><span class="p">)</span> <span class="p">}</span></code></pre></div>
+
+<p>In order to do something useful inside the mutex, a reference to the <code>protectedMutableState</code> must be stored in the &ldquo;closure context&rdquo;, which is heap allocated data.</p>
+
+<p>This might seem innocent enough (afterall, capturing is what closures <em>do</em>). But if the <code>sync</code> function can&rsquo;t be inlined into its caller (because it&rsquo;s in another module or it&rsquo;s in another file and whole module optimization is turned off) then the capture will involve a heap allocation.</p>
+
+<p>We don&rsquo;t want heap allocation. Let&rsquo;s avoid it by passing the relevant parameter into the closure, instead of capturing it.</p>
+
+<blockquote>
+<p><strong>WARNING:</strong> the next few code examples get increasingly goofy and I don&rsquo;t suggest doing this in most cases. I&rsquo;m doing this to demonstrate a the extent of the problem. Read through to the section titled &ldquo;A different approach&rdquo; to see what I actually use in practice.</p>
+</blockquote>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">public</span> <span class="kd">func</span> <span class="nf">sync_2</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">(</span><span class="kc">_</span> <span class="n">p</span><span class="p">:</span> <span class="kr">inout</span> <span class="n">T</span><span class="p">,</span> <span class="n">execute</span><span class="p">:</span> <span class="p">(</span><span class="kr">inout</span> <span class="n">T</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Void</span><span class="p">)</span> <span class="p">{</span>
+   <span class="n">pthread_mutex_lock</span><span class="p">(&amp;</span><span class="n">m</span><span class="p">)</span>
+   <span class="k">defer</span> <span class="p">{</span> <span class="n">pthread_mutex_unlock</span><span class="p">(&amp;</span><span class="n">m</span><span class="p">)</span> <span class="p">}</span>
+   <span class="n">execute</span><span class="p">(&amp;</span><span class="n">p</span><span class="p">)</span>
+<span class="p">}</span></code></pre></div>
+
+<p>That&rsquo;s better&hellip; now the function runs at full speed (0.282 seconds for the 10 million invocation test).</p>
+
+<p>We&rsquo;ve only solved the problem with values passed <em>in</em> to the function. There&rsquo;s a similar problem with returning a result. The following function:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">public</span> <span class="kd">func</span> <span class="nf">sync_3</span><span class="p">&lt;</span><span class="n">T</span><span class="p">,</span> <span class="n">R</span><span class="o">&gt;</span><span class="p">(</span><span class="kc">_</span> <span class="n">p</span><span class="p">:</span> <span class="kr">inout</span> <span class="n">T</span><span class="p">,</span> <span class="n">execute</span><span class="p">:</span> <span class="p">(</span><span class="kr">inout</span> <span class="n">T</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="n">R</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="n">R</span> <span class="p">{</span>
+   <span class="n">pthread_mutex_lock</span><span class="p">(&amp;</span><span class="n">m</span><span class="p">)</span>
+   <span class="k">defer</span> <span class="p">{</span> <span class="n">pthread_mutex_unlock</span><span class="p">(&amp;</span><span class="n">m</span><span class="p">)</span> <span class="p">}</span>
+   <span class="k">return</span> <span class="n">execute</span><span class="p">(&amp;</span><span class="n">p</span><span class="p">)</span>
+<span class="p">}</span></code></pre></div>
+
+<p>is back to the same, sluggish speed of the original, even when the closure captures nothing (at 1.371 seconds, it&rsquo;s actually worse). This closure is performing a heap allocation to handle its <em>result</em>.</p>
+
+<p>We can fix this by making the result an <code>inout</code> parameter too.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">public</span> <span class="kd">func</span> <span class="nf">sync_4</span><span class="p">&lt;</span><span class="n">T</span><span class="p">,</span> <span class="n">U</span><span class="o">&gt;</span><span class="p">(</span><span class="kc">_</span> <span class="n">p1</span><span class="p">:</span> <span class="kr">inout</span> <span class="n">T</span><span class="p">,</span> <span class="kc">_</span> <span class="n">p2</span><span class="p">:</span> <span class="kr">inout</span> <span class="n">U</span><span class="p">,</span> <span class="n">execute</span><span class="p">:</span> <span class="p">(</span><span class="kr">inout</span> <span class="n">T</span><span class="p">,</span> <span class="kr">inout</span> <span class="n">U</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Void</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Void</span> <span class="p">{</span>
+   <span class="n">pthread_mutex_lock</span><span class="p">(&amp;</span><span class="n">m</span><span class="p">)</span>
+   <span class="n">execute</span><span class="p">(&amp;</span><span class="n">p</span><span class="p">,</span> <span class="p">&amp;</span><span class="n">p2</span><span class="p">)</span>
+   <span class="n">pthread_mutex_unlock</span><span class="p">(&amp;</span><span class="n">m</span><span class="p">)</span>
+<span class="p">}</span></code></pre></div>
+
+<p>and invoke like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="c1">// Assuming `mutableState` and `result` are valid, mutable values in the current scope</span>
+<span class="n">mutex</span><span class="p">.</span><span class="n">sync_4</span><span class="p">(&amp;</span><span class="n">mutableState</span><span class="p">,</span> <span class="p">&amp;</span><span class="n">result</span><span class="p">)</span> <span class="p">{</span> <span class="nv">$1</span> <span class="p">=</span> <span class="n">doSomething</span><span class="p">(</span><span class="nv">$0</span><span class="p">)</span> <span class="p">}</span></code></pre></div>
+
+<p>We&rsquo;re back to full speed, or close enough (0.307 seconds for 10 million invocations).</p>
+
+<h2 id="a-different-approach">A different approach</h2>
+
+<p>One of the advantages with closure capture is how effortless it seems. Items inside the closure have the same <em>names</em> inside and outside the closure and the connection between the two is obvious. When we avoid closure capture and instead try to pass all values in as parameters, we&rsquo;re forced to either rename all our variables or shadow names – neither of which helps comprehension – and we still run the risk of accidentally capturing a variable and losing all efficiency anyway.</p>
+
+<p>Let&rsquo;s set aside all of this and solve the problem another way.</p>
+
+<p>We could create a free <code>sync</code> function in our file that takes the <code>mutex</code> as a parameter:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">private</span> <span class="kd">func</span> <span class="nf">sync</span><span class="p">&lt;</span><span class="n">R</span><span class="o">&gt;</span><span class="p">(</span><span class="n">mutex</span><span class="p">:</span> <span class="n">PThreadMutex</span><span class="p">,</span> <span class="n">execute</span><span class="p">:</span> <span class="p">()</span> <span class="kr">throws</span> <span class="p">-&gt;</span> <span class="n">R</span><span class="p">)</span> <span class="kr">rethrows</span> <span class="p">-&gt;</span> <span class="n">R</span> <span class="p">{</span>
+   <span class="n">pthread_mutex_lock</span><span class="p">(&amp;</span><span class="n">mutex</span><span class="p">.</span><span class="n">m</span><span class="p">)</span>
+   <span class="k">defer</span> <span class="p">{</span> <span class="n">pthread_mutex_unlock</span><span class="p">(&amp;</span><span class="n">mutex</span><span class="p">.</span><span class="n">m</span><span class="p">)</span> <span class="p">}</span>
+   <span class="k">return</span> <span class="k">try</span> <span class="n">execute</span><span class="p">()</span>
+<span class="p">}</span></code></pre></div>
+
+<p>By placing this in the file where it is called, it <em>almost</em> works. The heap allocation overhead is gone, bringing the time taken from 3.043 seconds down to 0.374 seconds. But we still haven&rsquo;t reached the baseline 0.263 seconds of calling <code>pthread_mutex_lock</code>/<code>pthread_mutex_unlock</code> directly. What&rsquo;s going wrong now?</p>
+
+<p>It turns out that despite being a private function in the same file – where Swift can fully inline the function – Swift is not eliminating redundant retains and releases on the the <code>PThreadMutex</code> parameter (which is a <code>class</code> type to avoid breaking the <code>pthread_mutex_t</code> by copying it).</p>
+
+<p>We can force the compiler to avoid these retains and releases by making the function an extension on <code>PThreadMutex</code>, rather than a free function:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">extension</span> <span class="nc">PThreadMutex</span> <span class="p">{</span>
+   <span class="kd">private</span> <span class="kd">func</span> <span class="nf">sync</span><span class="p">&lt;</span><span class="n">R</span><span class="o">&gt;</span><span class="p">(</span><span class="n">execute</span><span class="p">:</span> <span class="p">()</span> <span class="kr">throws</span> <span class="p">-&gt;</span> <span class="n">R</span><span class="p">)</span> <span class="kr">rethrows</span> <span class="p">-&gt;</span> <span class="n">R</span> <span class="p">{</span>
+      <span class="n">pthread_mutex_lock</span><span class="p">(&amp;</span><span class="n">m</span><span class="p">)</span>
+      <span class="k">defer</span> <span class="p">{</span> <span class="n">pthread_mutex_unlock</span><span class="p">(&amp;</span><span class="n">m</span><span class="p">)</span> <span class="p">}</span>
+      <span class="k">return</span> <span class="k">try</span> <span class="n">execute</span><span class="p">()</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This forces Swift to treat the <code>self</code> parameter as <code>@guaranteed</code>, eliminating retain/release overhead and we&rsquo;re finally down to the baseline 0.264 seconds.</p>
+
+<h2 id="semaphores-not-mutexes">Semaphores, not mutexes?</h2>
+
+<p>After I originally wrote the article, a few people asked&hellip; why not use a <code>dispatch_semaphore_t</code> instead? The advantage with <code>dispatch_semaphore_wait</code> and <code>dispatch_semaphore_signal</code> is that no closure is required – they are separate, unscoped calls.</p>
+
+<p>You could use <code>dispatch_semaphore_t</code> to create a mutex-like construct as follows:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">public</span> <span class="kd">struct</span> <span class="nc">DispatchSemaphoreWrapper</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">s</span> <span class="p">=</span> <span class="n">DispatchSemaphore</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="mi">1</span><span class="p">)</span>
+   <span class="kd">init</span><span class="p">()</span> <span class="p">{}</span>
+   <span class="kd">func</span> <span class="nf">sync</span><span class="p">&lt;</span><span class="n">R</span><span class="o">&gt;</span><span class="p">(</span><span class="n">execute</span><span class="p">:</span> <span class="p">()</span> <span class="kr">throws</span> <span class="p">-&gt;</span> <span class="n">R</span><span class="p">)</span> <span class="kr">rethrows</span> <span class="p">-&gt;</span> <span class="n">R</span> <span class="p">{</span>
+      <span class="kc">_</span> <span class="p">=</span> <span class="n">s</span><span class="p">.</span><span class="n">wait</span><span class="p">(</span><span class="n">timeout</span><span class="p">:</span> <span class="n">DispatchTime</span><span class="p">.</span><span class="n">distantFuture</span><span class="p">)</span>
+      <span class="k">defer</span> <span class="p">{</span> <span class="n">s</span><span class="p">.</span><span class="n">signal</span><span class="p">()</span> <span class="p">}</span>
+      <span class="k">return</span> <span class="k">try</span> <span class="n">execute</span><span class="p">()</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>It turns out that it&rsquo;s approximately a third <em>faster</em> than a <code>pthread_mutex_lock</code>/<code>pthread_mutex_unlock</code> mutex (0.168 seconds versus 0.264 seconds) but despite the speed increase, using a semaphore for a mutex is a poor choice for a general mutex.</p>
+
+<p>Semaphores are prone to a number of mistakes and problems. Most serious are forms of <a href="https://en.wikipedia.org/wiki/Priority_inversion">priority inversion</a>. Priority inversion is the same type of problem that made <code>OSSpinLock</code> usable iOS but the problem for sempahores is a little more complicated.</p>
+
+<p>With a spin lock, priority inversion involves:</p>
+
+<ol>
+<li>high priority thread active, spinning, waiting for the lock held by a lower priority thread</li>
+<li>lower priority thread never releases the lock because it is starved by the higher priority thread.</li>
+</ol>
+
+<p>With a semaphore, priority inversion involves&hellip;</p>
+
+<ol>
+<li>High priority thread waits on a semaphore</li>
+<li>Medium priority thread does work unrelated to semaphore</li>
+<li>Low priority thread is expected to signal the semaphore so the high priority thread can continue</li>
+</ol>
+
+<p>The medium thread will starve the low priority thread (that&rsquo;s okay, that&rsquo;s what thread priority does) but since the high priority thread is waiting for the low priority thread to signal the semaphore, the high priority thread is <em>also</em> starved by the medium priority thread. Ideally, this should never happen.</p>
+
+<p>If a proper mutex was used, instead of a semaphore, the high priority thread&rsquo;s priority would be donated to the lower priority thread when the high priority thread is waiting on a mutex held by the low priority thread – letting the low priority thread finish its work and unblock the high priority thread. However, semaphores are not held by a thread so no priority donation can occur.</p>
+
+<p>Ultimately, semaphores are a good way to communicate completion notifications between threads (something that isn&rsquo;t easily done with mutexes) but semaphores have design complications and risks and should be limited to situations where you know all the threads involved and know their priorities in advance – where the waiting thread is known to be equal or <em>lower</em> priority than the signalling thread.</p>
+
+<p>All of this might seem a little esoteric – since you probably don&rsquo;t deliberately create threads of different priorities in your own programs. However, the Cocoa frameworks add a little twist here that you need to consider: Cocoa frameworks use dispatch queues pervasively and every dispatch queue has a &ldquo;QoS class&rdquo; which may result in the queue running at a different thread priority. Unless you know how every task in your program is queued (including user-interface and other tasks queued by the Cocoa frameworks), you might find yourself in a multiple thread priority scenario that you didn&rsquo;t plan. It&rsquo;s best to avoid this risk.</p>
+
+<h2 id="usage">Usage</h2>
+
+<blockquote>
+<p>The project containing this <code>PThreadMutex</code> and <code>DispatchSemaphore</code> implementation is available on github: <a href="https://github.com/mattgallagher/CwlUtils">mattgallagher/CwlUtils</a>.</p>
+</blockquote>
+
+<p>The <a href="https://github.com/mattgallagher/CwlUtils/blob/master/Sources/CwlUtils/CwlMutex.swift?ts=3">CwlMutex.swift</a> file is fully self-contained so you can just copy the file, if that&rsquo;s all you need.</p>
+
+<p>Otherwise, the <a href="https://github.com/mattgallagher/CwlUtils/blob/master/README.md">ReadMe.md file for the project</a> contains detailed information on cloning the whole repository and adding the framework it produces to your own projects.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>The best, safe option for a mutex across both Mac and iOS in Swift remains <code>pthread_mutex_t</code>. In future, Swift will probably add the ability to optimize non-escaping closures to the stack or to inline across module boundaries. Either of these will fix the inherent problems with <code>Dispatch.sync</code>, likely making it a better option, but until that point, it is needlessly inefficient.</p>
+
+<p>While semaphores and other &ldquo;lightweight&rdquo; locks are a valid approaches in some scenarios, they are not general use mutexes and carry additional design considerations and risks.</p>
+
+<p>No matter your choice of mutex machinery, you need to be careful to ensure inlining for maximum performance – otherwise the overhead of closure capture will slow the mutex down by a factor of 10. In the current version of Swift, that might mean copying and pasting the code into the file where it&rsquo;s used.</p>
+
+<p>Threading, inlining and closure optimizations are all topics we can expect to change dramatically beyond the Swift 3 timeframe but current Swift users need to get work done in Swift 2.3 and Swift 3 – and this article describes current behavior in these versions when trying to get maximum performance from a scoped mutex.</p>
+
+<h2 id="appendix-performance-numbers">Appendix: performance numbers</h2>
+
+<p>I ran a simple loop, 10 million times, entering a mutex, incrementing a counter, and leaving the mutex. The &ldquo;slow&rdquo; versions of <code>DispatchSemaphore</code> and <code>PThreadMutex</code> are compiled as part of a dynamic framework, separate to the test code.</p>
+
+<p>These are the timing results:</p>
+
+<table>
+<thead>
+<tr>
+<th align="left">Mutex variant</th>
+<th align="left">Seconds<br/>(Swift 2.3)</th>
+<th align="left">Seconds<br/>(Swift 3)</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td align="left"><code>PThreadMutex.sync</code> (capturing closure)</td>
+<td align="left">3.043</td>
+<td align="left">3.124</td>
+</tr>
+
+<tr>
+<td align="left"><code>DispatchQueue.sync</code></td>
+<td align="left">2.330</td>
+<td align="left">3.530</td>
+</tr>
+
+<tr>
+<td align="left"><code>PThreadMutex.sync_3</code> (returning result)</td>
+<td align="left">1.371</td>
+<td align="left">1.364</td>
+</tr>
+
+<tr>
+<td align="left"><code>objc_sync_enter</code></td>
+<td align="left">0.869</td>
+<td align="left">0.833</td>
+</tr>
+
+<tr>
+<td align="left"><code>sync(PThreadMutex)</code> (function in same file)</td>
+<td align="left">0.374</td>
+<td align="left">0.387</td>
+</tr>
+
+<tr>
+<td align="left"><code>PThreadMutex.sync_4</code> (dual <code>inout</code> params)</td>
+<td align="left">0.307</td>
+<td align="left">0.310</td>
+</tr>
+
+<tr>
+<td align="left"><code>PThreadMutex.sync_2</code> (single <code>inout</code> param)</td>
+<td align="left">0.282</td>
+<td align="left">0.284</td>
+</tr>
+
+<tr>
+<td align="left"><code>PThreadMutex.sync</code> (inlined non-capturing)</td>
+<td align="left">0.264</td>
+<td align="left">0.265</td>
+</tr>
+
+<tr>
+<td align="left">direct <code>pthread_mutex_lock</code>/<code>unlock</code> calls</td>
+<td align="left">0.263</td>
+<td align="left">0.263</td>
+</tr>
+
+<tr>
+<td align="left"><code>OSSpinLockLock</code></td>
+<td align="left">0.092</td>
+<td align="left">0.108</td>
+</tr>
+</tbody>
+</table>
+
+<p>The test code used is part of the linked <a href="https://github.com/mattgallagher/CwlUtils">CwlUtils</a> project but the test file containing these performance tests (CwlMutexPerformanceTests.swift) is not linked into the test module by default and must be deliberately enabled.</p>
+
+		</div>
+	</article>
+</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../../05/19/random-numbers.html">Random number generators in Swift</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../25/policing-whitespace.html">Parsing whitespace in an Xcode extension</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../../../feed.json">JSON</a>, <a href="../../../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

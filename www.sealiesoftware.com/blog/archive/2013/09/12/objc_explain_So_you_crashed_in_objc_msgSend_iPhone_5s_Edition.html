@@ -1,0 +1,98 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<!--
+Local Variables:
+sgml-default-dtd-file: "~/html-loose.ced"
+End:
+-->
+<html>
+  <head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+
+    <title>Hamster Emporium: [objc explain]: So you crashed in objc_msgSend(): iPhone 5s Edition</title>
+    <link title="RSS 2.0" href="../../../../rss.xml.rss" type="application/rss+xml" rel="alternate">
+  </head>
+  <body bgcolor="#ffffff">
+    <table cellpadding="0" cellspacing="0">
+      <tr>
+	  <td valign="top" align="left">
+	    <a href="../../../../index.html"><img src="http://www.sealiesoftware.com/hamster.jpg" alt="" width="108" height="160"></a><br><br>
+	    <b>blog</b><br>
+	    <a href="../../../../index.html">recent</a><br>
+	    <a href="../../../index.html">archive</a><br>
+	    <a href="http://twitter.com/gparker">twitter</a><br>
+	    <br>
+	    <b>projects</b><br>
+	    <a href="http://www.apple.com/macosx/">Mac OS X</a><br>
+	    <a href="http://www.sealiesoftware.com/keyboard/index.html">Keyboard</a><br>
+	     &nbsp; <a href="http://www.sealiesoftware.com/keyboard/index.html">backlight</a><br>
+	    <a href="http://www.sealiesoftware.com/cscmenu/index.html">CSC Menu</a><br>
+	    <a href="http://www.sealiesoftware.com/valgrind/index.html">Valgrind</a><br>
+	    <a href="http://www.sealiesoftware.com/fringe/index.html">Fringe Player</a><br>
+	    <a href="http://www.sealiesoftware.com/pssh/index.html">pssh</a><br>
+	    <a href="http://www.sealiesoftware.com/peal/index.html">Peal</a><br>
+	    <a href="http://www.sealiesoftware.com/frankenmouse/index.html">Frankenmouse</a><br>
+	    <br>
+	  </td>
+	  <td>
+	    &nbsp; &nbsp;
+	  </td>
+	  <td valign="top">
+	      <h2>Hamster Emporium archive</h2>
+  <p>
+     &lt;&lt; &nbsp; <a href="../24/objc_explain_Non-pointer_isa.html">[objc explain]: Non-pointer isa</a> &nbsp; | &nbsp;  
+    <a href="../../../index.html">archive</a>
+     &nbsp; | &nbsp; <a href="../../../2012/2/29/objc_explain_return_value_of_message_to_nil.html">[objc explain]: return value of message to nil</a> &nbsp; &gt;&gt; 
+  </p>
+  <table cellpadding="0" cellspacing="3">
+      <tr>
+	<td>
+	  <a href="objc_explain_So_you_crashed_in_objc_msgSend_iPhone_5s_Edition.html"><img src="http://www.sealiesoftware.com/link.gif" width="14" height="16" border="0" alt="(link)"></a>
+	</td>
+	<td>
+	  <b><font size="+1">[objc explain]: So you crashed in objc_msgSend(): iPhone 5s Edition</font></b> &nbsp; 
+	  <font size="-1">(<a href="objc_explain_So_you_crashed_in_objc_msgSend_iPhone_5s_Edition.html">2013-09-12 12:45 PM</a>)</font>
+	</td>
+      </tr>
+      <tr>
+	<td>
+	  &nbsp;
+	</td>
+	<td>
+	        <p>
+	<a
+	href="http://sealiesoftware.com/blog/archive/2008/09/22/objc_explain_So_you_crashed_in_objc_msgSend.html">So
+	you crashed in objc_msgSend()</a> has been updated with register
+	usage for iPhone 5s's ARM64 processor. The table now looks like this:
+	<table border=1 cellspacing=0 cellpadding=4>
+	  <th><td align=center colspan=2><code>objc_msgSend</code><br><code>objc_msgSend_fpret</code></td>
+	    <td align=center colspan=2><code>objc_msgSend_stret</code></td></th>
+	  <tr><td align=center>&nbsp;</td><td align=center><code>receiver</code></td><td align=center><code>SEL</code></td><td align=center><code>receiver</code></td><td align=center><code>SEL</code></td></tr>
+	  <tr><td>i386</td><td align=center>eax*</td><td align=center>ecx</td>
+	    <td align=center>eax*</td><td align=center>ecx</td></tr>
+	  <tr><td>x86_64</td><td align=center>rdi</td><td align=center>rsi</td>
+	    <td align=center>rsi</td><td align=center>rdx</td></tr>
+	  <tr><td>ppc</td><td align=center>r3</td><td align=center>r4</td>
+	    <td align=center>r4</td><td align=center>r5</td></tr>
+	  <tr><td>ppc64</td><td align=center>r3</td><td align=center>r4</td>
+	    <td align=center>r4</td><td align=center>r5</td></tr>
+	  <tr><td>arm</td><td align=center>r0</td><td align=center>r1</td>
+	    <td align=center>r1</td><td align=center>r2</td></tr>
+	  <tr><td>arm64</td><td align=center>x0</td><td align=center>x1</td>
+	    <td align=center>&mdash;</td><td align=center>&mdash;</td></tr>
+	</table>
+      </p>
+
+	  </td>
+      </tr>
+  </table>
+
+	  </td>
+	</tr>
+    </table>
+    <hr>
+    <img align="right" src="http://www.sealiesoftware.com/sealie.gif" alt="seal!" width="114" height="69">
+    Greg Parker<br>
+    <a href="mailto:gparker-www@sealiesoftware.com">gparker-www@sealiesoftware.com</a><br>
+    <a href="http://www.sealiesoftware.com/index.html">Sealie Software</a>
+  </body>
+</html>

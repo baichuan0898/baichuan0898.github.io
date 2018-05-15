@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Updating Cocoa with Love for Swift 3</title>
+  <meta name="description" content="This is a quick look at the changes I needed to make to bring Cocoa with Love up to date for Swift 3 and the latest iOS 10 and macOS Sierra." />
+
+  <meta name="twitter:title" content="Updating Cocoa with Love for Swift 3"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/blog/2016/09/14/updating-cocoawithlove.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="This is a quick look at the changes I needed to make to bring Cocoa with Love up to date for Swift 3 and the latest iOS 10 and macOS Sierra."/>
+
+  <link rel="icon" href="../../../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../../../css/main.css" />
+  <link rel="canonical" href="updating-cocoawithlove.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../../../index.html"><img class="heartandcup" src="../../../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../../../about/index.html">about</a>
+        <a class="page-link" href="../../../../archive/index.html">archive</a>
+        <a class="page-link" href="../../../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Updating Cocoa with Love for Swift 3</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2016-09-14">September 14, 2016</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../../../tags/swift.html">Swift</a>, <a href="../../../../tags/meta.html">meta</a>
+		 
+	</div>
+</header>
+
+
+<main role="main">
+	<article itemscope itemtype="http://schema.org/BlogPosting">
+		<div class="post-content" itemprop="articleBody">
+			
+
+<p><a href="https://swift.org/blog/swift-3-0-released/">Swift 3 was officially released this week</a>. That&rsquo;s exciting, right?</p>
+
+<p>Maybe it will be, eventually. In the short term, it means everything old is broken. I&rsquo;ve gone back through all Cocoa with Love Swift articles and updated them all to Swift 3 and iOS 10/macOS 10.12 – both the article text and the code on github.</p>
+
+<p>Hooray for tedious housekeeping! This is what it&rsquo;s like to be a code owner.</p>
+
+<nav id="TableOfContents"><span class="toc-heading">Contents</span>
+<ul>
+<li>
+<ul>
+<li><a href="#introduction">Introduction</a></li>
+<li><a href="#a-new-era-for-cocoa-with-love-blog-2016-01-25-a-new-era-for-cocoa-with-love-html"><a href="../../01/25/a-new-era-for-cocoa-with-love.html">A new era for Cocoa with Love</a></a></li>
+<li><a href="#partial-functions-in-swift-part-1-avoidance-blog-2016-01-25-partial-functions-part-one-avoidance-html"><a href="../../01/25/partial-functions-part-one-avoidance.html">Partial functions in Swift, Part 1: Avoidance</a></a></li>
+<li><a href="#partial-functions-in-swift-part-2-catching-precondition-failures-blog-2016-02-02-partial-functions-part-two-catching-precondition-failures-html"><a href="../../02/02/partial-functions-part-two-catching-precondition-failures.html">Partial functions in Swift, Part 2: Catching precondition failures</a></a></li>
+<li><a href="#use-it-or-lose-it-why-safe-c-is-sometimes-unsafe-swift-blog-2016-02-16-use-it-or-lose-it-why-safe-c-is-sometimes-unsafe-swift-html"><a href="../../02/16/use_it_or_lose_it_why_safe_c_is_sometimes_unsafe_swift.html">Use it or lose it: why safe C is sometimes unsafe Swift</a></a></li>
+<li><a href="#tracking-tasks-with-stack-traces-in-swift-blog-2016-02-28-stack-traces-in-swift-html"><a href="../../02/28/stack-traces-in-swift.html">Tracking tasks with stack traces in Swift</a></a></li>
+<li><a href="#gathering-system-information-in-swift-with-sysctl-blog-2016-03-08-swift-wrapper-for-sysctl-html"><a href="../../03/08/swift-wrapper-for-sysctl.html">Gathering system information in Swift with sysctl</a></a></li>
+<li><a href="#errors-unexpected-composite-non-pure-external-blog-2016-03-17-non-pure-errors-html"><a href="../../03/17/non-pure-errors.html">Errors: unexpected, composite, non-pure, external.</a></a></li>
+<li><a href="#breaking-swift-with-reference-counted-structs-blog-2016-03-27-on-delete-html"><a href="../../03/27/on-delete.html">Breaking Swift with reference counted structs</a></a></li>
+<li><a href="#indent-with-tabs-or-spaces-i-wish-i-didn-t-need-to-know-blog-2016-04-01-neither-tabs-nor-spaces-html"><a href="../../04/01/neither-tabs-nor-spaces.html">Indent with tabs or spaces? I wish I didn&rsquo;t need to know.</a></a></li>
+<li><a href="#presenting-unanticipated-errors-to-users-blog-2016-04-14-error-recovery-attempter-html"><a href="../../04/14/error-recovery-attempter.html">Presenting unanticipated errors to users</a></a></li>
+<li><a href="#comparing-swift-to-c-for-parsing-blog-2016-05-01-swift-name-demangling-html"><a href="../../05/01/swift-name-demangling.html">Comparing Swift to C++ for parsing</a></a></li>
+<li><a href="#random-number-generators-in-swift-blog-2016-05-19-random-numbers-html"><a href="../../05/19/random-numbers.html">Random number generators in Swift</a></a></li>
+<li><a href="#mutexes-and-closure-capture-in-swift-blog-2016-06-02-threads-and-mutexes-html"><a href="../../06/02/threads-and-mutexes.html">Mutexes and closure capture in Swift</a></a></li>
+<li><a href="#parsing-whitespace-in-an-xcode-extension-blog-2016-06-25-policing-whitespace-html"><a href="../../06/25/policing-whitespace.html">Parsing whitespace in an Xcode extension</a></a></li>
+<li><a href="#exponential-time-complexity-in-the-swift-type-checker-blog-2016-07-12-type-checker-issues-html"><a href="../../07/12/type-checker-issues.html">Exponential time complexity in the Swift type checker</a></a></li>
+<li><a href="#design-patterns-for-safe-timer-usage-blog-2016-07-30-timer-problems-html"><a href="../../07/30/timer-problems.html">Design patterns for safe timer usage</a></a></li>
+<li><a href="#values-and-errors-part-1-2-blog-2016-08-21-result-types-part-one-html"><a href="../../08/21/result-types-part-one.html">Values and errors part 1 &amp; 2</a></a></li>
+<li><a href="#conclusion">Conclusion</a>
+<ul>
+<li><a href="#looking-forward">Looking forward</a></li>
+</ul></li>
+</ul></li>
+</ul>
+</nav>
+
+<h2 id="introduction">Introduction</h2>
+
+<p>This article is my response to the question of the week: &ldquo;how much work is involved in migrating to Swift 3?&rdquo;</p>
+
+<p>I don&rsquo;t precisely know how long I&rsquo;ve spent on Cocoa with Love updates. Over successive Swift 3 betas, I&rsquo;ve spent about a week updating the code in my own Swift projects (including Cocoa with Love and a half dozen other projects). It&rsquo;s clear that the actual answer for a given project is that the time taken will depend on which APIs you&rsquo;re using.</p>
+
+<p>AppKit, UIKit and Foundation APIs that have simply been renamed are pervasive (30% of all lines changed is entirely possible) but Xcode will largely auto-convert to them to the new names so the amount of work involved is low.</p>
+
+<p>Renaming your <em>own</em> functions to match the new Swift naming conventions is a harder problem. It&rsquo;s not mandatory at all but there&rsquo;s potentially a lot of work involved here if, like me, you find traditional Objective-C naming is a difficult habit to break.</p>
+
+<p>There have also been a few major APIs (Dispatch, pointers, strings) where the changes are more complex than simply a renaming. This may involve <em>redesigning</em> and can take a while. It really depends how you previously used these APIs as to whether or not this ends up a large part of your time.</p>
+
+<p>Then, of course, Swift 3 is hitting at the same time as iOS 10 and macOS Sierra. Moving to Xcode 8 will usually involve solving both compatibility problems at once.</p>
+
+<p>The rest of this article is a look at the main changes I made to each article to bring Cocoa with Love up to date. If you&rsquo;d prefer to look at the code diffs, you can look at the &ldquo;Cwl*&rdquo; projects on <a href="https://github.com/mattgallagher">my github page</a> and compare the &ldquo;master&rdquo; branches (which are now merged with the &ldquo;swift3-prelease&rdquo; branches) with the &ldquo;swift2.3&rdquo; branches (I won&rsquo;t be updating the &ldquo;swift2.3&rdquo; branches but they&rsquo;re there if you need them).</p>
+
+<h2 id="a-new-era-for-cocoa-with-love-blog-2016-01-25-a-new-era-for-cocoa-with-love-html"><a href="../../01/25/a-new-era-for-cocoa-with-love.html">A new era for Cocoa with Love</a></h2>
+
+<p>Off to an easy start: nothing to update in this one (it was really just a meta post and contained no code).</p>
+
+<h2 id="partial-functions-in-swift-part-1-avoidance-blog-2016-01-25-partial-functions-part-one-avoidance-html"><a href="../../01/25/partial-functions-part-one-avoidance.html">Partial functions in Swift, Part 1: Avoidance</a></h2>
+
+<p>Some minor changes to the article but the biggest changes were voluntary so that the function parameters would be more aligned with <a href="https://swift.org/documentation/api-design-guidelines/#argument-labels">Swift API Design Guidelines: Argument Labels</a>.</p>
+
+<p>As an example of this, I changed the following function:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">divideFiveBy</span><span class="p">(</span><span class="n">x</span><span class="p">:</span> <span class="n">NonZeroInt</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Int</span></code></pre></div>
+
+<p>to the more Swift 3 styled:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">divideFive</span><span class="p">(</span><span class="n">by</span> <span class="n">x</span><span class="p">:</span> <span class="n">NonZeroInt</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Int</span></code></pre></div>
+
+<p>in accordance with the idea that the preposition &ldquo;by&rdquo; should be used as the parameter name, rather than part of the function name (and, of course, the Swift 3 change that first parameter names are included, by default).</p>
+
+<p>There were a few minor changes to collection indexes due to <a href="https://github.com/apple/swift-evolution/blob/master/proposals/0065-collections-move-indices.md">SE-0065 A New Model for Collections and Indices</a> but nothing major.</p>
+
+<p>Sadly, despite the collection index changes Swift introduced, there remains a failure to check that <code>String.CharacterView.Index</code> is advanced using the correct <code>String.CharacterView</code>, so the totally invalid:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">let</span> <span class="nv">characterView1</span> <span class="p">=</span> <span class="s">&#34;👿👿&#34;</span><span class="p">.</span><span class="n">characters</span>
+<span class="kd">let</span> <span class="nv">invalidIndex</span> <span class="p">=</span> <span class="s">&#34;Unrelated string&#34;</span><span class="p">.</span><span class="n">characters</span><span class="p">.</span><span class="n">index</span><span class="p">(</span><span class="n">after</span><span class="p">:</span> <span class="n">characterView1</span><span class="p">.</span><span class="n">startIndex</span><span class="p">)</span>
+<span class="bp">print</span><span class="p">(</span><span class="n">characterView1</span><span class="p">[</span><span class="n">invalidIndex</span><span class="p">])</span></code></pre></div>
+
+<p>still runs without a precondition failure and still produces invalid UTF garbage.</p>
+
+<h2 id="partial-functions-in-swift-part-2-catching-precondition-failures-blog-2016-02-02-partial-functions-part-two-catching-precondition-failures-html"><a href="../../02/02/partial-functions-part-two-catching-precondition-failures.html">Partial functions in Swift, Part 2: Catching precondition failures</a></h2>
+
+<p>Since this article involved a lot of C-style pointer manipulation, it was significantly affected by:</p>
+
+<ul>
+<li><a href="https://github.com/apple/swift-evolution/blob/master/proposals/0055-optional-unsafe-pointers.md">SE-0055 Make unsafe pointer nullability explicit using Optional</a></li>
+<li><a href="https://github.com/apple/swift-evolution/blob/master/proposals/0107-unsaferawpointer.md">SE-0107 UnsafeRawPointer API</a></li>
+</ul>
+
+<p>The need to pass unsafe pointers through <code>withMemoryRebound(to:capacity:)</code> to recast them had a huge impact on this code. Initially, the code was significantly worse, until I created specialized pointer conversion extension functions on the underlying data structures. The result is much nicer than the original Swift 2 code but only because I was kicked into refactoring by an uncomfortable syntax change. I&rsquo;d prefer to see a helper function that combines <code>withUnsafeMutablePointer</code> and <code>withMemoryRebound(to:capacity:)</code> into a single step, in future.</p>
+
+<h2 id="use-it-or-lose-it-why-safe-c-is-sometimes-unsafe-swift-blog-2016-02-16-use-it-or-lose-it-why-safe-c-is-sometimes-unsafe-swift-html"><a href="../../02/16/use_it_or_lose_it_why_safe_c_is_sometimes_unsafe_swift.html">Use it or lose it: why safe C is sometimes unsafe Swift</a></h2>
+
+<p>As a follow up to the previous article, it&rsquo;s unsurprising that the biggest changes here involved the same <a href="https://github.com/apple/swift-evolution/blob/master/proposals/0107-unsaferawpointer.md">SE-0107 UnsafeRawPointer API</a> changes.</p>
+
+<h2 id="tracking-tasks-with-stack-traces-in-swift-blog-2016-02-28-stack-traces-in-swift-html"><a href="../../02/28/stack-traces-in-swift.html">Tracking tasks with stack traces in Swift</a></h2>
+
+<p>In addition to the Swift renaming and pointer changes that every article so far has required, this one also saw changes from <a href="https://github.com/apple/swift-evolution/blob/master/proposals/0016-initializers-for-converting-unsafe-pointers-to-ints.md">SE-0016 Add initializers to Int and UInt to convert from UnsafePointer and UnsafeMutablePointer</a>.</p>
+
+<p>The biggest difficulty here was that the automatic Xcode Swift 2 to 3 converter doesn&rsquo;t seem to do a good job with <code>String.fromCString</code> to <code>String?(validatingUTF8:)</code> conversions, especially when the parameter in Swift 2 was a potentially <code>nil</code> <code>UnsafePointer&lt;CChar&gt;</code> which, in Swift 3, is an <code>UnsafePointer&lt;CChar&gt;?</code> and now needs to be unwrapped before passing as a parameter. It&rsquo;s not a difficult change to make in code but when you don&rsquo;t even know <em>why</em> the conversion tool has made a mess out of a particular line of code (because you can&rsquo;t remember what the line of code was supposed to do) then these things can stop you in your tracks for a few minutes.</p>
+
+<h2 id="gathering-system-information-in-swift-with-sysctl-blog-2016-03-08-swift-wrapper-for-sysctl-html"><a href="../../03/08/swift-wrapper-for-sysctl.html">Gathering system information in Swift with sysctl</a></h2>
+
+<p>More renaming, more pointer shenanigans. No surprises there.</p>
+
+<p>The <code>case</code> names for <code>enum</code>s are all lowercase now. It&rsquo;s a change that I fully understand but it&rsquo;s amazing how automatic things become in programming with reuse. I still keep writing new code with uppercase <code>case</code> names and need to go back and change them.</p>
+
+<h2 id="errors-unexpected-composite-non-pure-external-blog-2016-03-17-non-pure-errors-html"><a href="../../03/17/non-pure-errors.html">Errors: unexpected, composite, non-pure, external.</a></h2>
+
+<p>I included the following code sample in the Swift 2 version of this article:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">secondsSince</span><span class="p">(</span><span class="n">previous</span><span class="p">:</span> <span class="n">NSDate</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Double</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">current</span> <span class="p">=</span> <span class="n">NSDate</span><span class="p">()</span>
+   <span class="kd">let</span> <span class="nv">result</span> <span class="p">=</span> <span class="n">current</span><span class="p">.</span><span class="n">timeIntervalSinceDate</span><span class="p">(</span><span class="n">previous</span><span class="p">)</span>
+   <span class="k">return</span> <span class="n">result</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This is replaced by:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">secondsSince</span><span class="p">(</span><span class="n">previous</span><span class="p">:</span> <span class="n">Date</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Double</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">current</span> <span class="p">=</span> <span class="n">Date</span><span class="p">()</span>
+   <span class="kd">let</span> <span class="nv">result</span> <span class="p">=</span> <span class="n">current</span><span class="p">.</span><span class="n">timeIntervalSince</span><span class="p">(</span><span class="n">date</span><span class="p">:</span> <span class="n">previous</span><span class="p">)</span>
+   <span class="k">return</span> <span class="n">result</span>
+<span class="p">}</span></code></pre></div>
+
+<p>I want to highlight this example because it points out something that is non-obvious: the &ldquo;Great Swift Renaming&rdquo; is not just a renaming. <code>Date</code> is an example of a type affected by <a href="https://github.com/apple/swift-evolution/blob/7fcba970b88a5de3d302d291dc7bc9dfba0f9399/proposals/0069-swift-mutability-for-foundation.md">SE-0069 Mutability and Foundation Value Types</a>. In reality, the whole type has changed. Where <code>NSDate</code> was an Objective-C wrapper around <code>CFDate</code>, the new type is a Swift wrapper, obeying slightly different semantics. You can see the new implementation in the <a href="https://github.com/apple/swift/blob/master/stdlib/public/SDK/Foundation/Date.swift">Date.swift file in the Swift repository</a>.</p>
+
+<h2 id="breaking-swift-with-reference-counted-structs-blog-2016-03-27-on-delete-html"><a href="../../03/27/on-delete.html">Breaking Swift with reference counted structs</a></h2>
+
+<p>So, this one&rsquo;s a complete write-off.</p>
+
+<p>I&rsquo;ve added the following note to the top of this article:</p>
+
+<blockquote>
+<p><strong>OUT OF DATE AS OF SWIFT 3</strong>: While it is still possible to have a heap allocated, reference counted struct with cleanup behaviors in Swift 3, it is no longer possible to capture a reference to <code>self</code> in a struct method as describedS in this article. The problems detailed in section 2 in this article have been fixed in Swift 3 and the remainder of this article is merely a historical artefact. Don&rsquo;t worry: you&rsquo;re better off as a result.</p>
+</blockquote>
+
+<h2 id="indent-with-tabs-or-spaces-i-wish-i-didn-t-need-to-know-blog-2016-04-01-neither-tabs-nor-spaces-html"><a href="../../04/01/neither-tabs-nor-spaces.html">Indent with tabs or spaces? I wish I didn&rsquo;t need to know.</a></h2>
+
+<p>This article contained just 3 lines of Swift and didn&rsquo;t require any updates.</p>
+
+<h2 id="presenting-unanticipated-errors-to-users-blog-2016-04-14-error-recovery-attempter-html"><a href="../../04/14/error-recovery-attempter.html">Presenting unanticipated errors to users</a></h2>
+
+<p>Lots of Cocoa renaming. Roughly half of all lines involved at least one change as part of this renaming. However, it was quick and easy: I barely remember doing it.</p>
+
+<h2 id="comparing-swift-to-c-for-parsing-blog-2016-05-01-swift-name-demangling-html"><a href="../../05/01/swift-name-demangling.html">Comparing Swift to C++ for parsing</a></h2>
+
+<p>The most widespread changes were voluntary changes to bring function naming into line with the Swift API guidelines. Most prominently, I changed:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">matchString</span><span class="p">(</span><span class="kc">_</span> <span class="n">string</span><span class="p">:</span> <span class="nb">String</span><span class="p">)</span></code></pre></div>
+
+<p>to:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">match</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">String</span><span class="p">)</span></code></pre></div>
+
+<p>There were also plenty of changes from uppercase <code>case</code> names to lowercase <code>case</code> names.</p>
+
+<p>As a file with heavy use of <code>UnicodeScalar</code> there were some impacts from <a href="https://github.com/apple/swift-evolution/blob/master/proposals/0130-string-initializers-cleanup.md">SE-0130 Replace repeating Character and UnicodeScalar forms of String.init</a>.</p>
+
+<p>The change that took the most time was updating the parser itself. Swift 3 adds new parsable elements to the mangled name grammar (including raw pointers and nested generics) and numerous items have changed name or representation (<code>protocol &lt;&gt;</code> becomes <code>Any.Type</code>, <code>protocol&lt;A, B&gt;</code> becomes <code>A &amp; B</code>, <code>ErrorProtocol</code> becomes <code>Error</code>).</p>
+
+<h2 id="random-number-generators-in-swift-blog-2016-05-19-random-numbers-html"><a href="../../05/19/random-numbers.html">Random number generators in Swift</a></h2>
+
+<p>This article required a number of updates but for quite different reasons to the other articles so far.</p>
+
+<p>Swift 3 removed <code>jrand48</code> so I removed the implementation involving it entirely from the article. Not a big loss but I think it&rsquo;s strange that Swift is choosing to wholly remove functions, not merely deprecate them.</p>
+
+<p>Second: performance numbers changed across the board so I updated the table in the article. Some tests ran a couple percent faster in Swift 3 compared to Swift 2.3 (although I&rsquo;m not convinced that the change in /dev/random or <code>arc4random</code> performance had anything to do with Swift) and some tests definitely ran slower.</p>
+
+<p>|&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&ndash;+&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&ndash;|&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;|
+|                          |Swift 2.3 (Seconds) |Swift 3 (Seconds) |
+|&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;-:+&mdash;&mdash;&mdash;&mdash;&ndash;+&mdash;&mdash;&mdash;&mdash;&ndash;|
+|<code>DevRandom</code>               |123.50       |113.250       |
+|&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&ndash;+&mdash;&mdash;&mdash;&mdash;&ndash;+&mdash;&mdash;&mdash;&mdash;&ndash;|
+|<code>Arc4Random</code>              |4.651         |4.359         |
+|&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&ndash;+&mdash;&mdash;&mdash;&mdash;&ndash;+&mdash;&mdash;&mdash;&mdash;&ndash;|
+|<code>Lfsr258</code>                 |0.872         |0.717         |
+|&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&ndash;+&mdash;&mdash;&mdash;&mdash;&ndash;+&mdash;&mdash;&mdash;&mdash;&ndash;|
+|<code>MT19937_64</code> (before my changes)             |0.643         |0.631         |
+|&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&ndash;+&mdash;&mdash;&mdash;&mdash;&ndash;+&mdash;&mdash;&mdash;&mdash;&ndash;|
+|<code>MersenneTwister</code> (and MT19937_64 after changes)         |0.517         |0.533         |
+|&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&ndash;+&mdash;&mdash;&mdash;&mdash;&ndash;+&mdash;&mdash;&mdash;&mdash;&ndash;|
+|<code>Lfsr176</code>                 |0.511         |0.498         |
+|&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&ndash;+&mdash;&mdash;&mdash;&mdash;&ndash;+&mdash;&mdash;&mdash;&mdash;&ndash;|
+|<code>xoroshiro128plus</code>        |0.352         |0.367         |
+|&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&ndash;+&mdash;&mdash;&mdash;&mdash;&ndash;+&mdash;&mdash;&mdash;&mdash;&ndash;|
+|<code>Xoroshiro</code>               |0.347         |0.362         |
+|&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&ndash;+&mdash;&mdash;&mdash;&mdash;&ndash;+&mdash;&mdash;&mdash;&mdash;&ndash;|
+|<code>ConstantNonRandom</code>       |0.221         |0.211         |
+|&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&mdash;&ndash;+&mdash;&mdash;&mdash;&mdash;&ndash;+&mdash;&mdash;&mdash;&mdash;&ndash;|</p>
+
+<p>What I did notice is that Swift 3 is <em>much</em> less aggressive about inlining. Where I had previously inlined the Mersenne Twister code into a <code>withUnsafeMutablePointer</code> closure as follows:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="bp">withUnsafeMutablePointer</span><span class="p">(&amp;</span><span class="n">state_internal</span><span class="p">)</span> <span class="p">{</span> <span class="n">ptr</span> <span class="k">in</span>
+   <span class="kd">let</span> <span class="nv">state</span> <span class="p">=</span> <span class="nb">UnsafeMutablePointer</span><span class="p">&lt;</span><span class="nb">UInt64</span><span class="o">&gt;</span><span class="p">(</span><span class="n">ptr</span><span class="p">)</span>
+   
+   <span class="c1">// Mersenne twister &#34;twist&#34; code using `state` here</span>
+<span class="p">}</span></code></pre></div>
+
+<p>I needed to rewrite this with the &ldquo;twist&rdquo; code out-of-line to prevent significant performance problems. i.e.:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">let</span> <span class="nv">state</span> <span class="p">=</span> <span class="bp">withUnsafeMutablePointer</span><span class="p">(</span><span class="n">to</span><span class="p">:</span> <span class="p">&amp;</span><span class="n">state_internal</span><span class="p">)</span> <span class="p">{</span>
+   <span class="nv">$0</span><span class="p">.</span><span class="n">withMemoryRebound</span><span class="p">(</span><span class="n">to</span><span class="p">:</span> <span class="nb">UInt64</span><span class="p">.</span><span class="kc">self</span><span class="p">,</span> <span class="n">capacity</span><span class="p">:</span> <span class="n">MersenneTwister</span><span class="p">.</span><span class="n">stateCount</span><span class="p">)</span> <span class="p">{</span> <span class="nv">$0</span> <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1">// Mersenne twister &#34;twist&#34; code using `state` here</span></code></pre></div>
+
+<p>This is horribly memory unsafe, since we need to leak the <code>state</code> pointer outside the scope where it is correctly bound. Unfortunately, without this change, performance dropped to 0.622 seconds (more than 16% slower).</p>
+
+<p>I don&rsquo;t know if these inlining changes were a deliberate choice (inlining is a tradeoff, after all) or an accidental regression. In any case, as a closure-heavy language, I wish Swift offered the ability to <em>force</em> closure inlining.</p>
+
+<p>Even after fixing the inlining issues, my <code>MersenneTwister</code> slowed from 0.517 seconds to 0.533 seconds. Curiously, the C implementation that I modified to follow the same steps had exactly the same performance change on my computer. I don&rsquo;t know what the underlying cause would be there but it might be due to changes in LLVM.</p>
+
+<h2 id="mutexes-and-closure-capture-in-swift-blog-2016-06-02-threads-and-mutexes-html"><a href="../../06/02/threads-and-mutexes.html">Mutexes and closure capture in Swift</a></h2>
+
+<p>This article was significantly impacted by <a href="https://github.com/apple/swift-evolution/blob/master/proposals/0088-libdispatch-for-swift3.md">SE-0088 Modernize libdispatch for Swift 3 naming conventions</a>. Specifically, the <code>dispatch_queue_sync</code> function has become <code>DispatchQueue.sync</code>.</p>
+
+<p>iOS 10 and macOS 10.12 have added a new locking primitive: <code>os_unfair_lock_t</code>. This fills the gap left by the problematic <code>OSSpinLock</code> so I&rsquo;ve added mention of it to the article.</p>
+
+<p>I&rsquo;ve updated all the performance numbers for Swift 3 although they&rsquo;re largely the same.</p>
+
+<h2 id="parsing-whitespace-in-an-xcode-extension-blog-2016-06-25-policing-whitespace-html"><a href="../../06/25/policing-whitespace.html">Parsing whitespace in an Xcode extension</a></h2>
+
+<p>This was the first article I wrote using Swift 3 – since it only works with Xcode 8.</p>
+
+<p>However, I&rsquo;ve heavily updated the code for this article since I first wrote it. Not to fix Swift issues but to fix limitations in the parser itself. What was originally a 600 line parser is now over 900 lines where only a couple hundred lines remain from the original implementation. The approach is largely the same but it&rsquo;s had some significant revisions to avoid problems policing whitespace across a wider range of code.</p>
+
+<h2 id="exponential-time-complexity-in-the-swift-type-checker-blog-2016-07-12-type-checker-issues-html"><a href="../../07/12/type-checker-issues.html">Exponential time complexity in the Swift type checker</a></h2>
+
+<p>I really wish I could say anything in this article had changed but the compiler issues described all remain exactly as is.</p>
+
+<p>The Swift developers have indicated to me that &ldquo;rewriting the Swift type checker is on their To-Do list&rdquo; but that list is <em>very</em> long so I have no idea when we&rsquo;ll see progress in this area.</p>
+
+<h2 id="design-patterns-for-safe-timer-usage-blog-2016-07-30-timer-problems-html"><a href="../../07/30/timer-problems.html">Design patterns for safe timer usage</a></h2>
+
+<p>The fourth Swift 3 beta, containing the new Dispatch API was released the day after I wrote this article. I radically overhauled it immediately to use the new API. However, those changes were made in haste and the parameter names I chose for my functions didn&rsquo;t use the same nouns as similar concepts in Apple&rsquo;s own APIs and the parameters were non-sensically ordered. I&rsquo;ve gone back and made these changes so it all feels a little more coherent.</p>
+
+<h2 id="values-and-errors-part-1-2-blog-2016-08-21-result-types-part-one-html"><a href="../../08/21/result-types-part-one.html">Values and errors part 1 &amp; 2</a></h2>
+
+<p>Both of these articles were written after Swift 3 beta 6 (the last major breaking change) and they remain fully functional in Xcode 8.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>One article is a complete write-off. Five articles required no changes at all. Twelve articles required updates ranging from a couple minor fixes to hundreds of fixes to bring them up-to-date for Swift 3. <a href="https://github.com/mattgallagher">Over on github</a>, all my &ldquo;swift3-prerelease&rdquo; branches are merged into &ldquo;master&rdquo;.</p>
+
+<p>Looking at performance, Swift 3&rsquo;s performance numbers aren&rsquo;t dramatically changed for the few cases Cocoa with Love has tested. There are a number of cases that ended up slightly faster but function inlining seems to be reduced in numerous places for reasons I can&rsquo;t totally understand or cleanly reproduce in simple test cases, and this significantly hurts cases where previously inlined code falls back to capturing closures.</p>
+
+<p>Cocoa API renaming is the most prominent change in Swift 3 but it is mindless and simple – Xcode will do 75% or more of these automatically. Even if Swift 2 code gets included after the initial Swift 3 conversion, fixing is rarely more than &ldquo;Next Issue&rdquo; (Command-Apostrophe) followed by &ldquo;Select&rdquo; (Return) to choose the Xcode suggested fix.</p>
+
+<p>A bigger burden is the desired (but not required) updating of your <em>own</em> APIs to follow similar guidelines. There&rsquo;s no help here. As verbose as Objective-C&rsquo;s naming conventions were, I used them for so long (even in other languages) that I think I&rsquo;ll require more practice before Swift&rsquo;s will be instinctive for me.</p>
+
+<p>The most difficult mandatory problem when converting to Swift 3 is when your code uses pointers, string constructors, Dispatch or another API that Swift has rethought, rather than renamed. You can&rsquo;t ignore these problems, Xcode might not be able to suggest an automatic solution, and you&rsquo;ll need to simply rewrite whole blocks of code. Best to get your tests in order before you start.</p>
+
+<h3 id="looking-forward">Looking forward</h3>
+
+<p>I hope the goal of source compatibility for Swift 4 and beyond is largely realized but I have no doubt that there will be some minor changes.</p>
+
+		</div>
+	</article>
+</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../../08/23/result-types-part-two.html">Values and errors, part 2: eight languages compared</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../22/deque.html">Optimizing a copy-on-write double-ended queue in Swift</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../../../feed.json">JSON</a>, <a href="../../../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

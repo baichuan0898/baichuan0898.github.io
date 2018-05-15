@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Streaming MP3/AAC audio again</title>
+  <meta name="description" content="This week I present some further additions to AudioStreamer, a class I first presented in Streaming and playing an MP3 stream and revisited with bug fixes in Revisiting an old post: Streaming and playing an MP3 stream. This time, I&#39;ll add the two of the most requested features: seeking and HE-AAC audio support." />
+
+  <meta name="twitter:title" content="Streaming MP3/AAC audio again"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2010/03/streaming-mp3aac-audio-again.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="This week I present some further additions to AudioStreamer, a class I first presented in Streaming and playing an MP3 stream and revisited with bug fixes in Revisiting an old post: Streaming and playing an MP3 stream. This time, I&#39;ll add the two of the most requested features: seeking and HE-AAC audio support."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="streaming-mp3aac-audio-again.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Streaming MP3/AAC audio again</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2010-03-29">March 29, 2010</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/coreaudio.html">CoreAudio</a>, <a href="../../categories/appkit.html">AppKit</a>, <a href="../../categories/cocoa-touch.html">Cocoa Touch</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>This week I present some further additions to AudioStreamer, a class I first presented in <a href="../../2008/09/streaming-and-playing-live-mp3-stream.html">Streaming and playing an MP3 stream</a> and revisited with bug fixes in <a href="../../2009/06/revisiting-old-post-streaming-and.html">Revisiting an old post: Streaming and playing an MP3 stream</a>. This time, I'll add the two of the most requested features: seeking and HE-AAC audio support.</p></span><span class="fullpost"><h2>Introduction</h2><p>The <code>AudioFileStream</code> and <code>AudioQueue</code> APIs on the Mac and iPhone are useful but tricky. They are much lower level than <code>AVAudioPlayer</code> and <code>MPMoviePlayer</code> (iPhone) or <code>QTMovieView</code> (Mac) but are not as low level as the <code>AudioUnits</code> and <code>AUGraph</code>.</p><p>As the only Apple-provided way of streaming audio to the iPhone without a fullscreen movie player, these APIs are important.</p><blockquote>The full AudioStreamer class, along with projects for the Mac and iPhone, is available on github: <a href="http://github.com/mattgallagher/AudioStreamer/zipball/master">AudioStreamer</a> (you can also <a href="http://github.com/mattgallagher/AudioStreamer">browse the source code repository</a>).</blockquote><h2>HE-AAC</h2><p>HE-AAC is actually very simple to use on the iPhone but I never took the time to add support for it to <code>AudioStreamer</code> before now because I had no personal need for it.</p><p>While it is simple to add, there is one complicating issue: the iPhone Simulator does not support HE-AAC. I'm sure this has confused a number of people who otherwise implemented HE-AAC correctly.</p><p>Enabling HE-AAC support for a file is as simple as sending the right <code>AudioStreamBasicDescription</code> to the <code>AudioQueueNewOutput</code> (which creates the playback queue).</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">err</span> <span class="o">=</span> <span class="n">AudioQueueNewOutput</span><span class="p">(</span><span class="o">&amp;</span><span class="n">asbd</span><span class="p">,</span> <span class="n">MyAudioQueueOutputCallback</span><span class="p">,</span> <span class="nb">self</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">audioQueue</span><span class="p">);</span></code></pre></div>
+
+<p>If <code>asbd.mFormatID == kAudioFormatMPEG4AAC_HE</code>, then the <code>AudioQueue</code> will parse the required SBR data.</p><p>Of course, there's some added trickiness in knowing whether a given AAC file contains SBR data.</p><p>We can get this information from our <code>AudioFileStream</code> when it notifies us that the <code>kAudioFileStreamProperty_FormatList</code> is available. This property contains the list of formats that the stream may be interpreted as.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">if</span> <span class="p">(</span><span class="n">inPropertyID</span> <span class="o">==</span> <span class="n">kAudioFileStreamProperty_FormatList</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kt">Boolean</span> <span class="n">outWriteable</span><span class="p">;</span>
+    <span class="kt">UInt32</span> <span class="n">formatListSize</span><span class="p">;</span>
+
+    <span class="c1">// Get the size of the format list
+</span><span class="c1"></span>    <span class="n">err</span> <span class="o">=</span> <span class="n">AudioFileStreamGetPropertyInfo</span><span class="p">(</span><span class="n">inAudioFileStream</span><span class="p">,</span>
+        <span class="n">kAudioFileStreamProperty_FormatList</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">formatListSize</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">outWriteable</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">err</span><span class="p">)</span> <span class="p">{</span> <span class="c1">// handle error }
+</span><span class="c1"></span>    
+    <span class="c1">// Get the list of formats itself
+</span><span class="c1"></span>    <span class="n">AudioFormatListItem</span> <span class="o">*</span><span class="n">formatList</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="n">formatListSize</span><span class="p">);</span>
+    <span class="n">err</span> <span class="o">=</span> <span class="n">AudioFileStreamGetProperty</span><span class="p">(</span><span class="n">inAudioFileStream</span><span class="p">,</span> <span class="n">kAudioFileStreamProperty_FormatList</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">formatListSize</span><span class="p">,</span> <span class="n">formatList</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">err</span><span class="p">)</span> <span class="p">{</span> <span class="c1">// handle error }
+</span><span class="c1"></span>
+    <span class="c1">// Look through the list of formats to find HE-AAC if present
+</span><span class="c1"></span>    <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+        <span class="n">i</span> <span class="o">*</span> <span class="nf">sizeof</span><span class="p">(</span><span class="n">AudioFormatListItem</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">formatListSize</span><span class="p">;</span>
+        <span class="n">i</span> <span class="o">+=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">AudioFormatListItem</span><span class="p">))</span>
+    <span class="p">{</span>
+        <span class="n">AudioStreamBasicDescription</span> <span class="n">pasbd</span> <span class="o">=</span> <span class="n">formatList</span><span class="p">[</span><span class="n">i</span><span class="p">].</span><span class="n">mASBD</span><span class="p">;</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">pasbd</span><span class="p">.</span><span class="n">mFormatID</span> <span class="o">==</span> <span class="n">kAudioFormatMPEG4AAC_HE</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="c1">// We&#39;ve found HE-AAC, remember this to tell the audio queue
+</span><span class="c1"></span>            <span class="c1">// when we construct it.
+</span><span class="c1"></span><span class="cp">#if !TARGET_IPHONE_SIMULATOR
+</span><span class="cp"></span>            <span class="n">asbd</span> <span class="o">=</span> <span class="n">pasbd</span><span class="p">;</span>
+<span class="cp">#endif
+</span><span class="cp"></span>            <span class="k">break</span><span class="p">;</span>
+        <span class="p">}</span>                                
+    <span class="p">}</span>
+    <span class="n">free</span><span class="p">(</span><span class="n">formatList</span><span class="p">);</span>
+<span class="p">}</span></code></pre></div>
+
+<p>By default, we get the <code>AudioStreamBasicDescription</code> from the AudioFileStream's <code>kAudioFileStreamProperty_DataFormat</code>. This additional code changes to a different <code>AudioStreamBasicDescription</code> in the case of HE-AAC. Since HE-AAC is the only file format that works in this manner, it is the only special case that appears here.</p><h2>Seeking in an audio file downloaded via HTTP</h2><p>Seeking requires three steps:</p><ol><li>Know the duration of the file to seek within</li><li>Know where you can safely seek</li><li>Perform the seek itself</li></ol><h3>Duration of the file</h3><p>The first might seem easy but unfortunately, <code>AudioFileStream</code> does not give us the duration. We can get the nominal bitrate (only accurate for CBR data), byte counts, packet durations, packet counts and sample rates but none of these give the duration of the file unless you have an accurate bitrate, which we don't.</p><p>Instead, I've added a running average bitrate to AudioStreamer. Between <code>BitRateEstimationMinPackets</code> and <code>BitRateEstimationMaxPackets</code> (these constants are defined at the top of <em>AudioStreamer.m</em>), the bitrate is calculated from the packet sizes:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">double</span> <span class="n">averagePacketByteSize</span> <span class="o">=</span> <span class="n">processedPacketsSizeTotal</span> <span class="o">/</span> <span class="n">processedPacketsCount</span><span class="p">;</span>
+<span class="k">return</span> <span class="mf">8.0</span> <span class="o">*</span> <span class="n">averagePacketByteSize</span> <span class="o">/</span> <span class="n">packetDuration</span><span class="p">;</span></code></pre></div>
+
+<p>Unfortunately, since this average changes over time in all VBR streams, this means that the estimated duration of the file may change by 10% or so for the first 20-30 seconds of playback. In a proper application, you may want to consider an appropriate way to present or conceal this uncertainty for the user.</p><h3>Seek offset in bytes</h3><p>The seek offset for a given time can be obtained from the file's duration and the bitrate.</p><p>However, it is not safe (particularly in an AAC) to seek to an arbitrary location. You must seek to a packet boundary.</p><p>If we want to seek to <code>newSeekTime</code> (a value in seconds), the initial guess at the byte offset for this time might look like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">seekByteOffset</span> <span class="o">=</span> <span class="n">dataOffset</span> <span class="o">+</span> <span class="p">(</span><span class="n">newSeekTime</span> <span class="o">/</span> <span class="nb">self</span><span class="p">.</span><span class="n">duration</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">fileLength</span> <span class="o">-</span> <span class="n">dataOffset</span><span class="p">);</span></code></pre></div>
+
+<p>In this calculation, <code>dataOffset</code> is the start of audio packets within the file, <code>fileLength</code> is the byte size of the whole file and <code>self.duration</code> is the duration in seconds (calculated from the average bitrate and <code>fileLength</code>.</p><p>Now we must round this to the nearest packet boundary.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">double</span> <span class="n">calculatedBitRate</span> <span class="o">=</span> <span class="p">[</span><span class="nb">self</span> <span class="n">calculatedBitRate</span><span class="p">];</span>
+<span class="k">if</span> <span class="p">(</span><span class="n">packetDuration</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span>
+    <span class="n">calculatedBitRate</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kt">UInt32</span> <span class="n">ioFlags</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">SInt64</span> <span class="n">packetAlignedByteOffset</span><span class="p">;</span>
+    <span class="n">SInt64</span> <span class="n">seekPacket</span> <span class="o">=</span> <span class="n">floor</span><span class="p">(</span><span class="n">newSeekTime</span> <span class="o">/</span> <span class="n">packetDuration</span><span class="p">);</span>
+
+    <span class="c1">// Ask the file stream for the boundary for the appropriate packet
+</span><span class="c1"></span>    <span class="n">err</span> <span class="o">=</span> <span class="n">AudioFileStreamSeek</span><span class="p">(</span>
+        <span class="n">audioFileStream</span><span class="p">,</span> <span class="n">seekPacket</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">packetAlignedByteOffset</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">ioFlags</span><span class="p">);</span>
+
+    <span class="c1">// Only use the boundary if it is NOT estimated
+</span><span class="c1"></span>    <span class="c1">// -- otherwise, stay with our first guess
+</span><span class="c1"></span>    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">err</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="p">(</span><span class="n">ioFlags</span> <span class="o">&amp;</span> <span class="n">kAudioFileStreamSeekFlag_OffsetIsEstimated</span><span class="p">))</span>
+    <span class="p">{</span>
+        <span class="n">seekTime</span> <span class="o">-=</span> <span class="p">((</span><span class="n">seekByteOffset</span> <span class="o">-</span> <span class="n">dataOffset</span><span class="p">)</span> <span class="o">-</span> <span class="n">packetAlignedByteOffset</span><span class="p">)</span> <span class="o">*</span> <span class="mf">8.0</span>
+            <span class="o">/</span> <span class="n">calculatedBitRate</span><span class="p">;</span>
+        <span class="n">seekByteOffset</span> <span class="o">=</span> <span class="n">packetAlignedByteOffset</span> <span class="o">+</span> <span class="n">dataOffset</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Notice that we still need to add the <code>dataOffset</code> (the starting offset for audio packets in the stream) to the <code>packetAlignedByteOffset</code> to get a seek-safe byte offset. In my previous post, I mentioned that <code>AudioFileStreamSeek </code>wasn't working for me: it was because I wasn't adding this <code>dataOffset</code> (that you get from the <code>AudioFileStream</code>).</p><h3>Perform the seek</h3><p>With the rounding to a packet boundary, the seek is now done at a byte-level on the HTTP connection itself. By this, I mean I close the existing <code>CFReadStreamRef</code> and reopen a new one with a new <code>CFHTTPMessageRef</code>. With <code>seekByteOffset</code> set to a non-zero value, my code for starting the HTTP connection now enters the following conditional:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">if</span> <span class="p">(</span><span class="n">fileLength</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">seekByteOffset</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="c1">// Set the byte range in the HTTP header for the request
+</span><span class="c1"></span>    <span class="n">CFHTTPMessageSetHeaderFieldValue</span><span class="p">(</span><span class="n">message</span><span class="p">,</span> <span class="n">CFSTR</span><span class="p">(</span><span class="sa"></span><span class="s">&#34;Range&#34;</span><span class="p">),</span>
+        <span class="p">(</span><span class="n">CFStringRef</span><span class="p">)[</span><span class="n">NSString</span> <span class="nl">stringWithFormat</span><span class="p">:</span>
+            <span class="s">@&#34;bytes=%ld-%ld&#34;</span><span class="p">,</span> <span class="n">seekByteOffset</span><span class="p">,</span> <span class="n">fileLength</span><span class="p">]);</span>
+
+    <span class="c1">// flag used to tell the AudioFileStream that I&#39;ve skipped to a new
+</span><span class="c1"></span>    <span class="c1">// location when I next call AudioFileStreamParseBytes
+</span><span class="c1"></span>    <span class="n">discontinuous</span> <span class="o">=</span> <span class="nb">YES</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Obviously, integrating this required a little bit of massaging so that I could restart the HTTP connection without restarting the AudioFileStream or AudioQueue. I do stop the AudioQueue during seeking and restart it when the first new packet is ready to be queued.</p><h2>Limitations</h2><h3>Different formats</h3><p>I have tested this code with exactly 1 MP3 file, 1 AAC file and 1 HE-AAC file. There are thousands of variations of these formats which may still break the code. You will need to test your own files and ensure they work.</p><blockquote><strong>Testing/debugging note:</strong> If you get an error in <code>AudioStreamer</code>, set a breakpoint in <code>failWithErrorCode:</code> &mdash; all errors in AudioStreamer should go through this method so you should be able to look at the previous frame in the stack and see what line caused the error.</blockquote><h3>Progressive download</h3><p>This class does not cache anything to disk. If you want progressive download instead of live streaming, you'd need to save the data from the <code>CFReadStreamRef</code> or better yet, download the file separately and open the still-downloading file as a <code>CFReadStreamRef</code> and feed it into AudioStreamer.</p><h3>Multiple audio files at once</h3><p>The iPhone can only decode 1 MP3 or AAC file at a time. That's a hardware limitation.</p><p>The Mac can decode as many as the CPU will allow. Go crazy.</p><h3>Metadata</h3><p>There is still no support for ID3 metdata in <code>AudioStreamer</code>, since <code>AudioFileStream</code> does not support it.</p><p>If you absolutely need metadata from the file, then the only possible way to get it is to save all the data downloaded up until the first packet and use a different library (like FFmpeg's libavformat) to parse the metadata. It's not an easy task &mdash; if at all possible, it would be better to get the metadata another way.</p><h2>Conclusion</h2><blockquote>The full AudioStreamer class, along with projects for the Mac and iPhone, is available on github: <a href="http://github.com/mattgallagher/AudioStreamer/zipball/master">AudioStreamer</a> (you can also <a href="http://github.com/mattgallagher/AudioStreamer">browse the source code repository</a>).</blockquote><p>While the code I've added this time is fairly brief, some of it is very hard to find elsewhere (I was unable to find anyone using <code>AudioFileStreamSeek</code> correctly anywhere).</p><p>My original goal with AudioStreamer was to handle live streams &mdash; MP3 sources without a beginning or an end &mdash; so seeking and HE-AAC files were not my priority. However, it appears that lots of people are using the <code>AudioStreamer</code> code as a starting point for their iPhone applications with fixed length files, so I've taken the time here to add the most requested features for these people.</p><p>None of these changes should affect files with indeterminate length which should continue to function as before.</p></span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="dynamic-ivars-solving-fragile-base.html">Dynamic ivars: solving a fragile base class problem</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../04/streamtome-is-available-for-ipad.html">StreamToMe is available for the iPad!</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

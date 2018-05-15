@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Revisiting an old post: Streaming and playing an MP3 stream</title>
+  <meta name="description" content="Given the attention it received and the number of bugs I know it contained, I wanted to revisit an old post of mine: Streaming and playing an MP3 stream. In this post, I&#39;ll talk about the problems the original contained, how I fixed those problems and I&#39;ll present the updated result." />
+
+  <meta name="twitter:title" content="Revisiting an old post: Streaming and playing an MP3 stream"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/06/revisiting-old-post-streaming-and.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Given the attention it received and the number of bugs I know it contained, I wanted to revisit an old post of mine: Streaming and playing an MP3 stream. In this post, I&#39;ll talk about the problems the original contained, how I fixed those problems and I&#39;ll present the updated result."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="revisiting-old-post-streaming-and.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Revisiting an old post: Streaming and playing an MP3 stream</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-06-17">June 17, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/coreaudio.html">CoreAudio</a>, <a href="../../categories/uikit.html">UIKit</a>, <a href="../../categories/appkit.html">AppKit</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>Given the attention it received and the number of bugs I know it contained, I wanted to revisit an old post of mine: Streaming and playing an MP3 stream. In this post, I'll talk about the problems the original contained, how I fixed those problems and I'll present the updated result.</p></span>
+
+<span class="fullpost">
+<h2>Introduction</h2>
+<p>Last September, I wrote a post titled "<a href="../../2008/09/streaming-and-playing-live-mp3-stream.html">Streaming and playing an MP3 stream</a>". The post was largely an experiment &mdash; I just wanted to see if I could play a streaming MP3 by quickly adapting Apple's AudioFileStreamExample to accept an HTTP data stream.</p>
+
+<p>Unexpectedly, the post became one of my most popular. The attention quickly revealed the limitations in my approach:</p>
+
+<ul>
+<li>The blend of Objective-C and C was muddled and led to a situation where neither were being used cleanly.</li>
+<li>The boolean flags I copied from the original example were a bad way to describe the playback state and lots of situations were not covered by these flags.</li>
+<li>Sending notifications to the user-interface on a thread that isn't the main thread causes problems.</li>
+<li>The extra thread I added (the download thread) was never thread-safe.</li>
+</ul>
+
+<p>I've finally decided to take the time to present a solution to these issues and present an approach which is a little more robust and a little easier to extend if needed.</p>
+
+<blockquote>You can download the complete <a href="http://github.com/mattgallagher/AudioStreamer/zipball/master">AudioStreamer project as a zip file</a> (around 110kB) which contains Xcode projects for both iPhone and Mac OS. You can also <a href="http://github.com/mattgallagher/AudioStreamer">browse the source code repository</a>.</blockquote>
+
+<h2>Limited scope</h2>
+
+<p>One point should be clarified before I continue: this class is intended for <em>streaming</em> audio. By streaming, I don't simply mean "an audio file transferred over HTTP". Instead, I mean a continuous HTTP source without an end that continues indefinitely (like a radio station, not a single song).</p>
+
+<p>Yes, this class will handle fixed-length files transferred over HTTP but it is not ideal for the task.</p>
+
+<p>This class does not handle:</p>
+
+<ol>
+<li>Buffering of data to a file</li>
+<li>Seeking within downloaded data</li>
+<li>Feedback about the total length of the file</li>
+<li>Parsing of ID3 metadata</li>
+</ol>
+
+<p>These things often can't be done on streaming data, so this class doesn't try. See the "Adding other functionality" section for hints about how the class could be reorganised to handle some of these features.</p>
+
+<h2>Taking code out of C functions</h2>
+
+<p>Since I had borrowed the <code>AudioFileStream</code> and <code>AudioQueue</code> callback functions from Apple's example, they were Standard C.</p>
+
+<p>My first change was to make these 6 callback functions (7 including the <code>CFReadStream</code> callback) little more than wrappers around Objective-C methods:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">void</span> <span class="nf">MyPacketsProc</span><span class="p">(</span>
+    <span class="kt">void</span> <span class="o">*</span><span class="n">inClientData</span><span class="p">,</span>
+    <span class="kt">UInt32</span> <span class="n">inNumberBytes</span><span class="p">,</span>
+    <span class="kt">UInt32</span> <span class="n">inNumberPackets</span><span class="p">,</span>
+    <span class="k">const</span> <span class="kt">void</span> <span class="o">*</span><span class="n">inInputData</span><span class="p">,</span>
+    <span class="n">AudioStreamPacketDescription</span> <span class="o">*</span><span class="n">inPacketDescriptions</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="c1">// this is called by audio file stream when it finds packets of audio
+</span><span class="c1"></span>    <span class="n">AudioStreamer</span><span class="o">*</span> <span class="n">streamer</span> <span class="o">=</span> <span class="p">(</span><span class="n">AudioStreamer</span> <span class="o">*</span><span class="p">)</span><span class="n">inClientData</span><span class="p">;</span>
+    <span class="p">[</span><span class="n">streamer</span>
+        <span class="nl">handleAudioPackets</span><span class="p">:</span><span class="n">inInputData</span>
+        <span class="nl">numberBytes</span><span class="p">:</span><span class="n">inNumberBytes</span>
+        <span class="nl">numberPackets</span><span class="p">:</span><span class="n">inNumberPackets</span>
+        <span class="nl">packetDescriptions</span><span class="p">:</span><span class="n">inPacketDescriptions</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>At a compiled code level, this is a step backwards: all I've done is slowed the program down by an extra Objective-C message send.</p>
+
+<p>Technically, a C function that takes a "context" pointer (like the <code>inClientData</code> pointer here) is not significantly different to a method. What a method does is makes data hiding and data abstracted actions easier. Within a method, you can easily access the instance variables of an object and you don't need to explicitly pass context into each function.</p>
+
+<p>This is the cliché argument in favor of object-orientation &mdash; but it isn't why I reorganized these functions and methods.</p>
+
+<p>The honest reason why I did it is aesthetics: it is easier to read a class that is implemented using Objective-C methods alone &mdash; it's more consistent. I chose to move towards an Objective-C aesthetic and away from the Standard C aesthetic of the CoreAudio sample code to promote consistent formatting, consistent means of accessing state variables, consistent ways of invoking methods and consistent ways of synchronizing access to the class.</p>
+
+<h2>Describing state</h2>
+
+<p>With the majority of code now inside the class, I was in a better position to start handling changes through methods rather than direct member access.</p>
+
+<p>My original approach to state came from Apple's original example. This example had just one piece of state: a <code>bool</code> named <code>finished</code> (which indicated that the run loop should exit).</p>
+
+<p>The problem with this flag is how simple it is. It is unable to distinguish between the following:</p>
+
+<ol>
+<li>End of file, normal automatic stop.</li>
+<li>The user has asked the <code>AudioStreamer</code> to stop but the <code>AudioQueue</code> thread has not yet responded.</li>
+<li>An error has occurred before the <code>AudioQueue</code> thread is created and we must exit.</li>
+<li>We are stopping the <code>AudioQueue</code> for temporary reasons (clearing it, changing device, seeking to a new point) but we don't want the loop to stop.</li>
+</ol>
+
+<p>For Apple's example, there was no problem: the first case was the only one that ever occurred.</p>
+
+<p>As a hasty solution, I had added <code>started</code> and <code>failed</code> flags but these really only covered the first and third case adequately.</p>
+
+<p>In the end, I realized that the <code>AudioStreamer</code> needed much more descriptive state where every combination of progress within each thread had a different position:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">typedef</span> <span class="k">enum</span>
+<span class="p">{</span>
+    <span class="n">AS_INITIALIZED</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="n">AS_STARTING_FILE_THREAD</span><span class="p">,</span>
+    <span class="n">AS_WAITING_FOR_DATA</span><span class="p">,</span>
+    <span class="n">AS_WAITING_FOR_QUEUE_TO_START</span><span class="p">,</span>
+    <span class="n">AS_PLAYING</span><span class="p">,</span>
+    <span class="n">AS_BUFFERING</span><span class="p">,</span>
+    <span class="n">AS_STOPPING</span><span class="p">,</span>
+    <span class="n">AS_STOPPED</span><span class="p">,</span>
+    <span class="n">AS_PAUSED</span>
+<span class="p">}</span> <span class="n">AudioStreamerState</span><span class="p">;</span></code></pre></div>
+
+<p>and when stopping, one of the following values would also be needed:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">typedef</span> <span class="k">enum</span>
+<span class="p">{</span>
+    <span class="n">AS_NO_STOP</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="n">AS_STOPPING_EOF</span><span class="p">,</span>
+    <span class="n">AS_STOPPING_USER_ACTION</span><span class="p">,</span>
+    <span class="n">AS_STOPPING_ERROR</span><span class="p">,</span>
+    <span class="n">AS_STOPPING_TEMPORARILY</span>
+<span class="p">}</span> <span class="n">AudioStreamerStopReason</span><span class="p">;</span></code></pre></div>
+
+<p>In this way, the state always describes where every thread is and the stop reason explains why a transition is occurring.</p>
+
+<p>Combining this with an error code that replaces the old <code>failed</code> flag, I now have a complete desription of the state.</p>
+
+<p>By cleaning up the state of the object, I was able to make the object capable of state transitions that weren't previously possible including pausing/unpausing and returning to the <code>AS_INITIALIZED</code> state after a stop (instead of requiring that the class be released after stopping).</p>
+
+<h2>Notifications</h2>
+
+<p>In the old version of the project the only way for the user-interface to follow the playback state was to observe the <code>isPlaying</code> property on the object which reflected the <code>kAudioQueueProperty_IsRunning</code> property of the AudioQueue.</p>
+
+<p>This observing was handled through KeyValueObserving. I'm a big fan of KeyValueObserving for its simplicity and ubiquity but this was not the correct place to use it.</p>
+
+<p>KeyValueObserving always invokes the observer methods in the same thread as the change. Since all changes in AudioStreamer happen in secondary threads, this means that the observer methods were getting invoked in secondary threads.</p>
+
+<p>Why is this bad? A minor drawback is simply the unexpectedness for the observer but the biggest reason was that the sole purpose of observing this property was to update the user-interface and the user-interface on the iPhone cannot be updated from any thread except the main thread. Even on the Mac, performing updates off the main thread can have unexpected and glitchy results.</p>
+
+<p>The solution is to retain the <code>NSNotificationCenter</code> of the thread that first calls <code>start</code> on the object and use this center to send messages as follows:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSNotification</span> <span class="o">*</span><span class="n">notification</span> <span class="o">=</span>
+    <span class="p">[</span><span class="n">NSNotification</span>
+        <span class="nl">notificationWithName</span><span class="p">:</span><span class="n">ASStatusChangedNotification</span>
+        <span class="nl">object</span><span class="p">:</span><span class="nb">self</span><span class="p">];</span>
+<span class="p">[</span><span class="n">notificationCenter</span>
+    <span class="nl">performSelector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="nl">postNotification</span><span class="p">:)</span>
+    <span class="nl">onThread</span><span class="p">:[</span><span class="n">NSThread</span> <span class="n">mainThread</span><span class="p">]</span>
+    <span class="nl">withObject</span><span class="p">:</span><span class="n">notification</span>
+    <span class="nl">waitUntilDone</span><span class="p">:</span><span class="nb">NO</span><span class="p">];</span></code></pre></div>
+
+<p>Don't invoke <code>postNotification:</code> directly from the secondary thread as, like most methods, it is not thread safe and it could be in use from the main thread.</p>
+
+<h2>Thread safety</h2>
+
+<p>Despite adding an extra thread on top of Apple's AudioFileStreamExample, I never really spent any time thinking about thread safety &mdash; a reckless approach to stability. In my defence Apple's example wasn't exactly cautious with its threads and would quit while the <code>AudioQueue</code>'s thread was still playing the last buffer.</p>
+
+<p>The most efficient approach to threading is to carefully enter <code>@synchronized</code> (or <code>NSLock</code> or <code>pthread_mutex_lock</code>) in a tight region around any use of a shared variable.</p>
+
+<p>Unfortunately for the <code>AudioStreamer</code> class, almost everything in the class is shared. Instead, I decided to go for the decidedly less efficient approach of running almost everything in the class within a <code>@synchronized</code> section, emerging only at points when control must be yielded to other threads.</p>
+
+<p>The drawback is that the code rarely runs simultaneously on multiple threads (although threading here is for blocking and I/O, not for multi-threaded performance reasons so that's not a probem). The advantage with this heavy-handed locking approach is that the only threading condition that may cause problems are deadlocks.</p>
+
+<p>When do deadlocks occurs? Only when you're waiting for another thread to do something while you're inside the synchronized section needed by that other thread. The simple solution: never wait for another thread inside a synchronized section.</p>
+
+<p><code>AudioStreamer</code> has three situations where 1 thread waits for another:</p>
+
+<ol>
+<li>The run loop (the <code>AudioFileStream</code> thread waits for any kind of control communication from the main thread or playback finished notification from the <code>AudioQueue</code> thread).</li>
+<li>The <code>enqueueBuffer</code> method (<code>AudioFileStream</code> thread waits for the <code>AudioQueue</code> thread to free up a buffer).</li>
+<li>Synchronous <code>AudioQueueStop</code> invocations (waits for the <code>AudioQueue</code> to release all buffers).</li>
+</ol>
+
+<p>The first two points are easy: perform these actions (any any method invocation which invokes them) outside of the <code>@synchronized</code> section.</p>
+
+<p>The final point is harder: the synchronous stop must be performed inside the <code>@synchronized</code> section to prevent multiple <code>AudioQueueStop</code> actions occurring at once. To address this, the release of buffers by the <code>AudioQueue</code> (in <code>handleBufferCompleteForQueue:buffer:</code>) must perform its work without entering the <code>@synchronized</code> section (although it's allowed to use the <code>queueBuffersMutex</code> as normal since that isn't used by anything else during a synchronous stop).</p>
+
+<p>Of course, every time the <code>@sychronized</code> section is re-entered, a check must be performed to see if "control communication" has occurred (the class checks this by invoking the <code>isFinishing</code> method and exiting if it returns <code>YES</code>).</p>
+
+<h2>Adding other functionality</h2>
+
+<h3>Get metadata</h3>
+
+<p>The easiest source of metadata comes from the HTTP headers. Inside the <code>handleReadFromStream:eventType:</code> method, use <code>CFReadStreamCopyProperty</code> to copy the <code>kCFStreamPropertyHTTPResponseHeader</code> property from the <code>CFReadStreamRef</code>, then you can use <code>CFHTTPMessageCopyAllHeaderFields</code> to copy the header fields out of the response. For many streaming audio servers, the stream name is one of these fields.</p>
+
+<p>The considerably harder source of metadata are the ID3 tags. ID3v1 is always at the end of the file (so is useless when streaming). ID3v2 is located at the start so may be more accessible.</p>
+
+<p>I've never read the ID3 tags but I suspect that if you cache the first few hundred kilobytes of the file somewhere as it loads, open that cache with <code>AudioFileOpenWithCallbacks</code> and then read the <code>kAudioFilePropertyID3Tag</code> with <code>AudioFileGetProperty</code> you may be able to read the ID3 data (if it exists). Like I said though: I've never actually done this so I don't know for certain that it would work.</p>
+
+<h3>Stream fixed-length files</h3>
+
+<p>The biggest variation you may want to make to the class is to download fixed-length files, rather than streaming audio.</p>
+
+<p>To handle this, the best approach is to remove the download from the class entirely. Download elsewhere and when "enough" (an amount you should determine on your own) of the file is downloaded, start a variation of the class that plays by streaming from a file on disk.</p>
+
+<p>To adapt the class for streaming from a file on disk, remove the <code>CFHTTPMessageRef</code> and <code>CFReadStreamRef</code> code from <code>openFileStream</code> and replace it with <code>NSFileHandle</code> code that uses <code>waitForDataInBackgroundAndNotify</code> to asynchronously stream the file in the same way that <code>CFReadStreamRef</code> streamed the network data.</p>
+
+<p>Once you're streaming from a file, you'll probably want to permit seeking within the file. I've already put hooks within the file to seek (set the <code>seekNeeded</code> flag to true and set the <code>seekTime</code> to the time in seconds to which you want to seek) &mdash; however, the mechanics of seeking within the file would be dependent on how you access the file.</p>
+
+<p>Incidentally, the <code>AudioFileStreamSeek</code> function seems completely broken. If you can't get it to work (as I couldn't) just seek to a new point in the file, set <code>discontinuous</code> to <code>true</code> and let <code>AudioFileStream</code> deal with it.</p>
+
+<h3>Handling data interruptions</h3>
+
+<p>At the moment, if the <code>AudioQueue</code> has no more buffers to play, the state will transition to <code>AS_BUFFERING</code>. At this point, no specific action is taken to resolve this situation &mdash; it assumes that the network will eventually resume and requeue enough buffers.</p>
+
+<p>I actually expect there will be cases where this action is insufficient &mdash; you may need to ensure that the <code>AudioQueue</code> is paused until enough buffers are filled before resuming or even restart the download entirely. I haven't experimented much since it is easiest with streaming audio just to stop and start new.</p>
+
+<p>Incidentally, if you're curious to know how many audio buffers are in use at any given time, uncomment the <code>NSLog</code> line in the <code>handleBufferCompleteForQueue:buffer:</code> method. This will log how many 1 kilobyte audio buffers are queued waiting for playback (when the queue reaches zero, the <code>AudioStreamer</code> enters the <code>AS_BUFFERING</code> state).</p>
+
+<h2>Conclusion</h2>
+
+<blockquote>You can download the complete <a href="http://github.com/mattgallagher/AudioStreamer/zipball/master">AudioStreamer project as a zip file</a> (around 110kB) which contains Xcode projects for both iPhone and Mac OS. You can also <a href="http://github.com/mattgallagher/AudioStreamer">browse the source code repository</a>.</blockquote>
+
+<p>The functionality of this new version has not changed greatly &mdash; my purposed was to present a version that is more stable and tolerant of unexpected situations, rather than add new features.</p>
+
+<p>As before, the AudioStreamer class should work on Mac OS X 10.5 and on the iPhone (SDK 2.0 and greater).</p>
+
+<p>The source repository is hosted on github so you can browse, fork or track updates as you choose. I will likely update again in future (I can't imagine I've written this much code without causing more problems) and this way, you can see the changes I've made.</p>
+
+<p>I hope this post has shown you a number of problems that can happen when code is written hastily. This doesn't mean you should always avoid hastily written code (timeliness and proof of concepts are important) but it does mean you should be practised at refactoring code and not simply slap poor fixes onto code that doesn't cleanly solve a problem in the first place.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="method-names-in-objective-c.html">Method names in Objective-C</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="verifying-that-string-is-email-address.html">Verifying that a string contains an email address using NSPredicate</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

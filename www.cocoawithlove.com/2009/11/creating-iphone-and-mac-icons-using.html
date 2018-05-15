@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Creating iPhone and Mac icons using Inkscape (Part 1 of 2)</title>
+  <meta name="description" content="In this two part series, I&#39;ll give a beginner&#39;s guide to creating iPhone and Mac application icons using Inkscape &amp;mdash; a free, vector illustration program. In this first part, I&#39;ll talk about the common styles and traits of icons on the Mac and iPhone and give a step-by-step guide to creating the first iPhone icon in Inkscape." />
+
+  <meta name="twitter:title" content="Creating iPhone and Mac icons using Inkscape (Part 1 of 2)"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/11/creating-iphone-and-mac-icons-using.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="In this two part series, I&#39;ll give a beginner&#39;s guide to creating iPhone and Mac application icons using Inkscape &amp;mdash; a free, vector illustration program. In this first part, I&#39;ll talk about the common styles and traits of icons on the Mac and iPhone and give a step-by-step guide to creating the first iPhone icon in Inkscape."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="creating-iphone-and-mac-icons-using.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="118px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Creating iPhone and Mac icons using Inkscape (Part 1 of 2)</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-11-03">November 3, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/graphics.html">graphics</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>In this two part series, I'll give a beginner's guide to creating iPhone and Mac application icons using Inkscape &mdash; a free, vector illustration program. In this first part, I'll talk about the common styles and traits of icons on the Mac and iPhone and give a step-by-step guide to creating the first iPhone icon in Inkscape.</p></span>
+
+<span class="fullpost">
+
+<h2>Introduction</h2>
+
+<p>This series will cover the creation of the following different icons:</p>
+
+<img src="../../assets/objc-era/all-icons.png" width="550" height="111" />
+
+<p>Only the first icon will be created in this part. The remaining four will be covered in the second part.</p>
+
+<p>It may seem strange to be covering icon creation in a Cocoa programming blog but the icon is an important part of an application and Cocoa is primarily an application programming environment. While larger development teams have dedicated graphic artists to create icons and other artwork assets, the reality is that on smaller teams or on solo projects, a programmer may need to create icons themselves.</p>
+
+<p>The goal of this series is to show non-graphics professionals how to create graphics of an acceptable level for their applications that follow the established visual trends for iPhone and Mac apps.</p>
+
+<h2>A vector approach</h2>
+
+<p>This post is partly a response to <a href="http://elitebydesign.com/design-the-itunes-icon-for-the-iphone-and-ipod-touch/">Elite By Design's "Design The iTunes Icon For The iPhone And iPod Touch"</a> which produced an iTunes-style icon at 125x125 pixels in Photoshop.</p>
+
+<p>I wanted to show an alternative approach to the one suggested in that article. This alternative approach has the following advantages:</p>
+<ul>
+<li>Entirely vector artwork, so it will scale from 57x57 pixels up to 512x512 pixels as required for App Store submissions.</li>
+<li>Rounded corners and gloss are applied to a separate clone of the base artwork so the submission to Apple can be non-prerendered if you choose.</li>
+<li>Created using free software as non-professional artists don't always have access to Photoshop.</li>
+</ul>
+
+<p>In addition to detailing iPhone icon creation, the second part will also cover basic Mac icon design.</p>
+
+<h2>Established styles</h2>
+
+<p>I continue to be surprised when I look at screenshots of the Windows 7 taskbar.</p>
+
+<img src="../../assets/objc-era/window7taskbar.png" width="250" height="40" />
+
+<p>These are the first four icons that a Windows 7 user sees and they are the strangest collection of graphics I've ever seen. They share no obvious visual style; they are all drawn with different perspective, they all have different weights, some are glossy while others are matte, some have line edges while others are self-edged (no lines) and they don't share a color palette.</p>
+
+<h3>Icon styles on the Mac</h3>
+
+<p>By contrast, icons on the Mac tend to have more in common:</p>
+
+<img src="../../assets/objc-era/dock-icons.png" width="521" height="78" />
+
+<p>Ignoring the "Finder" icon (which is actually the "Mac OS" icon and predates Mac OS X by about 5 years), these icons come in three distinct styles:</p>
+
+<ul><li>Document applications (rectangular background angled 5-10&deg; left).</li>
+<li>Appliance applications (round &mdash; or at least non-rectangular &mdash; background).</li>
+<li>Utilities (orthogonal rectangular background).</li></ul>
+
+<p>Originally, Apple had the guideline that utilities should look like they were "items sitting on a shelf" but only the disk utitilies still follow that guideline.</p>
+
+<p>In addition to these three categories, the icons tend to:</p>
+
+<ul><li>Have approximately the same weight (fill roughly the same amount of their visual area).</li>
+<li>Use soft gradients, sometimes (but not always) with a light gloss or highlight.</li>
+<li>Use a generally bright but slightly desaturated palette of grays, azure blues, desaturated reds and sandy yellows (utility apps tend to use more blacks and darker colors).</li>
+<li>Indicate their function or concept with an overlayed or nested element.</li>
+<li>Are self-edged and have almost no internal lines (the outline of the icon is sometimes edged for contrast)</li></ul>
+
+<p>Of course, none of these are immutable but following them will make it easier to create a simple icon that looks like it belongs on the Mac.</p>
+
+<h3>Icon styles on the iPhone</h3>
+
+<p>The iPhone has a style that is distinct from the Mac:</p>
+
+<img src="../../assets/objc-era/iphone-home-screen.png" width="240" height="360" />
+
+<p>Aside from the obvious round cornered background and top-down gloss effect, iPhone icons tend to use:</p>
+
+<ul><li>Strongly saturated colors</li>
+<li>A bright gradient or colorburst in the background</li>
+<li>White silhouetted representative elements over the background</li></ul>
+
+<p>There is certainly variation and some icons that follow their own rules entirely (the "Notes" and "App Store" icons have little in common other than the rounded corners) but the easiest path to creating an icon that looks like it belongs on the iPhone is to incorporate these elements.</p>
+
+<h2>Inkscape</h2>
+
+<p>The tool that I will use to create the icons is Inkscape. Inkscape is a GPL-licensed SVG-based vector illustration program that you can download from <a href="http://www.inkscape.org/">inkscape.org</a>. It is available in a Universal binary for Mac OS X 10.3.9 and newer.</p>
+
+<a href="http://inkscape.org"><img src="../../assets/objc-era/inkscape.png" width="208" height="241" /></a>
+
+<p style="text-align:center;"><em>A nice multi-purpose icon but clearly not designed with "standard Mac app" as its primary goal.</em></p>
+
+<p>You will need X11 installed and pre-Snow Leopard users will need an updated version of X11 (download new versions from here: <a href="http://xquartz.macosforge.org/">http://xquartz.macosforge.org/</a>).</p>
+
+<p>Yes, Inkscape is an X11 program, which means that Open/Save dialogs are non-standard, windows may not come to the front when you expect them too and keyboard shortcuts are all Control-X instead of Command-X. Despite this, Inkscape is generally a good program &mdash; certainly far better than most X11 applications on the Mac.</p>
+
+<p>If you prefer a different illustration program, most of the techniques in this guide will apply. The Filter Effects and the Path Effects are probably the points that will be most different but I'm sure you can find alternatives.</p>
+
+<h2>Page area</h2>
+
+<p>Let's start with a blank document in Inkscape.</p>
+
+<p>A new document will appear when you start Inkscape or you can create a new document from the "File"&rarr;"New"&rarr;"Default" menu.</p>
+
+<p>Go to the "File"&rarr;"Document Properties". Set the Default Units to "px" and the custom document size to 57 by 57.</p>
+
+<p>The reason why we set the units and use the actual pixel sizes in a vector program is this will let us align points to whole value boundaries and avoid unnecessary anti-aliasing. For example, drawing a shape with its edge at Y=0.5 will cause the actual shape border to anti-alias across two different pixels when we render at 57x57 pixels but if we set the shape border's Y coordinates to 1.0, it won't have this problem.</p>
+
+<p>The page area will now look tiny in the window. You can zoom in using the middle mouse button (click and drag with the middle mouse button to pan) or the "+" key. Alternately, you can zoom the document area to fill the window by pressing the "5" key.</p>
+
+<blockquote><strong>Zooming</strong>: you will need to be comfortable with zooming in the program. The "+" and "-" keys will zoom in and out at any time. The 3 key will zoom to the selection and 4 will show all drawn elements. Clicking and dragging the middle mouse button will pan the document, clicking the middle mouse button will zoom and shift-middle mouse will zoom out.</blockquote>
+
+<h2>Creating the glossy round rectangle</h2>
+
+<p>The Tool Area is the column of buttons down the left side of the window. The 5th tool from the top is the rectangle tool.</p>
+
+<h3>Red round rectangle</h3>
+
+<p>Using the rectangle tool, drag out a rectangle to fill the document area.</p>
+
+<p>Open the Fill and Stroke palette (menu item "Object"&rarr;"Fill and Stroke" or Control-Shift-F). With the rectangle we created selected in the window, select the Stroke tab of the Fill and Stroke Palette. Make certain there is no stroke (the "X" icon should be selected). Select the Fill tab of the palette. Set a solid color fill (the solid square icon) and use the sliders to set a bright red fill (this is just so that we can see the shape easily).</p>
+
+<img src="../../assets/objc-era/fill-and-stroke-palette.png" width="450" height="287" />
+
+<blockquote><strong>Quick colors</strong>: you can also set solid fill and stroke colors on the selected object by left clicking (fill) or shift-left-clicking (stroke) a swatch at the bottom of the window.</blockquote>
+
+<p>We now need to edit the rectangle properties. Using the rectangle tool again, click the rectangle to select it (if it isn't already selected). In rectangle edit mode, a toolbar will appear at the top of the window labelled "Change" with coordinates "W", "H", "Rx" and "Ry". Set the "W" and "H" to 57 &mdash; this will make the rectangle exactly 57 pixels wide and high (if the rectangle auto-locked to the edges of the document, these values may already be set). Set the "Rx" and "Ry" to 10 &mdash; this will set the corner radii to 10 (a round rect).</p>
+
+<img src="../../assets/objc-era/round-rect.png" width="455" height="380" />
+
+<blockquote><strong>Numerical accuracy</strong>: I'm going to quote a lot of coordinates and color values in this post but this is only so I can communicate what I'm doing. Most of the time, you do not need to be pixel accurate and can do things more approximately if you prefer.</blockquote>
+
+<p>Using the selection tool (the first tool in the Tool Area) select the rectangle. The object's "X" and "Y" coordinates will appear in the toolbar at the top. Set these to zero. The rectangle is now exactly the size of the document with round corners.</p>
+
+<h3>The gloss round rectangle</h3>
+
+<p>Copy the red round rectangle object (select it and press Control-C) and paste it (Control-V) somewhere else (when pasted, the object will be centered where the mouse is, so place the mouse over a different part of the document).</p>
+
+<blockquote><strong>Copy and Paste bug</strong>: if the Copy and Paste fails (you get a bitmap instead of a proper editable object or nothing seems to happen), then you may be seeing a bug in Inkscape due to recent X11 changes. To work around this bug, go to the X11 preferences and on the Pasteboard tab, disable "Update Pasteboard when CLIPBOARD changes". Alternatively, you can use "Edit"&rarr;"Duplicate" to duplicate without copying.</blockquote>
+
+<p>With the copy selected, go to the Fill tab of the Fill and Stroke palette. Set a radial fill for the object (4th icon from the left at the top). If you've set the red color, then the radial gradient will initially look like a red dot fading outwards.</p>
+
+<p>Click the "Edit" button in the Fill tab to edit the gradient. In the "Gradient Editor" that appears, the popup menu at the top will contain two items (the opaque red color and the fully transparent red color). Hit the "Add Stop" button twice to add two extra items in the gradient.</p>
+
+<p>Edit the topmost item in the list of colors (the opaque red color) and set it to white with an alpha value of 86. Set the second item to white with an alpha of 75. Set the third to black with an alpha of 60. Set the final item to white aith an alpha of 0.</p>
+
+<p>You also need to set the offset of the two middle colors. The black color should have an offset of 0.63. The white color should have an offset of 0.62.</p>
+
+<p>This round rectangle should now look like a faint gray donut. Select it and set its "X" and "Y" coordinates to (0,0) (so that it perfectly overlaps the original red round rectangle).</p>
+
+<p>With the faint gray donut selected, choose the Gradient Tool (second last in the Tool Area &mdash; if your vertical screen resolution isn't very high, you may need to select the Gradient Tool from the popup menu at the bottom of the Tool Area). An "L" shape of control points should appear over the donut.</p>
+
+<p>Drag the control point that appears in the middle of the donut to the middle of the top edge of the round rect (it should lock onto the point with the text "Handle to bounding box").</p>
+
+<p>Drag the round control point at the end of the horizontal arm of the "L" to X=-50. You can see the "X" value of the cursor at the bottom right of the window. Hold down the "Control" key while doing this to ensure that the "Y" value remains the same. Similarly, drag the round control point at the end of the vertical arm to Y=12.</p>
+
+<img src="../../assets/objc-era/gradient-control-points.png" width="500" height="270" />
+
+<p>On the Stroke tab of the Fill and Stroke palette, set a linear gradient stroke (third icon from the left at the top) for the gloss object. On the Stroke Style tab, set the line width to 1.0 px.</p>
+
+<p>On the Stroke tab, edit the gradient. Set the start color to white and the end color to RGBA=(255,255,255,0). Using the Gradient Tool, select the gloss object. There should now be an extra set of control points in a horizontal line across the middle of the object corresponding to the stroke's gradient. Drag the start point  of this line (square control point) to the top right corner of the object and the end point of the line (circular control point) to a position three quarters the way up the right-hand side of the object.</p>
+
+<img src="../../assets/objc-era/stroke-gradient.png" width="550" height="360" />
+
+<p>Since the stroke added to the gloss object changed the size of the object, you will need to re-set the size of the gloss object to 57x57 at X,Y=(0,0).</p>
+
+<p>You should now have a glossy red round rectangle in the style of an iPhone icon. If you know what you're doing in Inkscape, you can move these objects to another layer and hide them now however, it's probably easiest just to save this document and copy these objects when they are needed later.</p>
+
+<h2>The first iPhone icon</h2>
+
+<h3>Blue-green background</h3>
+
+<p>Create a 57 by 57 rectangle at X,Y=(0,0) again, using the same approach as the red rectangle from the previous section but leave the corners square (you may need to explicitly set Rx and Ry to zero since it may remember the radius from before).</p>
+
+<p>Set the fill of this rectangle to a linear gradient (third icon from the left at the top of the Fill tab in the Fill and Stroke palette). Edit the gradient and set the start point to RGBA=(15,112,126,255) and the end point to RGBA=(0,0,53,255).</p>
+
+<p>Using the Gradient Tool from the Tool Area, select the rectangle and drag the gradient starting point (the square control point) to the center of the bottom edge of the rectangle. Drag the gradient end point (the round control point) to the center of the top edge of the rectangle.</p>
+
+<img src="../../assets/objc-era/blue-green-gradient.png" width="550" height="407" />
+
+<blockquote><strong>Gradient colors</strong>: almost every gradient you use should involve a hue shift. When you want an actual 3D or lighting effect, you can also apply a luminance shift. The gradient here shifts from blue into the green direction as it lightens (a common choice). The other most common gradient would probably be from a darker red or orange towards a lighter yellowy orange. Hues on the green side of yellow or purple hues are rarely ever used.</blockquote>
+
+<h3>Starburst object</h3>
+
+<p>Now, using the Stars and Polygons tool from the Tool Area (8th from the top) and drag out a shape (it will probably appear as a 5 point star &mdash; if it isn't a star, click the star icon in the top toolbar). With the Stars and Polygons tool and the object still selected, you should be able to edit the properties of the star. Set the number of corners to 350, the spoke ratio to 0.3 and the Randomized property to 0.015. Choose the Select and Transform tool (first tool in the Tool Area) and select the star. You can now set the width and height both to 87 and the X,Y to (-15,-15).</p>
+
+<p>In the Fill and Stoke palette, set the opacity of the star to 50%.</p>
+
+<p>Then, set a radial fill on the star from a start color of RGBA=(255,255,255,0) to an end color of RGBA=(0,235,255,255). This radial gradient fades out in the middle which will help the checkbox stand out from the background more.</p>
+
+<h3>A blur effect on the starburst</h3>
+
+<p>With the star object still selected, select the menu item "Filters"&rarr;"ABCs"&rarr;"Simple Blur". Then select the "Filters"&rarr;"Filter Editor..." menu item. This will display the Filter Editor palette.</p>
+
+<blockquote><strong>Space limitations</strong>: If the Fill and Stroke Palette is still showing when the Filter Editor appears, you'll notice that they don't fit well together down the right margin. I recommend you either close the Fill and Stroke Editor or drag the Filter Editor off into its own window.</blockquote>
+
+<p>There should be one filter listed in the list of filters &mdash; this is the filter you just created. When you select the filter in the list, the Effect "Gaussian Blur" will appear in the Effect column at the right. Select the Gaussian Blur and the "Effect Parameters" tab will appear at the bottom. Set the "Standard Deviation" to 0.25.</p>
+
+<img src="../../assets/objc-era/starburst.png" width="550" height="371" />
+
+<p>You can also apply "Blur" using the Fill and Stroke palette. The blur radius at the bottom of this palette is 2.74 times the Standard Deviation applied here (no, I'm not really sure why the difference is 2.74 times).</p>
+
+<h3>The checkbox and checkmark objects</h3>
+
+<p>Now create a 29x29 round rectangle with corner radius 4 at X,Y=(14,14). This is the checkbox. This time, set no fill (the "X" icon on the Fill tab of the Fill and Stroke palette) and set a plain stroke (second icon from the left at the top of the Stroke tab) with a white color. On the "Stroke Style" tab, set the width to 3.0 "px". While here, set the "Cap" to round. It won't matter as much for this object, but we're just about to draw a line and we want it to have round endcaps.</p>
+
+<p>Select the Bezier Line tool (11th icon down in the Tool Area). Click the mouse and release to create points at X,Y = (19.5,30), (28.5,20) and (47,48). Press the return key when done to finish the path. This is the checkmark. Now select the Node Tool (second icon from the top of the Tool Area) and select the checkmark. Click and hold the mouse in the middle of each line segment and drag up slightly to give the lines a slight curve. You can use the control points to tweak the effect if you're not happy.</p>
+
+<img src="../../assets/objc-era/node-tool.png" width="295" height="292" />
+
+<h3>Bevel effect and shadow</h3>
+
+<p>Select the checkmark and the checkbox. From the Filters menu select "Bevels"&rarr;"Ridged Border". Then from the Filters menu select "Shadows and Glows"&rarr;"Drop Shadow", set the blur to 2.0, the opacity to 35%, the offset to (3,3), hit the "Apply" button and close the Drop shadow dialog.</p>
+
+<blockquote><strong>Speed tip</strong>: when zoomed in on objects using effects, the rendering can get slow. To disable effects or to drop entirely into wireframe mode, choose "No Filters" or "Outline" from the "View"&rarr;"Display Mode" menu or press Control-Keypad5. The "Ridged border" effect is especially slow in the current version of Inkscape &mdash; I recommend zooming out before you apply it and turning effects off before you zoom in close.</blockquote>
+
+<p>If you want to fully integrate the checkmark and the checkbox, you can convert the checkbox object to a path, the checkmark stroke to a path and then create a union of the two. I'll leave that to you if you're interested.</p>
+
+<h3>Apply the gloss effect and round corners</h3>
+
+<p>Select the green gradient background, the starburst, the checkbox and the checkmark and group them all together (Control-G or menu "Object"&rarr;"Group"). This will let you select them all in one go (ungroup with Control-Shift-G or double-click the group to select objects within the group without ungrouping).</p>
+
+<p>With the group selected, from the Edit menu select "Clone"&rarr;"Create Clone". This will create a copy that continues to update when the original updates. Move the clone to X,Y=(-115.7,-15.7) (this coordinate include extra padding of approximately 2.74 times the starburst's blur standard deviation of 0.25 which is the amount that a blur will expand an object's boundary).</p>
+
+<p>Now we need the red glossy round rectangle. If you saved them in a different document, copy them into this document now. Select the red background and gloss (drag a rectangle around both using the Selection Tool) and set the X,Y coordinates of the two of them to (-100,0). This may make the two objects hidden behind the cloned group objects so press the "Home" key (or select Raise to Top from the Object menu).</p>
+
+<img src="../../assets/objc-era/redrectclone.png" width="454" height="216" />
+
+<p>Drag the gloss and the red rectangle off of the objects they are covering (it doesn't matter where you put them). Select the cloned group and the red round rectangle but not the gloss gradient. Undo the two object moves. This should leave the cloned objects and the red round rectangle selected but all of the objects on top of each other. From the Object menu, select "Clip"&rarr;"Set". This should clip the cloned group to the boundary of the red round rectangle, and make the red round rectangle disappear.</p>
+
+<blockquote><strong>Clipping</strong>: when clipping in Inkscape, the topmost object is always used as the clipping boundary and all other selected objects are clipped to its boundary.</blockquote>
+
+<img src="../../assets/objc-era/side-by-side.png" width="444" height="223" />
+
+<h2>Export the bitmap</h2>
+
+<p>Congratulations, your iPhone icon is complete.</p>
+
+<p>You can export the prerendered (cloned, glossed and rounded) version to a PNG by selecting the gloss gradient that's over the clipped shape and selecting "Export Bitmap" from the "File" menu. Make sure that "Selection" is highlighted in the window that appears and set the width and height of the exported image to whatever size you want. Use the Browse button to select a location then hit the export button.</p>
+
+<p>If you want to send the non-prerendered version to Apple, then select the uncloned group and export from that. 57x57 for the application icon and 512x512 for the high resolution version in your App Store submission.</p>
+
+<blockquote><strong>Resampling</strong>: You may get a better effect on the small icon if you export at a larger size and use another program (Preview, GIMP, etc) to scale it down. This may give better anti-aliasing performance &mdash; particularly if your resizing program uses Lanczos resampling.</blockquote>
+
+<p>If you'd like your icon as a PDF, SVG or a number of other vector graphics types, you can choose "Save As..." and save to the format of your choice.</p>
+
+<h2>Conclusion</h2>
+
+<blockquote>You can <a href="../../assets/objc-era/cocoawithlove-inkscape-icons-part1.svg">download an Inkscape SVG file containing the final icon</a> (122kb). Note: Safari and other programs will open SVG files but the effects (shadows, blurs, etc) will only appear if the SVG is opened in Inkscape.</blockquote>
+
+<p>In the second part, I will go through the steps for other icons, showing different stylistic options and explaining more of the effects and graphical elements you can use to create your icons. I'll look closer at filter effects in Inkscape, creating more sophisticated line paths, using gradients in multiple directions to achieve softer effects and creating simple textures to fill blank areas.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../10/memory-and-thread-safe-custom-property.html">Memory and thread-safe custom property methods</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="creating-iphone-and-mac-icons-using_06.html">Creating iPhone and Mac icons using Inkscape (Part 2 of 2)</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

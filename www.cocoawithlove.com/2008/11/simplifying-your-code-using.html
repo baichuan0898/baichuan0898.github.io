@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Simplifying your code using NSDictionary</title>
+  <meta name="description" content="Computers programs are good at mindless repetitive tasks, they are not good at broad decision trees. In this post, I will show you a way of eliminating conditionals from your code that are based on program state by using an array of &lt;code&gt;NSDictionary&lt;/code&gt; objects to maintain state." />
+
+  <meta name="twitter:title" content="Simplifying your code using NSDictionary"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2008/11/simplifying-your-code-using.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Computers programs are good at mindless repetitive tasks, they are not good at broad decision trees. In this post, I will show you a way of eliminating conditionals from your code that are based on program state by using an array of &lt;code&gt;NSDictionary&lt;/code&gt; objects to maintain state."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="simplifying-your-code-using.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Simplifying your code using NSDictionary</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2008-11-10">November 10, 2008</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/object-oriented-design.html">object-oriented design</a>, <a href="../../categories/foundation.html">Foundation</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>Computers programs are good at mindless repetitive tasks, they are not good at broad decision trees. In this post, I will show you a way of eliminating conditionals from your code that are based on program state by using an array of <code>NSDictionary</code> objects to maintain state.</p></span>
+
+<span class="fullpost">
+
+<h2>Introduction</h2>
+
+<p>In general, the more code branches a computer program has, the harder it is to write and the harder it is to test and maintain.</p>
+
+<p>Comparatively, data tends to be easier to write. When separated from the code that processes it, data can also allow for cleaner design &mdash; placing dependent values together, and removing the complexity of the data from the structure of the code.</p>
+
+<p>This is not a novel idea but I think it is a really useful technique that programmers too-often forget. The general idea is not specific to <code>NSDictionary</code> but due to <code>NSDictionary</code>'s flexibility and broad support in Cocoa, it is an excellent choice for the task.</p>
+
+<h2>The sample program</h2>
+
+<blockquote>Download the <a href="../../assets/objc-era/DictionaryState.zip">XCode 3.1 project file for the sample program here</a> (62kB).</blockquote>
+
+<p>To illustrate this and show ways of overcoming conditionals and complexity, I will present the following program:</p>
+
+<img src="../../assets/objc-era/state_one.png" width="482" height="384" />
+
+<p>This program has two state variables:</p>
+
+<ul><li>The popup menu (with the two states "Square" and "Triangle")</li>
+<li>The checkbox (again, two states)</li></ul>
+
+<p>The state of these controls affects:</p>
+
+<ul>
+<li>the shape drawn in the window</li>
+<li>the color of the shape</li>
+<li>the direction that the red circle animates around the shape</li>
+<li>whether the shape is filled or drawn as a border only</li>
+<li>the label under the shape (which is dependent on both controls)</li>
+</ul>
+
+<p>Writing the behavior in code for every state results in at least 5 places in the program dependent on the state of these controls and conditionals with different branches at each of these points.</p>
+
+<p>If the program is extended with more states added to the popup menu, this would result in further conditionals at every single one of these points, causing an increase in program complexity with each new item.</p>
+
+<h2>Lots of conditionals and data embedded in code</h2>
+
+<p>The code in the program that returns the "Animating around four points, anti-clockwise" label looks like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">if</span> <span class="p">([[</span><span class="nb">self</span> <span class="n">stateName</span><span class="p">]</span> <span class="nl">isEqual</span><span class="p">:</span><span class="s">@&#34;Square&#34;</span><span class="p">])</span>
+<span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nb">self</span><span class="p">.</span><span class="n">clockwise</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="s">@&#34;Animating around four points, clockwise&#34;</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="k">else</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="s">@&#34;Animating around four points, anti-clockwise&#34;</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+<span class="k">else</span> <span class="k">if</span> <span class="p">([[</span><span class="nb">self</span> <span class="n">stateName</span><span class="p">]</span> <span class="nl">isEqual</span><span class="p">:</span><span class="s">@&#34;Triangle&#34;</span><span class="p">])</span>
+<span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nb">self</span><span class="p">.</span><span class="n">clockwise</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="s">@&#34;Animating around three points, clockwise&#34;</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="k">else</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="s">@&#34;Animating around three points, anti-clockwise&#34;</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>You can see that if the number of items in the popup menu were doubled, it would double the size of this code.</p>
+
+<p>The branches in this code exist because the text of the label is a piece of dependent state. The state of the popup menu implicitly affects the text of the label. Unfortunately, changing the popup menu is only changing a single string value (the "stateName") &mdash; we are forced to generate the dependent values from this throughout the code.</p>
+
+<h2>Eliminating conditionals and removing the data from the code</h2>
+
+<p>Programming languages are literal beasts and they work better when the code (and the relationships within it) are explicitly defined. So we need a way to explicitly describe all of the dependent properties and associate these properties with the popup menu states upon which they depend.</p>
+
+<p>In replacing the above code fragment, the text of the label must exist somewhere &mdash; nothing will make that requirement go away &mdash; but we can remove the hard work from the code by using an <code>NSDictionary</code> created from a PropertyList file that looks like this:</p>
+
+<img src="../../assets/objc-era/stateplist.png" width="559" height="290" />
+
+<p>We will bind the content of the popup menu to this array of <code>NSDictionary</code> and make each item in the popup menu get its name from the "stateName" value in each <code>NSDictionary</code>.</p>
+
+<p>The result from doing this is that the above code fragment to fetch the current label becomes:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">return</span> <span class="p">[</span><span class="nb">self</span><span class="p">.</span><span class="n">selectedItem</span> <span class="nl">objectForKey</span><span class="p">:[</span><span class="nb">self</span> <span class="n">clockwiseKey</span><span class="p">]];</span></code></pre></div>
+
+<p>We have traded complexity of code for volume of data. Since it is normally considered simpler to generate hundreds of rows of data than hundreds of blocks of code, this is a good trade-off. Moving the data from the program out of the code and into a common place also has advantages for managing, understanding and designing our program as a whole.</p> 
+
+<h2>Method choices can go into data too</h2>
+
+<p>In the program, the "Square" is drawn by filling in an NSBezierPath. The "Triangle" is drawn as just a border.</p>
+
+<p>Different methods are invoked to achieve these two options. Without the state <code>NSDictionary</code>, the code would look like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">if</span> <span class="p">([[</span><span class="n">stateController</span> <span class="n">stateName</span><span class="p">]</span> <span class="nl">isEqual</span><span class="p">:</span><span class="s">@&#34;Square&#34;</span><span class="p">])</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="n">path</span> <span class="n">fill</span><span class="p">];</span>
+<span class="p">}</span>
+<span class="k">else</span> <span class="k">if</span> <span class="p">([[</span><span class="n">stateController</span> <span class="n">stateName</span><span class="p">]</span> <span class="nl">isEqual</span><span class="p">:</span><span class="s">@&#34;Triangle&#34;</span><span class="p">])</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="n">path</span> <span class="n">stroke</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Even this choice between two different pieces of code can be moved into the data because of Objective-C's ability to lookup selectors at runtime:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">SEL</span> <span class="n">drawSelector</span> <span class="o">=</span> <span class="n">NSSelectorFromString</span><span class="p">(</span>
+    <span class="p">[</span><span class="n">stateController</span><span class="p">.</span><span class="n">selectedItem</span> <span class="nl">objectForKey</span><span class="p">:</span><span class="s">@&#34;drawSelector&#34;</span><span class="p">]);</span>
+<span class="p">[</span><span class="n">path</span> <span class="nl">performSelector</span><span class="p">:</span><span class="n">drawSelector</span> <span class="nl">withObject</span><span class="p">:</span><span class="nb">nil</span><span class="p">];</span></code></pre></div>
+
+<p>Again, all conditionals are gone; every choice dependent on state has been moved into the data instead.</p>
+
+<h2>Limitations</h2>
+
+<p>The biggest limitation of this approach to program design is the complexity of the data itself. Moving values, rules and dependencies into a data file is good, until the structure of the data becomes complex enough that it amounts to a programming language itself and you're no longer reducing the complexity of the code+data as a whole.</p>
+
+<p>The data itself may also need some management. Loading of the data is simple if you are using a generic file format (like a PropertyList) but generic formats won't provide ideal storage for your data types.</p>
+
+<p>To show how working with the data format can become burdensome, let's take a look at the hard-coded version of the program setting the drawing color:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">if</span> <span class="p">([[</span><span class="n">stateController</span> <span class="n">stateName</span><span class="p">]</span> <span class="nl">isEqual</span><span class="p">:</span><span class="s">@&#34;Square&#34;</span><span class="p">])</span>
+<span class="p">{</span>
+    <span class="p">[[</span><span class="n">NSColor</span> <span class="nl">colorWithCalibratedRed</span><span class="p">:</span><span class="mf">061.0</span><span class="o">/</span><span class="mf">255.0</span> <span class="nl">green</span><span class="p">:</span><span class="mf">187.0</span><span class="o">/</span><span class="mf">255.0</span> <span class="nl">blue</span><span class="p">:</span><span class="mf">056.0</span><span class="o">/</span><span class="mf">255.0</span> <span class="nl">alpha</span><span class="p">:</span><span class="mf">122.0</span><span class="o">/</span><span class="mf">255.0</span><span class="p">]</span> <span class="n">set</span><span class="p">];</span>
+<span class="p">}</span>
+<span class="k">else</span> <span class="k">if</span> <span class="p">([[</span><span class="n">stateController</span> <span class="n">stateName</span><span class="p">]</span> <span class="nl">isEqual</span><span class="p">:</span><span class="s">@&#34;Triangle&#34;</span><span class="p">])</span>
+<span class="p">{</span>
+    <span class="p">[[</span><span class="n">NSColor</span> <span class="nl">colorWithCalibratedRed</span><span class="p">:</span><span class="mf">187.0</span><span class="o">/</span><span class="mf">255.0</span> <span class="nl">green</span><span class="p">:</span><span class="mf">056.0</span><span class="o">/</span><span class="mf">255.0</span> <span class="nl">blue</span><span class="p">:</span><span class="mf">186.0</span><span class="o">/</span><span class="mf">255.0</span> <span class="nl">alpha</span><span class="p">:</span><span class="mf">122.0</span><span class="o">/</span><span class="mf">255.0</span><span class="p">]</span> <span class="n">set</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>With only two colors enumerated in code, this is arguably simpler than loading the same values from the <code>NSDictionary</code>:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSDictionary</span> <span class="o">*</span><span class="n">drawColor</span> <span class="o">=</span> <span class="p">[</span><span class="n">stateController</span><span class="p">.</span><span class="n">selectedItem</span> <span class="nl">objectForKey</span><span class="p">:</span><span class="s">@&#34;drawColor&#34;</span><span class="p">];</span>
+<span class="p">[[</span><span class="n">NSColor</span>
+    <span class="nl">colorWithCalibratedRed</span><span class="p">:[[</span><span class="n">drawColor</span> <span class="nl">objectForKey</span><span class="p">:</span><span class="s">@&#34;red&#34;</span><span class="p">]</span> <span class="n">doubleValue</span><span class="p">]</span>
+    <span class="nl">green</span><span class="p">:[[</span><span class="n">drawColor</span> <span class="nl">objectForKey</span><span class="p">:</span><span class="s">@&#34;green&#34;</span><span class="p">]</span> <span class="n">doubleValue</span><span class="p">]</span>
+    <span class="nl">blue</span><span class="p">:[[</span><span class="n">drawColor</span> <span class="nl">objectForKey</span><span class="p">:</span><span class="s">@&#34;blue&#34;</span><span class="p">]</span> <span class="n">doubleValue</span><span class="p">]</span>
+    <span class="nl">alpha</span><span class="p">:[[</span><span class="n">drawColor</span> <span class="nl">objectForKey</span><span class="p">:</span><span class="s">@&#34;alpha&#34;</span><span class="p">]</span> <span class="n">doubleValue</span><span class="p">]]</span>
+<span class="n">set</span><span class="p">];</span></code></pre></div>
+
+<p>Since a PropertyList doesn't hold <code>NSColor</code> directly, we must break the color up into its components for the PropertyList and construct the color from the components when we need it.</p>
+
+<p>Remember, despite the added complexity of loading the values here, the key advantage of the from-<code>NSDictionary</code> version is that it will scale better; the from-<code>NSDictionary</code> version won't require further code if further options are added to the popup menu.</p>
+
+<h2>Conclusion</h2>
+
+<p>The sample program contains both hard-coded and from-<code>NSDictionary</code> implementations. With only two top-level states ("Square" and "Triangle") these two implementations contain roughly the same amount of code overall (when the loading of the PropertyList is taken into consideration).</p>
+
+<p>It is clear though that the from-<code>NSDictionary</code> version would scale far better &mdash; it would require no more code to handle a dozen options in the popup menu, whereas the hard-coded version would be almost six times bigger.</p>
+
+<p>The from-<code>NSDictionary</code> version also allows you to see the program in a different way. It is subjective but I think that seeing the different properties associated with each state fully enumerated in the PropertyList makes the operation of the program easier to understand.</p>
+
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../10/using-libxml2-for-parsing-and-xpath.html">Using libxml2 for XML parsing and XPath queries in Cocoa</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="singletons-appdelegates-and-top-level.html">Singletons, AppDelegates and top-level data.</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

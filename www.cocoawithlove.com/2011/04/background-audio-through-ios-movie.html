@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Background audio through an iOS movie player</title>
+  <meta name="description" content="Background audio in iOS is supposed to be as simple as entering a setting in your Info.plist and making sure your &lt;code&gt;kAudioSessionProperty_AudioCategory&lt;/code&gt; is appropriate. This is true unless your audio is part of a movie file or is played in a movie player that has just played video &amp;mdash; suddenly it becomes fiddly, hard to test, unreliable and changeable from version to version of iOS." />
+
+  <meta name="twitter:title" content="Background audio through an iOS movie player"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2011/04/background-audio-through-ios-movie.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Background audio in iOS is supposed to be as simple as entering a setting in your Info.plist and making sure your &lt;code&gt;kAudioSessionProperty_AudioCategory&lt;/code&gt; is appropriate. This is true unless your audio is part of a movie file or is played in a movie player that has just played video &amp;mdash; suddenly it becomes fiddly, hard to test, unreliable and changeable from version to version of iOS."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="background-audio-through-ios-movie.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Background audio through an iOS movie player</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2011-04-20">April 20, 2011</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/testing.html">testing</a>, <a href="../../categories/cocoa-touch.html">Cocoa Touch</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>Background audio in iOS is supposed to be as simple as entering a setting in your Info.plist and making sure your <code>kAudioSessionProperty_AudioCategory</code> is appropriate. This is true unless your audio is part of a movie file or is played in a movie player that has just played video &mdash; suddenly it becomes fiddly, hard to test, unreliable and changeable from version to version of iOS.</p></span>
+
+<span class="fullpost">
+
+<h2>Introduction</h2>
+
+<p>I was not sure I wanted to write this post. It runs the risk of pointing out that I'm not perfect. But all programs have bugs and my programs are no different.</p>
+
+<p>And anyway, as both Han Solo and Lando Calrissian validly said of the Millenium Falcon's failure to reach light speed, "it's not my fault". Of course, as it was in Star Wars, so it is in real life: your users don't care whose fault it is, they just want it fixed.</p>
+
+<p>Obviously, I develop and sell a product named <a href="http://itunes.apple.com/WebObjects/MZStore.woa/wa/viewSoftware?id=325327899&amp;mt=8">StreamToMe, available through the iOS App Store</a>, that plays video and music and lists "Background audio" as one of its features. In this post, I'm going to talk about why background audio has worked and then not worked, been fixed and then not worked again only to be mostly fixed with some issues outstanding.</p>
+
+<p>How can a feature that is simple, according to Apple's documentation, cause such a quality headache in a program?</p>
+
+<p>In this post I'll be looking at playing background audio through the iOS movie playing APIs (either <code>MPMoviePlayerController</code> or <code>AVPlayer</code>/<code>AVQueuePlayer</code>). I've recently written a post on the <a href="../03/history-of-ios-media-apis-iphone-os-20.html">history of iOS media APIs</a> but as you'll see in this post, background audio is functionality that relates to the implications of the APIs, not the APIs themselves. You need to discover the "de facto" behavior yourself and hope you're correct.</p>
+
+<p>Specific points will include:</p>
+
+<ul><li>why an application that also plays video has so much more difficulty with background audio than other kinds of applications</li>
+<li>why background audio has broken multiple times in StreamToMe since iOS 4 was released, despite using no undocumented functionality and despite the documented API remaining nominally unchanged</li>
+<li>why background audio is affected by seemingly unrelated choices like Apple's HTTP live streaming and 3G network</li></ul>
+
+<p>I'll also briefly look at quality management on a complicated program and how the largely undocumented behaviors of Apple's video APIs make perfect testing impossible.</p>
+
+<h2>Apple's documentation for background audio in iOS</h2>
+
+<p>Apple's documentation for background audio makes it sound very simple. It is 4 paragraphs long under the heading "Playing Background Audio" on the <a href="http://developer.apple.com/library/ios/#documentation/iphone/conceptual/iphoneosprogrammingguide/BackgroundExecution/BackgroundExecution.html">Executing Code in the Background</a> page.</p>
+
+<p>Additionally, <a href="http://developer.apple.com/library/ios/#qa/qa1668/_index.html">Technical Q&A QA1668</a> discusses "How to play audio in the background with MPMoviePlayerController" by ensuring the Audio Session Category is correct.</p>
+
+<p>Background audio is mentioned in a few other pages but it mostly repeats the information found in these two locations.</p>
+
+<p>It all sounds pretty simple: it seems like background audio should "just work".</p>
+
+<h2>What happens to a file that contains video?</h2>
+
+<p>The movie players in iOS are explicitly capable of working in the background</p>
+
+<p>But in the above linked Technical Q&A QA1668, the question explicitly mentions "audio-only movies and other audio files". There is no mention of what happens to files that have a video track.</p>
+
+<p>In fact, there is no mention anywhere in the iOS documentation that I could find about what happens to a video file when you switch into the background.</p>
+
+<p>All we can do is examine the behaviors experimentally. The following are the behaviors I've noticed in iOS 4.3 when switching video into the background.</p>
+
+<b>Any file that contains a video track of any sort will be paused if the application switches into the background.</b>
+
+<p>This pause is sent from the <code>CALayer</code> displaying the video frames. This is a private class for an <code>MPMoviePlayerController</code> and is your own <code>AVPlayerLayer</code> for an <code>AVPlayer</code>.</p>
+
+<p>You can't really control this &mdash; even in the situation where it's your own <code>AVPlayerLayer</code> &mdash; the pause is sent from private methods (so you can't legally override them), during a private "UIApplicationDidSuspendNotification" (so you can't legally block or intercept this). This notification occurs between the <code>UIApplicationWillResignActiveNotification</code> and the <code>UIApplicationDidEnterBackgroundNotification</code>.</p>
+
+<p>Nor can you simply disconnect the <code>AVPlayerLayer</code> of an <code>AVPlayer</code> to avoid the pause being sent &mdash; this actually leads to a crash if the file is still playing for reasons that are not explained and could be either a bug in iOS or expected behavior (it's not at all clear).</p>
+
+<b>If you attempt to start a file playing video in the background it will fail with an error</b>
+
+<p>While a video file started in the foreground will simply pause, a video file started in the background will actually give an error abort playback entirely.</p>
+
+<p>This can even occur for a file that was pausing on entering the background but which you attempt to resume.</p>
+
+<b>If you attempt to play a file <em>without</em> video but the previous file contained video, the new file will also fail in many cases</b>
+
+<p>The video system in iOS has a degree of latency between commands you request and actual changes in playback.</p>
+
+<p>My guess (again, none of this is explained in the documentation) is that this latency occurs because your video commands need to be sent to the separate mediaserverd process in iOS that handles all media playback. This process then makes the required changes and sends back response notifications.</p>
+
+<p>This seems to create a situation where if you cancel the playback of a file and immediately start a new file, some of the properties of the old file will remain for a time.</p>
+
+<p>In the case of playing an audio-only file immediately after a video file, this latency appears to be long enough for the audio-only file to be rejected with an error as though it was a file with video.</p> 
+
+<b>Even a file with the video tracks disabled will still fail</b>
+
+<p>If you're using an <code>AVPlayer</code> or <code>AVQueuePlayer</code>, you can disable all the video tracks any time after the <code>AVPlayerItemStatusReadyToPlay</code> notification is sent using the following code:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">for</span> <span class="p">(</span><span class="n">AVPlayerItemTrack</span> <span class="o">*</span><span class="n">track</span> <span class="k">in</span> <span class="n">player</span><span class="p">.</span><span class="n">currentItem</span><span class="p">.</span><span class="n">tracks</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">if</span> <span class="p">([</span><span class="n">track</span><span class="p">.</span><span class="n">assetTrack</span><span class="p">.</span><span class="n">mediaType</span> <span class="nl">isEqual</span><span class="p">:</span><span class="n">AVMediaTypeVideo</span><span class="p">])</span>
+    <span class="p">{</span>
+        <span class="n">track</span><span class="p">.</span><span class="n">enabled</span> <span class="o">=</span> <span class="nb">NO</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This will stop the tracks playing but despite the tracks being disabled, the effect on background play remains the same: presence of video in the file still causes the player to pause.</p>
+
+<h2>How StreamToMe has handled video in the background</h2>
+
+<p>As you can tell by the summary of experimentally determined functionality above, iOS really strongly doesn't want you to play video in the background.</p>
+
+<p>Frankly, iOS's restrictions in this area are contrary to what people want.</p>
+
+<p>Where iOS makes a huge distinction between audio-only media and media with both video and audio, many users do not. We are accustomed to Quicktime and iTunes and VLC and MPlayer and most other media applications being able to perform all the same tasks with either video or audio.</p>
+
+<p>Even for users who only use StreamToMe to play music, it's hard to avoid video in StreamToMe because StreamToMe puts a still image for the album artwork into a video track to display artwork for music files &mdash; in the eyes of iOS, basically every files StreamToMe plays counts as video.</p>
+
+<p>It was necessary to find a way around these restrictions. And so begins the story of half a dozen application updates over 3 major iOS updates.</p>
+
+<h3>iOS 4.0</h3>
+
+<p>In iOS 4.0, StreamToMe used <code>MPMoviePlayerController</code> and was able, through a bizarre sequence of layer manipulation operations in the <code>MPMovieMediaTypesAvailableNotification</code> method (basically removing the video render layer and reinserting at the right time), to convince the <code>MPMoviePlayerController</code> to proceed, even when it was playing video in the background.</p>
+
+<p>Technically, you didn't need to remove the layer to get it to play in the background (all you needed was to resume after the "UIApplicationDidSuspendNotification" pause) but if you didn't remove the video layer, video frames would still be rendered and queued for display, leading to out of memory problems or weird speedy video quirks when the video came back to the foreground.</p>
+
+<p>I'm not going to share the code that did this: it was messy, not advisable and doesn't work anymore. I was fully aware that this was a bizarre thing to do and that I would need to keep a really close eye on iOS updates to ensure that it kept working.</p>
+
+<h3>iOS 4.2</h3>
+
+<p>From the betas of iOS 4.2, it became apparent that the layer manipulation would no longer work to allow background video to work smoothly and no combination of actions I could find would make it work again. Playing the audio from a file also containing video looking like it would be impossible.</p>
+
+<p>Fortunately, with StreamToMe, I control both ends of the client-server communication and there was another solution: upon entering the background, StreamToMe could reload the stream from the server with the video track stripped off by the server.</p>
+
+<p>This server reconnection results in a second pause or so (more over 3G) while the new stream was started and sometimes a jump back to the start of the previous HTTP live stream segment but otherwise the experience is tolerable.<p>
+
+<p>However, there was a catch: <code>MPMoviePlayerController</code> didn't like being torn down and recreated in a short space of time. In iOS 4.2, doing this would actually result in an error.</p>
+
+<p>But the new <code>AVQueuePlayer</code> API introduced in iOS 4.1 <em>did</em> support queuing a new stream and then switching to it. In fact, it did it pretty well (after all, that's what the whole "queue" is about). Unfortunately, switching to <code>AVQueuePlayer</code> from <code>MPMoviePlayerController</code> is not a small task: <code>AVQueuePlayer</code> offers no user interface (you have to implement one entirely for yourself) and the entire property observation model is completely different.</p>
+
+<p>The following code sample shows how a switch to a background track was managed in the <code>UIApplicationDidEnterBackgroundNotification</code>. A new "background" variant of the URL for the current item is generated by the <code>STMQueuePlayerController</code> (the StreamToMe class that relates the StreamToMe representation of files to the <code>AVQueuePlayer</code> represenation) is generated, seeked to the same point as the current file, inserted into the queue and played.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">if</span> <span class="p">(</span><span class="n">resyncTask</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="p">[[</span><span class="n">UIApplication</span> <span class="n">sharedApplication</span><span class="p">]</span> <span class="nl">endBackgroundTask</span><span class="p">:</span><span class="n">resyncTask</span><span class="p">];</span>
+<span class="p">}</span>
+<span class="n">resyncTask</span> <span class="o">=</span> <span class="p">[[</span><span class="n">UIApplication</span> <span class="n">sharedApplication</span><span class="p">]</span>
+    <span class="nl">beginBackgroundTaskWithExpirationHandler</span><span class="p">:</span><span class="o">^</span><span class="p">{</span><span class="n">resyncTask</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;}];</span>
+
+<span class="n">AVPlayerItem</span> <span class="o">*</span><span class="n">backgroundItem</span> <span class="o">=</span>
+    <span class="p">[[</span><span class="n">AVPlayerItem</span> <span class="n">alloc</span><span class="p">]</span>
+        <span class="nl">initWithURL</span><span class="p">:[[</span><span class="n">STMQueuePlayerController</span> <span class="n">sharedPlayerController</span><span class="p">]</span>
+            <span class="nl">urlForFile</span><span class="p">:[[</span><span class="n">STMQueuePlayerController</span> <span class="n">sharedPlayerController</span><span class="p">]</span> <span class="n">currentFile</span><span class="p">]</span>
+            <span class="nl">inBackground</span><span class="p">:</span><span class="nb">YES</span>
+            <span class="nl">offset</span><span class="p">:</span><span class="n">CMTimeGetSeconds</span><span class="p">(</span><span class="n">player</span><span class="p">.</span><span class="n">currentTime</span><span class="p">)]];</span>
+<span class="p">[</span><span class="n">backgroundItem</span>                              <span class="c1">// seek the item, not the player
+</span><span class="c1"></span>    <span class="nl">seekToTime</span><span class="p">:</span><span class="n">player</span><span class="p">.</span><span class="n">currentTime</span>
+    <span class="nl">toleranceBefore</span><span class="p">:</span><span class="n">kCMTimeZero</span>
+    <span class="nl">toleranceAfter</span><span class="p">:</span><span class="n">kCMTimeZero</span><span class="p">];</span>
+<span class="p">[</span><span class="n">player</span> <span class="nl">insertItem</span><span class="p">:</span><span class="n">backgroundItem</span> <span class="nl">afterItem</span><span class="p">:</span><span class="n">currentItem</span><span class="p">];</span>
+
+<span class="p">[</span><span class="nb">self</span> <span class="nl">stopObservingPlayerItem</span><span class="p">:</span><span class="n">currentItem</span><span class="p">];</span>  <span class="c1">// stop observing the old AVPlayerItem
+</span><span class="c1"></span><span class="p">[</span><span class="n">currentItem</span> <span class="k">release</span><span class="p">];</span>
+<span class="n">currentItem</span> <span class="o">=</span> <span class="p">[</span><span class="n">backgroundItem</span> <span class="k">retain</span><span class="p">];</span>
+<span class="p">[</span><span class="nb">self</span> <span class="nl">startObservingPlayerItem</span><span class="p">:</span><span class="n">currentItem</span><span class="p">];</span> <span class="c1">// begin observing the new AVPlayerItem
+</span><span class="c1"></span>
+<span class="p">[</span><span class="n">player</span> <span class="n">advanceToNextItem</span><span class="p">];</span>
+<span class="p">[</span><span class="n">player</span> <span class="n">play</span><span class="p">];</span></code></pre></div>
+
+<p>The <code>resyncTask</code> is ended when this new file sends an <code>AVPlayerItemStatusReadyToPlay</code> and is used to ensure that we don't get suspended while restarting the playback.</p>
+
+<p>Needing to rewrite the code for <code>AVQueuePlayer</code> left a brief gap at the start of iOS 4.2 until StreamToMe 3.3 was released, where background audio was broken in StreamToMe.</p>
+
+<h2>iOS 4.3</h2>
+
+<p>But iOS 4.3 turned out to be a bit of a one-two punch. On paper, the big change was AirPlay video &mdash; the new feature in iOS 4.3 that didn't work with <code>AVQueuePlayer</code> (seriously) &mdash; but it turns out that iOS 4.3 also changed how movie players were paused when going into the background. This change to pausing behavior was not clear to me until <em>after</em> iOS 4.3 was released, so StreamToMe's background behavior broke again.</p>
+
+<p>What happened is that StreamToMe used to read whether the stream was currently playing (i.e. not paused) and only transition to the background version of the stream if it was actively playing. Unfortunately, the <code>-[AVPlayer rate]</code> which previously returned <code>1.0</code> for a previously playing video stream during the <code>UIApplicationDidEnterBackgroundNotification</code> would now return <code>0.0</code> (i.e. reporting that the stream was paused).</p>
+
+<p>The fix is pretty simple: when we receive <code>UIApplicationWillResignActiveNotification</code> we needed to record whether the current file was playing or paused and use that information later in the <code>UIApplicationDidEnterBackgroundNotification</code> (the private "UIApplicationDidSuspendNotification" that pauses the file occurs between these two notifications).</p>
+
+<p>Unfortunately, I didn't realize until the last moment on an update that the <code>AVPlayerLayer</code> had also started pausing audio-only files, not just files with video. To me, this seems like a significant change in behavior; why should an audio-only file suddenly start getting paused when the application enters the background? It's not my fault but I need to fix it anyway &mdash; unfortuntely due to the slowness in realizing this problem, this separate fix for audio-only files in StreamToMe (files with neither video nor album artwork in a video track) had to be held over until the 3.5.4 update.</p>
+
+<blockquote><strong>More than StreamToMe was affected:</strong> iOS 4.3 actually broke background video for Apple's apps too. While Apple's apps (iPod, Movies, Safari, YouTube) have always paused the current video when switching into the background, you used to be able to resume the video from the multitasking bar, lock screen or headphones. <a href="http://www.google.com.au/search?hl=en&amp;safe=off&amp;client=safari&amp;rls=en&amp;q=+site:apple.com+playing+video+background+ios+4.3&amp;sa=X&amp;ei=QZmuTb7iI4SnrAe61oiXCg&amp;ved=0CAIQqAQwAg">From iOS 4.3, this behavior has been blocked</a>; the video may play for a fraction of a second but then will immediately stop again.</blockquote>
+
+<h3>3G and slow WiFi affecting background audio?</h3>
+
+<p>Even after fixing these problems it turns out iOS 4.3 had one more suprise. It now appears that the code I showed above that handles the track change:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">[</span><span class="n">player</span> <span class="nl">insertItem</span><span class="p">:</span><span class="n">backgroundItem</span> <span class="nl">afterItem</span><span class="p">:</span><span class="n">currentItem</span><span class="p">];</span>
+<span class="p">[</span><span class="n">player</span> <span class="n">advanceToNextItem</span><span class="p">];</span>
+<span class="p">[</span><span class="n">player</span> <span class="n">play</span><span class="p">];</span></code></pre></div>
+
+<p>will work on a local WiFi network but on a high latency WiFi or 3G connection can cause the proper, background-safe version of the file (which is the "next item" loaded here) to be rejected.</p>
+
+<p>Why on earth would the speed of the network affect this?</p>
+
+<p>I'm not entirely certain but it appears that when the network is fast enough, the command:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">[</span><span class="n">player</span> <span class="nl">insertItem</span><span class="p">:</span><span class="n">backgroundItem</span> <span class="nl">afterItem</span><span class="p">:</span><span class="n">currentItem</span><span class="p">];</span></code></pre></div>
+
+<p>actually fetches the first segment of the stream and updates all the track information, so it correctly realizes that there is no video track.</p>
+
+<p>But on a slower network, this first segment of the stream is not loaded so the call to <code>[player play];</code> immediately results in an error and the file being rejected from the stream.</p>
+
+<p>The fix for this is that you need to defer the call to <code>[player play];</code> until after a <code>AVPlayerItemStatusReadyToPlay</code> notification is sent for the new file.</p>
+
+<p>Yuck.</p>
+
+<h2>Why was this not caught in testing?</h2>
+
+<p>As I write this, the current version of StreamToMe is 3.5.4 and it still contains this 3G/slow WiFi problem.</p>
+
+<p>Yes, I know what the cause of the bug is. Yes, I already have a fix for it. Unfortunately, the agony of release cycles and the nuisance of the App Store approval process means that I'm going to sit on this fix until I've finished the other features I wanted to include in the next update &mdash; the background audio over 3G/slow WiFi is simply too narrow a niche to justify an update right now.</p>
+
+<p>However, there's one thing I've noticed about media application users: people seem to use their media within specific niches and if their specific niche isn't working, they're prepared to eviscerate you.</p>
+
+<h3>How StreamToMe and ServeToMe are tested</h3>
+
+<p>As an independent developer, it is very difficult to handle quality assurance. I don't have a dedicated tester; I have a few people who help me test but they're all volunteers and tend to use the application however they feel. They're not really robust testers. While I use the application all day, I don't really exercise the whole application: on any given day, I focus on pretty specific issues.</p>
+
+<p>Despite these resource limitations, I do have a pretty extensive set of tests. Unfortunately, the scope of the application means that the tests are arguably too extensive for my ability to run them all.</p>
+
+<p>For file compatibility, I have 280 different test files in a regression suite that I run (literally media files in a folder that I run through the program and process the log file to ensure no unexpected errors). This takes 8 hours.</p>
+
+<p>For server functionality, I have a test harness that tests every server command (fortunately, this takes just 30 seconds).</p>
+
+<p>For client functionality, I have a 166 step, user-operated test script. This takes about an hour to perform, sitting in front of the application, pressing buttons in order.</p>
+
+<p>Just 10 hours for these steps but it only tests 1 version of the program.</p>
+
+<p>If you include all the different platforms for which there is platform-specific code, there are 4 versions of the server that need testing (Windows XP, Windows 7, Mac OS X 10.5, Mac OS X 10.6) and 6 versions of the client (iOS 3 on any iOS device, iOS 3.2 iPad, iOS 4 on iPhone 3G, iOS 4 on iPhone 3Gs, iOS 4 on iPhone 4, iOS 4 on iPad).</p>
+
+<p>You should realize that just running this suite in these testing environments would take me about a week. And that's if I worked non-stop on StreamToMe, which I don't.</p>
+
+<h3>But the bug slips through: how do you fix it?</h3>
+
+<p>It is unreasonable for me to fully test minor releases and sometimes minor issues slip through. Needing to limit testing so that it is manageable has resulted in some minor bugs but it does not describe why this latest 3G/slow-WiFi problem escaped testing.</p>
+
+<p>Even if I had run my full test suite on version 3.5.4 of StreamToMe, it would not have detected the problem between 3G and background audio. This is because the test script tested background audio on local WiFi &mdash; you don't generally insert repeats of tests into your script unless you suspect something about the repeat in a new context will actually affect the test. In this case, I had no reason to suspect that the two ideas would be connected.</p>
+
+<p>An interesting thought to consider here: <em>the code coverage through my program is identical on local WiFi and 3G</em>. The difference is either somewhere in Apple's code or purely a timing problem.</p>
+
+<p>All you can do in these situations is add the scenario to your test cases, fix the bug and makes sure it keeps getting tested in new releases.</p>
+
+<h2>Conclusion</h2>
+
+<p>I hope you can see that even when APIs are documented, the usage and implications of the API can be unknown and subject to misunderstandings and change over time. The fact that video cannot play in the background is barely mentioned by the documentation but the details of video being paused, stopped or rejected with an error is completely absent from documentation (you will only discover this by experimentation).</p>
+
+<p>Lack of information is always hard to deal with in testing. You can only exercise documented or otherwise suspected behavior, and even so, you need to be practical. You can't simply say: test everything about background audio. You need to formulate your tests based on what you think is likely to have different effects.</p>
+
+<p>The decision by Apple to forbid video in the background is frustrating and puzzling from my perspective. Why can't iOS simply ignore video packets in the background &mdash; particularly for disabled tracks? I can only presume that there's a technical reason for this behavior but since we haven't been informed of the boundaries, it remains frustrating.</p>
+
+<p>Additionally, the entire iOS environment makes this type of problem exceptionally difficult to characterize and test. UI automation is insanely difficult in iOS and even if it improved (I'm keeping my eye on <a href="http://cukes.info/">Cucumber</a>+<a href="http://blog.thepete.net/2010/07/frank-automated-acceptance-tests-for.html">Frank</a>) it probably wouldn't be able to exercise background switches and realtime and network issues easily.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="user-interface-strings-in-cocoa.html">User interface strings in Cocoa</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../05/presenting-mac-dialog-sheet-with-visual.html">Presenting a Mac dialog sheet with visual cue effects</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

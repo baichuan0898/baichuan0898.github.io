@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Simple methods for date formatting and transcoding</title>
+  <meta name="description" content="There is no single-line method for converting between formatting date strings and date objects in Cocoa &amp;mdash; the API opts for flexibility rather than simplicity. Unfortunately, this combines with documentation that omits, misdirects and occasionally misinforms, making NSDateFormatter one of the more confusing classes for new Cocoa programmers. In this post, I&#39;ll try to address some of the documentation issues and I&#39;ll present some methods that will turn NSDate into a formatted string or convert between date strings in a single method." />
+
+  <meta name="twitter:title" content="Simple methods for date formatting and transcoding"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/05/simple-methods-for-date-formatting-and.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="There is no single-line method for converting between formatting date strings and date objects in Cocoa &amp;mdash; the API opts for flexibility rather than simplicity. Unfortunately, this combines with documentation that omits, misdirects and occasionally misinforms, making NSDateFormatter one of the more confusing classes for new Cocoa programmers. In this post, I&#39;ll try to address some of the documentation issues and I&#39;ll present some methods that will turn NSDate into a formatted string or convert between date strings in a single method."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="simple-methods-for-date-formatting-and.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Simple methods for date formatting and transcoding</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-05-25">May 25, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/foundation.html">Foundation</a>, <a href="../../categories/cocoa-touch.html">Cocoa Touch</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>There is no single-line method for converting between formatting date strings and date objects in Cocoa &mdash; the API opts for flexibility rather than simplicity. Unfortunately, this combines with documentation that omits, misdirects and occasionally misinforms, making NSDateFormatter one of the more confusing classes for new Cocoa programmers. In this post, I'll try to address some of the documentation issues and I'll present some methods that will turn NSDate into a formatted string or convert between date strings in a single method.</p></span>
+
+<span class="fullpost">
+<h2>Default, locale-based date formatting</h2>
+<p>Before I get into date formatting strings (which is the real purpose of this post) I will quickly show you how to get a string from an <code>NSDate</code>:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSDate</span> <span class="o">*</span><span class="n">date</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSDate</span> <span class="n">date</span><span class="p">];</span>
+<span class="n">NSDateFormatter</span> <span class="o">*</span><span class="n">dateFormatter</span> <span class="o">=</span> <span class="p">[[[</span><span class="n">NSDateFormatter</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span>
+<span class="p">[</span><span class="n">dateFormatter</span> <span class="nl">setDateStyle</span><span class="p">:</span><span class="n">NSDateFormatterLongStyle</span><span class="p">];</span>
+<span class="n">NSString</span> <span class="o">*</span><span class="n">dateString</span> <span class="o">=</span> <span class="p">[</span><span class="n">dateFormatter</span> <span class="nl">stringFromDate</span><span class="p">:</span><span class="n">date</span><span class="p">];</span></code></pre></div>
+
+<p>This code formats the string according to the user's preferences set in the International General Settings (iPhone) or System Preferences (Mac OS X).</p>
+
+<p>Personally, I think this is verbose for such a common activity and normally use a category method on <code>NSDate</code> to reduce it:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@implementation</span> <span class="nc">NSDate</span> <span class="nl">(FormattedStrings)</span>
+<span class="p">-</span> <span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nf">dateStringWithStyle:</span><span class="p">(</span><span class="n">NSDateFormatterStyle</span><span class="p">)</span><span class="nv">style</span>
+<span class="p">{</span>
+    <span class="n">NSDateFormatter</span> <span class="o">*</span><span class="n">dateFormatter</span> <span class="o">=</span> <span class="p">[[[</span><span class="n">NSDateFormatter</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">dateFormatter</span> <span class="nl">setDateStyle</span><span class="p">:</span><span class="n">style</span><span class="p">];</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">dateFormatter</span> <span class="nl">stringFromDate</span><span class="p">:</span><span class="nb">self</span><span class="p">];</span>
+<span class="p">}</span>
+<span class="k">@end</span></code></pre></div>
+
+<p>This reduces the first code sample to:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"> <span class="n">NSString</span> <span class="o">*</span><span class="n">dateString</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSDate</span> <span class="n">date</span><span class="p">]</span> <span class="nl">dateStringWithStyle</span><span class="p">:</span><span class="n">NSDateFormatterLongStyle</span><span class="p">];</span></code></pre></div>
+
+<p>If you need time strings instead of date strings, create a <code>timeStringWithStyle:</code> method by replacing the <code>setDateStyle:</code> invocation with <code>setTimeStyle:</code>.</p>
+
+<p>I have read rants by other Objective-C programmers who hate seeing projects with hundreds of small categories for every little task.</p>
+
+<p>Frankly, I've never understood the objection. In fact, I think lots of small categories used to choose the settings you prefer on top of common interfaces is essential for establishing consistent aesthetics for your program &mdash; your entire program will have the same style and you can easily update the aesthetic for the whole program by editing a single location.</p>
+
+<p>An example would be to replace this <code>dateStringWithStyle:</code> method with a <code>dateStringWithProjectStyle</code> method that returns the appropriately configured string for use throughout your program. One of your projects might use <code>NSDateFormatterLongStyle</code> and the next might use a totally customized format (as I'll describe in the next sections) but you as a programmer can still invoke <code>dateStringWithProjectStyle</code> everywhere you need a string from an <code>NSDate</code>.</p>
+
+<h2>Date formatting documentation issues</h2>
+
+<p>At its heart, <code>NSDateFormatter</code> is very simple to use and yet it repeatedly baffles new users. I don't think this is really the fault of the API as much as the history behind it and the effect that it has had on the documentation.</p>
+
+<p>Despite <code>NSDateFormatterBehavior10_4</code> being the only date formatting you should ever use and the only style that <em>should</em> exist in the documentation, Apple's documentation has the following quirks:</p>
+
+<ol><li>The actual syntax for <code>NSDateFormatterBehavior10_4</code> is never given in the documentation and you can easily miss the links to <a href="http://unicode.org/reports/tr35/tr35-4.html#Date_Format_Patterns">Unicode Standard (tr35)</a> which describe it.</li>
+<li>A majority of the pages in the date formatting documentation seem concerned with the old <code>NSDateFormatterBehavior10_0</code> style formatter behavior even though this is functionally deprecated.</li>
+<li>The documentation for <code>defaultFormatterBehavior</code> claims <code>NSDateFormatterBehavior10_0</code> is the default style but it is actually <code>NSDateFormatterBehavior10_4</code> in Leopard and iPhoneSDK2.0.</li>
+</ol>
+
+<p>Then, if you've been skimming through the documentation getting confused by the different styles, you may overlook one line at the top of the <code>NSDateFormatter</code> API reference page:
+
+<blockquote><strong>iPhone OS Note:</strong> iPhone OS supports only the modern 10.4+ behavior. 10.0-style methods and format strings are not available on iPhone OS.</blockquote>
+
+<p>All that documentation in the iPhone SDK concerned with the old <code>NSDateFormatterBehavior10_0</code> style is completely meaningless &mdash; <em>you can't use <code>NSDateFormatterBehavior10_0</code> at all on the iPhone</em>.</p>
+
+<p>Adding to the iPhone frustration, <code>NSDateFormatterBehavior10_0</code> will work in the simulator, causing headaches when code suddenly stops working on the device.</p>
+
+<p>On Mac OS X, even though you can use <code>NSDateFormatterBehavior10_0</code>, it is deprecated for all practical purposes so you probably shouldn't. Annoyingly, since the documentation still claims <code>NSDateFormatterBehavior10_0</code> is the default, you should explicitly set the formatter behavior to <code>NSDateFormatterBehavior10_4</code> to remain safe &mdash; at least until the documented default is updated to formally match the actual default.</p>
+
+<p>I don't mean to be cruel to Apple &mdash; documentation is difficult, time consuming and annoying &mdash; but I suspect these quirks in the documentation and behavior are responsible for a lot of confusion.</p>
+
+<h2>Date formatting syntax</h2>
+
+<p>Setting a date formatting string looks like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSDate</span> <span class="o">*</span><span class="n">date</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSDate</span> <span class="n">date</span><span class="p">];</span>
+<span class="n">NSDateFormatter</span> <span class="o">*</span><span class="n">dateFormatter</span> <span class="o">=</span> <span class="p">[[[</span><span class="n">NSDateFormatter</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span>
+<span class="p">[</span><span class="n">dateFormatter</span> <span class="nl">setFormatterBehavior</span><span class="p">:</span><span class="n">NSDateFormatterBehavior10_4</span><span class="p">];</span>
+<span class="p">[</span><span class="n">dateFormatter</span> <span class="nl">setDateFormat</span><span class="p">:</span><span class="s">@&#34;dd MMM, yyyy&#34;</span><span class="p">];</span>
+<span class="n">NSString</span> <span class="o">*</span><span class="n">dateString</span> <span class="o">=</span> <span class="p">[</span><span class="n">dateFormatter</span> <span class="nl">stringFromDate</span><span class="p">:</span><span class="n">date</span><span class="p">];</span></code></pre></div>
+
+<p>This will create a string of the format "26 May, 2009". The arrangement of data in this string is determined by the format string passed to the <code>setDateFormat:</code> method.</p>
+
+<p>A quick summary of the date formatting options useable in this format string:</p>
+
+<table>
+<thead><tr><td>Character</td><td>Matches/Outputs</td><td>Multiples</td></tr></thead>
+<tr><td>y</td><td>Year</td><td>1, 2 or 4 'y's will show the value, 2 digit zero-padded value or 4 digit zero-padded value respectively</td></tr>
+<tr><td>M</td><td>Month</td><td>1, 2, 3, 4 or 5 'M's will show the value, 2 digit zero-padded value, short name, long name or initial letter months</td></tr>
+<tr><td>d</td><td>Day of Month</td><td>1 or 2 'd's will show the value or 2 digit zero-padded value representation respectively.</td></tr>
+<tr><td>E</td><td>Weekday</td><td>1, 2, 3, 4 or 5 'e's will show the value weekday number, 2 digit zero-padded value weekday number, short name, long name or initial letter respectively. Weekday numbers starts on Sunday. Use lowercase 'e' for weekday numbers starting on Monday.</td></tr>
+<tr><td>a</td><td>AM or PM</td><td>No repeat supported</td></tr>
+<tr><td>h</td><td>Hour</td><td>1 or 2 'h's will show the value or 2 digit zero-padded value representation respectively. Use uppercase for 24 hour time.</td></tr>
+<tr><td>m</td><td>Minute</td><td>1 or 2 'm's will show the value or 2 digit zero-padded value representation respectively.</td></tr>
+<tr><td>s</td><td>Second</td><td>1 or 2 's's will show the value or 2 digit zero-padded value representation respectively.</td></tr>
+<tr><td>z</td><td>Timezone</td><td>1, 2, 3 or 4 'z's will show short acronym, short name, long acronym, long name respectively. Use uppercase to show GMT offset instead of name &mdash; 1 or 2 digit zero-padded values shows GMT or RFC 822 respectively.</td></tr>
+</table>
+
+<p>Case is important &mdash; using the wrong case can cause parsing to fail. Use lowercase by default for all values except Month.</p>
+
+<p>Alphabetic and numeric characters should be enclosed in single quotes (asterisk character) if you want them to pass through the parser as literal characters. A double asterisk will pass through as a single asterisk (self escaping). Most other punctuation and spaces will go through as normal except backslash which works like a normal C-string escape character to handle tabs, newlines and other special characters.</p>
+
+<p>For the complete specification, including the more obscure options that I haven't bothered to list, see <a href="http://unicode.org/reports/tr35/tr35-4.html#Date_Format_Patterns">Unicode Standard (tr35)</a>.</p>
+
+<h2>Date string transcoding</h2>
+
+<p>The date formatting options can also be used to parse strings. With parsing and output formatting, we can create a date string transcoder method in a category on <code>NSDateFormatter</code>:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">+</span> <span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nf">dateStringFromString:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">sourceString</span>
+    <span class="nf">sourceFormat:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">sourceFormat</span>
+    <span class="nf">destinationFormat:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">destinationFormat</span>
+<span class="p">{</span>
+    <span class="n">NSDateFormatter</span> <span class="o">*</span><span class="n">dateFormatter</span> <span class="o">=</span> <span class="p">[[[</span><span class="n">NSDateFormatter</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">dateFormatter</span> <span class="nl">setFormatterBehavior</span><span class="p">:</span><span class="n">NSDateFormatterBehavior10_4</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">dateFormatter</span> <span class="nl">setDateFormat</span><span class="p">:</span><span class="n">sourceFormat</span><span class="p">];</span>
+    <span class="n">NSDate</span> <span class="o">*</span><span class="n">date</span> <span class="o">=</span> <span class="p">[</span><span class="n">dateFormatter</span> <span class="nl">dateFromString</span><span class="p">:</span><span class="n">sourceString</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">dateFormatter</span> <span class="nl">setDateFormat</span><span class="p">:</span><span class="n">destinationFormat</span><span class="p">];</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">dateFormatter</span> <span class="nl">stringFromDate</span><span class="p">:</span><span class="n">date</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>We can use this method to convert one date string (for example "2007-08-11T19:30:00Z") into another ("7:30:00PM on August 11, 2007") in the following manner:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSString</span> <span class="o">*</span><span class="n">inputDateString</span> <span class="o">=</span> <span class="s">@&#34;2007-08-11T19:30:00Z&#34;</span><span class="p">;</span>
+<span class="n">NSString</span> <span class="o">*</span><span class="n">outputDateString</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSDateFormatter</span>
+    <span class="nl">dateStringFromString</span><span class="p">:</span><span class="n">inputDateString</span>
+    <span class="nl">sourceFormat</span><span class="p">:</span><span class="s">@&#34;yyyy-MM-dd&#39;T&#39;HH:mm:ss&#39;Z&#39;&#34;</span>
+    <span class="nl">destinationFormat</span><span class="p">:</span><span class="s">@&#34;h:mm:ssa &#39;on&#39; MMMM d, yyyy&#34;</span><span class="p">];</span></code></pre></div>
+
+<h2>Calendar stuff</h2>
+
+<p>The <code>NSDateFormatter</code> class is just for parsing and formatting strings. You shouldn't use it to build dates from their components or to decompose dates into components. For that task, use <code>NSCalendar</code>. It's a little outside the scope of this post but since I know it will come up, here's how to set an <code>NSDate</code> to the 26th of May, 2009 using <code>NSCalendar</code>:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSDateComponents</span> <span class="o">*</span><span class="n">components</span> <span class="o">=</span> <span class="p">[[[</span><span class="n">NSDateComponents</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span>
+<span class="p">[</span><span class="n">components</span> <span class="nl">setDay</span><span class="p">:</span><span class="mi">26</span><span class="p">];</span>
+<span class="p">[</span><span class="n">components</span> <span class="nl">setMonth</span><span class="p">:</span><span class="mi">5</span><span class="p">];</span>
+<span class="p">[</span><span class="n">components</span> <span class="nl">setYear</span><span class="p">:</span><span class="mi">2009</span><span class="p">];</span>
+<span class="n">NSCalendar</span> <span class="o">*</span><span class="n">gregorian</span> <span class="o">=</span>
+    <span class="p">[[[</span><span class="n">NSCalendar</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithCalendarIdentifier</span><span class="p">:</span><span class="n">NSGregorianCalendar</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span>
+<span class="n">NSDate</span> <span class="o">*</span><span class="n">date</span> <span class="o">=</span> <span class="p">[</span><span class="n">gregorian</span> <span class="nl">dateFromComponents</span><span class="p">:</span><span class="n">components</span><span class="p">];</span></code></pre></div>
+
+<p>To get the components from a date, use:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">unsigned</span> <span class="n">unitFlags</span> <span class="o">=</span> <span class="n">NSYearCalendarUnit</span> <span class="o">|</span> <span class="n">NSMonthCalendarUnit</span> <span class="o">|</span>  <span class="n">NSDayCalendarUnit</span><span class="p">;</span>
+<span class="n">NSDate</span> <span class="o">*</span><span class="n">date</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSDate</span> <span class="n">date</span><span class="p">];</span>
+<span class="n">NSCalendar</span> <span class="o">*</span><span class="n">gregorian</span> <span class="o">=</span>
+    <span class="p">[[[</span><span class="n">NSCalendar</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithCalendarIdentifier</span><span class="p">:</span><span class="n">NSGregorianCalendar</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span>
+<span class="n">NSDateComponents</span> <span class="o">*</span><span class="n">components</span> <span class="o">=</span> <span class="p">[</span><span class="n">gregorian</span> <span class="nl">components</span><span class="p">:</span><span class="n">unitFlags</span> <span class="nl">fromDate</span><span class="p">:</span><span class="n">date</span><span class="p">];</span></code></pre></div>
+
+<h2>Conclusion</h2>
+
+<p>As I've said a few times now, the actual API for date formatting in Cocoa is simple. The only reason why I consider it a topic worthy of a post is that I still see at least one question a week on <a href="http://stackoverflow.com">StackOverflow</a> and other forums asking why <code>NSDateFormatter</code> is failing in their code and the answer is normally because their code confuses the formatting behaviors, uses the wrong format specifiers or has otherwise misunderstood the required steps.</p>
+
+<p>I hope what I've presented clears up these issues. Date formatting should be simple enough that you can write it once and never worry about it again.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="intercepting-status-bar-touches-on.html">Intercepting status bar touches on the iPhone</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../06/base64-encoding-options-on-mac-and.html">Base64 encoding options on the Mac and iPhone</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

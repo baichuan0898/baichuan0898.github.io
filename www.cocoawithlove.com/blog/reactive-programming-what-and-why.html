@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>What is reactive programming and why should I use it?</title>
+  <meta name="description" content="I&#39;ll explain why I consider reactive programming to be one of the most important design patterns for application programming by looking at three scenarios that are common in application development, yet are a drain on development time, lead to frequent bugs and make design and refactoring hard. I&#39;ll show how reactive programming addresses the verbosity, eliminates the unsafety and restructures the code to aid maintainability." />
+
+  <meta name="twitter:title" content="What is reactive programming and why should I use it?"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/blog/reactive-programming-what-and-why.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="I&#39;ll explain why I consider reactive programming to be one of the most important design patterns for application programming by looking at three scenarios that are common in application development, yet are a drain on development time, lead to frequent bugs and make design and refactoring hard. I&#39;ll show how reactive programming addresses the verbosity, eliminates the unsafety and restructures the code to aid maintainability."/>
+
+  <link rel="icon" href="../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../css/main.css" />
+  <link rel="canonical" href="reactive-programming-what-and-why.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../index.html"><img class="heartandcup" src="../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../about/index.html">about</a>
+        <a class="page-link" href="../archive/index.html">archive</a>
+        <a class="page-link" href="../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">What is reactive programming and why should I use it?</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2016-11-28">November 28, 2016</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../tags/asynchrony.html">asynchrony</a>
+		 
+	</div>
+</header>
+
+
+<main role="main">
+	<article itemscope itemtype="http://schema.org/BlogPosting">
+		<div class="post-content" itemprop="articleBody">
+			
+
+<p>A good reactive programming library takes a huge maintenance burden off some of the most commonly written, bug-prone code in applications.</p>
+
+<p>In the previous article, <a href="cwlsignal.html">I presented my own library for reactive programming, CwlSignal</a> but simple syntax examples don&rsquo;t really demonstrate how to use reactive programming to solve problems.</p>
+
+<p>In this article, I&rsquo;ll explain why I consider reactive programming to be one of the most important design patterns for application programming by looking at three scenarios that are common in application development, yet are a drain on development time, lead to frequent bugs and make design and refactoring hard. I&rsquo;ll show how reactive programming addresses the verbosity, eliminates the unsafety and restructures the code to aid maintainability.</p>
+
+<p>The specific scenarios I&rsquo;ll examine will be:</p>
+
+<ul>
+<li>A button whose <code>isEnabled</code> status is dependent on two different state values</li>
+<li>A thread-safe storage type</li>
+<li>An asynchronous task with a timeout</li>
+</ul>
+
+<nav id="TableOfContents"><span class="toc-heading">Contents</span>
+<ul>
+<li>
+<ul>
+<li><a href="#a-description-of-reactive-programming">A description of reactive programming</a></li>
+<li><a href="#a-button-dependent-on-two-state-values">A button dependent on two state values</a></li>
+<li><a href="#maintaining-a-threadsafe-dictionary-of-values">Maintaining a threadsafe dictionary of values</a></li>
+<li><a href="#an-asynchronous-task-with-a-timeout">An asynchronous task with a timeout</a></li>
+<li><a href="#conclusion">Conclusion</a>
+<ul>
+<li><a href="#looking-forward">Looking forward&hellip;</a></li>
+</ul></li>
+<li><a href="#appendix-a-little-bit-of-history">Appendix: A little bit of history</a></li>
+</ul></li>
+</ul>
+</nav>
+
+<h2 id="a-description-of-reactive-programming">A description of reactive programming</h2>
+
+<p>Reactive programming is defined by the following principle:</p>
+
+<blockquote>
+<p>Any &ldquo;getter&rdquo; for mutable state causes problems. Instead of using getters, any calculated, generated, loaded or received state values should be immediately sent into a channel and any part of the program that wants access to these values must subscribe to the channel.</p>
+</blockquote>
+
+<p>The idea is that we remove state from exposed parts of our program and encapsulate it inside channels instead. Channels clearly show data dependencies and effects, make changes easy to reason about and easy to maintain and otherwise simplify how we modify application state.</p>
+
+<p>Reactive programming supports this underlying principle with an approach that centers on serial and parallel compositions of channels to transform streams of data as they are emitted and merge changes that may occur concurrently or in otherwise intersecting patterns.</p>
+
+<p>Simply put: reactive programming manages asynchronous data flows between sources of data and components that need to <em>react</em> to that data.</p>
+
+<h2 id="a-button-dependent-on-two-state-values">A button dependent on two state values</h2>
+
+<p>Let&rsquo;s start with a fundamental task in application programming: setting the <code>isEnabled</code> status of a button.</p>
+
+<p>Imagine you had an &ldquo;Add to favorites&rdquo; button in your user-interface that you wanted to enable if (and only if) both of the following are true:</p>
+
+<ol>
+<li>the user is logged in</li>
+<li>the file selection is non-empty</li>
+</ol>
+
+<p>Let&rsquo;s include a complicating factor: the login status is typically updated on a background thread.</p>
+
+<p>Assuming updates for relevant values are sent using Key-Value-Observing then our view controller might contain the following code:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kr">override</span> <span class="kd">func</span> <span class="nf">viewDidLoad</span><span class="p">()</span> <span class="p">{</span>
+   <span class="kc">super</span><span class="p">.</span><span class="n">viewDidLoad</span><span class="p">()</span>
+   
+   <span class="n">addToFavoritesButton</span><span class="p">.</span><span class="n">isEnabled</span> <span class="p">=</span> <span class="n">loginStatus</span><span class="p">.</span><span class="n">isLoggedIn</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="n">folderView</span><span class="p">.</span><span class="n">selection</span><span class="p">.</span><span class="bp">isEmpty</span>
+   
+   <span class="n">loginStatus</span><span class="p">.</span><span class="n">addObserver</span><span class="p">(</span><span class="kc">self</span><span class="p">,</span> <span class="n">forKeyPath</span><span class="p">:</span> <span class="p">#</span><span class="n">keyPath</span><span class="p">(</span><span class="n">LoginStatus</span><span class="p">.</span><span class="n">isLoggedIn</span><span class="p">),</span>
+      <span class="n">options</span><span class="p">:</span> <span class="n">NSKeyValueObservingOptions</span><span class="p">.</span><span class="n">new</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="kc">nil</span><span class="p">)</span>
+   <span class="n">folderView</span><span class="p">.</span><span class="n">addObserver</span><span class="p">(</span><span class="kc">self</span><span class="p">,</span> <span class="n">forKeyPath</span><span class="p">:</span> <span class="p">#</span><span class="n">keyPath</span><span class="p">(</span><span class="n">FolderView</span><span class="p">.</span><span class="n">selection</span><span class="p">),</span>
+      <span class="n">options</span><span class="p">:</span> <span class="n">NSKeyValueObservingOptions</span><span class="p">.</span><span class="n">new</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="kc">nil</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="kr">override</span> <span class="kd">func</span> <span class="nf">observeValue</span><span class="p">(</span><span class="n">forKeyPath</span> <span class="n">keyPath</span><span class="p">:</span> <span class="nb">String</span><span class="p">?,</span> <span class="n">of</span> <span class="n">object</span><span class="p">:</span> <span class="nb">Any</span><span class="p">?,</span>
+   <span class="n">change</span><span class="p">:</span> <span class="p">[</span><span class="n">NSKeyValueChangeKey</span> <span class="p">:</span> <span class="nb">Any</span><span class="p">]?,</span> <span class="n">context</span><span class="p">:</span> <span class="n">UnsafeMutableRawPointer</span><span class="p">?)</span> <span class="p">{</span>
+   <span class="k">switch</span> <span class="p">(</span><span class="n">keyPath</span><span class="p">,</span> <span class="n">change</span><span class="p">?[</span><span class="n">NSKeyValueChangeKey</span><span class="p">.</span><span class="n">newKey</span><span class="p">])</span> <span class="p">{</span>
+   <span class="k">case</span> <span class="p">(.</span><span class="n">some</span><span class="p">(#</span><span class="n">keyPath</span><span class="p">(</span><span class="n">LoginStatus</span><span class="p">.</span><span class="n">isLoggedIn</span><span class="p">)),</span> <span class="p">.</span><span class="n">some</span><span class="p">(</span><span class="kd">let</span> <span class="nv">isLoggedIn</span> <span class="k">as</span> <span class="nb">Bool</span><span class="p">)):</span>
+      <span class="n">addToFavoritesButton</span><span class="p">.</span><span class="n">isEnabled</span> <span class="p">=</span> <span class="n">isLoggedIn</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="n">folderView</span><span class="p">.</span><span class="n">selection</span><span class="p">.</span><span class="bp">isEmpty</span>
+   <span class="k">case</span> <span class="p">(.</span><span class="n">some</span><span class="p">(#</span><span class="n">keyPath</span><span class="p">(</span><span class="n">FolderView</span><span class="p">.</span><span class="n">selection</span><span class="p">)),</span> <span class="p">.</span><span class="n">some</span><span class="p">(</span><span class="kd">let</span> <span class="nv">selection</span> <span class="k">as</span> <span class="nb">Array</span><span class="p">&lt;</span><span class="n">FileView</span><span class="o">&gt;</span><span class="p">)):</span>
+      <span class="n">addToFavoritesButton</span><span class="p">.</span><span class="n">isEnabled</span> <span class="p">=</span> <span class="n">loginStatus</span><span class="p">.</span><span class="n">isLoggedIn</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="n">selection</span><span class="p">.</span><span class="bp">isEmpty</span>
+   <span class="k">default</span><span class="p">:</span>
+      <span class="kc">super</span><span class="p">.</span><span class="n">observeValue</span><span class="p">(</span><span class="n">forKeyPath</span><span class="p">:</span> <span class="n">keyPath</span><span class="p">,</span> <span class="n">of</span><span class="p">:</span> <span class="n">object</span><span class="p">,</span> <span class="n">change</span><span class="p">:</span> <span class="n">change</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">context</span><span class="p">)</span>
+   <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kd">deinit</span> <span class="p">{</span>
+   <span class="n">loginStatus</span><span class="p">.</span><span class="n">removeObserver</span><span class="p">(</span><span class="kc">self</span><span class="p">,</span> <span class="n">forKeyPath</span><span class="p">:</span> <span class="p">#</span><span class="n">keyPath</span><span class="p">(</span><span class="n">LoginStatus</span><span class="p">.</span><span class="n">isLoggedIn</span><span class="p">))</span>
+   <span class="n">folderView</span><span class="p">.</span><span class="n">removeObserver</span><span class="p">(</span><span class="kc">self</span><span class="p">,</span> <span class="n">forKeyPath</span><span class="p">:</span> <span class="p">#</span><span class="n">keyPath</span><span class="p">(</span><span class="n">FolderView</span><span class="p">.</span><span class="n">selection</span><span class="p">))</span>
+<span class="p">}</span></code></pre></div>
+
+<p>It&rsquo;s exhausting just to look at; updating the <code>isEnabled</code> status for a single button takes 20 lines of densely written code – and it&rsquo;s not enough to do things properly.</p>
+
+<p>This code includes a few subtle but common mistakes that occur, not because we&rsquo;re bad programmers but because we code for the path of least resistance. We fix problems if they&rsquo;re immediately apparent but if the code <em>mostly</em> works – as this code does – it&rsquo;s likely to get through testing.</p>
+
+<p>What problems are in this code that could cause headaches later?</p>
+
+<ol>
+<li><strong>Thread unsafe</strong>: with the login status updating on a background thread, the <code>observeValue</code> for <code>#keyPath(LoginStatus.isLoggedIn)</code> is memory unsafe when it accesses the <code>folderView.selection.isEmpty</code> value on the wrong thread. This case also updates the <code>addToFavoritesButton.isEnabled</code> illegally on a background thread.</li>
+<li><strong>Not possible to make getters and <code>observeValue</code>s agree</strong>: It&rsquo;s possible that a login change could occur <em>between</em> the call to <code>loginStatus.isLoggedIn</code> and the respective <code>addObserver</code> calls in the <code>viewDidLoad</code> function. We could change the order of these but then we could get <em>updates</em> before we&rsquo;re initialized. Similarly, since <code>loginStatus.isLoggedIn</code> is updated on different threads, this getter could end up returning a value from a different point in time compared to the last <code>observeValue</code> update for the value – leading to redundant updates and possibly unexpected state changes (including state that may appear to skip transitions or progress backwards). The only solution involves careful use of <code>NSKeyValueObservingOptions.initial</code> and our own caching of last known values – avoiding the getters entirely.</li>
+<li><strong>Using KVO wrong</strong>: The most obvious way to use the <code>observeValue</code> method (by switching on the <code>keyPath</code> and/or <code>object</code>) is unreliable. Most observations should be unique, regardless of collisions on keypath or object, so a <code>context</code> object would be better – but it involves more work to allocate and store a context per-observation and then release when done, so we avoid it.</li>
+<li><strong>It&rsquo;s difficult to refactor</strong>: We update the <code>addToFavoritesButton.isEnabled</code> value in 3 different places. If another dependency were added to this value, we would need to remember to update all three locations.</li>
+<li><strong>No lifecycle notifications</strong>: if the <code>loginStatus</code> or <code>folderView</code> objects unexpectedly release, we won&rsquo;t get a notification and the button could remain inappropriately enabled.</li>
+</ol>
+
+<p>These problems <em>are</em> fixable but proper fixes involve more work on top of what we&rsquo;ve already written.</p>
+
+<p>In reactive programming, assuming all state values send their changes through reactive programming channels, rather than Key-Value-Observing, you&rsquo;d only need the following:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kr">override</span> <span class="kd">func</span> <span class="nf">viewDidLoad</span><span class="p">()</span> <span class="p">{</span>
+   <span class="kc">super</span><span class="p">.</span><span class="n">viewDidLoad</span><span class="p">()</span>
+   
+   <span class="kc">self</span><span class="p">.</span><span class="n">endpoints</span> <span class="o">+=</span> <span class="n">loginStatus</span><span class="p">.</span><span class="n">loggedInSignal</span>
+      <span class="p">.</span><span class="n">combineLatest</span><span class="p">(</span><span class="n">second</span><span class="p">:</span> <span class="n">folderView</span><span class="p">.</span><span class="n">selectionSignal</span><span class="p">)</span> <span class="p">{</span> <span class="nv">$0</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="nv">$1</span><span class="p">.</span><span class="bp">isEmpty</span> <span class="p">}</span>
+      <span class="p">.</span><span class="n">subscribe</span><span class="p">(</span><span class="n">context</span><span class="p">:</span> <span class="p">.</span><span class="n">main</span><span class="p">)</span> <span class="p">{</span> <span class="p">[</span><span class="kr">weak</span> <span class="kc">self</span><span class="p">]</span> <span class="n">result</span> <span class="k">in</span>
+         <span class="kc">self</span><span class="p">?.</span><span class="n">addToFavoritesButton</span><span class="p">.</span><span class="n">isEnabled</span> <span class="p">=</span> <span class="n">result</span><span class="p">.</span><span class="n">value</span> <span class="p">??</span> <span class="kc">false</span>
+      <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<figcaption>"App scenario - dynamic view properties" appears in the <a href="https://github.com/mattgallagher/CwlSignal">CwlSignal.playground</a>.</figcaption>
+
+<p>The above problems are fixed: this code is completely threadsafe, never issues redundant notifications, doesn&rsquo;t rely on <code>@objc</code> for key-value-observing and is vastly easier to refactor and maintain.</p>
+
+<h2 id="maintaining-a-threadsafe-dictionary-of-values">Maintaining a threadsafe dictionary of values</h2>
+
+<p>That was a look at the &ldquo;subscriber&rdquo; end of a dependency. Let&rsquo;s look at the &ldquo;sender&rdquo; end by taking a look at a threadsafe dictionary of values.</p>
+
+<p>You might use a dictionary as the &ldquo;model&rdquo; in a trivial app. Even if more sophisticated storage than a dictionary is required, the pattern of updating and notifying shown here should be the same in <em>any</em> well written app.</p>
+
+<p>Solving the problem with standard Cocoa classes <code>DispatchQueue</code> and <code>NotificationCenter</code> might look like the following:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">class</span> <span class="nc">DocumentValues</span> <span class="p">{</span>
+   <span class="kd">typealias</span> <span class="n">Dict</span> <span class="p">=</span> <span class="nb">Dictionary</span><span class="p">&lt;</span><span class="n">AnyHashable</span><span class="p">,</span> <span class="nb">Any</span><span class="o">&gt;</span>
+   <span class="kd">typealias</span> <span class="n">Tuple</span> <span class="p">=</span> <span class="p">(</span><span class="n">AnyHashable</span><span class="p">,</span> <span class="nb">Any</span><span class="p">?)</span>
+
+   <span class="kd">static</span> <span class="kd">let</span> <span class="nv">changed</span> <span class="p">=</span> <span class="n">Notification</span><span class="p">.</span><span class="n">Name</span><span class="p">(</span><span class="s">&#34;com.mycompany.mymodule.documentvalues.changed&#34;</span><span class="p">)</span>
+   
+   <span class="c1">// Underlying storage protected by a `DispatchQueue` mutex</span>
+   <span class="kd">private</span> <span class="kd">var</span> <span class="nv">storage</span> <span class="p">=</span> <span class="n">Dict</span><span class="p">()</span>
+   <span class="kd">private</span> <span class="kd">let</span> <span class="nv">mutex</span> <span class="p">=</span> <span class="n">DispatchQueue</span><span class="p">(</span><span class="n">label</span><span class="p">:</span> <span class="s">&#34;&#34;</span><span class="p">)</span>
+
+   <span class="kd">init</span><span class="p">()</span> <span class="p">{}</span>
+   
+   <span class="c1">// Access to the storage involves copying out of the mutex</span>
+   <span class="kd">var</span> <span class="nv">values</span><span class="p">:</span> <span class="n">Dict</span> <span class="p">{</span>
+      <span class="k">return</span> <span class="n">mutex</span><span class="p">.</span><span class="n">sync</span> <span class="p">{</span>
+         <span class="k">return</span> <span class="n">storage</span>
+      <span class="p">}</span>
+   <span class="p">}</span>
+   
+   <span class="c1">// Remove a value and send a change notification</span>
+   <span class="kd">func</span> <span class="nf">removeValue</span><span class="p">(</span><span class="n">forKey</span> <span class="n">key</span><span class="p">:</span> <span class="n">AnyHashable</span><span class="p">)</span> <span class="p">{</span>
+      <span class="kd">let</span> <span class="nv">latest</span> <span class="p">=</span> <span class="n">mutex</span><span class="p">.</span><span class="n">sync</span> <span class="p">{</span> <span class="p">()</span> <span class="p">-&gt;</span> <span class="n">Dict</span> <span class="k">in</span>
+         <span class="n">storage</span><span class="p">.</span><span class="n">removeValue</span><span class="p">(</span><span class="n">forKey</span><span class="p">:</span> <span class="n">key</span><span class="p">)</span>
+         <span class="k">return</span> <span class="n">storage</span>
+      <span class="p">}</span>
+      <span class="n">NotificationCenter</span><span class="p">.</span><span class="k">default</span><span class="p">.</span><span class="n">post</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="n">DocumentValues</span><span class="p">.</span><span class="n">changed</span><span class="p">,</span> <span class="n">object</span><span class="p">:</span> <span class="kc">self</span><span class="p">,</span>
+         <span class="n">userInfo</span><span class="p">:</span> <span class="n">latest</span><span class="p">)</span>
+   <span class="p">}</span>
+
+   <span class="c1">// Create/change a value and send a change notification</span>
+   <span class="kd">func</span> <span class="nf">setValue</span><span class="p">(</span><span class="kc">_</span> <span class="n">value</span><span class="p">:</span> <span class="nb">Any</span><span class="p">,</span> <span class="n">forKey</span> <span class="n">key</span><span class="p">:</span> <span class="n">AnyHashable</span><span class="p">)</span> <span class="p">{</span>
+      <span class="kd">let</span> <span class="nv">latest</span> <span class="p">=</span> <span class="n">mutex</span><span class="p">.</span><span class="n">sync</span> <span class="p">{</span> <span class="p">()</span> <span class="p">-&gt;</span> <span class="n">Dict</span> <span class="k">in</span>
+         <span class="n">storage</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="p">=</span> <span class="n">value</span>
+         <span class="k">return</span> <span class="n">storage</span>
+      <span class="p">}</span>
+      <span class="n">NotificationCenter</span><span class="p">.</span><span class="k">default</span><span class="p">.</span><span class="n">post</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="n">DocumentValues</span><span class="p">.</span><span class="n">changed</span><span class="p">,</span> <span class="n">object</span><span class="p">:</span> <span class="kc">self</span><span class="p">,</span>
+         <span class="n">userInfo</span><span class="p">:</span> <span class="n">latest</span><span class="p">)</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>I have been carefully copying values in and out of the mutex and it is memory safe in all cases. The class uses notifications so that other interfaces can receive updates.</p>
+
+<p>What&rsquo;s the problem?</p>
+
+<p>Let&rsquo;s look at the key failings, again:</p>
+
+<ol>
+<li><strong>Bad behavior is encouraged</strong>: It is easy for another interface to access the current <code>values</code> property but it is additional work to properly observe the <code>DocumentValues.changed</code> notification, so you&rsquo;re encouraging dependent interfaces to <em>forget</em> to properly observe changes and fall out-of-sync.</li>
+<li><strong>There is no safe way to initialize and subscribe</strong>: If you get the <code>values</code> then start observing notifications, it&rsquo;s possible that a change could occur <em>between</em> these two actions (causing you to lose a notification). If you observe notifications first, then get the <code>values</code>, you might get a first notification before you&rsquo;ve properly initialized. <code>NSKeyValueObservingOptions.initial</code> could fix the problem for KVO but with <code>Notification</code>s, you&rsquo;d need some clever coding to work around this problem.</li>
+<li><strong>Prone to deadlocks</strong>: The <code>removeValue</code> function on <code>storage</code> deletes an arbitrary value inside a mutex. If there is a <code>deinit</code> on this deleted value and the <code>deinit</code> tries to change the <code>DocumentValues</code> (re-entering the mutex), you&rsquo;ve created a deadlock.</li>
+<li><strong>It&rsquo;s difficult to refactor</strong>: There&rsquo;s no single point that all changes to the <code>storage</code> go through. If you need to add functionality in future – like writing <code>DocumentValues</code> to a file on each change – you&rsquo;d have to carefully integrate this change into multiple places.</li>
+<li><strong>No lifecycle notifications</strong>: If the <code>DocumentValues</code> object is deleted, it doesn&rsquo;t notify this, by default.</li>
+</ol>
+
+<p>Many of these are the same or similar problems to the previous example. As before, these problems can be solved through additional careful coding but as before, each solution would require additional code and additional complexity and more than that: you&rsquo;d need to first realize that the problem exists; due to the subtlety of all of these problems, you might not notice any issues during testing.</p>
+
+<p>An implementation using reactive programming would replace the <code>values</code> property with a channel that emits the current value, followed by future updates, as a stream.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">class</span> <span class="nc">DocumentValues</span> <span class="p">{</span>
+   <span class="kd">typealias</span> <span class="n">Dict</span> <span class="p">=</span> <span class="nb">Dictionary</span><span class="p">&lt;</span><span class="n">AnyHashable</span><span class="p">,</span> <span class="nb">Any</span><span class="o">&gt;</span>
+   <span class="kd">typealias</span> <span class="n">Tuple</span> <span class="p">=</span> <span class="p">(</span><span class="n">AnyHashable</span><span class="p">,</span> <span class="nb">Any</span><span class="p">?)</span>
+
+   <span class="kd">private</span> <span class="kd">let</span> <span class="nv">input</span><span class="p">:</span> <span class="n">SignalInput</span><span class="p">&lt;</span><span class="n">Tuple</span><span class="o">&gt;</span>
+   
+   <span class="c1">// Access to the data is via the signal.</span>
+   <span class="kd">public</span> <span class="kd">let</span> <span class="nv">signal</span><span class="p">:</span> <span class="n">SignalMulti</span><span class="p">&lt;</span><span class="n">Dict</span><span class="o">&gt;</span>
+
+   <span class="kd">init</span><span class="p">()</span> <span class="p">{</span>
+      <span class="c1">// Actual values storage is encapsulated within the signal</span>
+      <span class="p">(</span><span class="kc">self</span><span class="p">.</span><span class="n">input</span><span class="p">,</span> <span class="kc">self</span><span class="p">.</span><span class="n">signal</span><span class="p">)</span> <span class="p">=</span> <span class="n">Signal</span><span class="p">&lt;</span><span class="n">Tuple</span><span class="o">&gt;</span><span class="p">.</span><span class="n">create</span> <span class="p">{</span>
+         <span class="nv">$0</span><span class="p">.</span><span class="bp">map</span><span class="p">(</span><span class="n">withState</span><span class="p">:</span> <span class="p">[:])</span> <span class="p">{</span> <span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="kr">inout</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">update</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">)</span> <span class="k">in</span>
+            
+            <span class="c1">// All updates pass through this single, common function.</span>
+            <span class="k">switch</span> <span class="n">update</span> <span class="p">{</span>
+            <span class="k">case</span> <span class="p">(</span><span class="kd">let</span> <span class="nv">key</span><span class="p">,</span> <span class="p">.</span><span class="n">some</span><span class="p">(</span><span class="kd">let</span> <span class="nv">value</span><span class="p">)):</span> <span class="n">state</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="p">=</span> <span class="n">value</span>
+            <span class="k">case</span> <span class="p">(</span><span class="kd">let</span> <span class="nv">key</span><span class="p">,</span> <span class="p">.</span><span class="kr">none</span><span class="p">):</span> <span class="n">state</span><span class="p">.</span><span class="n">removeValue</span><span class="p">(</span><span class="n">forKey</span><span class="p">:</span> <span class="n">key</span><span class="p">)</span>
+            <span class="p">}</span>
+            <span class="k">return</span> <span class="n">state</span>
+         
+         <span class="c1">// Convert single `Signal` into multi-subscribable `SignalMulti` with `continuous`</span>
+         <span class="p">}.</span><span class="n">continuous</span><span class="p">(</span><span class="n">initial</span><span class="p">:</span> <span class="p">[:])</span>
+      <span class="p">}</span>
+   <span class="p">}</span>
+   
+   <span class="kd">func</span> <span class="nf">removeValue</span><span class="p">(</span><span class="n">forKey</span> <span class="n">key</span><span class="p">:</span> <span class="n">AnyHashable</span><span class="p">)</span> <span class="p">{</span>
+      <span class="n">input</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="kc">nil</span><span class="p">))</span>
+   <span class="p">}</span>
+   
+   <span class="kd">func</span> <span class="nf">setValue</span><span class="p">(</span><span class="kc">_</span> <span class="n">value</span><span class="p">:</span> <span class="nb">Any</span><span class="p">,</span> <span class="n">forKey</span> <span class="n">key</span><span class="p">:</span> <span class="n">AnyHashable</span><span class="p">)</span> <span class="p">{</span>
+      <span class="n">input</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="n">value</span><span class="p">))</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<figcaption>"App scenario - threadsafe key-value storage" appears in the <a href="https://github.com/mattgallagher/CwlSignal">CwlSignal.playground</a>..</figcaption>
+
+<p>The code size is not significantly different (27 non-blank, non-comment lines before versus 23 after) but in this case, every problem mentioned above is solved implicitly.</p>
+
+<ol>
+<li>The same work is involved in accessing a value once or subscribing properly so good behavior is encouraged.</li>
+<li>If separate handling of initial value and subsequent values is required (e.g. using a <code>capture</code> and <code>subscribe</code> sequence as described in the previous article) the stream is correctly paused so you can&rsquo;t miss a notification.</li>
+<li>Everything is threadsafe (the <code>map</code> closure will never be concurrently invoked and re-entrancy is not possible)</li>
+<li>All changes go through the <code>map</code> function and can be coordinated there.</li>
+<li>A <code>SignalError.cancelled</code> message is automatically sent to subscribers if <code>input</code> is released.</li>
+</ol>
+
+<p>Associated with being &ldquo;threadsafe&rdquo;, notice that there are no longer any mutable variables in the class; state is encapsulated inside the <code>Signal</code>.</p>
+
+<p>Not only is this less code than the previous class but there are far fewer implementation mistakes you could make; code is more declarative and contained and there&rsquo;s no mutex to carefully administer and work around.</p>
+
+<h2 id="an-asynchronous-task-with-a-timeout">An asynchronous task with a timeout</h2>
+
+<p>I originally gave the following code in a previous article, <a href="testing-actions-over-time.html#let-s-fill-in-the-service-implementation">Testing Actions over Time</a>. The code contains a class with a <code>connect</code> function that does two things:</p>
+
+<ol>
+<li>Invokes an <code>underlyingConnect</code> function, which takes a callback and invokes it on completion</li>
+<li>Starts a timer, which, if it fires <em>before</em> the <code>underlyingConnect</code> function invokes its completion handler, cancels the <code>underlyingConnect</code> function.</li>
+</ol>
+
+<p>I&rsquo;ve made the class a little complicated by allowing the user to call <code>connect</code> multiple times on the <code>Service</code> class – possibly while a previous call to <code>connect</code> still has asynchronous tasks outstanding.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">public</span> <span class="kd">protocol</span> <span class="nc">Cancellable</span><span class="p">:</span> <span class="kd">class</span> <span class="p">{</span> <span class="kd">func</span> <span class="nf">cancel</span><span class="p">()</span> <span class="p">}</span>
+<span class="kd">enum</span> <span class="nc">ServiceError</span><span class="p">:</span> <span class="n">Error</span> <span class="p">{</span> <span class="k">case</span> <span class="n">timeout</span> <span class="p">}</span>
+
+<span class="kd">class</span> <span class="nc">Service</span> <span class="p">{</span>
+   <span class="kd">typealias</span> <span class="n">ConnectionFunction</span> <span class="p">=</span>
+      <span class="p">(</span><span class="n">DispatchQueue</span><span class="p">,</span> <span class="p">@</span><span class="n">escaping</span> <span class="p">(</span><span class="n">Result</span><span class="p">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="p">())</span> <span class="p">-&gt;</span> <span class="n">Cancellable</span>
+
+   <span class="kd">let</span> <span class="nv">underlyingConnect</span><span class="p">:</span> <span class="n">ConnectionFunction</span>
+   <span class="kd">var</span> <span class="nv">currentAction</span><span class="p">:</span> <span class="n">Cancellable</span><span class="p">?</span> <span class="p">=</span> <span class="kc">nil</span>
+   <span class="kd">let</span> <span class="nv">queue</span> <span class="p">=</span> <span class="n">DispatchQueue</span><span class="p">(</span><span class="n">label</span><span class="p">:</span> <span class="s">&#34;</span><span class="si">\(</span><span class="n">Service</span><span class="p">.</span><span class="kc">self</span><span class="si">)</span><span class="s">&#34;</span><span class="p">)</span>
+   <span class="kd">let</span> <span class="nv">handler</span><span class="p">:</span> <span class="p">(</span><span class="n">Result</span><span class="p">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="p">()</span>
+   
+   <span class="c1">// Construction of the Service lets us specify the underlying &#34;connect&#34; service</span>
+   <span class="kd">init</span><span class="p">(</span><span class="n">connect</span><span class="p">:</span> <span class="p">@</span><span class="n">escaping</span> <span class="n">ConnectionFunction</span> <span class="p">=</span> <span class="n">NetworkService</span><span class="p">.</span><span class="kd">init</span><span class="p">,</span>
+      <span class="n">handler</span><span class="p">:</span> <span class="p">@</span><span class="n">escaping</span> <span class="p">(</span><span class="n">Result</span><span class="p">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="p">())</span> <span class="p">{</span>
+      <span class="kc">self</span><span class="p">.</span><span class="n">underlyingConnect</span> <span class="p">=</span> <span class="n">connect</span>
+      <span class="kc">self</span><span class="p">.</span><span class="n">handler</span> <span class="p">=</span> <span class="n">handler</span>
+   <span class="p">}</span>
+
+   <span class="c1">// The connect function that we want to test</span>
+   <span class="kd">func</span> <span class="nf">connect</span><span class="p">(</span><span class="n">timeout</span> <span class="n">seconds</span><span class="p">:</span> <span class="nb">Double</span><span class="p">)</span> <span class="p">{</span>
+      <span class="kd">var</span> <span class="nv">previousAction</span><span class="p">:</span> <span class="n">Cancellable</span><span class="p">?</span> <span class="p">=</span> <span class="kc">nil</span>
+      <span class="n">queue</span><span class="p">.</span><span class="n">sync</span> <span class="p">{</span>
+         <span class="n">previousAction</span> <span class="p">=</span> <span class="kc">self</span><span class="p">.</span><span class="n">currentAction</span>
+         
+         <span class="c1">// Tie the timer and underlying action together with a single lifetime object for</span>
+         <span class="c1">// this `connect` action</span>
+         <span class="kd">let</span> <span class="nv">timerAndAction</span> <span class="p">=</span> <span class="n">CancellableTimerAndAction</span><span class="p">()</span>
+         
+         <span class="c1">// Run the underlying connection</span>
+         <span class="kd">let</span> <span class="nv">underlyingAction</span> <span class="p">=</span> <span class="kc">self</span><span class="p">.</span><span class="n">underlyingConnect</span><span class="p">(</span><span class="n">queue</span><span class="p">)</span> <span class="p">{</span>
+            <span class="p">[</span><span class="kr">weak</span> <span class="n">timerAndAction</span><span class="p">]</span> <span class="n">result</span> <span class="k">in</span>
+            <span class="c1">// Cancel the action so no futher callbacks are invoked</span>
+            <span class="n">timerAndAction</span><span class="p">?.</span><span class="n">cancel</span><span class="p">()</span>
+            
+            <span class="c1">// Send the succes to the handler</span>
+            <span class="n">handler</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+         <span class="p">}</span>
+         
+         <span class="c1">// Run the timeout timer</span>
+         <span class="kd">let</span> <span class="nv">timer</span> <span class="p">=</span> <span class="n">DispatchSource</span><span class="p">.</span><span class="n">singleTimer</span><span class="p">(</span><span class="n">interval</span><span class="p">:</span>
+            <span class="n">DispatchTimeInterval</span><span class="p">.</span><span class="n">fromSeconds</span><span class="p">(</span><span class="n">seconds</span><span class="p">),</span> <span class="n">queue</span><span class="p">:</span> <span class="n">queue</span><span class="p">)</span> <span class="p">{</span>
+            <span class="p">[</span><span class="kr">weak</span> <span class="n">timerAndAction</span><span class="p">]</span> <span class="k">in</span>
+            <span class="c1">// Cancel the action so no futher callbacks are invoked</span>
+            <span class="n">timerAndAction</span><span class="p">?.</span><span class="n">cancel</span><span class="p">()</span>
+            
+            <span class="c1">// Send the timeout to the handler</span>
+            <span class="n">handler</span><span class="p">(.</span><span class="n">failure</span><span class="p">(</span><span class="n">ServiceError</span><span class="p">.</span><span class="n">timeout</span><span class="p">))</span>
+         <span class="p">}</span> <span class="k">as</span><span class="p">?</span> <span class="n">DispatchSource</span>
+         
+         <span class="c1">// Store everything in the lifetime object for this action and then store that</span>
+         <span class="c1">// in the parent</span>
+         <span class="n">timerAndAction</span><span class="p">.</span><span class="n">timer</span> <span class="p">=</span> <span class="n">timer</span>
+         <span class="n">timerAndAction</span><span class="p">.</span><span class="n">action</span> <span class="p">=</span> <span class="n">underlyingAction</span>
+         <span class="kc">self</span><span class="p">.</span><span class="n">currentAction</span> <span class="p">=</span> <span class="n">timerAndAction</span>
+      <span class="p">}</span>
+      
+      <span class="c1">// A good rule of thumb: never release lifetime objects inside a mutex – you might</span>
+      <span class="c1">// trigger a re-entrancy deadlock</span>
+      <span class="bp">withExtendedLifetime</span><span class="p">(</span><span class="n">previousAction</span><span class="p">)</span> <span class="p">{}</span>
+   <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kd">class</span> <span class="nc">CancellableTimerAndAction</span><span class="p">:</span> <span class="n">Cancellable</span> <span class="p">{</span>
+   <span class="kd">var</span> <span class="nv">timer</span><span class="p">:</span> <span class="n">Cancellable</span><span class="p">?</span> <span class="p">=</span> <span class="kc">nil</span>
+   <span class="kd">var</span> <span class="nv">action</span><span class="p">:</span> <span class="n">Cancellable</span><span class="p">?</span> <span class="p">=</span> <span class="kc">nil</span>
+
+   <span class="kd">func</span> <span class="nf">cancel</span><span class="p">()</span> <span class="p">{</span>
+      <span class="n">timer</span><span class="p">?.</span><span class="n">cancel</span><span class="p">()</span>
+      <span class="n">action</span><span class="p">?.</span><span class="n">cancel</span><span class="p">()</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Now, this code works and as far as I&rsquo;m aware, there are no bugs. But it&rsquo;s <strong><em>gigantic</em></strong> given that all it is doing is applying a timeout to an underlying function.</p>
+
+<p>Most of the size is due to careful coding to avoid problems. After the <code>connect</code> function starts the <code>underlyingAction</code> and the <code>timer</code>, it needs to store both in a custom <code>timerAndAction</code> (to tie their lifetimes together). There&rsquo;s some careful handling of the <code>previousAction</code> which is released outside the <code>queue.sync</code> (to prevent re-entrancy deadlock problems). Both the <code>underlyingAction</code>&rsquo;s handler closure and the <code>timer</code>&rsquo;s handler closure need to access the other (to cancel things properly) so there&rsquo;s some weak reference juggling going on too.</p>
+
+<p>We shouldn&rsquo;t need to carefully code around so many issues. We want the code smaller. We want it simpler.</p>
+
+<p>Let&rsquo;s try the whole thing with reactive programming.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">class</span> <span class="nc">Service</span> <span class="p">{</span>
+   <span class="kd">private</span> <span class="kd">let</span> <span class="nv">input</span><span class="p">:</span> <span class="n">SignalInput</span><span class="p">&lt;</span><span class="n">DispatchTimeInterval</span><span class="o">&gt;</span>
+   
+   <span class="c1">// Instead of &#34;handler&#34; callbacks, output is now via this signal</span>
+   <span class="kd">let</span> <span class="nv">signal</span><span class="p">:</span> <span class="n">SignalMulti</span><span class="p">&lt;</span><span class="n">Result</span><span class="p">&lt;</span><span class="nb">String</span><span class="o">&gt;&gt;</span>
+   
+   <span class="kd">init</span><span class="p">(</span><span class="n">connect</span><span class="p">:</span> <span class="p">@</span><span class="n">escaping</span> <span class="p">()</span> <span class="p">-&gt;</span> <span class="n">Signal</span><span class="p">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="p">)</span> <span class="p">{</span>
+      <span class="p">(</span><span class="kc">self</span><span class="p">.</span><span class="n">input</span><span class="p">,</span> <span class="kc">self</span><span class="p">.</span><span class="n">signal</span><span class="p">)</span> <span class="p">=</span> <span class="n">Signal</span><span class="p">&lt;</span><span class="n">DispatchTimeInterval</span><span class="o">&gt;</span><span class="p">.</span><span class="n">create</span> <span class="p">{</span> <span class="n">s</span> <span class="k">in</span>
+         <span class="c1">// Return results only from the latest connection attempt</span>
+         <span class="n">Signal</span><span class="p">&lt;</span><span class="n">Result</span><span class="p">&lt;</span><span class="nb">String</span><span class="o">&gt;&gt;</span><span class="p">.</span><span class="n">switchLatest</span><span class="p">(</span>
+           <span class="c1">// Each time we receive a timeout duration, convert it into a connection attempt</span>
+           <span class="n">s</span><span class="p">.</span><span class="bp">map</span> <span class="p">{</span> <span class="n">i</span> <span class="k">in</span> <span class="n">connect</span><span class="p">().</span><span class="n">timeout</span><span class="p">(</span><span class="n">interval</span><span class="p">:</span> <span class="n">i</span><span class="p">,</span> <span class="n">resetOnValue</span><span class="p">:</span> <span class="kc">false</span><span class="p">).</span><span class="n">materialize</span><span class="p">()</span> <span class="p">}</span>
+         <span class="p">).</span><span class="n">multicast</span><span class="p">()</span>
+      <span class="p">}</span>
+   <span class="p">}</span>
+
+   <span class="kd">func</span> <span class="nf">connect</span><span class="p">(</span><span class="n">seconds</span><span class="p">:</span> <span class="nb">Double</span><span class="p">)</span> <span class="p">{</span>
+      <span class="n">input</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="p">.</span><span class="n">fromSeconds</span><span class="p">(</span><span class="n">seconds</span><span class="p">))</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<figcaption>"Parallel composition - operators" appears in the <a href="https://github.com/mattgallagher/CwlSignal">CwlSignal.playground</a>.</figcaption>
+
+<p>The difference is astounding; it doesn&rsquo;t even <em>resemble</em> the original class. However, this class does the same thing, just over reactive programming channels, rather than over callbacks with state and mutexes. With reactive programming, all of the threading and lifetime management that caused a huge burden for the previous implementation are implicit – they&rsquo;re still <em>there</em> but they&rsquo;re just managed automatically.</p>
+
+<p>Getting comfortable with common reactive programming operators like <code>switchLatest</code> and <code>materialize</code> can take a litle time. They should all be documented in CwlSignal via Xcode quick help but they are also largely the same as the <a href="http://reactivex.io/documentation/operators.html">ReactiveX implementations</a> so you can also consult that documentation to gain additional insight.</p>
+
+<p>In case you think using a built-in function for the <code>timeout</code> is cheating in this comparison, it would be simple to replace that one line with:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">let</span> <span class="nv">timer</span> <span class="p">=</span> <span class="n">Signal</span><span class="o">&lt;</span><span class="p">()</span><span class="o">&gt;</span><span class="p">.</span><span class="n">timer</span><span class="p">(</span><span class="n">interval</span><span class="p">:</span> <span class="p">.</span><span class="n">seconds</span><span class="p">(</span><span class="mi">10</span><span class="p">))</span>
+<span class="k">return</span> <span class="n">connect</span><span class="p">().</span><span class="n">combine</span><span class="p">(</span><span class="n">second</span><span class="p">:</span> <span class="n">timer</span><span class="p">)</span> <span class="p">{</span> <span class="n">eitherSignal</span><span class="p">,</span> <span class="n">next</span> <span class="k">in</span>
+   <span class="k">switch</span> <span class="n">eitherSignal</span> <span class="p">{</span>
+   <span class="k">case</span> <span class="p">.</span><span class="n">result1</span><span class="p">(</span><span class="kd">let</span> <span class="nv">r</span><span class="p">):</span> <span class="n">next</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">result</span><span class="p">:</span> <span class="n">r</span><span class="p">)</span>
+   <span class="k">case</span> <span class="p">.</span><span class="n">result2</span><span class="p">:</span> <span class="n">next</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">error</span><span class="p">:</span> <span class="n">MyErrors</span><span class="p">.</span><span class="n">timeout</span><span class="p">)</span>
+   <span class="p">}</span>
+<span class="p">}.</span><span class="n">materialize</span><span class="p">()</span></code></pre></div>
+
+<p>It&rsquo;s a little more verbose but still not complicated.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>Reactive programming changes how data is stored, how it flows through your program and how the elements of your program are connected. The result is significant improvement across the following categories:</p>
+
+<ul>
+<li>Thread safety</li>
+<li>Coordinating concurrent asynchronous tasks</li>
+<li>Loose coupling of components</li>
+<li>Data dependencies</li>
+</ul>
+
+<p>The biggest advantage comes when you realize that in applying a solution to just one of these problems, you&rsquo;ve gained a solution to the other three for free.</p>
+
+<p>For situations where the code already addresses these issues properly, reactive programming can deliver <em>significant</em> lines-of-code savings.</p>
+
+<p>The end result is code that is easier to write and easier to maintain.</p>
+
+<h3 id="looking-forward">Looking forward&hellip;</h3>
+
+<p>There&rsquo;s a lot of carefully written code in the <a href="https://github.com/mattgallagher/CwlSignal">CwlSignal</a> library. Even if – despite all the discussion in this article – you&rsquo;re not interested in reactive programming, there&rsquo;s lots to learn about how CwlSignal solves problems internally like avoiding re-entrancy and integrating with Key-Value-Observing.</p>
+
+<h2 id="appendix-a-little-bit-of-history">Appendix: A little bit of history</h2>
+
+<p>Even though the terms &ldquo;reactive&rdquo; and &ldquo;reactive systems&rdquo; have been in use in programming at least since Alan Kay&rsquo;s 1969 paper <a href="http://www.mprove.de/diplom/gui/kay69.html">The Reactive Engine</a>, modern use of the term &ldquo;reactive programming&rdquo; really refers to ideas started in <a href="http://conal.net">Conal Elliot</a> and Paul Hudak&rsquo;s 1997 paper <a href="http://conal.net/papers/icfp97/">Function Reactive Animation</a>.</p>
+
+<p>Functional reactive animation, later called functional reactive programming (FRP) is about &ldquo;behaviors&rdquo; (continuous, time-dependent equations like those describing the position of a moving object) and how they change and interact with &ldquo;events&rdquo; (one-off occurrences at an instantaneous time).</p>
+
+<p>All of this might have been irrelevant to imperative programming languages since pull-driven, lazily evaluated &ldquo;behaviors&rdquo; (the primary output of functional reactive programming) are uninteresting for most imperative programming which can use push-driven stateful calculations to produce the same results in a simpler way.</p>
+
+<p>It turns out, however, that the patterns that functional reactive programming provides for handling, transforming and responding to &ldquo;events&rdquo; (side effects that functional reactive programming tries to minimize) easily carry across to imperative languages and remain similarly useful for managing and responding to streams of discrete events – even when those streams are predominantly <em>push</em> driven, as in imperative programming, rather than lazily evaluated <em>pull</em> driven, as is typical in functional languages.</p>
+
+<p>Thus we get &ldquo;reactive programming&rdquo; (note the absence of &ldquo;functional&rdquo;) which focuses on emitting, transforming and subscribing to streams of events.</p>
+
+<p>The biggest difference between functional reactive and imperative reactive is ultimately &ldquo;time&rdquo;. In functional reactive programming, time is a parameter passed into each calculation. In imperative reactive programming, time may be pulled from the context but the actual time is usually less important than the order in which relevant mutexes are acquired. This means that functional reactive programming operates a bit more like a simulation (&ldquo;if two objects should happen to interact in this way at this time&hellip;&rdquo;) whereas reactive programming is more like a simple ordering of blocks into a sequence by the order that they happen to be processed. One of the effect of this is that functional reactive programming can handle two events that are literally simultaneous whereas imperative reactive programming has no such notion of simultaneity.</p>
+
+<p>While there may have been prior implementations of reactive programming in an imperative languages, the first popular implementation is the <a href="https://github.com/Reactive-Extensions/Rx.NET">Reactive Extensions (Rx) for .NET</a> which was <a href="https://blogs.msdn.microsoft.com/rxteam/2009/11/17/announcing-reactive-extensions-rx-for-net-silverlight/">first released in late 2009</a>.</p>
+
+<p>The Reactive Extensions largely mimic the .NET framework&rsquo;s <code>IObservable</code> as the primary metaphor. Along with integration of <code>IDisposable</code> and ideas from <code>IEnumerable</code> and LINQ. Many implementations of reactive programming on imperative platforms continue to employ terminology like &ldquo;Observable&rdquo; and &ldquo;Disposable&rdquo; for the core communication and lifetime protocols, respectively, revealing their lineage from the Reactive Extensions.</p>
+
+		</div>
+	</article>
+</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="cwlsignal.html">CwlSignal, a library for reactive programming</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="resources-releases-reentrancy.html">Reference counted releases in Swift</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../feed.json">JSON</a>, <a href="../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

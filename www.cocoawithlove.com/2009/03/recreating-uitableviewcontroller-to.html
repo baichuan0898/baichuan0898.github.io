@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Recreating UITableViewController to increase code reuse</title>
+  <meta name="description" content="UITableViewController and UIViewController are the two most commonly implemented controllers on the iPhone. It may not always be clear what UITableViewController adds to its superclass. I&#39;ll show you what UITableViewController does by recreating its functionality on top of UIViewController and show you why doing this can provide a richer base controller class that you can use throughout your iPhone application." />
+
+  <meta name="twitter:title" content="Recreating UITableViewController to increase code reuse"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/03/recreating-uitableviewcontroller-to.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="UITableViewController and UIViewController are the two most commonly implemented controllers on the iPhone. It may not always be clear what UITableViewController adds to its superclass. I&#39;ll show you what UITableViewController does by recreating its functionality on top of UIViewController and show you why doing this can provide a richer base controller class that you can use throughout your iPhone application."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="recreating-uitableviewcontroller-to.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Recreating UITableViewController to increase code reuse</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-03-22">March 22, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/uikit.html">UIKit</a>, <a href="../../categories/cocoa-touch.html">Cocoa Touch</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>UITableViewController and UIViewController are the two most commonly implemented controllers on the iPhone. It may not always be clear what UITableViewController adds to its superclass. I'll show you what UITableViewController does by recreating its functionality on top of UIViewController and show you why doing this can provide a richer base controller class that you can use throughout your iPhone application.</p></span>
+
+<span class="fullpost">
+<h2>This week, an iPhone app</h2>
+
+<p>In this post, I'll present a small iPhone application that displays the time in a table on the front screen, with detail screens for each component when the respective row is clicked.</p>
+
+<img src="../../assets/objc-era/timeintable.png" width="504" height="191" />
+
+<p style="text-align:center;">("second" shown on the right is the unit of time, not the 2nd row)</p>
+
+<p>With this application, the code to monitor the time and update when it changes is in a base class common to both the <code>UITableView</code>'s controller (left) and the <code>UIView</code>'s controller (right).</p>
+
+<p>If you followed the standard practice of using <code>UITableViewController</code> subclasses for <code>UITableView</code>-based screens and <code>UIViewController</code> subclasses for all other screens, keeping this code common would not be possible. I'll show how to make it possible by recreating the functionality of <code>UITableViewController</code> in your own <code>UIViewController</code> subclasses.</p>
+
+<h2>UITableViewController versus UIViewController</h2>
+<p>Between <code>UITableView</code> and navigation-based controllers, Apple did an excellent job of establishing a standard interaction paradigm for the iPhone. This established standard works so well that programmers use <code>UITableViewController</code> for most screens in their programs.</p>
+
+<p><code>UITableViewController</code> makes the simple, common case easier but it creates a problem if your program needs shared functionality between table view and views based on <code>UIViewController</code> (where <code>self.view</code> is not a <code>UITableView</code>). The problem is that common functionality for screens in your program must now be duplicated &mdash; once to include this functionality in your <code>UIViewController</code> subclass and once to include the functionality in your <code>UITableViewController</code> subclass.</p>
+
+<p>My preferred solution to this problem is to create my own program-wide base class which is a subclass of <code>UIViewController</code>. I put my common code in the base class and when I need a controller for a <code>UITableView</code>, recreate the work done by <code>UITableViewController</code> in a subclass of my own base class which can then be the base class for all <code>UITableView</code> controllers in my program.</p>
+
+<h2>Recreating UITableViewController</h2>
+
+<p>To recreate it, we need to know what <code>UITableViewController</code> does. Given the class' ubiquity, it may be surprising to learn that it doesn't do very much.</p>
+
+<p>As detailed in the API documentation, <code>UITableViewController</code> adds the following functionality:</p>
+
+<ul><li>A constructor (<code>initWithStyle:</code>) that sets the style for the default contructed table (if the table isn't constructed from a NIB file).</li>
+<li>An implementation of <code>loadView</code> that creates the default table if the view controller is used without a NIB file.</li>
+<li>Implementation of the <code>tableView</code> property.</li>
+<li>Includes the <code>UITableViewDelegate</code> and <code>UITableViewDataSource</code> properties but doesn't provide any implementations of the methods.</li>
+<li>Invokes <code>setEditing:animated:</code> on the <code>UITableView</code> when it is invoked on the controller.</li>
+<li>Reloads the table data and clears the selection in <code>viewWillAppear:</code>.</li>
+<li>Flashes the scroll indicators of the table in <code>viewDidAppear:</code>.</li>
+<li>Scrolls the table so that selected cells are visible when the keyboard is shown.</li>
+</ul>
+
+<p>I personally consider some of these "optional" and normally leave them out unless I need to use them. I normally leave out the reloading of table data altogether as I feel application logic can handle this more efficiently. What follows are the essential methods.</p>
+
+<p>An implementation of <code>loadView</code> looks like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">loadView</span>
+<span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nb">self</span><span class="p">.</span><span class="n">nibName</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="nb">super</span> <span class="n">loadView</span><span class="p">];</span>
+        <span class="n">NSAssert</span><span class="p">(</span><span class="n">tableView</span> <span class="o">!=</span> <span class="nb">nil</span><span class="p">,</span> <span class="s">@&#34;NIB file did not set tableView property.&#34;</span><span class="p">);</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="n">UITableView</span> <span class="o">*</span><span class="n">newTableView</span> <span class="o">=</span>
+        <span class="p">[[[</span><span class="n">UITableView</span> <span class="n">alloc</span><span class="p">]</span>
+            <span class="nl">initWithFrame</span><span class="p">:</span><span class="n">CGRectZero</span>
+            <span class="nl">style</span><span class="p">:</span><span class="n">UITableViewStylePlain</span><span class="p">]</span>
+        <span class="n">autorelease</span><span class="p">];</span>
+    <span class="nb">self</span><span class="p">.</span><span class="n">view</span> <span class="o">=</span> <span class="n">newTableView</span><span class="p">;</span>
+    <span class="nb">self</span><span class="p">.</span><span class="n">tableView</span> <span class="o">=</span> <span class="n">newTableView</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>I've hard-coded the <code>UITableViewStyle</code> here instead of relying on a <code>initWithStyle:</code> constructor. Since this is my code, I'm happy to select the default value I want for my program here, I don't need to specify this value at initialization.</p>
+
+<p>Notice that I set the <code>self.view</code> and the <code>self.tableView</code> separately. In <code>UITableViewController</code>, these two properties are always the same value. I like to keep a distinction between the two in my <code>UITableView</code> controller so that my controller can manage a wrapper view around the table view as well. Obviously in this default case, there is no wrapper, so both are set to be the same. If there <em>were</em> both the same, I wouldn't need the <code>tableView</code> ivar (see accessors below) I would use the same <code>self.view</code> storage for both.</p>
+
+<p>The only other default code required are the <code>tableView</code> and <code>setTableView:</code> methods for the <code>tableView</code> property. The only important steps here are to set the table's <code>delegate</code> and <code>dataSource</code> to the controller.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">UITableView</span> <span class="o">*</span><span class="p">)</span><span class="nf">tableView</span>
+<span class="p">{</span>
+    <span class="k">return</span> <span class="n">tableView</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setTableView:</span><span class="p">(</span><span class="n">UITableView</span> <span class="o">*</span><span class="p">)</span><span class="nv">newTableView</span>
+<span class="p">{</span>
+    <span class="k">if</span> <span class="p">([</span><span class="n">tableView</span> <span class="nl">isEqual</span><span class="p">:</span><span class="n">newTableView</span><span class="p">])</span>
+    <span class="p">{</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="p">[</span><span class="n">tableView</span> <span class="k">release</span><span class="p">];</span>
+    <span class="n">tableView</span> <span class="o">=</span> <span class="p">[</span><span class="n">newTableView</span> <span class="k">retain</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">tableView</span> <span class="nl">setDelegate</span><span class="p">:</span><span class="nb">self</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">tableView</span> <span class="nl">setDataSource</span><span class="p">:</span><span class="nb">self</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<h2>Scrolling the table when the keyboard appears</h2>
+
+<p>Scrolling the table so that the current row is visible when the keyboard appears is another behavior that <code>UITableViewController</code> provides by default.</p>
+
+<p>You can use the approach I gave in an earlier post to achieve this: <a href="../../2008/10/sliding-uitextfields-around-to-avoid.html">Sliding UITextFields around to avoid the keyboard</a>.</p>
+
+<h2>The time display application</h2>
+
+<p>In the sample app, my <code>BaseViewController</code> (a subclass of <code>UIViewController</code>) contains methods that start an <code>NSTimer</code> when the view appears and stop it when the view disappears.</p>
+
+<p>This timer fires the following method:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">timerUpdate:</span><span class="p">(</span><span class="n">NSTimer</span> <span class="o">*</span><span class="p">)</span><span class="nv">aTimer</span>
+<span class="p">{</span>
+    <span class="n">NSDate</span> <span class="o">*</span><span class="n">date</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSDate</span> <span class="n">date</span><span class="p">];</span>
+    <span class="n">NSCalendar</span> <span class="o">*</span><span class="n">calendar</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSCalendar</span> <span class="n">currentCalendar</span><span class="p">];</span>
+    
+    <span class="k">const</span> <span class="n">NSInteger</span> <span class="n">unitFlags</span> <span class="o">=</span>
+        <span class="n">NSHourCalendarUnit</span> <span class="o">|</span> <span class="n">NSMinuteCalendarUnit</span> <span class="o">|</span> <span class="n">NSSecondCalendarUnit</span><span class="p">;</span>
+    <span class="n">NSDateComponents</span> <span class="o">*</span><span class="n">components</span> <span class="o">=</span>
+        <span class="p">[</span><span class="n">calendar</span> <span class="nl">components</span><span class="p">:</span><span class="n">unitFlags</span> <span class="nl">fromDate</span><span class="p">:</span><span class="n">date</span><span class="p">];</span>
+    
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="p">[</span><span class="n">components</span> <span class="nl">isEqual</span><span class="p">:</span><span class="n">lastComponents</span><span class="p">])</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="n">lastComponents</span> <span class="k">release</span><span class="p">];</span>
+        <span class="n">lastComponents</span> <span class="o">=</span> <span class="p">[</span><span class="n">components</span> <span class="k">retain</span><span class="p">];</span>
+        <span class="p">[</span><span class="nb">self</span> <span class="nl">updateWithDateComponents</span><span class="p">:</span><span class="n">components</span><span class="p">];</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The <code>updateWithDateComponents:</code> is empty but subclasses of <code>BaseViewController</code> can implement it to update themselves when the time changes. In this way, every screen in my application automatically receives per-second updates.</p>
+
+<p>The <code>TimeTableViewController</code> in the application is then a subclass of <code>BaseViewController</code> which further adds <code>UITableViewController</code>-like functionality (as shown above) and combines the two to constantly update the time components in the table.</p>
+
+<p>The <code>DetailViewController</code> (which is constructed when a row is clicked) is also a subclass of <code>BaseViewController</code> but when an <code>updateWithDateComponents:</code> message is received, only displays the component for which it is the "detail" view.</p>
+
+<h2>Conclusion</h2>
+
+<blockquote>You can <a href="../../assets/objc-era/RecreatedTableViewController.zip">download the complete code for the RecreatingTableViewController application</a> (29kB) discussed in this post.</blockquote>
+
+<p><code>UITableViewController</code> exists to make working with simple tables slightly quicker, since they are the most common type of primary view on the iPhone.</p>
+
+<p>However, this class is merely a convenience and if your design requires it you can avoid <code>UITableViewController</code> entirely &mdash; as in this post where the inheritance worked better without using <code>UITableViewController</code>.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="scripted-window-management-in-xcode.html">Scripted window management in Xcode</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="using-nskeyedarchiver-to-archive-c.html">Using NSKeyedArchiver to archive a C linked-list</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

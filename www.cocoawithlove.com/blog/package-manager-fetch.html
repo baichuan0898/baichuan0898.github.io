@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Using &#39;swift package fetch&#39; in an Xcode project</title>
+  <meta name="description" content="I look at what&#39;s required to use the Swift Package Manager to transparently fetch dependencies during an Xcode build phase." />
+
+  <meta name="twitter:title" content="Using &#39;swift package fetch&#39; in an Xcode project"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/blog/package-manager-fetch.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="I look at what&#39;s required to use the Swift Package Manager to transparently fetch dependencies during an Xcode build phase."/>
+
+  <link rel="icon" href="../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../css/main.css" />
+  <link rel="canonical" href="package-manager-fetch.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../index.html"><img class="heartandcup" src="../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../about/index.html">about</a>
+        <a class="page-link" href="../archive/index.html">archive</a>
+        <a class="page-link" href="../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Using &#39;swift package fetch&#39; in an Xcode project</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2017-01-30">January 30, 2017</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../tags/swift-package-manager.html">swift package manager</a>, <a href="../tags/build-tools.html">build tools</a>
+		 
+	</div>
+</header>
+
+
+<main role="main">
+	<article itemscope itemtype="http://schema.org/BlogPosting">
+		<div class="post-content" itemprop="articleBody">
+			
+
+<p>Up until now, the Cocoa with Love git repositories have included their dependencies as &ldquo;git subtrees&rdquo; where each dependency is copied and statically hosted within the depender. I want to replace this arrangement with a more dynamic dependency management while remaining totally transparent to users of the library.</p>
+
+<p>I&rsquo;d like to use the Swift Package Manager for the task but it&rsquo;s complicated by the fact that I don&rsquo;t want the Swift Package Manager to be a required way to build any of these repositories. The Swift Package Manager has a very narrow range of build capabilities and I don&rsquo;t want my libraries to be subject to these limitations.</p>
+
+<p>In this article, I&rsquo;ll look at a hybrid approach where the Swift Package Manager is used as a behind-the-scenes tool to fetch dependencies for an otherwise manually configured Xcode project that continues to support the same target platforms and build structures from the previous &ldquo;subtree&rdquo; arrangement.</p>
+
+<nav id="TableOfContents"><span class="toc-heading">Contents</span>
+<ul>
+<li>
+<ul>
+<li><a href="#managing-dependencies">Managing dependencies</a>
+<ul>
+<li><a href="#git-subtree">Git subtree</a></li>
+<li><a href="#git-submodules">Git submodules</a></li>
+<li><a href="#established-package-managers">Established package managers</a></li>
+<li><a href="#swift-package-manager">Swift Package Manager</a></li>
+</ul></li>
+<li><a href="#hoping-for-the-future">Hoping for the future</a></li>
+<li><a href="#swift-package-fetch">Swift package fetch</a>
+<ul>
+<li><a href="#1-support-the-swift-package-manager">1. Support the Swift Package Manager</a></li>
+<li><a href="#2-make-xcode-projects-refer-to-the-files-downloaded-by-swift-package-manager">2. Make Xcode projects refer to the files downloaded by Swift Package Manager</a></li>
+<li><a href="#3-making-everything-transparent-to-the-user">3. Making everything transparent to the user</a></li>
+</ul></li>
+<li><a href="#some-kind-of-automated-script">Some kind of automated script</a></li>
+<li><a href="#try-it-out">Try it out</a></li>
+<li><a href="#update-fetching-child-projects">Update: Fetching child projects</a>
+<ul>
+<li><a href="#steps">Steps</a></li>
+<li><a href="#fetching-and-building-a-child-project-in-a-single-pass">Fetching and building a child project in a single pass</a></li>
+</ul></li>
+<li><a href="#conclusion">Conclusion</a></li>
+</ul></li>
+</ul>
+</nav>
+
+<h2 id="managing-dependencies">Managing dependencies</h2>
+
+<p>The dependency graph for the CwlSignal library that I released last year is pretty simple:</p>
+
+<div style="text-align:center;margin-bottom:16px;">CwlCatchException &larr; CwlPreconditionTesting &larr; CwlUtils &larr; CwlSignal</div>
+
+<h3 id="git-subtree">Git subtree</h3>
+
+<p>Until now, I&rsquo;ve been using <a href="https://github.com/git/git/blob/master/contrib/subtree/git-subtree.txt">Git subtrees</a>.</p>
+
+<p>In this arrangement, you don&rsquo;t need to separately download any dependencies; if you browse <a href="https://github.com/mattgallagher/CwlSignal/tree/72d4a10656ff4c8de8083e88f8651c5f7d0b8e47">the previous structure of the CwlSignal repository</a>, you&rsquo;ll notice that it contains <a href="https://github.com/mattgallagher/CwlSignal/tree/72d4a10656ff4c8de8083e88f8651c5f7d0b8e47/CwlUtils">CwlUtils</a>, which contains <a href="https://github.com/mattgallagher/CwlSignal/tree/72d4a10656ff4c8de8083e88f8651c5f7d0b8e47/CwlUtils/CwlPreconditionTesting">CwlPreconditionTesting</a>, which contains <a href="https://github.com/mattgallagher/CwlSignal/tree/72d4a10656ff4c8de8083e88f8651c5f7d0b8e47/CwlUtils/CwlPreconditionTesting/CwlCatchException">CwlCatchException</a>. This is not totally different to manually copying the files into each repository but with the minor advantage that if a dependency changes, I can easily pull changes into the depender with a simple subtree pull.</p>
+
+<p>This arrangement has its problems. Subtrees scale poorly since changes need to be manually pulled into each subsequent link in the chain; you can&rsquo;t easily update all dependencies with a single command. Each repository is bloated by needing to contain its dependencies. It also creates merge problems if you accidentally modify a dependency&rsquo;s subtree in the depender then try to pull the dependency.</p>
+
+<p>None of these are major problems for a small, simple dependency graph like CwlSignal but they&rsquo;ve always been concerns that I&rsquo;ve wanted to address.</p>
+
+<h3 id="git-submodules">Git submodules</h3>
+
+<p>I could use <a href="https://git-scm.com/docs/git-submodule">git submodule</a>. In theory, it&rsquo;s just a more dynamic approach for the problem that git subtrees solve. I feel as though git submodules should be ideal choice but in practice, git modules are not a transparent change to your git repository and their poor handling by git makes them confusing and frustrating for users.</p>
+
+<p>It is possible to pull and push repositories in the wrong order and end up overwriting your changes. Switching from one dependency to another is complicated and often involves manually editing the contents of the &ldquo;.git&rdquo; directory. The &ldquo;Download ZIP&rdquo; functionality on Github becomes completely useless as the ZIP file omits the submodule references as do most other non-git means of managing your code.</p>
+
+<p>In comparison to git subtrees which usually go unnoticed, submodules suffer from the fact that every user needs to be aware of the submodule arrangement and needs to run slightly different git commands just to fetch and update the repository correctly.</p>
+
+<h3 id="established-package-managers">Established package managers</h3>
+
+<p>I could move to an established package manager like <a href="https://cocoapods.org">CocoaPods</a> or <a href="https://github.com/carthage/carthage">Carthage</a>. While I should probably do more to improve compatibility with these systems for users who <em>want</em> to use them, I&rsquo;d rather not force <em>everyone</em> to use them. For my own purposes, I&rsquo;d rather avoid the loss of control over the workspace or build settings imposed by the use of these systems so I&rsquo;d rather keep a workflow that can be used independent of these systems.</p>
+
+<h3 id="swift-package-manager">Swift Package Manager</h3>
+
+<p>Which brings me to the <a href="https://github.com/apple/swift-package-manager">Swift Package Manager</a>; a combined build-system and dependency manager.</p>
+
+<p>Does the Swift Package Manager offer anything new compared to the previous options I&rsquo;ve mentioned? Well, it offers a new build system but my primary motivation here is dependency management; I wasn&rsquo;t looking for a build system.</p>
+
+<p>Using the Swift Package Manager isn&rsquo;t going to have the weird effects on the repository that git submodules have. It is also bundled with Swift, so it&rsquo;s a lower friction option than CocoaPods or Carthage – although I still don&rsquo;t want to force users of my library to use the Swift Package Manager.</p>
+
+<p>Is it possible to use the Swift Package Manager as a dependency resolver without using it as a build system?</p>
+
+<h2 id="hoping-for-the-future">Hoping for the future</h2>
+
+<p>When I said &ldquo;my primary motivation here is dependency management; I wasn&rsquo;t looking for a build system&rdquo;, I wasn&rsquo;t being totally honest. I <em>should</em> be primarily motivated by dependency management but truthfully, I&rsquo;d also like to play around with the Swift Package Manager build system.</p>
+
+<p>Like <a href="https://maven.apache.org">Apache Maven</a> or <a href="https://github.com/rust-lang/cargo">Rust Cargo</a>, the Swift Package Manager includes a convention-based build system. While some metadata is declared in a top-level manifest, the build is, as much as possible, determined by the organization of files in the repository. I&rsquo;m a big fan of this type of build system; a build shouldn&rsquo;t require substantial configuring. Assuming folder structure conventions are followed, it should be possible to infer most – even all – parameters for a build, rather than forcing the programmer to manually enumerate all aspects, every time.</p>
+
+<p>I would like to see Swift Package Manager projects become a project type in Xcode. Automatically keeping files sensibly in module folders rather than arbitrarily distributed around the filesystem and needing constant sheparding. Build settings inferred rather than configured through a vast array of tabs and inspectors. Dependencies viewable like the Xcode &ldquo;Debug Memory Graph&rdquo; display.</p>
+
+<p>Obviously, though, Xcode doesn&rsquo;t support the Swift Package Manager, yet (Swift Package Manager supports Xcode but it&rsquo;s the other direction that&rsquo;s more interesting to me). And, bluntly, until the Swift Package Manager can build apps, build for iOS, build for watchOS, build for tvOS, build mixed language modules, build bundles with resources, manage separate dependencies for tests or inline across modules, it won&rsquo;t satisfy all the requirements of even a relatively simple library like CwlSignal.</p>
+
+<p>But I&rsquo;d still like to support the Swift Package Manager as a <em>secondary</em> build option in the hope that it in a couple years it will be possible to make it the <em>primary</em> option.</p>
+
+<h2 id="swift-package-fetch">Swift package fetch</h2>
+
+<p>Wanting to use the Swift Package Manager for dependency management but not as the primary build system creates some problems.</p>
+
+<p>Summarizing what need to be done:</p>
+
+<ol>
+<li>Support the Swift Package Manager (for both building and fetching dependencies)</li>
+<li>Make Xcode projects refer to the files downloaded by Swift Package Manager.</li>
+<li>Make everything transparent to the user.</li>
+</ol>
+
+<h3 id="1-support-the-swift-package-manager">1. Support the Swift Package Manager</h3>
+
+<p>Setting up the &ldquo;Package.swift&rdquo; file, adding semantic version tags to repositories and making sure that dependencies are fetched is trivial.</p>
+
+<p>The signficant work was actually across the following tasks (in no particular order):</p>
+
+<ol>
+<li>Reorganize my folders to follow the convention-based structure expected by the Swift Package Manager (all projects).</li>
+<li>Separate my mixed Objective-C/Swift modules into separate modules (all projects except CwlSignal).</li>
+<li>Under a <code>#if SWIFT_PACKAGE</code> guard, be certain to <code>import</code> the new modules created by the separation in step 2 (all projects except CwlSignal).</li>
+<li>Separate my &ldquo;.h&rdquo; files so that they can be included from a project-wide umbrella header as in Xcode or from a module header as in Swift-PM (all projects except CwlSignal).</li>
+<li>Ensure that symbols affected by step 2 that were previously <code>internal</code> were <code>public</code> so they remained accessible (CwlCatchException).</li>
+<li>Remove any reliance on <code>DEBUG</code> or other conditions not set by the Swift Package Manager (CwlDeferredWork and tests in CwlUtils and CwlSignal).</li>
+<li>In Objective-C files that needed to both reference and be referenced by Swift, changed the references from Objective-C to Swift to dynamic lookups to avoid circular module dependencies (CwlMachBadInstructionHandler).</li>
+<li>Move Info.plist files around. These are generated automatically by the Swift-PM but must manually exist for Xcode – Swift-PM must be set to ignore them all (all projects).</li>
+</ol>
+
+<p>There was also a non-zero amount of effort involved in accepting how the conventions of the Swift Package Manager work and letting it guide some aspects of the build.</p>
+
+<h3 id="2-make-xcode-projects-refer-to-the-files-downloaded-by-swift-package-manager">2. Make Xcode projects refer to the files downloaded by Swift Package Manager</h3>
+
+<p>In Swift 3.0, dependencies are placed in &ldquo;./Packages/ModuleName-X.Y.Z&rdquo; where X.Y.Z is the semantic version tag of checkout. Obviously, this will change if you ever change the version depended upon.</p>
+
+<p>Swift 3.1 and later place dependencies in &ldquo;./.build/checkout/ModuleName-XXXXXXXX&rdquo; where XXXXXXXX is a hash derived from the repository URL. The hash is not guaranteed to be stable and as far as I can tell, the path format is undocumented and subject to change.</p>
+
+<p>Clearly, we can&rsquo;t point Xcode directly at either of these since they&rsquo;re subject to change. We need to create symlinks from a stable location to these subject-to-change locations. This means that we need a simple way to determine the current locations.</p>
+
+<p>The closest we get to a documented solution for handling these paths is the output to the following command:</p>
+
+<pre><code>swift package show-dependencies --format json
+</code></pre>
+
+<p>The output from this command offers a JSON structure that includes the module names and the checkout paths. While there&rsquo;s no guarantee that this structure will remain stable in the future, it is <em>currently</em> stable across 3.0 and 3.1 so it&rsquo;s better than simply enumerating directories.</p>
+
+<p>We need to create symlinks from a stable location to the locations detailed in this JSON file.</p>
+
+<p>I chose to use the location &ldquo;./.build/cwl_symlinks/ModuleName&rdquo; to store a symlink to the actual location used by either Swift 3.0 or Swift 3.1 package managers. This creates the minor risk of collision in the scenario where two dependencies have the same module name but different origin or version but outside of that possibility it should offer a stable location that my Xcode projects can use to find these dependencies. When I change the version of a library that I depend upon or the hash changes (because I&rsquo;m switching between local and remote versions of a repository for testing) or something else that affects the path, all we&rsquo;ll need to do is update the symlink.</p>
+
+<p>Getting Xcode to keep a path through the symlink rather than immediately resolve the symlink is a little tricky. While using Swift 3.1, I actually created a duplicate of each &ldquo;./.build/checkout/ModuleName-XXXXXXXX&rdquo; folder at the &ldquo;./.build/cwl_symlinks/ModuleName&rdquo; location, added all the files to Xcode before deleting the duplicate and creating a symlink at &ldquo;./.build/cwl_symlinks/ModuleName&rdquo; pointing to &ldquo;./.build/checkout/ModuleName-XXXXXXXX&rdquo;.</p>
+
+<h3 id="3-making-everything-transparent-to-the-user">3. Making everything transparent to the user</h3>
+
+<p>We now have two non-transparent steps that we need to eliminate:</p>
+
+<ol>
+<li>Run <code>swift package fetch</code> to get the dependencies.</li>
+<li>Create symlinks in a stable location for all dynamically fetched dependencies.</li>
+</ol>
+
+<p>For this, we&rsquo;ll need some kind of automated script.</p>
+
+<h2 id="some-kind-of-automated-script">Some kind of automated script</h2>
+
+<p>We need a &ldquo;Run script&rdquo; build phase at the top of any Xcode target with external dependencies. If you have multiple targets with external dependencies, it might be best to do this in its own &ldquo;Aggregate&rdquo; target (e.g. named &ldquo;FetchDependencies&rdquo;) and have other targets depend on the &ldquo;Aggregate&rdquo;.</p>
+
+<p>When you add a &ldquo;Run script&rdquo; build phase to Xcode, it defaults to &ldquo;/bin/sh&rdquo;. I got about 5 lines into that before remembering that I&rsquo;m terrible at bash so I change the &ldquo;Shell&rdquo; value for the build phase to <code>/usr/bin/xcrun --sdk macosx swift -target x86_64-apple-macosx10.11</code> (since I need to ensure the macOS SDK is used, even when building targets for iOS or other platforms) and set the script to the following code. Some of the parsing and configuring is a little dense but you should be able to read the comments to get a general feel for what&rsquo;s happening.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">import</span> <span class="nc">Foundation</span>
+
+<span class="kd">let</span> <span class="nv">buildName</span> <span class="p">=</span> <span class="s">&#34;.build&#34;</span>
+<span class="kd">let</span> <span class="nv">symlinksName</span> <span class="p">=</span> <span class="s">&#34;cwl_symlinks&#34;</span>
+
+<span class="k">guard</span> <span class="kd">let</span> <span class="nv">srcRoot</span> <span class="p">=</span> <span class="n">ProcessInfo</span><span class="p">.</span><span class="n">processInfo</span><span class="p">.</span><span class="n">environment</span><span class="p">[</span><span class="s">&#34;SRCROOT&#34;</span><span class="p">].</span><span class="bp">map</span><span class="p">({</span>
+   <span class="n">URL</span><span class="p">(</span><span class="n">fileURLWithPath</span><span class="p">:</span> <span class="nv">$0</span><span class="p">)</span> <span class="p">})</span> <span class="k">else</span> <span class="p">{</span>
+   <span class="bp">print</span><span class="p">(</span><span class="s">&#34;Environment variable SRCROOT must be set&#34;</span><span class="p">)</span>
+   <span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="c1">/// Launch a process and run to completion, returning the standard out on success.</span>
+<span class="kd">func</span> <span class="nf">launch</span><span class="p">(</span><span class="kc">_</span> <span class="n">command</span><span class="p">:</span> <span class="nb">String</span><span class="p">,</span> <span class="kc">_</span> <span class="n">arguments</span><span class="p">:</span> <span class="p">[</span><span class="nb">String</span><span class="p">],</span> <span class="n">directory</span><span class="p">:</span> <span class="n">URL</span><span class="p">?</span> <span class="p">=</span> <span class="kc">nil</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">String</span><span class="p">?</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">proc</span> <span class="p">=</span> <span class="nb">Process</span><span class="p">()</span>
+   <span class="n">proc</span><span class="p">.</span><span class="n">launchPath</span> <span class="p">=</span> <span class="n">command</span>
+   <span class="n">proc</span><span class="p">.</span><span class="n">arguments</span> <span class="p">=</span> <span class="n">arguments</span>
+   <span class="kc">_</span> <span class="p">=</span> <span class="n">directory</span><span class="p">.</span><span class="bp">map</span> <span class="p">{</span> <span class="n">proc</span><span class="p">.</span><span class="n">currentDirectoryPath</span> <span class="p">=</span> <span class="nv">$0</span><span class="p">.</span><span class="n">path</span> <span class="p">}</span>
+   <span class="kd">let</span> <span class="nv">pipe</span> <span class="p">=</span> <span class="n">Pipe</span><span class="p">()</span>
+   <span class="n">proc</span><span class="p">.</span><span class="n">standardOutput</span> <span class="p">=</span> <span class="n">pipe</span>
+   <span class="n">proc</span><span class="p">.</span><span class="n">launch</span><span class="p">()</span>
+   <span class="kd">let</span> <span class="nv">result</span> <span class="p">=</span> <span class="nb">String</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="n">pipe</span><span class="p">.</span><span class="n">fileHandleForReading</span><span class="p">.</span><span class="n">readDataToEndOfFile</span><span class="p">(),</span> <span class="n">encoding</span><span class="p">:</span>
+      <span class="p">.</span><span class="n">utf8</span><span class="p">)</span> <span class="p">??</span> <span class="s">&#34;&#34;</span>
+   <span class="n">proc</span><span class="p">.</span><span class="n">waitUntilExit</span><span class="p">()</span>
+   <span class="k">return</span> <span class="n">proc</span><span class="p">.</span><span class="n">terminationStatus</span> <span class="o">!=</span> <span class="mi">0</span> <span class="p">?</span> <span class="kc">nil</span> <span class="p">:</span> <span class="n">result</span>
+<span class="p">}</span>
+
+<span class="c1">// STEP 1: use `swift package fetch` to get all dependencies</span>
+<span class="bp">print</span><span class="p">(</span><span class="s">&#34;Starting package fetch...&#34;</span><span class="p">)</span>
+<span class="k">if</span> <span class="kd">let</span> <span class="nv">fetchResult</span> <span class="p">=</span> <span class="n">launch</span><span class="p">(</span><span class="s">&#34;/usr/bin/swift&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s">&#34;package&#34;</span><span class="p">,</span> <span class="s">&#34;fetch&#34;</span><span class="p">],</span> <span class="n">directory</span><span class="p">:</span> <span class="n">srcRoot</span><span class="p">)</span> <span class="p">{</span>
+   <span class="k">if</span> <span class="n">fetchResult</span> <span class="p">==</span> <span class="s">&#34;&#34;</span> <span class="p">{</span>
+      <span class="bp">print</span><span class="p">(</span><span class="s">&#34;All dependencies up-to-date.&#34;</span><span class="p">)</span>
+   <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+      <span class="bp">print</span><span class="p">(</span><span class="n">fetchResult</span><span class="p">,</span> <span class="n">terminator</span><span class="p">:</span> <span class="s">&#34;&#34;</span><span class="p">)</span>
+   <span class="p">}</span>
+<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+   <span class="bp">print</span><span class="p">(</span><span class="s">&#34;### swift package fetch failed&#34;</span><span class="p">)</span>
+   <span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="c1">// Create a symlink only if it is not already present and pointing to the destination</span>
+<span class="kd">let</span> <span class="nv">symlinksURL</span> <span class="p">=</span> <span class="n">srcRoot</span><span class="p">.</span><span class="n">appendingPathComponent</span><span class="p">(</span><span class="n">buildName</span><span class="p">).</span><span class="n">appendingPathComponent</span><span class="p">(</span>
+   <span class="n">symlinksName</span><span class="p">)</span>
+<span class="kd">func</span> <span class="nf">createSymlink</span><span class="p">(</span><span class="n">srcRoot</span><span class="p">:</span> <span class="n">URL</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">String</span><span class="p">,</span> <span class="n">destination</span><span class="p">:</span> <span class="nb">String</span><span class="p">)</span> <span class="kr">throws</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">location</span> <span class="p">=</span> <span class="n">symlinksURL</span><span class="p">.</span><span class="n">appendingPathComponent</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+   <span class="kd">let</span> <span class="nv">link</span> <span class="p">=</span> <span class="n">URL</span><span class="p">(</span><span class="n">fileURLWithPath</span><span class="p">:</span> <span class="s">&#34;../../</span><span class="si">\(</span><span class="n">destination</span><span class="si">)</span><span class="s">&#34;</span><span class="p">,</span> <span class="n">relativeTo</span><span class="p">:</span><span class="n">location</span><span class="p">)</span>
+   <span class="kd">let</span> <span class="nv">current</span> <span class="p">=</span> <span class="k">try</span><span class="p">?</span> <span class="n">FileManager</span><span class="p">.</span><span class="k">default</span><span class="p">.</span><span class="n">destinationOfSymbolicLink</span><span class="p">(</span><span class="n">atPath</span><span class="p">:</span> <span class="n">location</span><span class="p">.</span><span class="n">path</span><span class="p">)</span>
+   <span class="k">if</span> <span class="n">current</span> <span class="p">==</span> <span class="kc">nil</span> <span class="o">||</span> <span class="n">current</span> <span class="o">!=</span> <span class="n">link</span><span class="p">.</span><span class="n">relativePath</span> <span class="p">{</span>
+      <span class="kc">_</span> <span class="p">=</span> <span class="k">try</span><span class="p">?</span> <span class="n">FileManager</span><span class="p">.</span><span class="k">default</span><span class="p">.</span><span class="n">removeItem</span><span class="p">(</span><span class="n">at</span><span class="p">:</span> <span class="n">location</span><span class="p">)</span>
+      <span class="k">try</span> <span class="n">FileManager</span><span class="p">.</span><span class="k">default</span><span class="p">.</span><span class="n">createSymbolicLink</span><span class="p">(</span><span class="n">atPath</span><span class="p">:</span> <span class="n">location</span><span class="p">.</span><span class="n">path</span><span class="p">,</span>
+         <span class="n">withDestinationPath</span><span class="p">:</span> <span class="n">link</span><span class="p">.</span><span class="n">relativePath</span><span class="p">)</span>
+      <span class="bp">print</span><span class="p">(</span><span class="s">&#34;Created symbolic link: </span><span class="si">\(</span><span class="n">location</span><span class="p">.</span><span class="n">path</span><span class="si">)</span><span class="s"> -&gt; </span><span class="si">\(</span><span class="n">link</span><span class="p">.</span><span class="n">relativePath</span><span class="si">)</span><span class="s">&#34;</span><span class="p">)</span>
+   <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1">// Recursively parse the dependency graph JSON, creating symlinks in our own location</span>
+<span class="kd">func</span> <span class="nf">createSymlinks</span><span class="p">(</span><span class="n">srcRoot</span><span class="p">:</span> <span class="n">URL</span><span class="p">,</span> <span class="n">description</span><span class="p">:</span> <span class="nb">Dictionary</span><span class="p">&lt;</span><span class="nb">String</span><span class="p">,</span> <span class="nb">Any</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">topLevelPath</span><span class="p">:</span>
+   <span class="nb">String</span><span class="p">)</span> <span class="kr">throws</span> <span class="p">{</span>
+   <span class="k">guard</span> <span class="kd">let</span> <span class="nv">dependencies</span> <span class="p">=</span> <span class="n">description</span><span class="p">[</span><span class="s">&#34;dependencies&#34;</span><span class="p">]</span> <span class="k">as</span><span class="p">?</span> <span class="p">[</span><span class="nb">Dictionary</span><span class="p">&lt;</span><span class="nb">String</span><span class="p">,</span> <span class="nb">Any</span><span class="o">&gt;</span><span class="p">]</span>
+      <span class="k">else</span> <span class="p">{</span> <span class="k">return</span> <span class="p">}</span>
+   <span class="k">for</span> <span class="n">dependency</span> <span class="k">in</span> <span class="n">dependencies</span> <span class="p">{</span>
+      <span class="k">guard</span> <span class="kd">let</span> <span class="nv">path</span> <span class="p">=</span> <span class="n">dependency</span><span class="p">[</span><span class="s">&#34;path&#34;</span><span class="p">]</span> <span class="k">as</span><span class="p">?</span> <span class="nb">String</span><span class="p">,</span> <span class="kd">let</span> <span class="nv">relativePath</span> <span class="p">=</span> <span class="p">(</span><span class="n">path</span><span class="p">.</span><span class="n">range</span><span class="p">(</span><span class="n">of</span><span class="p">:</span>
+         <span class="n">topLevelPath</span><span class="p">)?.</span><span class="n">upperBound</span><span class="p">).</span><span class="bp">map</span><span class="p">({</span> <span class="n">path</span><span class="p">.</span><span class="n">substring</span><span class="p">(</span><span class="n">from</span><span class="p">:</span> <span class="nv">$0</span><span class="p">)</span> <span class="p">}),</span> <span class="kd">let</span> <span class="nv">name</span> <span class="p">=</span>
+         <span class="n">dependency</span><span class="p">[</span><span class="s">&#34;name&#34;</span><span class="p">]</span> <span class="k">as</span><span class="p">?</span> <span class="nb">String</span> <span class="k">else</span> <span class="p">{</span>
+         <span class="k">throw</span> <span class="n">NSError</span><span class="p">(</span><span class="n">domain</span><span class="p">:</span> <span class="s">&#34;CwlError&#34;</span><span class="p">,</span> <span class="n">code</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="n">userInfo</span><span class="p">:</span>
+            <span class="p">[</span><span class="n">NSLocalizedFailureReasonErrorKey</span><span class="p">:</span> <span class="s">&#34;Unable to parse dependency structure&#34;</span><span class="p">])</span>
+      <span class="p">}</span>
+      <span class="k">try</span> <span class="n">createSymlink</span><span class="p">(</span><span class="n">srcRoot</span><span class="p">:</span> <span class="n">srcRoot</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n">name</span><span class="p">,</span> <span class="n">destination</span><span class="p">:</span> <span class="n">relativePath</span><span class="p">)</span>
+      <span class="k">try</span> <span class="n">createSymlinks</span><span class="p">(</span><span class="n">srcRoot</span><span class="p">:</span> <span class="n">srcRoot</span><span class="p">,</span> <span class="n">description</span><span class="p">:</span> <span class="n">dependency</span><span class="p">,</span> <span class="n">topLevelPath</span><span class="p">:</span>
+         <span class="n">topLevelPath</span><span class="p">)</span>
+   <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1">// STEP 2: create symlinks from our stable locations to the fetched locations</span>
+<span class="k">guard</span> <span class="kd">let</span> <span class="nv">descriptionString</span> <span class="p">=</span> <span class="n">launch</span><span class="p">(</span><span class="s">&#34;/usr/bin/swift&#34;</span><span class="p">,</span> <span class="p">[</span><span class="s">&#34;package&#34;</span><span class="p">,</span> <span class="s">&#34;show-dependencies&#34;</span><span class="p">,</span>
+   <span class="s">&#34;--format&#34;</span><span class="p">,</span> <span class="s">&#34;json&#34;</span><span class="p">],</span> <span class="n">directory</span><span class="p">:</span> <span class="n">srcRoot</span><span class="p">)</span> <span class="k">else</span> <span class="p">{</span>
+   <span class="bp">print</span><span class="p">(</span><span class="s">&#34;### swift package show-dependencies failed&#34;</span><span class="p">)</span>
+   <span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="p">}</span>
+<span class="k">do</span> <span class="p">{</span>
+   <span class="k">guard</span> <span class="kd">let</span> <span class="nv">descriptionData</span> <span class="p">=</span> <span class="n">descriptionString</span><span class="p">.</span><span class="n">data</span><span class="p">(</span><span class="n">using</span><span class="p">:</span> <span class="p">.</span><span class="n">utf8</span><span class="p">),</span> <span class="kd">let</span> <span class="nv">description</span> <span class="p">=</span>
+      <span class="k">try</span> <span class="n">JSONSerialization</span><span class="p">.</span><span class="n">jsonObject</span><span class="p">(</span><span class="n">with</span><span class="p">:</span> <span class="n">descriptionData</span><span class="p">,</span> <span class="n">options</span><span class="p">:</span> <span class="p">[])</span> <span class="k">as</span><span class="p">?</span>
+      <span class="nb">Dictionary</span><span class="p">&lt;</span><span class="nb">String</span><span class="p">,</span> <span class="nb">Any</span><span class="o">&gt;</span><span class="p">,</span> <span class="kd">let</span> <span class="nv">topLevelPath</span> <span class="p">=</span> <span class="p">(</span><span class="n">description</span><span class="p">[</span><span class="s">&#34;path&#34;</span><span class="p">]</span> <span class="k">as</span><span class="p">?</span> <span class="nb">String</span><span class="p">).</span><span class="bp">map</span><span class="p">({</span>
+      <span class="nv">$0</span> <span class="o">+</span> <span class="s">&#34;/&#34;</span> <span class="p">})</span> <span class="k">else</span> <span class="p">{</span>
+      <span class="k">throw</span> <span class="n">NSError</span><span class="p">(</span><span class="n">domain</span><span class="p">:</span> <span class="s">&#34;CwlError&#34;</span><span class="p">,</span> <span class="n">code</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="n">userInfo</span><span class="p">:</span>
+         <span class="p">[</span><span class="n">NSLocalizedFailureReasonErrorKey</span><span class="p">:</span> <span class="s">&#34;Unable to parse dependency structure&#34;</span><span class="p">])</span>
+   <span class="p">}</span>
+   <span class="k">try</span> <span class="n">FileManager</span><span class="p">.</span><span class="k">default</span><span class="p">.</span><span class="n">createDirectory</span><span class="p">(</span><span class="n">at</span><span class="p">:</span> <span class="n">symlinksURL</span><span class="p">,</span> <span class="n">withIntermediateDirectories</span><span class="p">:</span>
+      <span class="kc">true</span><span class="p">,</span> <span class="n">attributes</span><span class="p">:</span> <span class="kc">nil</span><span class="p">)</span>
+   <span class="k">try</span> <span class="n">createSymlinks</span><span class="p">(</span><span class="n">srcRoot</span><span class="p">:</span> <span class="n">srcRoot</span><span class="p">,</span> <span class="n">description</span><span class="p">:</span> <span class="n">description</span><span class="p">,</span> <span class="n">topLevelPath</span><span class="p">:</span>
+      <span class="n">topLevelPath</span><span class="p">)</span>
+   <span class="bp">print</span><span class="p">(</span><span class="s">&#34;Complete.&#34;</span><span class="p">)</span>
+<span class="p">}</span> <span class="k">catch</span> <span class="p">{</span>
+   <span class="bp">print</span><span class="p">(</span><span class="s">&#34;### symlink creation failed: </span><span class="si">\(</span><span class="n">error</span><span class="si">)</span><span class="s">&#34;</span><span class="p">)</span>
+   <span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Compiling and running this code takes about a second but it would still be better to avoid that overhead after the first run. You can add <code>$(SRCROOT)/Package.swift</code> to the &ldquo;Input Files&rdquo; list for the Run Script and add one of <code>$(SRCROOT)/.build/cwl_symlinks/ModuleName</code> (where &ldquo;ModuleName&rdquo; is a modules fetched by the task) for each dependency fetched by the Swift Package Manager. This will prevent Xcode re-running unless the &ldquo;Package.swift&rdquo; file changes or the module symlink is deleted, eliminating that additional second of overhead.</p>
+
+<blockquote>
+<p><strong>Irony note:</strong> To avoid the static inclusion of dependencies, I&rsquo;ve statically included this file in each repository.</p>
+</blockquote>
+
+<h2 id="try-it-out">Try it out</h2>
+
+<p>You can inspect or download the <a href="https://github.com/mattgallagher/CwlCatchException">CwlCatchException</a>, <a href="https://github.com/mattgallagher/CwlPreconditionTesting">CwlPreconditionTesting</a>, <a href="https://github.com/mattgallagher/CwlUtils">CwlUtils</a> and <a href="https://github.com/mattgallagher/CwlSignal">CwlSignal</a> projects from github. All dependencies are now fetched using &ldquo;swift package fetch&rdquo;.</p>
+
+<p>These projects all now support the Swift Package Manager for building on macOS. Theoretically, the Swift Package Manager opens up the possibility of some of these on Linux but that&rsquo;ll be an exercise for another day.</p>
+
+<p>This is an experimental change to these repositories. There&rsquo;s every likelihood that I&rsquo;ve broken something or ignored a better option, somehow. Create an issue on github if you encounter any problems or have a suggestion for a better approach.</p>
+
+<h2 id="update-fetching-child-projects">Update: Fetching child projects</h2>
+
+<p>I primarily wrote this fetch code to handle CwlSignal&rsquo;s static inclusion of files from CwlUtils. The key point there is that CwlSignal is not dependent on the CwlUtils <em>project</em> file or any of the CwlUtils <em>targets</em>; the dependency is purely upon some of the sources files within the CwlUtils repository.</p>
+
+<p>Is it possible to handle a dependency on a child project and its targets this way and still keep Xcode happy?</p>
+
+<p>Initially, you might think that a dependency on a child project shouldn&rsquo;t be any harder than a dependency on a file but it turns out to have a number of complications. To demonstrate, I&rsquo;ll create an Xcode &ldquo;Cocoa Application&rdquo; project that pulls the CwlSignal project as a dependency using &ldquo;swift package fetch&rdquo; and builds the CwlUtils_macOS target for linking with the command line tool.</p>
+
+<h3 id="steps">Steps</h3>
+
+<ol>
+<li>Create a new &ldquo;macOS Cocoa Application&rdquo; project in Xcode, named &ldquo;TestApp&rdquo;, language Swift, unit tests enabled.</li>
+<li>From Terminal, run &ldquo;swift package init&rdquo; in the directory.</li>
+<li>Delete the Tests/LinuxMain.swift and Sources/TestApp.swift and move TestApp/ to Sources/TestApp/ (fixing all moved paths in Xcode)</li>
+<li>Add <code>dependencies: [.Package(url: &quot;https://github.com/mattgallagher/CwlSignal.git&quot;, majorVersion: 1)]</code> to the Package.swift file.</li>
+<li>Create a cross-platform &ldquo;Aggregate&rdquo; target in the TestApp project named &ldquo;FetchDependencies&rdquo; with a run script using shell <code>/usr/bin/xcrun --sdk macosx swift -target x86_64-apple-macosx10.11</code>, the fetch script shown above, an &ldquo;Input file&rdquo; of <code>$(SRCROOT)/Package.swift</code> and an &ldquo;Output file&rdquo; of <code>$(SRCROOT/.build/cwl_symlinks/CwlSignal</code></li>
+<li>Add a dependency from the TestApp target to the FetchDependencies target.</li>
+<li>Build the &ldquo;FetchDependencies&rdquo; target</li>
+<li>Find where the Swift Package Manager downloaded the dependencies and add the CwlSignal.xcodeproj file to the SignalTest project</li>
+<li>Close the project and open the SignalTest.xcodeproj/project.pbxproj file in a text editor.</li>
+<li>Replace the location of the CwlSignal project (something like &ldquo;Packages/CwlSignal-1.1.2/CwlSignal.xcodeproj&rdquo; in Swift 3 or &ldquo;.build/repositories/CwlSignal&ndash;469046211052243375/CwlSignal.xcodeproj&rdquo; in Swift 3.1) with &ldquo;.build/cwl_symlinks/CwlSignal/CwlSignal.xcodeproj&rdquo;</li>
+<li>Save and close &ldquo;TestApp.xcodeproj/project.pbxproj&rdquo; and reopen the TestApp project in Xcode.</li>
+<li>Add a &ldquo;Copy Files&rdquo; phase with Destination &ldquo;Frameworks&rdquo; to the TestApp target and add the macOS CwlSignal.framework product from the child CwlSignal project</li>
+</ol>
+
+<p>That&rsquo;s a lot of steps but it will appear to work – it&rsquo;s a macOS application that pulls a project dependency using &ldquo;swift package fetch&rdquo;.</p>
+
+<p>It&rsquo;s a little annoying that the FetchDependencies target of the child CwlSignal project gets run in its own directory, fetching all of its dependencies a second time but that&rsquo;s no the biggest problem.</p>
+
+<p>The problem comes if you delete the dependencies and try to build from this &ldquo;clean&rdquo; state. Clean the build folder in Xcode, close the TestApp project in Xcode, delete the &ldquo;Packages&rdquo; (if it exists) and run &ldquo;swift build &ndash;clean dist&rdquo; in the TestApp&rsquo;s folder to remove the &ldquo;.build&rdquo; folder.</p>
+
+<p>Open the TestApp project now and try to build the TestApp. The FetchDependencies target will build successfully but Xcode will report:</p>
+
+<blockquote>
+<p>Missing dependency target &ldquo;CwlSignal_macOS (from CwlSignal.xcodeproj)&rdquo;
+Swift Compiler error: No such module &lsquo;CwlSignal&rsquo;</p>
+</blockquote>
+
+<p>Even though the CwlSignal.xcodeproj was fetched by the FetchDependencies target, Xcode fails to notice and considers it missing.</p>
+
+<p>You need to build a <em>second</em> time for the project to build correctly.</p>
+
+<h3 id="fetching-and-building-a-child-project-in-a-single-pass">Fetching and building a child project in a single pass</h3>
+
+<p>The only approach I&rsquo;ve found that avoids the need to build <em>twice</em> when fetching .xcodeproj files (and also avoids the multiple dependency fetches) involves removing the CwlSignal.xcodeproj from the TestApp project and instead creating an &ldquo;External Build System&rdquo; target in Xcode that builds the CwlSignal_macOS target using xcodebuild. The External Build Tool Configuration will need to be:</p>
+
+<pre><code>* Build Tool: `/usr/bin/xcodebuild`
+* Arguments: `-target CwlSignal_macOS -sdk &quot;$(SDKROOT)&quot; $(ACTION) SYMROOT=&quot;$(SYMROOT)&quot; OBJROOT=&quot;$(OBJROOT)&quot; ARCHS=&quot;$(ARCHS)&quot; ONLY_ACTIVE_ARCH=$(ONLY_ACTIVE_ARCH)`
+* Directory: `$(SRCROOT)/.build/cwl_symlinks/CwlSignal`
+</code></pre>
+
+<p>That extended list of &ldquo;Arguments&rdquo; is necessary to ensure that dependencies for iOS simulator and device projects are built correctly (otherwise xcodebuild may try to build for macOS or for the wrong device architecture). Obviously, you&rsquo;d replace &ldquo;CwlSignal_macOS&rdquo; and &ldquo;CwlSignal&rdquo; with your own dependency&rsquo;s target name and project name.</p>
+
+<p>With the CwlSignal.xcodeproj no longer part of the TestApp project, there&rsquo;s no CwlSignal.framework to add to the &ldquo;Copy Files&rdquo; phase. To fix this, it is possible to add a CwlSignal.framework file to the project with a location &ldquo;Relative to Build Products&rdquo; in the File Inspector. You can add this to the &ldquo;Copy Files&rdquo; phase.</p>
+
+<p>This will work correctly, fetching dependencies and building in a single pass. The only major downside is that building a project externally using xcodebuild is <em>slower</em> (there&rsquo;s a 1 or 2 second overhead every time I hit build with CwlSignal.xcodeproj). It&rsquo;s not a huge overhead but it&rsquo;s noticeable versus the practically zero overhead when the CwlSignal.xcodeproj is included as a child project.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>I&rsquo;m glad to remove the git subtree inclusion of dependencies and replace it with something more dynamic.</p>
+
+<p>I&rsquo;m also happy to have Swift Package Manager support. It&rsquo;s not Linux support yet (give me time) but it works really smoothly and – other than needing to change a lot of paths – wasn&rsquo;t particularly difficult.</p>
+
+<p>If it was possible to completely switch to the Swift Package Manager for all use cases, then that would be the end of the story and everything would be a lot cleaner. Unfortunately, current versions of the Swift Package Manager can&rsquo;t handle a large number of build scenarios (including apps and iOS/watchOS/tvOS platforms) so it&rsquo;s necessary to keep Xcode as the primary build environment and that means integrating the two.</p>
+
+<p>The &ldquo;Run Script&rdquo; build phase works pretty well to hide fetch machinery. Things are going to fail if you don&rsquo;t have a internet connection when trying to build for the first time, but otherwise it should be transparent and effortless. By setting the &ldquo;Input Files and &ldquo;Output Files&rdquo; for the &ldquo;Run Script&rdquo; build step, the minor overhead of compiling and running this step is eliminated in almost all cases so it&rsquo;s very low interference.</p>
+
+<p>It&rsquo;s annoying that Xcode can&rsquo;t detect when a child Xcodeproj file is updated by an earlier target in the build process. Running fetched projects as an external build step isn&rsquo;t the biggest difficulty ever but it would certainly be nicer if it wasn&rsquo;t required.</p>
+
+<p>I do have concerns that this build script is liable to break while the Swift Package Manager remains under a high rate of change. I&rsquo;m sure I&rsquo;ll need to keep an eye on future Swift Package Manager updates – particularly any that might affect the <code>swift package show-dependencies --format json</code> output.</p>
+
+		</div>
+	</article>
+</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="porting-from-macos8-to-sierra.html">Compiling a Mac OS 8 application on macOS Sierra</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="protocols-versus-subclasses.html">The weirdest subclass I&#39;ve ever written</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../feed.json">JSON</a>, <a href="../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

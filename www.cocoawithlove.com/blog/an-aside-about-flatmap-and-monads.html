@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>An aside about flatMap and monads</title>
+  <meta name="description" content="A discussion about monads, whether Swift&#39;s flatMap is monadic, where you can use monads in Swift and where you can use some monad-like behaviors in Swift." />
+
+  <meta name="twitter:title" content="An aside about flatMap and monads"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/blog/an-aside-about-flatmap-and-monads.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="A discussion about monads, whether Swift&#39;s flatMap is monadic, where you can use monads in Swift and where you can use some monad-like behaviors in Swift."/>
+
+  <link rel="icon" href="../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../css/main.css" />
+  <link rel="canonical" href="an-aside-about-flatmap-and-monads.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../index.html"><img class="heartandcup" src="../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../about/index.html">about</a>
+        <a class="page-link" href="../archive/index.html">archive</a>
+        <a class="page-link" href="../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">An aside about flatMap and monads</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2017-06-30">June 30, 2017</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../tags/mathematics.html">mathematics</a>, <a href="../tags/theory.html">theory</a>
+		 
+	</div>
+</header>
+
+
+<main role="main">
+	<article itemscope itemtype="http://schema.org/BlogPosting">
+		<div class="post-content" itemprop="articleBody">
+			
+
+<p>In the <a href="statements-messages-reducers.html">previous article</a>, I used a Swift function named <code>flatMap</code>. There are three kinds of function named <code>flatMap</code> in the Swift standard library but I used the one that is the least monadic.</p>
+
+<p>Discussing the monad-ish-ness of <code>flatMap</code> in Swift is a weird thing to do. Swift doesn&rsquo;t use the word &ldquo;monad&rdquo; anywhere in its documentation so monads are far from fundamental to Swift.</p>
+
+<p>Yet monads are essential in some programming languages. Reprising the previous article&rsquo;s topic of &ldquo;units of computation&rdquo;, monads are a fundamental unit of computation in Haskell. Influence from Haskell may leave Swift programmers curious about monads wondering if they too should try to use them more often in their programs.</p>
+
+<p>In this article, I&rsquo;ll look at monads; what they are, why they&rsquo;re fundamental in Haskell, whether <code>flatMap</code> is necessarily a monad and the importance in Swift of constructs that are monad-ish but not strictly monadic.</p>
+
+<nav id="TableOfContents"><span class="toc-heading">Contents</span>
+<ul>
+<li>
+<ul>
+<li><a href="#what-is-a-monad">What is a monad?</a>
+<ul>
+<li><a href="#a-scenario-where-we-might-use-a-monad">A scenario where we might use a monad</a></li>
+</ul></li>
+<li><a href="#why-do-haskell-programmers-care-so-much">Why do Haskell programmers care so much?</a></li>
+<li><a href="#monads-as-the-fundamental-unit-of-computation-in-haskell">Monads as the fundamental &ldquo;unit of computation&rdquo; in Haskell</a></li>
+<li><a href="#swift-and-flatmap">Swift and <code>flatMap</code></a>
+<ul>
+<li><a href="#not-quite-a-monad">Not quite a monad</a></li>
+<li><a href="#exactly-a-monad">Exactly a monad</a></li>
+<li><a href="#barely-a-monad-at-all">Barely a monad at all</a></li>
+<li><a href="#change-names-for-a-different-reason">Change names for a different reason</a></li>
+</ul></li>
+<li><a href="#monad-like-structures-in-swift">Monad-like structures in Swift</a></li>
+<li><a href="#conclusion">Conclusion</a></li>
+</ul></li>
+</ul>
+</nav>
+
+<h2 id="what-is-a-monad">What is a monad?</h2>
+
+<p>A <strong>monad</strong> is a &ldquo;container&rdquo; type (like <code>Array</code>, <code>Optional</code>, etc) that is acted upon through a particular transformation called <strong>bind</strong>.</p>
+
+<p>The bind transformation is not very complicated but it involves an intermediate step which can make it all seem a little abstract. Here&rsquo;s a diagram to try and make it easier to picture:</p>
+
+<p><img src="../assets/blog/monad.svg" alt="Figure 1: a diagram of a monadic bind transformation" /></p>
+
+<figcaption>A dataflow diagram of a typical monadic bind transformation</figcaption>
+
+<p>A bind operation does the following (as shown by the red circles in the diagram):</p>
+
+<ol>
+<li>takes a container that can contain zero or more instances, e.g. <code>Box&lt;T&gt;</code></li>
+<li>takes a function which transforms an instance of the contained type from (1) into a new container of the same <em>kind</em> as in (1) containing zero or more new instances of a potentially new type, e.g. <code>(T)-&gt; Box&lt;U&gt;</code></li>
+<li>applies the function from (2) to each of the contained instances from (1)</li>
+<li>concatenates all containers produced by (3) into a single container, e.g. <code>(Box&lt;Box&lt;U&gt;&gt;) -&gt; Box&lt;U&gt;</code></li>
+</ol>
+
+<p>A fully conforming monad places a few additional requirements on the container type and the concatenate step but these requirements are not really relevant to understanding monads so I&rsquo;ll skip them.</p>
+
+<p>Instead, let&rsquo;s take a quick step back and discuss the scenario in which we might need such a specific transformation.</p>
+
+<h3 id="a-scenario-where-we-might-use-a-monad">A scenario where we might use a monad</h3>
+
+<p>Imagine we have lots of functions that take plain, unwrapped inputs like <code>Int</code> or <code>String</code> and these functions happen to return results wrapped in containers like <code>Optional&lt;Double&gt;</code> or <code>Array&lt;Character&gt;</code>.</p>
+
+<p>Since our functions happen to return results in containers, we end up with a lot of containers.</p>
+
+<p>It&rsquo;s usually not a problem to go from unwrapped values to one layer of containment – a container may help us hold multiple values or remind us that an operation may have failed – but if we happened to apply a container-returning function once, we might want to applying another similar function again in the future. Suddenly <code>Optional&lt;Double&gt;</code> becomes <code>Optional&lt;Optional&lt;Float&gt;&gt;</code> or <code>Array&lt;Character&gt;</code> becomes <code>Array&lt;Array&lt;UnicodeScalar&gt;&gt;</code> and now things start to get unwieldy.</p>
+
+<p>If we care about the end-results, not the structure in-between, then the bind transformation of a monad helps us repeatedly apply container-returning functions without needing increasingly deeper layers of wrapping around our results.</p>
+
+<h2 id="why-do-haskell-programmers-care-so-much">Why do Haskell programmers care so much?</h2>
+
+<p>If you didn&rsquo;t realize from the explanation and the scenario: monads are fairly specific.</p>
+
+<p>A bind transformation can be useful in an imperative language but even in a situation ideally suited to monads, you might instinctively process things another way. You may just perform your own <code>for</code> loop over the data and perform the concatenation yourself as you go. Or you could apply a post-processing <code>reduce</code> step after the <code>map</code> that does its own container unwrapping and concatenation.</p>
+
+<p>Why are monads so fundamental in Haskell?</p>
+
+<p>The answer is that it&rsquo;s not <em>general</em> monads that are useful in Haskell as much as <em>one-way</em> monads – the IO monad in particular – and how they interact with the Haskell runtime system.</p>
+
+<p>In a strict functional programming language like Haskell, functions are not allowed to mutate state or have side effects. This complicates any interaction with the user, the file system, networking, the operating system or other services since <em>all</em> of these interactions are stateful and have side effects.</p>
+
+<p>The way Haskell deals with these problems is that you can interact with these services freely but you never get access to the result. Instead, you get a container (an IO monad) that you can never unwrap. If you never unwrap a container containing side effects, then you remain free from the impact of those side effects – your actions remain the same regardless of whether the container holds a fully parsed data structure or a file-not-found error.</p>
+
+<p>How can you handle a container that you can never unwrap? With transformations like <code>map</code>, of course. A <code>map</code> transformation in Haskell is effectively your code telling the runtime system: please look inside the container for me and should the container contain a value, then apply this function.</p>
+
+<p>And since many of the functions you might apply in Haskell will themselves return IO monads, the bind transformation becomes useful so we can concatenate successful steps through our own program.</p>
+
+<h2 id="monads-as-the-fundamental-unit-of-computation-in-haskell">Monads as the fundamental &ldquo;unit of computation&rdquo; in Haskell</h2>
+
+<p>In short video on Microsoft&rsquo;s Channel 9 titled <a href="https://channel9.msdn.com/Blogs/Charles/Simon-Peyton-Jones-Towards-a-Programming-Language-Nirvana">Towards a Programming Language Nirvana</a> (from 2007), <a href="https://en.wikipedia.org/wiki/Simon_Peyton_Jones">Simon Peyton Jones</a>, <a href="https://en.wikipedia.org/wiki/Erik_Meijer_(computer_scientist)">Erik Meijer</a> and <a href="https://en.wikipedia.org/wiki/Butler_Lampson">Butler Lampson</a> talk about how programming is fundamentally about doing work, creating output and having effects but – as the video explains – pure functional programming languages like Haskell are about <em>not</em> having effects, rendering them useless.</p>
+
+<p>Peyton Jones is being facetious, of course, Haskell does have <em>some</em> effects which Peyton Jones calls &ldquo;controlled&rdquo; effects. Haskell acheives these controlled effects by using the one-way nature of the IO monad to keep code and effects separated.</p>
+
+<p>Since the IO monad is the means by which Haskell controls effects, the IO monad is literally how you program in Haskell. Each IO monadic bind can be considered a single effect and the only way to build a series of effects (i.e. a program) is to have multiple IO monadic bind steps. In this way, the IO monad is literally the building block used to build Haskell programs. Haskell even offers special <code>do</code> syntax for creating a function that is aesthetically a series of monadic bind steps so the aethetics of the program can match the procedural structure.</p>
+
+<h2 id="swift-and-flatmap">Swift and <code>flatMap</code></h2>
+
+<p>Let&rsquo;s bring the discussion back to Swift.</p>
+
+<p>I&rsquo;ve explained that a bind transformation is like a <code>map</code> where the function it applies returns a container type and the monad transformation unwraps all the returned containers and concatenates them together.</p>
+
+<p>This is <em>close</em> to the same description as some of the <code>flatMap</code> functions in Swift:</p>
+
+<blockquote>
+<p>Returns an array containing the concatenated results of calling the given transformation with each element of this sequence.</p>
+</blockquote>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">extension</span> <span class="nc">Sequence</span> <span class="p">{</span>
+   <span class="kd">func</span> <span class="nf">flatMap</span><span class="p">&lt;</span><span class="n">S</span><span class="p">:</span> <span class="n">Sequence</span><span class="o">&gt;</span><span class="p">(</span><span class="kc">_</span> <span class="n">f</span><span class="p">:</span> <span class="p">(</span><span class="n">T</span><span class="p">)</span> <span class="kr">throws</span> <span class="p">-&gt;</span> <span class="n">S</span><span class="p">)</span> <span class="kr">rethrows</span> <span class="p">-&gt;</span> <span class="p">[</span><span class="n">S</span><span class="p">.</span><span class="n">Element</span><span class="p">]</span>
+<span class="p">}</span></code></pre></div>
+
+<p>So are the types in Swift that implement <code>flatMap</code> monads?</p>
+
+<h3 id="not-quite-a-monad">Not quite a monad</h3>
+
+<p>A true monad transformation requires that all the container types involved be the same kind - a restriction which is not enforced, here. This <code>flatMap</code> function operates on any <code>Sequence</code>, produces a second <code>Sequence</code> kind that isn&rsquo;t necessarily the same as the first and returns the concatenation as an <code>Array</code>. This function is only a monad if both the <code>Sequence</code> arguments are <code>Array</code>. All other usage of this function results in not-a-monad.</p>
+
+<p>Does this matter?</p>
+
+<p>Pragmatically speaking, the definition of this function makes it a lot <em>easier</em> to use a container type with this function, since the container type doesn&rsquo;t need to offer its own construction and concatenation operators (<code>Array</code> is used instead).</p>
+
+<p>On the negative side, there is the problem that you&rsquo;d need a new overload of <code>flatMap</code> if you wanted to return <code>Set</code> or some other <code>Sequence</code> or <code>Collection</code>. This problem is mitigated by the fact that in these cases you can simply use the <code>.lazy.flatMap</code> variant instead and concatenate the sequence to a <code>Set</code> yourself.</p>
+
+<p>But it&rsquo;s still not technically a monad.</p>
+
+<h3 id="exactly-a-monad">Exactly a monad</h3>
+
+<p>Swift does have a true one monad: <code>Optional</code> and its implementation of <code>flatMap</code>:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">extension</span> <span class="nc">Optional</span> <span class="p">{</span>
+   <span class="kd">func</span> <span class="nf">flatMap</span><span class="p">&lt;</span><span class="n">U</span><span class="o">&gt;</span><span class="p">(</span><span class="kc">_</span> <span class="n">transform</span><span class="p">:</span> <span class="p">(</span><span class="n">Wrapped</span><span class="p">)</span> <span class="kr">throws</span> <span class="p">-&gt;</span> <span class="n">U</span><span class="p">?)</span> <span class="kr">rethrows</span> <span class="p">-&gt;</span> <span class="n">U</span><span class="p">?</span>
+<span class="p">}</span></code></pre></div>
+
+<p>All containers are <code>Optional</code>. Neat and tidy.</p>
+
+<p>Of course, we don&rsquo;t always use this <code>flatMap</code>. If we can, it&rsquo;s better to use optional chaining:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">let</span> <span class="nv">x</span> <span class="p">=</span> <span class="bp">first</span><span class="p">().</span><span class="n">flatMap</span> <span class="p">{</span> <span class="nv">$0</span><span class="p">.</span><span class="n">second</span><span class="p">()</span> <span class="p">}.</span><span class="n">flatMap</span> <span class="p">{</span> <span class="nv">$0</span><span class="p">.</span><span class="n">third</span><span class="p">()</span> <span class="p">}</span>
+<span class="kd">let</span> <span class="nv">y</span> <span class="p">=</span> <span class="bp">first</span><span class="p">()?.</span><span class="n">second</span><span class="p">()?.</span><span class="n">third</span><span class="p">()</span></code></pre></div>
+
+<p>Optional chaining is more syntactically efficient than <code>flatMap</code> but it requires instance methods chained via dots. If you want to pass the previous result into a function as a parameter, you might need to use <code>flatMap</code>.</p>
+
+<h3 id="barely-a-monad-at-all">Barely a monad at all</h3>
+
+<p>And then there&rsquo;s this version:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">extension</span> <span class="nc">Sequence</span> <span class="p">{</span>
+   <span class="c1">// Returns an array containing the non-nil results of calling the given</span>
+   <span class="c1">// transformation with each element of this sequence.</span>
+   <span class="kd">func</span> <span class="nf">flatMap</span><span class="p">&lt;</span><span class="n">S</span><span class="o">&gt;</span><span class="p">(</span><span class="kc">_</span> <span class="n">f</span><span class="p">:</span> <span class="p">(</span><span class="n">T</span><span class="p">)</span> <span class="kr">throws</span> <span class="p">-&gt;</span> <span class="n">S</span><span class="p">?)</span> <span class="kr">rethrows</span> <span class="p">-&gt;</span> <span class="p">[</span><span class="n">S</span><span class="p">]</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This is the <code>flatMap</code> I used in the previous article. Instead of <code>flatMap</code> over <code>Sequence</code> to <code>Sequence</code> returning <code>Array</code>, this version is <code>Sequence</code> to <code>Optional</code> returning <code>Array</code>.</p>
+
+<p>I&rsquo;ve had debates with people about whether this <code>flatMap</code> should be renamed because it&rsquo;s not monad-ish (monad-esque? monad-y?) enough to earn the name <code>flatMap</code>. The Swift Evolution mailing list has seen similar petitions to rename this function based on its monadic violations.</p>
+
+<p>I&rsquo;m amused by this debate since an <code>Optional</code> is effectively (if not semantically) a collection of one or zero instances, so this function is qualitatively equivalent to the <code>flatMap</code> over <code>Sequence</code> to <code>Sequence</code> returning <code>Array</code> version. Technically it is not possible for any usage of this function to be a monad but pragmatically, it serves exactly the same purpose as the previous <code>Sequence</code> implemention.</p>
+
+<p>Yes, I realize that Haskell has <code>mapMaybe</code> and Scala (the origin of the name <code>flatMap</code>) requires chained <code>map</code> and <code>filter</code> in this case – but my feeling is that flattening a sequence of optionals is still a flatten so the name still works.</p>
+
+<h3 id="change-names-for-a-different-reason">Change names for a different reason</h3>
+
+<p>For the <a href="statements-messages-reducers.html#where-do-we-go-from-here">CwlSignal example in the previous article</a>, I used a <code>Signal</code> transformation named <code>filterMap</code>. This transformation is equivalent to a <code>map</code> that then omits <code>Optional</code> results – so I&rsquo;ve renamed this debated <code>flatMap</code> in my own library.</p>
+
+<p>The name change had nothing to do with avoiding monadic confusion and everything to do with avoiding mismatched functions getting accidentally promoted to returning an <code>Optional</code> result and satisfying the wrong overload to <code>flatMap</code> instead of giving a compiler error.</p>
+
+<p>You can get the same kind of problem with the Swift standard library version of <code>flatMap</code>:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">let</span> <span class="nv">x</span> <span class="p">=</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">].</span><span class="n">flatMap</span> <span class="p">{</span> <span class="nv">$0</span> <span class="o">*</span> <span class="mi">2</span> <span class="p">}</span></code></pre></div>
+
+<p>This code compiles without problem but it&rsquo;s clearly a mistake; either I intended to use a regular <code>map</code> call instead of <code>flatMap</code> or I should have performed logic in the closure that returned an <code>Optional</code>.</p>
+
+<p>This isn&rsquo;t really a <code>flatMap</code> problem as much as it&rsquo;s a warning to be careful with overloads that differ only by an <code>Optional</code> or <code>Optional</code> returning parameter – it&rsquo;s better to keep these overloads name-isolated to minimize bugs.</p>
+
+<h2 id="monad-like-structures-in-swift">Monad-like structures in Swift</h2>
+
+<p>I&rsquo;ve already shown that optional chaining in Swift is equivalent to a <code>flatMap</code> and therefore is a monadic operation:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">let</span> <span class="nv">x</span> <span class="p">=</span> <span class="bp">first</span><span class="p">().</span><span class="n">flatMap</span> <span class="p">{</span> <span class="nv">$0</span><span class="p">.</span><span class="n">second</span><span class="p">()</span> <span class="p">}.</span><span class="n">flatMap</span> <span class="p">{</span> <span class="nv">$0</span><span class="p">.</span><span class="n">third</span><span class="p">()</span> <span class="p">}</span>
+<span class="kd">let</span> <span class="nv">y</span> <span class="p">=</span> <span class="bp">first</span><span class="p">()?.</span><span class="n">second</span><span class="p">()?.</span><span class="n">third</span><span class="p">()</span></code></pre></div>
+
+<p>but it&rsquo;s not the only construct that&rsquo;s a little monadic.</p>
+
+<p>Swift&rsquo;s error handling is also monad-like, from a certain perspective. Consider the following code:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">someFunction</span><span class="p">(</span><span class="n">urlString</span><span class="p">:</span> <span class="n">URL</span><span class="p">)</span> <span class="kr">throws</span> <span class="p">-&gt;</span> <span class="n">Data</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">url</span> <span class="p">=</span> <span class="k">try</span> <span class="n">makeUrlOrThrow</span><span class="p">(</span><span class="n">fromString</span><span class="p">:</span> <span class="n">urlString</span><span class="p">)</span>
+   <span class="kd">let</span> <span class="nv">file</span> <span class="p">=</span> <span class="k">try</span> <span class="n">openFileOrThrow</span><span class="p">(</span><span class="n">url</span><span class="p">:</span> <span class="n">url</span><span class="p">)</span>
+   <span class="k">return</span> <span class="k">try</span> <span class="n">readContentsOrThrow</span><span class="p">(</span><span class="n">file</span><span class="p">:</span> <span class="n">file</span><span class="p">)</span>
+<span class="p">}</span></code></pre></div>
+
+<p>this Swift error-handling based code is essentially the same as the following <code>flatMap</code> structured code based around functions returning <code>Optionals</code> that are <code>nil</code> on failure:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">someFunction</span><span class="p">(</span><span class="n">urlString</span><span class="p">:</span> <span class="n">URL</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="n">Data</span><span class="p">?</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">url</span> <span class="p">=</span> <span class="n">makeUrlOrNil</span><span class="p">(</span><span class="n">fromString</span><span class="p">:</span> <span class="n">urlString</span><span class="p">)</span>
+   <span class="kd">let</span> <span class="nv">file</span> <span class="p">=</span> <span class="n">url</span><span class="p">.</span><span class="n">flatMap</span> <span class="p">{</span> <span class="n">openFileOrNil</span><span class="p">(</span><span class="n">url</span><span class="p">:</span> <span class="nv">$0</span><span class="p">)</span> <span class="p">}</span>
+   <span class="k">return</span> <span class="n">file</span><span class="p">.</span><span class="n">flatMap</span> <span class="p">{</span> <span class="n">readContentsOrNil</span><span class="p">(</span><span class="n">fil</span><span class="p">:</span> <span class="nv">$0</span> <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Of course, you can just unwrap an <code>Optional</code>. Using Swift&rsquo;s syntax for handling optionals, it doesn&rsquo;t look much different and does exactly the same work, even though it&rsquo;s not a monad at all:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">someFunction</span><span class="p">(</span><span class="n">urlString</span><span class="p">:</span> <span class="n">URL</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="n">Data</span><span class="p">?</span> <span class="p">{</span>
+   <span class="k">guard</span> <span class="kd">let</span> <span class="nv">url</span> <span class="p">=</span> <span class="n">makeUrlOrNil</span><span class="p">(</span><span class="n">fromString</span><span class="p">:</span> <span class="n">urlString</span><span class="p">)</span> <span class="k">else</span> <span class="p">{</span> <span class="k">return</span> <span class="kc">nil</span> <span class="p">}</span>
+   <span class="k">guard</span> <span class="kd">let</span> <span class="nv">file</span> <span class="p">=</span> <span class="n">openFileOrNil</span><span class="p">(</span><span class="n">url</span><span class="p">:</span> <span class="n">url</span><span class="p">)</span> <span class="k">else</span> <span class="p">{</span> <span class="k">return</span> <span class="kc">nil</span> <span class="p">}</span>
+   <span class="k">return</span> <span class="n">readContentsOrNil</span><span class="p">(</span><span class="n">fil</span><span class="p">:</span> <span class="n">file</span><span class="p">)</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Nearly a monad, exactly a monad, not a monad at all; the different is not always significant and you should feel free to choose the syntax and approach you prefer.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>Even though monads are essential in languages like Haskell, they&rsquo;re just one of many processing tools in Swift.</p>
+
+<p>I don&rsquo;t think there&rsquo;s any real need to <em>try</em> to be monadic in Swift. There are plenty of cases where layers of Error handling or <code>Optional</code> or <code>Array</code> will naturally encourage you to concatenate results or filter out empty results but whether you choose to do this with <code>flatMap</code> or <code>guard let</code> or <code>for</code> loops is a matter of personal syntactic preference – you&rsquo;ll get the same result in each case.</p>
+
+<p>Are the types that implement <code>flatMap</code> in the Swift standard library monads? The <code>Optional</code> version always is. The <code>Sequence</code> version of <code>flatMap</code> is monadic when used with <code>Array</code> but otherwise is not. Monads have a requirement that the input, output and intermediate containers all be the same kind and Swift – without higher kinded types – couldn&rsquo;t enforce this, even if it wanted.</p>
+
+<p>For the purpose of <code>flatMap</code>, it appears that <code>Optional</code> is treated as a collection and is permitted to be mixed and matched like any other collection. This bothers some people but personally, I think it makes sense. I&rsquo;ve always been more concerned by the naming problem caused by the fact that <code>flatMap(x)</code> needs to be read backwards. The function is really <code>flatten(map(x))</code> – a map and then a flatten – which would be more correctly transcribed as <code>mapFlatten</code>. Like monoids, English isn&rsquo;t commutative.</p>
+
+		</div>
+	</article>
+</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="statements-messages-reducers.html">Statements, messages and reducers</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="cwllayout.html">CwlLayout: a Swift wrapper around Auto Layout</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../feed.json">JSON</a>, <a href="../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

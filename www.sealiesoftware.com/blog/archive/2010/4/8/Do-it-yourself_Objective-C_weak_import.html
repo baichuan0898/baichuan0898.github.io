@@ -1,0 +1,174 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<!--
+Local Variables:
+sgml-default-dtd-file: "~/html-loose.ced"
+End:
+-->
+<html>
+  <head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+
+    <title>Hamster Emporium: Do-it-yourself Objective-C weak import</title>
+    <link title="RSS 2.0" href="../../../../rss.xml.rss" type="application/rss+xml" rel="alternate">
+  </head>
+  <body bgcolor="#ffffff">
+    <table cellpadding="0" cellspacing="0">
+      <tr>
+	  <td valign="top" align="left">
+	    <a href="../../../../index.html"><img src="http://www.sealiesoftware.com/hamster.jpg" alt="" width="108" height="160"></a><br><br>
+	    <b>blog</b><br>
+	    <a href="../../../../index.html">recent</a><br>
+	    <a href="../../../index.html">archive</a><br>
+	    <a href="http://twitter.com/gparker">twitter</a><br>
+	    <br>
+	    <b>projects</b><br>
+	    <a href="http://www.apple.com/macosx/">Mac OS X</a><br>
+	    <a href="http://www.sealiesoftware.com/keyboard/index.html">Keyboard</a><br>
+	     &nbsp; <a href="http://www.sealiesoftware.com/keyboard/index.html">backlight</a><br>
+	    <a href="http://www.sealiesoftware.com/cscmenu/index.html">CSC Menu</a><br>
+	    <a href="http://www.sealiesoftware.com/valgrind/index.html">Valgrind</a><br>
+	    <a href="http://www.sealiesoftware.com/fringe/index.html">Fringe Player</a><br>
+	    <a href="http://www.sealiesoftware.com/pssh/index.html">pssh</a><br>
+	    <a href="http://www.sealiesoftware.com/peal/index.html">Peal</a><br>
+	    <a href="http://www.sealiesoftware.com/frankenmouse/index.html">Frankenmouse</a><br>
+	    <br>
+	  </td>
+	  <td>
+	    &nbsp; &nbsp;
+	  </td>
+	  <td valign="top">
+	      <h2>Hamster Emporium archive</h2>
+  <p>
+     &lt;&lt; &nbsp; <a href="../../8/16/TargetConditionalsh.html">TargetConditionals.h</a> &nbsp; | &nbsp;  
+    <a href="../../../index.html">archive</a>
+     &nbsp; | &nbsp; <a href="../../../2009/09/09/objc_explain_Weak-import_classes.html">[objc explain]: Weak-import classes</a> &nbsp; &gt;&gt; 
+  </p>
+  <table cellpadding="0" cellspacing="3">
+      <tr>
+	<td>
+	  <a href="Do-it-yourself_Objective-C_weak_import.html"><img src="http://www.sealiesoftware.com/link.gif" width="14" height="16" border="0" alt="(link)"></a>
+	</td>
+	<td>
+	  <b><font size="+1">Do-it-yourself Objective-C weak import</font></b> &nbsp; 
+	  <font size="-1">(<a href="Do-it-yourself_Objective-C_weak_import.html">2010-4-8 10:23 PM</a>)</font>
+	</td>
+      </tr>
+      <tr>
+	<td>
+	  &nbsp;
+	</td>
+	<td>
+	        <h4>WARNING  DANGER  HAZARD  BEWARE  EEK</h4>
+      <p>
+	The scheme described herein is <b>UNTESTED</b> and probably
+	<b>BUGGY</b>. Use at your own risk.  
+      </p>
+      <h4>Executive summary</h4>
+      <p>
+	The Objective-C runtime supports <a href="http://sealiesoftware.com/blog/archive/2009/09/09/objc_explain_Weak-import_classes.html">weak-imported classes</a> back to
+	iPhone OS 3.1. An app could use a class added in iPhone OS 3.2 or
+	4.0 and still run on 3.1. The app would check if <code>[SomeClass
+	class]</code> is <code>nil</code> and act accordingly.
+      </p>
+      <p>
+	Unfortunately, the compilers and class declarations in framework
+	headers do not support weak import yet. But you may be able to use
+	weak linking anyway, by adding the right incantations yourself.
+      </p>
+      <p>
+	To <b>use</b> a class <code>SomeClass</code> that is unavailable
+	on some of your app's deployment targets, write this in
+	<b>every</b> file that uses the class:<pre>
+    asm(".weak_reference _OBJC_CLASS_$_SomeClass");</pre>
+	To <b>subclass</b> a class <code>SomeClass</code> that is unavailable 
+	on some of your app's deployment targets, write this in 
+	the file containing your subclass's
+	<code>@implementation</code>:<pre>
+    asm(".weak_reference _OBJC_CLASS_$_SomeClass");
+    asm(".weak_reference _OBJC_METACLASS_$_SomeClass");</pre>
+	This will not work for apps running on iPhone OS 3.0 or
+	older. Only iPhone OS 3.1 and newer has any hope of success. Of
+	course, since this is <b>UNTESTED</b> it may not work there either.
+      </p>
+      <h4>How it works</h4>
+      <p>
+	Say you're writing a game, and want to use the hypothetical
+	<code>UIDancePad</code> class added to iPhone OS 3.2. (Do not
+	dance on iPad.) When you use class <code>UIDancePad</code> in your
+	code, the compiler emits a C symbol pointing to the class:<pre>
+    .long _OBJC_CLASS_$_UIDancePad</pre>
+      </p>
+      <p>
+	Since <code>UIDancePad</code> is in a framework instead of your
+	code, the symbol remains undefined in your executable, as shown by
+	<code>`nm -m`</code>:<pre>
+    (undefined) external _OBJC_CLASS_$_UIDancePad (from DanceKit)</pre>
+      </p>
+      <p>
+	When you run on iPhone OS 3.2, everything works great: the dynamic
+	loader opens your executable and DanceKit, and binds your
+	undefined symbol to their class definition.
+      </p>
+      <p>
+	Things don't go so well on iPhone OS 3.1. DanceKit exists but does
+	not define <code>UIDancePad</code>. The dynamic loader is unable
+	to resolve 
+	your undefined symbol, and the process halts:<pre>
+    dyld: Symbol not found: _OBJC_CLASS_$_UIDancePad
+        Referenced from: /path/to/YourApp
+        Expected in: /path/to/DanceKit</pre>
+      </p>
+      <p>
+	Weak import solves this. The compiled symbol reference is now a
+	weak one:<pre>
+    .weak_reference _OBJC_CLASS_$_UIDancePad
+    .long _OBJC_CLASS_$_UIDancePad
+
+    (undefined) weak external _OBJC_CLASS_$_UIDancePad (from DanceKit)</pre>
+      </p>
+      <p>
+	The dynamic loader shrugs its shoulders if a weak reference cannot
+	be resolved, and sets the pointer to <code>NULL</code>. The
+	Objective-C runtime sees the <code>NULL</code> pointer and fixes
+	up the rest of the metadata as if <code>UIDancePad</code> never
+	existed. 
+      </p>
+      <p>
+	As mentioned above, the compiler and framework header support is
+	not yet in place. The incantations simply add the
+	assembler directives that the compiler does not yet know how to
+	emit:<pre>
+    asm(".weak_reference _OBJC_CLASS_$_UIDancePad");</pre>
+      </p>
+      <p>
+	Et voil&agrave;: weak import of an Objective-C class. Well, maybe. I have
+	only tested this on toy examples, none of which got anywhere close
+	to any version of iPhone OS. Coder beware!
+      </p>
+      <p>
+	(What about the <code>_OBJC_METACLASS</code> symbol, you ask? When
+	you subclass a class, your subclass's
+	metaclass's superclass pointer points to the subclass's superclass's
+	metaclass. In other words, your subclass's
+	<code>@implementation</code> points to both its superclass and its
+	superclass's <a
+	href="http://sealiesoftware.com/blog/archive/2009/04/14/objc_explain_Classes_and_metaclasses.html">metaclass</a>. That
+	requires two symbols: one for the class and one for the
+	metaclass. When you simply use a class without subclassing it, you
+	don't need the metaclass pointer.)
+      </p>
+
+	  </td>
+      </tr>
+  </table>
+
+	  </td>
+	</tr>
+    </table>
+    <hr>
+    <img align="right" src="http://www.sealiesoftware.com/sealie.gif" alt="seal!" width="114" height="69">
+    Greg Parker<br>
+    <a href="mailto:gparker-www@sealiesoftware.com">gparker-www@sealiesoftware.com</a><br>
+    <a href="http://www.sealiesoftware.com/index.html">Sealie Software</a>
+  </body>
+</html>

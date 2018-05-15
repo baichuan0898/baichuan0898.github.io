@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>The weirdest subclass I&#39;ve ever written</title>
+  <meta name="description" content="There&#39;s an industry-wide push for protocol-oriented programming where shared interfaces, behaviors and substitutability are provided through protocols rather than subclasses. In this article though, I&#39;ll look at a case where I chose to use a subclass, instead of a protocol, to take advantage of some specific differences between classes and protocols." />
+
+  <meta name="twitter:title" content="The weirdest subclass I&#39;ve ever written"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/blog/protocols-versus-subclasses.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="There&#39;s an industry-wide push for protocol-oriented programming where shared interfaces, behaviors and substitutability are provided through protocols rather than subclasses. In this article though, I&#39;ll look at a case where I chose to use a subclass, instead of a protocol, to take advantage of some specific differences between classes and protocols."/>
+
+  <link rel="icon" href="../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../css/main.css" />
+  <link rel="canonical" href="protocols-versus-subclasses.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../index.html"><img class="heartandcup" src="../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../about/index.html">about</a>
+        <a class="page-link" href="../archive/index.html">archive</a>
+        <a class="page-link" href="../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">The weirdest subclass I&#39;ve ever written</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2017-02-26">February 26, 2017</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../tags/fundamentals.html">fundamentals</a>
+		 
+	</div>
+</header>
+
+
+<main role="main">
+	<article itemscope itemtype="http://schema.org/BlogPosting">
+		<div class="post-content" itemprop="articleBody">
+			
+
+<p>Object-oriented programming is losing popularity and some newer programming languages like Go and Rust don&rsquo;t offer subclassing at all. In Swift, there&rsquo;s a push for &ldquo;protocol-oriented programming&rdquo; where shared interfaces, default behaviors and substitutability are achieved through protocols rather than subclasses.</p>
+
+<p>We should limit our use of subclasses to when we interoperate with Objective-C or we need to inherit both data members and behavior from another class, right?</p>
+
+<p>Right?</p>
+
+<nav id="TableOfContents"><span class="toc-heading">Contents</span>
+<ul>
+<li>
+<ul>
+<li><a href="#object-oriented-programming">Object-oriented programming</a></li>
+<li><a href="#protocol-oriented-programming">Protocol-oriented programming</a></li>
+<li><a href="#the-weirdest-subclass-i-ve-ever-written">The weirdest subclass I&rsquo;ve ever written</a></li>
+<li><a href="#why-use-a-subclass-when-a-protocol-is-the-obvious-choice">Why use a subclass when a protocol is the obvious choice?</a>
+<ul>
+<li><a href="#associated-types-require-generic-constraints-which-are-clumsy">Associated types require generic constraints which are clumsy</a></li>
+<li><a href="#implementations-are-less-substitutable-than-protocols">Implementations are less substitutable than protocols</a></li>
+<li><a href="#sealed-behaviors">Sealed behaviors</a></li>
+</ul></li>
+<li><a href="#conclusion">Conclusion</a></li>
+</ul></li>
+</ul>
+</nav>
+
+<h2 id="object-oriented-programming">Object-oriented programming</h2>
+
+<p>I&rsquo;m sure I don&rsquo;t need to explain object-oriented programming but I do want to look at how the object-oriented hierarchies that used to dominate programming are being reconsidered and replaced by hierarchies that are dramatically shallower, with much of the functionality moved from classes into protocols.</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">protocol</span> <span class="nc">NSObjectProtocol</span> <span class="p">{</span> <span class="cm">/* ... */</span> <span class="p">}</span>
+<span class="n">open</span> <span class="kd">class</span> <span class="nc">NSObject</span><span class="p">:</span> <span class="nb">NSObjectProtocol</span> <span class="p">{</span> <span class="cm">/* ... */</span> <span class="p">}</span>
+<span class="n">open</span> <span class="kd">class</span> <span class="nc">NSResponder</span><span class="p">:</span> <span class="n">NSObject</span> <span class="p">{</span> <span class="cm">/* ... */</span> <span class="p">}</span>
+<span class="n">open</span> <span class="kd">class</span> <span class="nc">NSView</span><span class="p">:</span> <span class="n">NSResponder</span> <span class="p">{</span> <span class="cm">/* ... */</span> <span class="p">}</span>
+<span class="n">open</span> <span class="kd">class</span> <span class="nc">NSControl</span><span class="p">:</span> <span class="n">NSView</span> <span class="p">{</span> <span class="cm">/* ... */</span> <span class="p">}</span>
+<span class="n">open</span> <span class="kd">class</span> <span class="nc">NSButton</span><span class="p">:</span> <span class="n">NSControl</span> <span class="p">{</span> <span class="cm">/* ... */</span> <span class="p">}</span></code></pre></div>
+<p>In the above inheritance chain from AppKit, an <code>NSButton</code> &ldquo;is a&rdquo; kind of <code>NSView</code> (inheritance is often described as &ldquo;is a&rdquo; composition, versus &ldquo;has a&rdquo; composition or &ldquo;conforms to&rdquo; implementations). <code>NSButton</code>&rsquo;s relationship with <code>NSView</code> could be argued as a clear case of traditional subclassing: we can use an <code>NSButton</code> anywhere an <code>NSView</code> is needed, the button shares all of the data from <code>NSView</code> and the button inherits the same interface and behaviors.</p>
+
+<p>But the inheritance chain includes more than just <code>NSButton</code> or <code>NSView</code>.</p>
+
+<p><code>NSObject</code> is a default implementation for <code>NSObjectProtocol</code> but if Objective-C had default protocol implementations, you&rsquo;d probably be able to replace the entire <code>NSObject</code> class with an allocator function.</p>
+
+<p><code>NSView</code> and <code>NSResponder</code> are really orthogonal concepts – display behavior and event behavior – so it&rsquo;s not clear that an <code>NSView</code> is a kind of <code>NSResponder</code>. More importantly, <em>any</em> object (not just those with <code>NSResponder</code> in their inheritance chain) should be able to perform responder chain behaviors, merely by conforming to the interface and inserting itself into the chain.</p>
+
+<p><code>NSControl</code> is a harder to call good or bad; it provides a grab-bag of interaction and data behaviors, as well extending of some <code>NSResponder</code> behaviors. In some ways inheriting from <code>NSControl</code> <em>does</em> provide a good point for code reuse between subclasses – so there&rsquo;s an argument that it might be fine as a subclass – but its role as an abstract class in the middle of an inheritance chain (you never instantiate <code>NSControl</code> directly) implies that it might work better as a protocol with an associated type for target/action and state storage – possibly broken into separate smaller protocols for different <em>kinds</em> of control.</p>
+
+<h2 id="protocol-oriented-programming">Protocol-oriented programming</h2>
+
+<p>In Swift, a number of interfaces that would previously have been written as classes in Objective-C can instead be protocols. Since protocols aren&rsquo;t single-inheritance, they&rsquo;re easier to mix together in a range of different ways. Protocols work with Swift value types and classes equally, and protocols let us more narrowly specify input requirements rather than relying on dynamic behaviors.</p>
+
+<p>The Apple WWDC 2015 video &ldquo;<a href="https://developer.apple.com/videos/play/wwdc2015/408/">Protocol Oriented Programming in Swift</a>&rdquo; provided a great introduction to this topic and how it is distinct from object-oriented programming.</p>
+
+<p>Swift didn&rsquo;t invent this style of programming; a number of recent languages, including Rust and Go, have no subclassing and rely largely on &ldquo;traits&rdquo; and &ldquo;interfaces&rdquo; (equivalents to Swift protocols in those languages) for code reuse and polymorphism. Functional languages have used &ldquo;type classes&rdquo; to similar effect for decades.</p>
+
+<p>A crude reorganizing of the <code>NSButton</code> hierarchy, following the broad rules I&rsquo;ve discussed so far, might give a hierarchy that looked more like this:</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">protocol</span> <span class="nc">NSObjectProtocol</span> <span class="p">{</span> <span class="cm">/* ... */</span> <span class="p">}</span>
+<span class="kd">protocol</span> <span class="nc">NSResponder</span> <span class="p">{</span> <span class="cm">/* ... */</span> <span class="p">}</span>
+<span class="kd">protocol</span> <span class="nc">NSControl</span> <span class="p">{</span> <span class="cm">/* ... */</span> <span class="p">}</span>
+<span class="kd">protocol</span> <span class="nc">NSTwoStateControl</span><span class="p">:</span> <span class="n">NSControl</span> <span class="p">{</span> <span class="cm">/* ... */</span> <span class="p">}</span>
+<span class="n">open</span> <span class="kd">class</span> <span class="nc">NSView</span><span class="p">:</span> <span class="nb">NSObjectProtocol</span><span class="p">,</span> <span class="n">NSResponder</span> <span class="p">{</span> <span class="cm">/* ... */</span> <span class="p">}</span>
+<span class="n">open</span> <span class="kd">class</span> <span class="nc">NSButton</span><span class="p">:</span> <span class="n">NSView</span><span class="p">,</span> <span class="n">NSTwoStateControl</span> <span class="p">{</span> <span class="cm">/* ... */</span> <span class="p">}</span></code></pre></div>
+<p>With no need for <code>NSObject</code> at all (it&rsquo;s implemented as the default behavior for <code>NSObjectProtocol</code>), <code>NSResponder</code> and <code>NSControl</code> become protocols with <code>NSControl</code> further broken down into a number of simpler protocols (since greater functionality can now be easily achieved through intermixing).</p>
+
+<p>In summary, protocols are more flexible and easier to intermix. They are also better suited to specifying constraints (which I haven&rsquo;t discussed in this article) and they can be used with value types (which I also haven&rsquo;t discussed).</p>
+
+<p>With protocols being so flexible and capable, we should limit subclassing to when one class:</p>
+
+<ol>
+<li>wants to share <em>most</em> of a base class&rsquo;s behavior, AND,</li>
+<li>wants to incorporate <em>all</em> of a base class&rsquo;s data layout</li>
+</ol>
+
+<h2 id="the-weirdest-subclass-i-ve-ever-written">The weirdest subclass I&rsquo;ve ever written</h2>
+
+<p>Let&rsquo;s imagine I have two classes. For argument&rsquo;s sake, <a href="https://github.com/mattgallagher/CwlSignal/blob/master/Sources/CwlSignal/CwlSignal.swift?ts=3">let&rsquo;s call them <code>Signal</code> and <code>SignalMulti</code></a>.</p>
+
+<p>The <code>Signal</code> class has a few different responsibilities and among them is a public function named <code>subscribe</code>. The <code>SignalMulti</code> class is <em>only</em> a <code>subscribe</code> implementation (no other responsibilities) but the implementation is completely different (it allocates an entirely new instance of <code>Signal</code> internally and delegates the subscribe work to that instance instead).</p>
+
+<p>These two classes share a single function interface, with no common implementation and don&rsquo;t need any common data members or layout (technically, <code>SignalMulti</code> uses the <code>preceeding</code> member but it could easily declare that for itself). They are otherwise completely different.</p>
+
+<p>Revisiting the two bullet points from the previous section:</p>
+
+<ol>
+<li><code>SignalMulti</code> does not want to share <em>ANY</em> of the base class&rsquo;s behavior</li>
+<li><code>SignalMulti</code> doesn&rsquo;t need <em>any</em> of the base class&rsquo;s data layout</li>
+</ol>
+
+<p>Despite this, I still implemented <code>SignalMulti</code> as a subclass of <code>Signal</code>, in violation of every common guideline about interfaces in Swift.</p>
+
+<h2 id="why-use-a-subclass-when-a-protocol-is-the-obvious-choice">Why use a subclass when a protocol is the obvious choice?</h2>
+
+<p>I&rsquo;m not a big fan of object oriented design – the only other place I&rsquo;ve used it in my Swift code on this blog is for wholly <em>private</em> classes – so why have I broken the common guidelines and used a subclass here?</p>
+
+<p>Let&rsquo;s look at the effective shared interface between the two classes (I&rsquo;m simplifying by omitting the <code>attach</code> function on the real classes):</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">public</span> <span class="kd">class</span> <span class="nc">Signal</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="p">{</span>
+   <span class="kd">public</span> <span class="kd">func</span> <span class="nf">subscribe</span><span class="p">(</span><span class="n">context</span><span class="p">:</span> <span class="n">Exec</span><span class="p">,</span> <span class="n">handler</span><span class="p">:</span> <span class="p">@</span><span class="n">escaping</span> <span class="p">(</span><span class="n">Result</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Void</span><span class="p">)</span> <span class="p">-&gt;</span>
+      <span class="n">SignalEndpoint</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;</span>
+<span class="p">}</span>
+
+<span class="kd">public</span> <span class="kd">class</span> <span class="nc">SignalMulti</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">:</span> <span class="n">Signal</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="p">{</span>
+   <span class="kd">public</span> <span class="kr">override</span> <span class="kd">func</span> <span class="nf">subscribe</span><span class="p">(</span><span class="n">context</span><span class="p">:</span> <span class="n">Exec</span><span class="p">,</span> <span class="n">handler</span><span class="p">:</span> <span class="p">@</span><span class="n">escaping</span> <span class="p">(</span><span class="n">Result</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Void</span><span class="p">)</span> <span class="p">-&gt;</span>
+      <span class="n">SignalEndpoint</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;</span>
+<span class="p">}</span></code></pre></div>
+<h3 id="associated-types-require-generic-constraints-which-are-clumsy">Associated types require generic constraints which are clumsy</h3>
+
+<p>If we implemented <code>Signal</code> as a protocol it would need to have an <code>associatedtype</code> to capture the value type <code>T</code>. This associated type would mean that the protocol could be used only as a type constraint and every scope that operates on <code>Signal</code>s will also need to be generic.</p>
+
+<p>For example, instead of a simple looking function like this:</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">class</span> <span class="nc">MyClass</span> <span class="p">{</span>
+   <span class="kd">public</span> <span class="kd">func</span> <span class="nf">receiveSignal</span><span class="p">(</span><span class="n">signal</span><span class="p">:</span> <span class="n">Signal</span><span class="p">&lt;</span><span class="nb">Int</span><span class="o">&gt;</span><span class="p">)</span>
+<span class="p">}</span></code></pre></div>
+<p>you would need to use:</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">class</span> <span class="nc">MyClass</span> <span class="p">{</span>
+   <span class="kd">public</span> <span class="kd">func</span> <span class="nf">receiveSignal</span><span class="p">&lt;</span><span class="n">S</span><span class="o">&gt;</span><span class="p">(</span><span class="n">signal</span><span class="p">:</span> <span class="n">S</span><span class="p">)</span> <span class="k">where</span> <span class="n">S</span><span class="p">:</span> <span class="n">Signal</span><span class="p">,</span> <span class="n">S</span><span class="p">.</span><span class="n">ValueType</span> <span class="p">==</span> <span class="nb">Int</span>
+<span class="p">}</span></code></pre></div>
+<p>Now the function is generic, which makes it a bit more confusing and technical to write (due to the need to constrain the generic parameter), could bloat code size if it is specialized and if it can&rsquo;t be specialized may end up significantly slower.</p>
+
+<h3 id="implementations-are-less-substitutable-than-protocols">Implementations are less substitutable than protocols</h3>
+
+<p>Another topic which I feel is often left out of discussions about protocol oriented design – is the concept of <a href="https://en.wikipedia.org/wiki/Liskov_substitution_principle">substitutability</a>.</p>
+
+<p>The substitutability I want is that you should <em>always</em> be able to pass a <code>SignalMulti</code> where a <code>Signal</code> is requested but if a <code>SignalMulti</code> is requested, only a <code>SignalMulti</code> will suffice.</p>
+
+<p>Technically, you could define a <code>Signal</code> protocol and a <code>SignalMulti</code> protocol that derives from it and capture this substitutability scenario. Protocols are theoretically capable of the same substitutability as classes.</p>
+
+<p>However, the associated type that caused problems in the previous section causes problems here again: we must make <code>public</code> all implementations of our protocols. This creates a situation where we wouldn&rsquo;t just have:</p>
+
+<ul>
+<li><code>protocol Signal { assocatedtype ValueType }</code></li>
+<li><code>protocol SignalMulti: Signal</code></li>
+</ul>
+
+<p>but we&rsquo;d also need to have:</p>
+
+<ul>
+<li><code>class SignalImplementation&lt;ValueType&gt;: Signal</code></li>
+<li><code>class SignalMultiImpementation&lt;ValueType&gt;: SignalMulti</code></li>
+</ul>
+
+<p>and annoyingly, most user code will have instances of the latter two, not the former two. This – combined with the previous &ldquo;generic constraints are clumsy&rdquo; point – creates a situation where you&rsquo;re likely to declare functions taking <code>SignalImplementation</code>, a declaration which <em>cannot</em> accept a <code>SignalMulti</code>.</p>
+
+<p>When we use <code>protocol</code>s with associated types, we&rsquo;re forced to expose implementations that are less substitutable than the <code>protocol</code>s and likely to cause problems.</p>
+
+<h3 id="sealed-behaviors">Sealed behaviors</h3>
+
+<p>Since the <code>Signal</code> protocol needs to be public, <em>anything</em> could implement the protocol. While this might seem great – all kinds of different classes could expose a <code>subscribe</code> function – the <code>Signal</code> classes are highly interconnected and dependent on lots of subtle behaviors to ensure thread safety and graph behavior propagation. This is a case where I really wanted the set of possible behaviors <em>sealed</em> so that rules are <em>strictly</em> obeyed.</p>
+
+<p>You can&rsquo;t make a <code>public</code> protocol sealed. Meanwhile, <code>public</code> classes <em>are</em> sealed (they&rsquo;re only subclass-able if they&rsquo;re <code>open</code>).</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>Protocol oriented programming is good – watch the &ldquo;<a href="https://developer.apple.com/videos/play/wwdc2015/408/">Protocol Oriented Programming in Swift</a>&rdquo; video and use protocols where appropriate – but don&rsquo;t forget that subclassing and inheritance retain some unique strengths in Swift.</p>
+
+<p>I initially gave the following bullet points and claimed that you should favor a subclass over a protocol only if both of the following two points are true for the subclass:</p>
+
+<ol>
+<li>the subclass wants to share <em>most</em> of a base class&rsquo;s behavior, AND,</li>
+<li>the subclass wants to incorporate <em>all</em> of a base class&rsquo;s data layout</li>
+</ol>
+
+<p>The reality is that these bullet points don&rsquo;t cover the whole range of considerations.</p>
+
+<p>There are numerous syntactic differences around each and – since protocols and subclasses overlap significantly in the problems that they <em>can</em> solve – you can validly choose between subclassing and protocols for a range of different syntactic reasons rather than a strict design rule.</p>
+
+<p>Subclasses manage a specific substitutability arrangement that protocols can&rsquo;t precisely model. Generic subclasses have better syntax than do protocols with associated types.</p>
+
+<p>Finally, if you&rsquo;re obsessive about controlling your interface, sometimes a little <em>less</em> flexibility may be what you want: the <code>public</code> versus <code>open</code> distinction and the <code>final</code> keyword, make classes easier to tightly control, compared to protocols.</p>
+
+		</div>
+	</article>
+</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="package-manager-fetch.html">Using &#39;swift package fetch&#39; in an Xcode project</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="mvc-and-cocoa.html">Looking at Model-View-Controller in Cocoa</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../feed.json">JSON</a>, <a href="../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

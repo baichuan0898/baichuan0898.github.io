@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>OrderedDictionary: Subclassing a Cocoa class cluster</title>
+  <meta name="description" content="The default Cocoa collection classes are highly capable but there are situations where you may need to override them to alter their functionality. I&#39;ll explain when and how you should do this with an example class: OrderedDictionary (an NSMutableDictionary subclass that maintains ordering of its keys)." />
+
+  <meta name="twitter:title" content="OrderedDictionary: Subclassing a Cocoa class cluster"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2008/12/ordereddictionary-subclassing-cocoa.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="The default Cocoa collection classes are highly capable but there are situations where you may need to override them to alter their functionality. I&#39;ll explain when and how you should do this with an example class: OrderedDictionary (an NSMutableDictionary subclass that maintains ordering of its keys)."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="ordereddictionary-subclassing-cocoa.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">OrderedDictionary: Subclassing a Cocoa class cluster</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2008-12-18">December 18, 2008</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/objective-c.html">Objective-C</a>, <a href="../../categories/object-oriented-design.html">object-oriented design</a>, <a href="../../categories/foundation.html">Foundation</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>The default Cocoa collection classes are highly capable but there are situations where you may need to override them to alter their functionality. I'll explain when and how you should do this with an example class: OrderedDictionary (an NSMutableDictionary subclass that maintains ordering of its keys).</p></span>
+
+<span class="fullpost">
+<h2>Best practice: don't subclass</h2>
+<p>This post is going to discuss subclassing <code>NSMutableDictionary</code>. You should note that this is a special case; most of the time when you add functionality to a collection class, you should not override it.</p>
+
+<p>Most classes are not designed with subclassing in mind. If you are not the author of a class, choosing to override it incurs a risk that your additions won't maintain implicit or private values and behaviors of the object correctly.</p>
+
+<p>Increased risk due to subclassing does not apply to classes that are intended to be subclassed before use. Prominent examples include <code>NSObject</code>, <code>NSWindowController</code>, <code>NSView</code>, <code>NSControl</code>  and <code>NSCell</code>. With classes designed for use through subclasses, any risk associated with the subclassing itself is more than outweighed by the well-tested base functionality that they provide, which cannot be accessed unless the class is subclassed.</p>
+
+<h3>Aside: design patterns that customize behavior without subclassing</h3>
+
+<ol>
+
+<li>Put the custom functionality in the parent which contains the non-overridden object, rather than in the non-overridden object itself. This is "<a href="http://en.wikipedia.org/wiki/Has-a">has-a</a>" design instead of "<a href="http://en.wikipedia.org/wiki/Is-a">is-a</a>".</li>
+
+<li>Use a <a href="http://en.wikipedia.org/wiki/Decorator_pattern">Decorator</a> object instead. A Decorator is a wrapper around the non-overridden class. All messages to the contained class go through the Decorator first, so the Decorator can control or supplement the behavior of the contained class.</li>
+
+<li>Use an <a href="../06/five-approaches-to-listening-observing.html">Observer</a> to keep the non-overridden object synchronized with dependent objects so that their combined state achieves custom behavior, even though each of the objects remains non-custom. In this case, the Observer acts as a Controller/Manager to the dependent objects.</li>
+
+</ol>
+
+<h2>Choosing to override a collection class</h2>
+
+<p>The collection classes in Cocoa are <a href="http://developer.apple.com/DOCUMENTATION/Cocoa/Conceptual/CocoaFundamentals/CocoaObjects/chapter_3_section_9.html">class clusters</a>. In some respects, this means that they <em>are</em> intended to be overridden, since the base class is functionally abstract and contains none of the required concrete functionality.</p>
+
+<p>Default concrete functionality for a class cluster is provided by hidden subclasses, returned transparently by the base class. Since this is transparent, you are not normally expected to write the subclasses yourself. Despite this expectation, the interface <em>has</em> been designed with subclassing in mind, so we can easily implement the required subclass behavior ourselves instead of relying upon one of the default implementations.</p>
+
+<p>The functionality which constitutes "concrete" behavior for a class cluster is given in Apple's documentation as the "primitive" methods of the cluster. For collection classes (like <code>NSMutableDictionary</code>), these "primitive" methods provide all behavior for the collection's storage. Since we inherit no default behavior for these primitive methods, this means that the decision to make subclass of a collection class in Cocoa is a decision to reimplement the storage.</p>
+
+<h2>Design of an Ordered NSMutableDictionary subclass</h2>
+
+<p>I have chosen to implement an ordered version of <code>NSMutableDictionary</code>, named <code>OrderedDictionary</code>. This requires ordered storage of dictionary keys but <code>NSDictionary</code> stores its keys in a hash table, which is unordered by design. Since this lack of order is fundamental to the hash table storeage, our subclassing of <code>NSMutableDictionary</code> (and hence reimplementation of the storage) is appropriate.</p>
+
+<p>However, I will reimplement basic storage for my subclass by storing all objects and keys in an unmodified <code>NSMutableDictionary</code>. From a design point-of-view, this will make my subclass a Decorator around the unmodified <code>NSMutableDictionary</code>, rather than a pure subclass.</p>
+
+<p>As messages are passed from the "primitive" methods on my subclass through to the contained <code>NSMutableDictionary</code>, I will also store the dictionary's keys in a separate <code>NSMutableArray</code>, thereby allowing the <code>OrderedDictionary</code> to keep the ordering for the keys, in addition to standard <code>NSMutableDictionary</code> functionality.</p>
+
+<h2>Implementing the primitive methods</h2>
+
+<p>Apple's documentation lists the following "primitive" methods for <code>NSMutableDictionary</code>:</p>
+
+<ul>
+<li><code>count</code></li>
+<li><code>objectForKey:</code></li>
+<li><code>keyEnumerator</code></li>
+<li><code>setObject:forKey:</code></li>
+<li><code>removeObjectForKey:</code></li>
+</ul>
+
+<p>In reality, the following method is also required, despite not being listed:</p>
+
+<ul>
+<li><code>initWithCapacity:</code></li>
+</ul>
+
+<p>In accordance with the Decorator pattern that I've chosen, almost all of these are implemented by passing the message through to the contained <code>NSMutableDictionary</code> (named "<code>dictionary</code>"), with keys also added to the <code>NSMutableArray</code> (named "<code>array</code>") and the <code>keyEnumerator</code> method returning the <code>objectEnumerator</code> of "<code>array</code>":</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nf">initWithCapacity:</span><span class="p">(</span><span class="n">NSUInteger</span><span class="p">)</span><span class="nv">capacity</span>
+<span class="p">{</span>
+    <span class="nb">self</span> <span class="o">=</span> <span class="p">[</span><span class="nb">super</span> <span class="n">init</span><span class="p">];</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nb">self</span> <span class="o">!=</span> <span class="nb">nil</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">dictionary</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSMutableDictionary</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithCapacity</span><span class="p">:</span><span class="n">capacity</span><span class="p">];</span>
+        <span class="n">array</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSMutableArray</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithCapacity</span><span class="p">:</span><span class="n">capacity</span><span class="p">];</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="nb">self</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">dealloc</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="n">dictionary</span> <span class="k">release</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">array</span> <span class="k">release</span><span class="p">];</span>
+    <span class="p">[</span><span class="nb">super</span> <span class="n">dealloc</span><span class="p">];</span>
+<span class="p">}</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setObject:</span><span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nv">anObject</span> <span class="nf">forKey:</span><span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nv">aKey</span>
+<span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="p">[</span><span class="n">dictionary</span> <span class="nl">objectForKey</span><span class="p">:</span><span class="n">aKey</span><span class="p">])</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="n">array</span> <span class="nl">addObject</span><span class="p">:</span><span class="n">aKey</span><span class="p">];</span>
+    <span class="p">}</span>
+    <span class="p">[</span><span class="n">dictionary</span> <span class="nl">setObject</span><span class="p">:</span><span class="n">anObject</span> <span class="nl">forKey</span><span class="p">:</span><span class="n">aKey</span><span class="p">];</span>
+<span class="p">}</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">removeObjectForKey:</span><span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nv">aKey</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="n">dictionary</span> <span class="nl">removeObjectForKey</span><span class="p">:</span><span class="n">aKey</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">array</span> <span class="nl">removeObject</span><span class="p">:</span><span class="n">aKey</span><span class="p">];</span>
+<span class="p">}</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="n">NSUInteger</span><span class="p">)</span><span class="nf">count</span>
+<span class="p">{</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">dictionary</span> <span class="n">count</span><span class="p">];</span>
+<span class="p">}</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nf">objectForKey:</span><span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nv">aKey</span>
+<span class="p">{</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">dictionary</span> <span class="nl">objectForKey</span><span class="p">:</span><span class="n">aKey</span><span class="p">];</span>
+<span class="p">}</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="n">NSEnumerator</span> <span class="o">*</span><span class="p">)</span><span class="nf">keyEnumerator</span>
+<span class="p">{</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">array</span> <span class="n">objectEnumerator</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>You can <a href="../../assets/objc-era/OrderedDictionary.zip">download the complete OrderedDictionary class here</a> (2kb). I've further added <code>init</code>, <code>insertObject:forKey:atIndex:</code>, <code>keyAtIndex:</code>, <code>reverseKeyEnumerator</code> and <code>descriptionWithLocale:indent:</code> methods to the downloadable version to fill out some non-essential functionality.</p>
+
+<h2>Conclusion</h2>
+
+<p>Creating a subclass of <code>NSMutableDictionary</code> is made relatively simple by the clean set of "primitive" methods for the class cluster. With these implemented, the remaining rich functionality of <code>NSDictionary</code> and <code>NSMutableDictionary</code> become available; no further work required.</p>
+
+<p>My point about the risks of subclassing should become apparent with the undocumented requirement of <code>initWithCapacity:</code>. The necessity of this method is not mentioned in the documentation, so I was forced to use feedback from debugging information to rework the design of the class to reach a functional implementation &mdash; trivial in this case but annoying nonetheless.</p>
+
+<p>The inclusion of the <code>descriptionWithLocale:indent:</code> method in the class is another lesson along the same lines: the default implementation of this method assumes it can reorder the keys returned from <code>keyEnumerator</code> without causing problems. After seeing erroneous results during testing, I was required to replace this method to remove the incorrect assumption.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="drawing-custom-window-on-mac-os-x.html">Drawing a custom window on Mac OS X</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="heterogeneous-cells-in.html">Heterogeneous cells in a UITableViewController</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

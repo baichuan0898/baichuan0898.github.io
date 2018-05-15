@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Safely fetching an NSManagedObject by URI</title>
+  <meta name="description" content="If you need to store a reference to an NSManagedObject outside of an NSManagedObjectContext, then you&#39;ll need to convert NSManagedObjects to URIs and back again. At first glance it looks like a simple method will do all the work for you but in reality you must be careful when getting the object back. I&#39;ll show you the way to convert an object to a URI and get it back safely." />
+
+  <meta name="twitter:title" content="Safely fetching an NSManagedObject by URI"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2008/08/safely-fetching-nsmanagedobject-by-uri.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="If you need to store a reference to an NSManagedObject outside of an NSManagedObjectContext, then you&#39;ll need to convert NSManagedObjects to URIs and back again. At first glance it looks like a simple method will do all the work for you but in reality you must be careful when getting the object back. I&#39;ll show you the way to convert an object to a URI and get it back safely."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="safely-fetching-nsmanagedobject-by-uri.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Safely fetching an NSManagedObject by URI</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2008-08-24">August 24, 2008</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/core-data.html">Core Data</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>If you need to store a reference to an <span class="monospace">NSManagedObject</span> outside of an <span class="monospace">NSManagedObjectContext</span>, then you'll need to convert <span class="monospace">NSManagedObject</span>s to URIs and back again. At first glance it looks like <a href="http://developer.apple.com/documentation/Cocoa/Reference/CoreDataFramework/Classes/NSPersistentStoreCoordinator_Class/Reference/NSPersistentStoreCoordinator.html#//apple_ref/doc/uid/TP30001180-CJBCHFIC">a simple method</a> will do all the work for you but in reality you must be careful when getting the object back. I'll show you the way to convert an object to a URI and get it back safely.</p></span><span class="fullpost"><h2>Why store an NSManagedObject reference outside a context?</h2><p>Perhaps you want to store cross-store relationships. Perhaps you want to copy references via the clipboard or a dragging pasteboard. Maybe you want to store the last accessed object in your preferences.</p><p>None of these storage locations are within an <span class="monospace">NSManagedObjectContext</span>. So if you want to store an <span class="monospace">NSManagedObject</span> reference reliably, you can't just store a pointer.</p><p>If one of the attributes on your entity is guaranteed unique, you could store that attribute and use it to find the <span class="monospace">NSManagedObject</span> later. But you don't need to add a unique attribute: every object already has one provided automatically &mdash; the <span class="monospace">objectID</span>.</p><blockquote><em>&mdash; Matt, if you love Core Data so much, why don't you marry it?</em><br/>
+Okay, I've written quite a few Core Data related posts now (relative to other frameworks within Cocoa). That's because it's an amazing API: free file reading/writing, free undo, scaleable, highly optimised. Unless you have explicit reasons to avoid it, every program you write should use it.</blockquote><h2>The easy part: convert to a URI</h2><p>It's very easy to create a URI from an <span class="monospace">NSManagedObject</span> and the documentation explains this well.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSURL</span> <span class="o">*</span><span class="n">uri</span> <span class="o">=</span> <span class="p">[[</span><span class="n">myObject</span> <span class="n">objectID</span><span class="p">]</span> <span class="n">URIRepresentation</span><span class="p">];</span></code></pre></div>
+
+<p>Once it's an <span class="monospace">NSURL</span>, you can serialize it (for use in pasteboards, etc) with:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSData</span> <span class="o">*</span><span class="n">uriData</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSKeyedArchiver</span> <span class="nl">archivedDataWithRootObject</span><span class="p">:</span><span class="n">uri</span><span class="p">];</span></code></pre></div>
+
+<h2>What is a URI?</h2><p>In Core Data, a URI uniquely identifies an object. It is normally viewed as a string:</p><p>e.g. <span class="monospace">x-coredata:///MyEntity/t03BF9735-A005-4ED9-96BA-462BD65FA25F118</span> (temporary ID)<br/>
+or x-<span class="monospace">coredata://EB8922D9-DC06-4256-A21B-DFFD47D7E6DA/MyEntity/p3</span> (permanent ID)</p><p>In a more general context, it stands for "Uniform Resource Identifier" and could be a URL ("Uniform Resource Locator") or a URN ("Uniform Resource Name") or both.</p><p>A URN uniquely identifies an entity (for example an ISBN number uniquely identifies a book) but doesn't tell you where to find that entity. A URL tells you a location but doesn't let you uniquely identify the object that you find there (for example, you may be able to download the PDF of a book from a web address but without extra information can't tell if it matches a given ISBN).</p><p>If you duplicate a Core Data file on disk, then you end up with two files that have the same persistent store ID. So Core Data URIs are not always globally unique but in practice that distinction rarely matters.</p><h2>Problems getting the NSManagedObject back</h2><p><span class="monospace">NSPersistentStoreCoordinator</span> has the method:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span><span class="p">(</span><span class="o">&lt;</span><span class="n">span</span> <span class="k">class</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;monospace&#34;</span><span class="o">&gt;</span><span class="n">NSManagedObjectID</span><span class="o">&lt;/</span><span class="n">span</span><span class="o">&gt;</span> <span class="o">*</span><span class="p">)</span><span class="nf">managedObjectIDForURIRepresentation:</span><span class="p">(</span><span class="n">NSURL</span> <span class="o">*</span><span class="p">)</span><span class="nv">uri</span><span class="p">;</span></code></pre></div>
+
+<p>and <span class="monospace">NSManagedObjectContext</span> has:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span><span class="p">(</span><span class="o">&lt;</span><span class="n">span</span> <span class="k">class</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;monospace&#34;</span><span class="o">&gt;</span><span class="n">NSManagedObject</span><span class="o">&lt;/</span><span class="n">span</span><span class="o">&gt;</span> <span class="o">*</span><span class="p">)</span><span class="nf">objectWithID:</span><span class="p">(</span><span class="o">&lt;</span><span class="n">span</span> <span class="k">class</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;monospace&#34;</span><span class="o">&gt;</span><span class="n">NSManagedObjectID</span><span class="o">&lt;/</span><span class="n">span</span><span class="o">&gt;</span> <span class="o">*</span><span class="p">)</span><span class="nv">objectID</span><span class="p">;</span></code></pre></div>
+
+<p>so it would seem that all you need to do is convert your string to an NSURL, convert the NSURL to an <span class="monospace">NSManagedObjectID</span> and the <span class="monospace">NSManagedObjectID</span> to the <span class="monospace">NSManagedObject</span>.</p><p>But there's a catch: these methods do not actually fetch the object from the persistent store. <strong>If the object doesn't exist, these methods will still succeed</strong>, giving you an <span class="monospace">NSManagedObjectID</span> or <span class="monospace">NSManagedObject</span> referencing a non-existent entry in the persistent store (which will throw an <span class="monospace"> NSObjectInaccessibleException</span> if you try to fault it). The reality is that, despite their appearance, these methods are for constructing object ID's, they don't search the persistent store.</p><p>Obviously, we will need to combine these methods with a proper search of the persistent store.</p><h2>Safely getting the object back</h2><p>If the <span class="monospace">NSManagedObject</span> for the URI does eixist and has already been faulted by the <span class="monospace">NSManagedObjectContext</span>, then the result from <span class="monospace">objectWithID:</span> will be the correct object. The question is how to handle the situation where <span class="monospace">isFault</span> returns <span class="monospace">NO</span> (and the object may not exist).</p><p>The answer is: even though the <span class="monospace">NSManagedObject</span> returned by <span class="monospace">objectWithID:</span> may not exist in the persistent store, we can still use the <span class="monospace">NSManagedObject</span> to search the persistent store.</p><p>Time for a whole chunk of code. This is an <span class="monospace">NSManagedObjectContext</span> category that returns the faulted object for the given URI string, if it exists, or nil if it doesn't.</p><p>You may notice that I construct the <span class="monospace">NSPredicate</span> for the search directly in code (instead of using a predicate string. I wanted to waste as little CPU time as possible.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@implementation</span> <span class="nc">NSManagedObjectContext</span> <span class="nl">(FetchedObjectFromURI)</span>
+<span class="p">-</span> <span class="p">(</span><span class="n">NSManagedObject</span> <span class="o">*</span><span class="p">)</span><span class="nf">objectWithURI:</span><span class="p">(</span><span class="n">NSURL</span> <span class="o">*</span><span class="p">)</span><span class="nv">uri</span>
+<span class="p">{</span>
+    <span class="n">NSManagedObjectID</span> <span class="o">*</span><span class="n">objectID</span> <span class="o">=</span>
+        <span class="p">[[</span><span class="nb">self</span> <span class="n">persistentStoreCoordinator</span><span class="p">]</span>
+            <span class="nl">managedObjectIDForURIRepresentation</span><span class="p">:</span><span class="n">uri</span><span class="p">];</span>
+    
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">objectID</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="nb">nil</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="n">NSManagedObject</span> <span class="o">*</span><span class="n">objectForID</span> <span class="o">=</span> <span class="p">[</span><span class="nb">self</span> <span class="nl">objectWithID</span><span class="p">:</span><span class="n">objectID</span><span class="p">];</span>
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="p">[</span><span class="n">objectForID</span> <span class="n">isFault</span><span class="p">])</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="n">objectForID</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="n">NSFetchRequest</span> <span class="o">*</span><span class="n">request</span> <span class="o">=</span> <span class="p">[[[</span><span class="n">NSFetchRequest</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">request</span> <span class="nl">setEntity</span><span class="p">:[</span><span class="n">objectID</span> <span class="n">entity</span><span class="p">]];</span>
+    
+    <span class="c1">// Equivalent to
+</span><span class="c1"></span>    <span class="c1">// predicate = [NSPredicate predicateWithFormat:@&#34;SELF = %@&#34;, objectForID];
+</span><span class="c1"></span>    <span class="n">NSPredicate</span> <span class="o">*</span><span class="n">predicate</span> <span class="o">=</span>
+        <span class="p">[</span><span class="n">NSComparisonPredicate</span>
+            <span class="nl">predicateWithLeftExpression</span><span class="p">:</span>
+                <span class="p">[</span><span class="n">NSExpression</span> <span class="n">expressionForEvaluatedObject</span><span class="p">]</span>
+            <span class="nl">rightExpression</span><span class="p">:</span>
+                <span class="p">[</span><span class="n">NSExpression</span> <span class="nl">expressionForConstantValue</span><span class="p">:</span><span class="n">objectForID</span><span class="p">]</span>
+            <span class="nl">modifier</span><span class="p">:</span><span class="n">NSDirectPredicateModifier</span>
+            <span class="nl">type</span><span class="p">:</span><span class="n">NSEqualToPredicateOperatorType</span>
+            <span class="nl">options</span><span class="p">:</span><span class="mi">0</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">request</span> <span class="nl">setPredicate</span><span class="p">:</span><span class="n">predicate</span><span class="p">];</span>
+
+    <span class="n">NSArray</span> <span class="o">*</span><span class="n">results</span> <span class="o">=</span> <span class="p">[</span><span class="nb">self</span> <span class="nl">executeFetchRequest</span><span class="p">:</span><span class="n">request</span> <span class="nl">error</span><span class="p">:</span><span class="nb">nil</span><span class="p">];</span>
+    <span class="k">if</span> <span class="p">([</span><span class="n">results</span> <span class="n">count</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">results</span> <span class="nl">objectAtIndex</span><span class="p">:</span><span class="mi">0</span><span class="p">];</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="nb">nil</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="k">@end</span></code></pre></div>
+
+<p>That's it. By executing the search when the object is a fault, we correctly guarantee its existence.</p></span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="in-defense-of-objective-c-20-properties.html">In defense of Objective-C 2.0 Properties</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="application-design-in-appkit.html">Application Design in AppKit</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Specifying function execution contexts</title>
+  <meta name="description" content="I take a look at what&#39;s involved in specifying the &#39;execution context&#39; in which a function should be invoked. It&#39;s a complicated task due to how broad the term &#39;execution context&#39; can be, as well as the fact that both function caller and function callee may have conflicting desires for how a function should be invoked." />
+
+  <meta name="twitter:title" content="Specifying function execution contexts"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/blog/specifying-execution-contexts.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="I take a look at what&#39;s involved in specifying the &#39;execution context&#39; in which a function should be invoked. It&#39;s a complicated task due to how broad the term &#39;execution context&#39; can be, as well as the fact that both function caller and function callee may have conflicting desires for how a function should be invoked."/>
+
+  <link rel="icon" href="../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../css/main.css" />
+  <link rel="canonical" href="specifying-execution-contexts.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../index.html"><img class="heartandcup" src="../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../about/index.html">about</a>
+        <a class="page-link" href="../archive/index.html">archive</a>
+        <a class="page-link" href="../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Specifying function execution contexts</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2016-10-14">October 14, 2016</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../tags/asynchrony.html">asynchrony</a>
+		 
+	</div>
+</header>
+
+
+<main role="main">
+	<article itemscope itemtype="http://schema.org/BlogPosting">
+		<div class="post-content" itemprop="articleBody">
+			
+
+<p>In asynchronous code, it is common to have callbacks and other functions that need to be run in a specific &ldquo;execution context&rdquo;.</p>
+
+<p>Limited approaches for specifying execution context involve specifying a queue or thread on which to run the function but these only capture a small subset of possible traits that might fall under the banner of &ldquo;execution context&rdquo;. Technically, an &ldquo;execution context&rdquo; might include <em>any</em> state on the stack, current thread, entire program or even the host environment outside the program.</p>
+
+<p>Further complicating choice of execution contexts is the fact that in many cases, some negotiation between the caller and the callee is required. The callee might want asynchronous execution but the caller might need to block and wait for the callee to complete. The callee might specify synchronous invocation but the caller might require that the invocation be asynchronous to avoid re-entrancy. The caller might be expected to behave in a thread-safe manner but the callee might have provided a concurrent asynchronous context, undermining thread safety.</p>
+
+<p>I&rsquo;ll discuss how to specify execution contexts in a way that can handle a broad range of scenarios and allows both caller and callee some say in the final choice.</p>
+
+<nav id="TableOfContents"><span class="toc-heading">Contents</span>
+<ul>
+<li>
+<ul>
+<li><a href="#functions-as-parameters">Functions as parameters</a></li>
+<li><a href="#piggybacking-on-the-context-transition">Piggybacking on the context transition</a></li>
+<li><a href="#using-a-thread-or-queue-as-an-execution-context">Using a thread or queue as an execution context</a></li>
+<li><a href="#an-executioncontext-protocol">An <code>ExecutionContext</code> protocol</a></li>
+<li><a href="#optimizing-the-common-cases">Optimizing the common cases</a></li>
+<li><a href="#usage">Usage</a></li>
+<li><a href="#conclusion">Conclusion</a>
+<ul>
+<li><a href="#looking-forward">Looking forward&hellip;</a></li>
+</ul></li>
+</ul></li>
+</ul>
+</nav>
+
+<h2 id="functions-as-parameters">Functions as parameters</h2>
+
+<p>Swift programs often involve <em>lots</em> of cases where functions are passed around as data. The reasons why the number of cases of functions-as-data have increased relative to Objective-C are diverse:</p>
+
+<ul>
+<li>improved syntax (no more C-function declaration legacy)</li>
+<li>Swift&rsquo;s ability to handle free functions, virtual functions, Objective-C message sending and closures with identical semantics</li>
+<li>different style established by Swift standard library versus Foundation</li>
+<li>broader industry trend towards functional composition instead of object oriented interfaces</li>
+</ul>
+
+<p>The result is that a typical medium-sized Swift program might involve <em>thousands</em> of cases where a function is passed as a parameter. Depending on programming style, tens of thousands of cases would not be excessive.</p>
+
+<p>The overwhelming majority of functions passed as parameters – maybe 99% or more – are happy to be directly invoked in the callers execution context like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">someFunctionCaller</span><span class="p">(</span><span class="n">callee</span><span class="p">:</span> <span class="p">()</span> <span class="p">-&gt;</span> <span class="p">())</span> <span class="p">{</span>
+   <span class="c1">// Perform the function&#39;s logic</span>
+   
+   <span class="c1">// Directly invoke in the caller&#39;s execution context</span>
+   <span class="n">callee</span><span class="p">()</span>
+
+   <span class="c1">// Perform any follow up work</span>
+<span class="p">}</span></code></pre></div>
+
+<p>In situations where the callee might need to perform its work in another execution context, the standard approach is to leave the transition to the callee.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="c1">// Embed the transition to the desired execution context in the closure,</span>
+<span class="c1">// rather than requiring a separate parameter</span>
+<span class="n">someFunctionCaller</span> <span class="p">{</span> <span class="n">context</span><span class="p">.</span><span class="n">invoke</span><span class="p">(</span><span class="n">callee</span><span class="p">)</span> <span class="p">}</span></code></pre></div>
+
+<h2 id="piggybacking-on-the-context-transition">Piggybacking on the context transition</h2>
+
+<p>This article is about situations where &ldquo;leaving it to the callee&rdquo; is insufficient.</p>
+
+<p>The primary example is when the caller needs to perform work in the same context where the callee runs.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">someFunctionCaller</span><span class="p">(</span><span class="n">context</span><span class="p">:</span> <span class="n">ExecutionContext</span><span class="p">,</span> <span class="n">callee</span><span class="p">:</span> <span class="p">()</span> <span class="p">-&gt;</span> <span class="p">())</span> <span class="p">{</span>
+   <span class="c1">// Perform the function&#39;s logic</span>
+
+   <span class="c1">// Transition to the specified context</span>
+   <span class="n">context</span><span class="p">.</span><span class="n">invoke</span> <span class="p">{</span>
+      <span class="c1">// Perform any preceeding work that the caller needs to occur in the</span>
+      <span class="c1">// callee context</span>
+      
+      <span class="n">callee</span><span class="p">()</span>
+      
+      <span class="c1">// Perform any follow up work that the caller needs to occur in the</span>
+      <span class="c1">// callee context</span>
+   <span class="p">}</span>
+
+   <span class="c1">// Perform any follow up work that is independent of the callee</span>
+<span class="p">}</span></code></pre></div>
+
+<p>By letting the caller initiate the transition to the desired context, the caller can piggyback on the transition and perform work either side of the actual callee invocation.</p>
+
+<p>The most common reason that this would be required is when the caller needs to release resources when the callee is done or when the caller needs to start another action after the callee is complete.</p>
+
+<h2 id="using-a-thread-or-queue-as-an-execution-context">Using a thread or queue as an execution context</h2>
+
+<p>The Cocoa APIs already provide examples of specifying the execution context for callback functions with a parameter. <code>NSNotificationCenter</code> is one of the most prominent example:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">addObserver</span><span class="p">(</span><span class="n">forName</span> <span class="n">name</span><span class="p">:</span> <span class="n">NSNotification</span><span class="p">.</span><span class="n">Name</span><span class="p">?,</span> <span class="n">object</span> <span class="n">obj</span><span class="p">:</span> <span class="nb">Any</span><span class="p">?,</span> <span class="n">queue</span><span class="p">:</span>
+   <span class="n">OperationQueue</span><span class="p">?,</span> <span class="n">using</span> <span class="n">block</span><span class="p">:</span> <span class="p">(</span><span class="n">Notification</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Void</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">NSObjectProtocol</span></code></pre></div>
+
+<p>If the <code>queue</code> is non-<code>nil</code>, the <code>NSNotificationCenter</code> will ensure that the <code>OperationQueue</code> is used as the execution context for the <code>using</code> block.</p>
+
+<p>The most obvious limitation with this approach is that it requires the target execution context be an <code>OperationQueue</code>. That&rsquo;s fine for asynchronous invocation on the main thread or the global concurrent queue but it&rsquo;s useless if you need to run code on a private <code>DispatchQueue</code>, <code>Thread</code> or <code>NSManagedObjectContext</code> or if your execution context isn&rsquo;t a thread or queue but is simply a mutex.</p>
+
+<p>With execution context being a very broad concept, restricting it to anything more specific than a protocol is a poor choice.</p>
+
+<h2 id="an-executioncontext-protocol">An <code>ExecutionContext</code> protocol</h2>
+
+<p>So let&rsquo;s look at what a a more general <code>ExecutionContext</code> protocol should declare:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">public</span> <span class="kd">protocol</span> <span class="nc">ExecutionContext</span> <span class="p">{</span>
+   <span class="c1">/// A description about how functions will be invoked on an execution context.</span>
+   <span class="kd">var</span> <span class="nv">type</span><span class="p">:</span> <span class="n">ExecutionType</span> <span class="p">{</span> <span class="kr">get</span> <span class="p">}</span>
+   
+   <span class="c1">/// Run `execute` normally on the execution context</span>
+   <span class="kd">func</span> <span class="nf">invoke</span><span class="p">(</span><span class="kc">_</span> <span class="n">execute</span><span class="p">:</span> <span class="p">@</span><span class="n">escaping</span> <span class="p">()</span> <span class="p">-&gt;</span> <span class="nb">Void</span><span class="p">)</span>
+   
+   <span class="c1">/// Run `execute` asynchronously on the execution context</span>
+   <span class="kd">func</span> <span class="nf">invokeAsync</span><span class="p">(</span><span class="kc">_</span> <span class="n">execute</span><span class="p">:</span> <span class="p">@</span><span class="n">escaping</span> <span class="p">()</span> <span class="p">-&gt;</span> <span class="nb">Void</span><span class="p">)</span>
+   
+   <span class="c1">/// Run `execute` on the execution context but don&#39;t return from this function until the</span>
+   <span class="c1">/// provided function is complete.</span>
+   <span class="kd">func</span> <span class="nf">invokeAndWait</span><span class="p">(</span><span class="kc">_</span> <span class="n">execute</span><span class="p">:</span> <span class="p">@</span><span class="n">escaping</span> <span class="p">()</span> <span class="p">-&gt;</span> <span class="nb">Void</span><span class="p">)</span>
+<span class="p">}</span></code></pre></div>
+
+<p>While the intention behind making <code>ExecutionContext</code> a protocol is to give additional flexibility to the callee to make arbitrary changes to the state before invocation, you&rsquo;ll notice that we&rsquo;re also giving additional flexibility to the caller with <em>three</em> different functions for invoking: <code>invoke</code>, <code>invokeAsync</code> and <code>invokeAndWait</code>.</p>
+
+<p>In part, this resembles <code>DispatchQueue</code>, where the caller can run work on the queue using <code>sync</code> or <code>async</code>. However, <code>DispatchQueue</code>s don&rsquo;t have a &ldquo;default preference&rdquo; – as occurs here with <code>invoke</code>. In scenarios where the caller doesn&rsquo;t care either way, this allows the callee to choose for itself. In scenarios where the caller <em>does</em> care, <code>invokeAsync</code> forces asynchrony (to avoid blocking or re-entrancy) and <code>invokeAndWait</code> forces blocking until completion, when a result is needed synchronously.</p>
+
+<p>Now the <code>ExecutionType</code> is an enum that describes the overall behavior of the execution context to the caller. It is defined as follows:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">public</span> <span class="kd">enum</span> <span class="nc">ExecutionType</span> <span class="p">{</span>
+   <span class="k">case</span> <span class="n">immediate</span>
+   <span class="k">case</span> <span class="n">mutex</span>
+   <span class="k">case</span> <span class="n">serialAsync</span>
+   <span class="k">case</span> <span class="n">concurrentAsync</span>
+   <span class="k">case</span> <span class="n">conditionallyAsync</span><span class="p">(</span><span class="nb">Bool</span><span class="p">)</span>
+
+   <span class="kd">public</span> <span class="kd">var</span> <span class="nv">isImmediate</span><span class="p">:</span> <span class="nb">Bool</span>
+   <span class="kd">public</span> <span class="kd">var</span> <span class="nv">isConcurrent</span><span class="p">:</span> <span class="nb">Bool</span>
+<span class="p">}</span></code></pre></div>
+
+<p>In this context, <code>immediate</code> means &ldquo;guaranteed to complete before returning&rdquo;. I deliberately avoid the term &ldquo;synchronous&rdquo; here (often used to mean a similar thing) since &ldquo;synchronous&rdquo; usually implies a serialized resource is acquired and in this enum <code>immediate</code> explicitly implies there is no mutex involved. It should be obvious that the separate case <code>mutex</code> is used for &ldquo;guaranteed to complete before returning and guaranteed serialized&rdquo; (which is closer to a true &ldquo;synchronous&rdquo;).</p>
+
+<p>So <code>immediate</code> and <code>mutex</code> both return true for <code>isImmediate</code> and <code>immediate</code> and <code>concurrentAsync</code> both return true for <code>isConcurrent</code> (since neither serialize concurrent invocations).</p>
+
+<p>The oddball is clearly <code>conditionallyAsync(Bool)</code>. This might be easiest to explain with the motivating example: running on the main thread. If you&rsquo;re already on the main thread, you can immediately invoke the function. If you&rsquo;re not on the main thread, you must asynchronously dispatch on the main thread. The <code>isConcurrent</code> property is always <code>false</code> for <code>conditionallyAsync(Bool)</code> and <code>isImmediate</code> will return the inverse of the associated <code>Bool</code> value.</p>
+
+<h2 id="optimizing-the-common-cases">Optimizing the common cases</h2>
+
+<p>Earlier, I talked about how a program might contain thousands of functions used as parameters. In that case I was talking about lines of code, not the number of invocations per second. The invocations per second could be much, much higher.</p>
+
+<p>Worth noting is that functions and callbacks like this are never the <em>work</em> that you&rsquo;re trying to perform; invocations are merely the glue between units of work. In my own code, I have examples where 10s of thousands of callbacks per second need to run and those callbacks need to take less than 10% of the CPU so that actual work can get done in the remaining time.</p>
+
+<p>Accordingly, I have synthetic test cases where I run millions of invocations per second and bluntly: the code as written so far cannot handle those numbers.</p>
+
+<p>You might think: &ldquo;What code? All you&rsquo;ve shown is a protocol interface.&rdquo;</p>
+
+<p>The protocol interface is the problem. An <code>@escaping</code> closure on an existential type (like a <code>protocol</code> when the explicit implementation is unknown at compile time) will almost always involve closure capture (a heap allocation) and a non-inlined dynamically resolved function call. While this could certainly satisfy tens of thousands of calls per second, it wouldn&rsquo;t leave much time for other work. And it certainly can&rsquo;t handle millions of calls per second.</p>
+
+<p>For that reason, I don&rsquo;t use <code>ExecutionContext</code> directly in my own programs. Instead, I use the following:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">public</span> <span class="kd">enum</span> <span class="nc">Exec</span><span class="p">:</span> <span class="n">ExecutionContext</span> <span class="p">{</span>
+   <span class="c1">/// Invoked directly from the caller&#39;s context</span>
+   <span class="k">case</span> <span class="n">direct</span>
+   
+   <span class="c1">/// Invoked on the main thread, directly if the current thread is the main thread,</span>
+   <span class="c1">/// otherwise asynchronously</span>
+   <span class="k">case</span> <span class="n">main</span>
+   
+   <span class="c1">/// Invoked on the main thread, asynchronously, regardless of whether the current</span>
+   <span class="c1">/// thread is the main thread</span>
+   <span class="k">case</span> <span class="n">mainAsync</span>
+   
+   <span class="c1">/// Invoked asynchronously in the global queue with QOS_CLASS_USER_INTERACTIVE priority</span>
+   <span class="k">case</span> <span class="n">interactive</span>
+
+   <span class="c1">/// Invoked asynchronously in the global queue with QOS_CLASS_USER_INITIATED priority</span>
+   <span class="k">case</span> <span class="n">user</span>
+
+   <span class="c1">/// Invoked asynchronously in the global queue with QOS_CLASS_DEFAULT priority</span>
+   <span class="k">case</span> <span class="p">`</span><span class="k">default</span><span class="p">`</span>
+
+   <span class="c1">/// Invoked asynchronously in the global queue with QOS_CLASS_UTILITY priority</span>
+   <span class="k">case</span> <span class="n">utility</span>
+
+   <span class="c1">/// Invoked asynchronously in the global queue with QOS_CLASS_BACKGROUND priority</span>
+   <span class="k">case</span> <span class="n">background</span>
+
+   <span class="c1">/// Invoked using the wrapped ExecutionContext.</span>
+   <span class="k">case</span> <span class="n">custom</span><span class="p">(</span><span class="n">ExecutionContext</span><span class="p">)</span>
+
+   <span class="kd">public</span> <span class="kd">var</span> <span class="nv">type</span><span class="p">:</span> <span class="n">ExecutionType</span>
+   <span class="kd">public</span> <span class="kd">func</span> <span class="nf">invoke</span><span class="p">(</span><span class="kc">_</span> <span class="n">execute</span><span class="p">:</span> <span class="p">@</span><span class="n">escaping</span> <span class="p">()</span> <span class="p">-&gt;</span> <span class="nb">Void</span><span class="p">)</span>
+   <span class="kd">public</span> <span class="kd">func</span> <span class="nf">invokeAsync</span><span class="p">(</span><span class="kc">_</span> <span class="n">execute</span><span class="p">:</span> <span class="p">@</span><span class="n">escaping</span> <span class="p">()</span> <span class="p">-&gt;</span> <span class="nb">Void</span><span class="p">)</span>
+   <span class="kd">public</span> <span class="kd">func</span> <span class="nf">invokeAndWait</span><span class="p">(</span><span class="kc">_</span> <span class="n">execute</span><span class="p">:</span> <span class="p">@</span><span class="n">escaping</span> <span class="p">()</span> <span class="p">-&gt;</span> <span class="nb">Void</span><span class="p">)</span>
+<span class="p">}</span></code></pre></div>
+
+<p>You should be able to see that this is really just a specialized implementation of <code>ExecutionContext</code> that implements all the common cases for an <code>ExecutionContext</code> – a <code>direct</code> case, two main thread cases and a case for all named <code>DispatchQueue</code>s – but can wrap any other <code>ExecutionContext</code> in the <code>custom</code> case.</p>
+
+<p>The reason to use <code>Exec</code> in interfaces, instead of <code>ExecutionContext</code>, is that the compiler can implement far better optimizations for <code>Exec</code> because it can see the whole implementation. An <code>enum</code> is also really nice to use, syntactically:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="n">someFunctionCaller</span><span class="p">(</span><span class="n">context</span><span class="p">:</span> <span class="p">.</span><span class="n">main</span><span class="p">)</span> <span class="p">{</span> <span class="cm">/* my callback work */</span> <span class="p">}</span></code></pre></div>
+
+<p>Using <code>Exec</code> also offers one additional optimization opportunity when you&rsquo;re really trying to squeeze maximum performance out of your code:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">someFunctionCaller</span><span class="p">(</span><span class="n">context</span><span class="p">:</span> <span class="n">Exec</span> <span class="p">=</span> <span class="p">.</span><span class="n">direct</span><span class="p">,</span> <span class="n">callee</span><span class="p">:</span> <span class="p">()</span> <span class="p">-&gt;</span> <span class="p">())</span> <span class="p">{</span>
+   <span class="k">switch</span> <span class="n">context</span> <span class="p">{</span>
+   <span class="k">case</span> <span class="p">.</span><span class="n">direct</span><span class="p">:</span>
+      <span class="c1">// Some setup code</span>
+      <span class="n">callee</span><span class="p">()</span>
+      <span class="c1">// Some cleanup code</span>
+   <span class="k">default</span><span class="p">:</span>
+      <span class="n">context</span><span class="p">.</span><span class="n">invoke</span> <span class="p">{</span>
+         <span class="c1">// Some setup code</span>
+         <span class="n">callee</span><span class="p">()</span>
+         <span class="c1">// Some cleanup code</span>
+      <span class="p">}</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>When the <code>.direct</code> invocation case is the common case (which is a majority of the time - especially when it is specified as the &ldquo;default&rdquo; value, as it is here) you can further optimize by bypassing the <code>invoke</code> call entirely (since you know with certainly that it does nothing more than directly invoke the function). This avoids the closure capture and associated heap allocation that would otherwise be required for the setup and cleanup code.</p>
+
+<h2 id="usage">Usage</h2>
+
+<blockquote>
+<p>The project containing the <code>Exec</code>, <code>ExecutionContext</code> and <code>ExecutionType</code> implementations is available on github: <a href="https://github.com/mattgallagher/CwlUtils">mattgallagher/CwlUtils</a>.</p>
+</blockquote>
+
+<p>The <a href="https://github.com/mattgallagher/CwlUtils/blob/master/Sources/CwlUtils/CwlExec.swift?ts=3">CwlExec.swift</a> file has a few dependences on other files in the same project, including the <a href="https://github.com/mattgallagher/CwlUtils/blob/master/Sources/CwlUtils/CwlDispatch.swift?ts=3">CwlDispatch.swift</a> file and the <a href="https://github.com/mattgallagher/CwlUtils/blob/master/Sources/CwlUtils/CwlMutex.swift?ts=3">CwlMutex.swift</a> file. It probably wouldn&rsquo;t be difficult to grab these three files separately and add them to your project (if you prefer static linkage) but I recommend following the instructions in the <a href="https://github.com/mattgallagher/CwlUtils/blob/master/README.md">ReadMe.md file for the project</a> and simply cloning the whole repository and adding the framework it produces to your own projects.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>All of this might seem a little abstract; inserting an additional layer between caller and callee, just to handle a basic function invocation. It&rsquo;s primarily useful if you&rsquo;re writing the caller side of an asynchronous workflow and you&rsquo;re looking to better manage resources across multiple stages of the workflow or reduce boilerplate for the callee.</p>
+
+<h3 id="looking-forward">Looking forward&hellip;</h3>
+
+<p>The CwlExec.swift file contains a number of features that I haven&rsquo;t discussed here, including timers and timestamps. If you&rsquo;re looking for an explanation about why these would be attached to the execution context, then please continue to the next article.</p>
+
+		</div>
+	</article>
+</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="2016/09/22/deque.html">Optimizing a copy-on-write double-ended queue in Swift</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="testing-actions-over-time.html">Testing actions over time</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../feed.json">JSON</a>, <a href="../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

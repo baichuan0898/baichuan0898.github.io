@@ -1,0 +1,262 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<!--
+Local Variables:
+sgml-default-dtd-file: "~/html-loose.ced"
+End:
+-->
+<html>
+  <head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+
+    <title>Hamster Emporium: [objc explain]: Non-fragile ivars</title>
+    <link title="RSS 2.0" href="../../../../rss.xml.rss" type="application/rss+xml" rel="alternate">
+  </head>
+  <body bgcolor="#ffffff">
+    <table cellpadding="0" cellspacing="0">
+      <tr>
+	  <td valign="top" align="left">
+	    <a href="../../../../index.html"><img src="http://www.sealiesoftware.com/hamster.jpg" alt="" width="108" height="160"></a><br><br>
+	    <b>blog</b><br>
+	    <a href="../../../../index.html">recent</a><br>
+	    <a href="../../../index.html">archive</a><br>
+	    <a href="http://twitter.com/gparker">twitter</a><br>
+	    <br>
+	    <b>projects</b><br>
+	    <a href="http://www.apple.com/macosx/">Mac OS X</a><br>
+	    <a href="http://www.sealiesoftware.com/keyboard/index.html">Keyboard</a><br>
+	     &nbsp; <a href="http://www.sealiesoftware.com/keyboard/index.html">backlight</a><br>
+	    <a href="http://www.sealiesoftware.com/cscmenu/index.html">CSC Menu</a><br>
+	    <a href="http://www.sealiesoftware.com/valgrind/index.html">Valgrind</a><br>
+	    <a href="http://www.sealiesoftware.com/fringe/index.html">Fringe Player</a><br>
+	    <a href="http://www.sealiesoftware.com/pssh/index.html">pssh</a><br>
+	    <a href="http://www.sealiesoftware.com/peal/index.html">Peal</a><br>
+	    <a href="http://www.sealiesoftware.com/frankenmouse/index.html">Frankenmouse</a><br>
+	    <br>
+	  </td>
+	  <td>
+	    &nbsp; &nbsp;
+	  </td>
+	  <td valign="top">
+	      <h2>Hamster Emporium archive</h2>
+  <p>
+     &lt;&lt; &nbsp; <a href="../../04/14/objc_explain_Classes_and_metaclasses.html">[objc explain]: Classes and metaclasses</a> &nbsp; | &nbsp;  
+    <a href="../../../index.html">archive</a>
+     &nbsp; | &nbsp; <a href="../../../2008/11/30/Infinity_isnt_as_long_as_you_think.html">Infinity isn't as long as you think</a> &nbsp; &gt;&gt; 
+  </p>
+  <table cellpadding="0" cellspacing="3">
+      <tr>
+	<td>
+	  <a href="objc_explain_Non-fragile_ivars.html"><img src="http://www.sealiesoftware.com/link.gif" width="14" height="16" border="0" alt="(link)"></a>
+	</td>
+	<td>
+	  <b><font size="+1">[objc explain]: Non-fragile ivars</font></b> &nbsp; 
+	  <font size="-1">(<a href="objc_explain_Non-fragile_ivars.html">2009-01-27 09:30 PM</a>)</font>
+	</td>
+      </tr>
+      <tr>
+	<td>
+	  &nbsp;
+	</td>
+	<td>
+	        <p>
+	Non-fragile instance variables are a headline feature of the
+	modern Objective-C runtime available on iPhone and 64-bit
+	Mac. They provide framework developers more flexibility without
+	losing binary compatibility, and pave the way for
+	automatically-synthesized property ivars and ivars declared
+	outside a class's interface.
+      </p>
+      <h4>The fragile base class problem</h4>
+      <p>
+	Fragile ivars are a subset of the classic <i>fragile base
+	class</i> problem. In some languages, a superclass cannot be
+	changed without also recompiling all subclasses of that class. For
+	example, adding data members or virtual member functions to a C++
+	superclass will break binary compatibility with any subclass of
+	that class, even if the added members are private and invisible to
+	the subclass. 
+      </p>
+      <p>
+	In classic Objective-C, methods are mostly
+	non-fragile, thanks to dynamic message dispatch. You can freely
+	add methods to a superclass, as long 
+	as you don't have name conflicts. But Objective-C ivars are
+	fragile on 32-bit Mac.
+      </p>
+      <h4>32-bit Mac: fragile Objective-C ivars</h4>
+      <p>
+	Say you're writing the world's next great pet shop
+	application for Mac OS X Leopard. You might have this 
+	<code>PetShopView</code> subclass of 
+	<code>NSView</code>, with arrays for the puppies and kittens in
+	the pet shop.
+      </p>
+      <p>
+	<table>
+	  <tr>
+	    <td valign=top>
+	      <table border=1 cellspacing=0>
+		<tr><td colspan=2><i><code>NSView (Leopard)</code></i></td></tr>
+		<tr bgcolor=#eeeeee><td align=right><code>0</code></td>
+		  <td><code>Class isa</code></tr>
+		<tr bgcolor=#eeeeee><td align=right><code>4</code></td>
+		  <td><code>NSRect bounds</code></tr>
+		<tr bgcolor=#eeeeee><td align=right><code>20</code></td>
+		  <td><code>NSView *superview</code></tr>
+		<tr bgcolor=#eeeeee><td align=right><code>24</code></td>
+		  <td><code>NSColor *bgColor</code></tr>
+	      </table>
+	    </td>
+	    <td valign=top>
+	      <table border=1 cellspacing=0>
+		<tr><td colspan=2><i><code>PetShopView</code></i></td></tr>
+		<tr bgcolor=#eeeeee><td align=right><code>0</code></td>
+		  <td><code>Class isa</code></tr>
+		<tr bgcolor=#eeeeee><td align=right><code>4</code></td>
+		  <td><code>NSRect bounds</code></tr>
+		<tr bgcolor=#eeeeee><td align=right><code>20</code></td>
+		  <td><code>NSView *superview</code></tr>
+		<tr bgcolor=#eeeeee><td align=right><code>24</code></td>
+		  <td><code>NSColor *bgColor</code></tr>
+		<tr bgcolor=#dddddd><td align=right><code>28</code></td>
+		  <td><code>NSArray *kittens</code></tr>
+		<tr bgcolor=#dddddd><td align=right><code>32</code></td>
+		  <td><code>NSArray *puppies</code></tr>
+	      </table>
+	    </td>
+	  </tr>
+	</table>
+      </p>
+      <p>
+	Then Mac OS X Def Leopard comes out, with its new multi-paw
+	interface technology. The AppKit developers add some paw-tracking
+	code to <code>NSView</code>.
+      </p>
+      <p>
+	<table>
+	  <tr>
+	    <td valign=top>
+	      <table border=1 cellspacing=0>
+		<tr><td colspan=2><i><code>NSView (Def Leopard)</code></i></td></tr>
+		<tr bgcolor=#eeeeee><td align=right><code>0</code></td>
+		  <td><code>Class isa</code></tr>
+		<tr bgcolor=#eeeeee><td align=right><code>4</code></td>
+		  <td><code>NSRect bounds</code></tr>
+		<tr bgcolor=#eeeeee><td align=right><code>20</code></td>
+		  <td><code>NSView *superview</code></tr>
+		<tr bgcolor=#eeeeee><td align=right><code>24</code></td>
+		  <td><code>NSColor *bgColor</code></tr>
+		<tr bgcolor=#eeeeee><td align=right><code><font color=#004400><b>28</b></font></code></td>
+		  <td><code><font color=#004400><b>NSSet *touchedPaws</b></font></code></tr>
+	      </table>
+	    </td>
+	    <td valign=top>
+	      <table border=1 cellspacing=0>
+		<tr><td colspan=2><i><code>PetShopView</code></i></td></tr>
+		<tr bgcolor=#eeeeee><td align=right><code>0</code></td>
+		  <td><code>Class isa</code></tr>
+		<tr bgcolor=#eeeeee><td align=right><code>4</code></td>
+		  <td><code>NSRect bounds</code></tr>
+		<tr bgcolor=#eeeeee><td align=right><code>20</code></td>
+		  <td><code>NSView *superview</code></tr>
+		<tr bgcolor=#eeeeee><td align=right><code>24</code></td>
+		  <td><code>NSColor *bgColor</code></tr>
+		<tr bgcolor=#dddddd><td align=right><code>28</code></td>
+		  <td><code><strike><font color=#440000><b>NSArray *kittens</b></font></strike></code></tr>
+		<tr bgcolor=#dddddd><td align=right><code>32</code></td>
+		  <td><code>NSArray *puppies</code></tr>
+	      </table>
+	    </td>
+	  </tr>
+	</table>
+      </p>
+      <p>
+	Unfortunately, your kittens are doomed by fragile
+	ivars. Alternatively, the AppKit developers are trapped with
+	whatever ivars they chose in Mac OS X 10.0.
+      </p>
+      <h4>iPhone and 64-bit Mac: non-fragile Objective-C ivars</h4>
+      <p>
+	What you and the AppKit developers really want is something like
+	this.
+      </p>
+      <p>
+	<table>
+	  <tr>
+	    <td valign=top>
+	      <table border=1 cellspacing=0>
+		<tr><td colspan=2><i><code>NSView (Def Leopard)</code></i></td></tr>
+		<tr bgcolor=#eeeeee><td align=right><code>0</code></td>
+		  <td><code>Class isa</code></tr>
+		<tr bgcolor=#eeeeee><td align=right><code>4</code></td>
+		  <td><code>NSRect bounds</code></tr>
+		<tr bgcolor=#eeeeee><td align=right><code>20</code></td>
+		  <td><code>NSView *superview</code></tr>
+		<tr bgcolor=#eeeeee><td align=right><code>24</code></td>
+		  <td><code>NSColor *bgColor</code></tr>
+		<tr bgcolor=#eeeeee><td align=right><code><font color=#004400><b>28</b></font></code></td>
+		  <td><code><font color=#004400><b>NSSet *touchedPaws</b></font></code></tr>
+	      </table>
+	    </td>
+	    <td valign=top>
+	      <table border=1 cellspacing=0>
+		<tr><td colspan=2><i><code>PetShopView</code></i></td></tr>
+		<tr bgcolor=#eeeeee><td align=right><code>0</code></td>
+		  <td><code>Class isa</code></tr>
+		<tr bgcolor=#eeeeee><td align=right><code>4</code></td>
+		  <td><code>NSRect bounds</code></tr>
+		<tr bgcolor=#eeeeee><td align=right><code>20</code></td>
+		  <td><code>NSView *superview</code></tr>
+		<tr bgcolor=#eeeeee><td align=right><code>24</code></td>
+		  <td><code>NSColor *bgColor</code></tr>
+		<tr bgcolor=#eeeeee><td align=right><code><font color=#004400><b>28</b></font></code></td>
+		  <td><code><font color=#004400><b>NSSet *touchedPaws</b></font></code></tr>
+		<tr bgcolor=#dddddd><td align=right><code><font color=#004400><b>32</b></font></code></td>
+		  <td><code>NSArray *kittens</code></tr>
+		<tr bgcolor=#dddddd><td align=right><code><font color=#004400><b>36</b></font></code></td>
+		  <td><code>NSArray *puppies</code></tr>
+	      </table>
+	    </td>
+	  </tr>
+	</table>
+      </p>
+      <p>
+	Here, the runtime has recognized that <code>NSView</code> is now
+	larger than it was when <code>PetShopView</code> was compiled. The
+	subclass ivars slide in response, without recompiling any code,
+	and the kittens are saved by a dynamic runtime.
+      </p>
+      <h4>How it works</h4>
+      <p>
+	The generated code for classic Objective-C ivar access works like
+	a C <code>struct</code> field. The offset to the ivar is a
+	constant determined at compile time. The new ivar code instead
+	creates a variable for each ivar which contains the offset to that
+	ivar, and all code that accesses the ivar uses that
+	variable. At launch time, the runtime can change any ivar offset
+	variable if it detects an oversize superclass. 
+      </p>
+      <p>
+	In the pet shop example, 
+	<code>_OBJC_IVAR_PetShopView_kittens</code> is 28 at
+	compile time, 
+	but the runtime changes it to 32 when it sees the Def Leopard
+	version of <code>NSView</code>. No code needs to be recompiled,
+	and the performance overhead of the extra ivar offset variable is
+	small. AppKit is happy, you're happy, and the kittens are happy.
+      </p>
+
+	  </td>
+      </tr>
+  </table>
+
+	  </td>
+	</tr>
+    </table>
+    <hr>
+    <img align="right" src="http://www.sealiesoftware.com/sealie.gif" alt="seal!" width="114" height="69">
+    Greg Parker<br>
+    <a href="mailto:gparker-www@sealiesoftware.com">gparker-www@sealiesoftware.com</a><br>
+    <a href="http://www.sealiesoftware.com/index.html">Sealie Software</a>
+  </body>
+</html>

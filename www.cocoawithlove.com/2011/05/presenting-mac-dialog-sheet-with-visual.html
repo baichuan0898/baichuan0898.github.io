@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Presenting a Mac dialog sheet with visual cue effects</title>
+  <meta name="description" content="In this post, I&#39;ll show you how to use visual effects over a window to make a dialog sheet stand out when it is presented over the top. It&#39;s a pretty simple use of Core Image but is a useful technique to capture attention when needed." />
+
+  <meta name="twitter:title" content="Presenting a Mac dialog sheet with visual cue effects"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2011/05/presenting-mac-dialog-sheet-with-visual.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="In this post, I&#39;ll show you how to use visual effects over a window to make a dialog sheet stand out when it is presented over the top. It&#39;s a pretty simple use of Core Image but is a useful technique to capture attention when needed."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="presenting-mac-dialog-sheet-with-visual.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Presenting a Mac dialog sheet with visual cue effects</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2011-05-05">May 5, 2011</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/graphics.html">graphics</a>, <a href="../../categories/appkit.html">AppKit</a>, <a href="../../categories/coreanimation.html">CoreAnimation</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>In this post, I'll show you how to use visual effects over a window to make a dialog sheet stand out when it is presented over the top. It's a pretty simple use of Core Image but is a useful technique to capture attention when needed.</p></span><span class="fullpost"><h2>Introduction</h2><p>Getting the user's attention when required and drawing their focus to important areas is an important point when trying to iterate and improve your user interface.</p><p>Of particular importance: how to you force the user's attention from one part of the screen to another when an important event occurs.</p><p>That's a task that the code in this post aims to address. By visually disrupting the normal window area, we inform the user that their attention is briefly needed elsewhere.</p><p>Of course, this is not a good thing to do frequently. Forcing the user to shift their attention from one side of the screen to another is generally considered poor form. However, some screen features (especially sheets and alerts) have a fixed location so keeping the activity local is not always possible.</p><h2>The sample application</h2><blockquote>Download the Xcode project for this post: <a href="../../assets/objc-era/PresentSheetWithEffect.zip">PresentSheetWithEffect.zip</a> (190kB)</blockquote><p>The sample application shows the following window:</p><img src="../../assets/objc-era/sheetpresented.png" width="400" height="276" /><p>The aim is to make the alert &mdash; which is pretty bland &mdash; visually pop out and draw the user's attention to it (since it is modal and they're not allowed to do anything else until they dismiss it).</p><h2>Visual overlays</h2><p>Visual disruption of the background is common in iOS. Users of Safari in iOS would be familiar with the dark, semi-transparent overlays over the main webpage area when the keyboard focus is in the Safari address bar. Even Safari on the Mac darkens the main page except for search terms when searching for text within a page.</p><p>However, this overlay normally needs to be <em>very</em> dark since the color of the main page behind the overlay is not known and the overlay needs to provide contrast in as many cases as possible.</p><p>With Core Image on the Mac, we have a range of different options that don't require turning the screen completely dark. For this post, I've chosen to reduce saturation, take a little out of the brightness and apply a gloom. Of course you might prefer a different selection of filters.</p><p>An important consideration with the filters to apply: they shouldn't look too flashy and they shouldn't hurt the eyes of the user who will likely be focussed on a region within the filtered area. For example: I had initially tried a gaussian blur filter but this actually hurts your eyes a little if it is applied while you're trying to focus &mdash; you subconsciously try to focus as the blur gradually makes this impossible.</p><h2>A great big block of code</h2><p>The following method applies the filters and presents the sheet. The filters will only work if the window's <code>contentView</code> has a Core Animation layer (in this program, the Core Animation is enabled in the XIB file).</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">presentSheetWithWindow:</span><span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nv">aSheetWindow</span>
+    <span class="nf">delegate:</span><span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nv">modalWindowDelegate</span>
+    <span class="nf">didEndSelector:</span><span class="p">(</span><span class="kt">SEL</span><span class="p">)</span><span class="nv">didEndSelector</span>
+<span class="p">{</span>
+    <span class="c1">// &#39;sheetWindow&#39; is an instance variable tracking the currently presented
+</span><span class="c1"></span>    <span class="c1">// window. If a window is already being presented, dismiss it first before
+</span><span class="c1"></span>    <span class="c1">// presenting this new one
+</span><span class="c1"></span>    <span class="k">if</span> <span class="p">(</span><span class="n">sheetWindow</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="nb">self</span> <span class="nl">dismissSheetForWindow</span><span class="p">:</span><span class="n">sheetWindow</span><span class="p">];</span>
+    <span class="p">}</span>
+    <span class="n">sheetWindow</span> <span class="o">=</span> <span class="p">[</span><span class="n">aSheetWindow</span> <span class="k">retain</span><span class="p">];</span>
+    
+    <span class="c1">// We&#39;re going to fade the effect in
+</span><span class="c1"></span>    <span class="n">CATransition</span> <span class="o">*</span><span class="n">animation</span> <span class="o">=</span> <span class="p">[</span><span class="n">CATransition</span> <span class="n">animation</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">animation</span> <span class="nl">setType</span><span class="p">:</span><span class="n">kCATransitionFade</span><span class="p">];</span>
+    <span class="p">[[[[</span><span class="nb">self</span> <span class="n">window</span><span class="p">]</span> <span class="n">contentView</span><span class="p">]</span> <span class="n">layer</span><span class="p">]</span> <span class="nl">addAnimation</span><span class="p">:</span><span class="n">animation</span> <span class="nl">forKey</span><span class="p">:</span><span class="s">@&#34;layerAnimation&#34;</span><span class="p">];</span>
+    
+    <span class="c1">// The effect will be applied to this new view that we&#39;ll lay over the top
+</span><span class="c1"></span>    <span class="c1">// of everything else
+</span><span class="c1"></span>    <span class="n">blankingView</span> <span class="o">=</span>
+        <span class="p">[[[</span><span class="n">NSView</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithFrame</span><span class="p">:[[[</span><span class="nb">self</span> <span class="n">window</span><span class="p">]</span> <span class="n">contentView</span><span class="p">]</span> <span class="n">bounds</span><span class="p">]]</span> <span class="n">autorelease</span><span class="p">];</span>
+    <span class="p">[[[</span><span class="nb">self</span> <span class="n">window</span><span class="p">]</span> <span class="n">contentView</span><span class="p">]</span> <span class="nl">addSubview</span><span class="p">:</span><span class="n">blankingView</span><span class="p">];</span>
+
+    <span class="c1">// Construct the three effects
+</span><span class="c1"></span>    <span class="n">CIFilter</span> <span class="o">*</span><span class="n">exposureFilter</span> <span class="o">=</span> <span class="p">[</span><span class="n">CIFilter</span> <span class="nl">filterWithName</span><span class="p">:</span><span class="s">@&#34;CIExposureAdjust&#34;</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">exposureFilter</span> <span class="n">setDefaults</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">exposureFilter</span> <span class="nl">setValue</span><span class="p">:[</span><span class="n">NSNumber</span> <span class="nl">numberWithDouble</span><span class="p">:</span><span class="o">-</span><span class="mf">1.25</span><span class="p">]</span> <span class="nl">forKey</span><span class="p">:</span><span class="s">@&#34;inputEV&#34;</span><span class="p">];</span>
+    <span class="n">CIFilter</span> <span class="o">*</span><span class="n">saturationFilter</span> <span class="o">=</span> <span class="p">[</span><span class="n">CIFilter</span> <span class="nl">filterWithName</span><span class="p">:</span><span class="s">@&#34;CIColorControls&#34;</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">saturationFilter</span> <span class="n">setDefaults</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">saturationFilter</span> <span class="nl">setValue</span><span class="p">:[</span><span class="n">NSNumber</span> <span class="nl">numberWithDouble</span><span class="p">:</span><span class="mf">0.35</span><span class="p">]</span> <span class="nl">forKey</span><span class="p">:</span><span class="s">@&#34;inputSaturation&#34;</span><span class="p">];</span>
+    <span class="n">CIFilter</span> <span class="o">*</span><span class="n">gloomFilter</span> <span class="o">=</span> <span class="p">[</span><span class="n">CIFilter</span> <span class="nl">filterWithName</span><span class="p">:</span><span class="s">@&#34;CIGloom&#34;</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">gloomFilter</span> <span class="n">setDefaults</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">gloomFilter</span> <span class="nl">setValue</span><span class="p">:[</span><span class="n">NSNumber</span> <span class="nl">numberWithDouble</span><span class="p">:</span><span class="mf">0.75</span><span class="p">]</span> <span class="nl">forKey</span><span class="p">:</span><span class="s">@&#34;inputIntensity&#34;</span><span class="p">];</span>
+    
+    <span class="c1">// Apply the effects to the blankingView layer
+</span><span class="c1"></span>    <span class="p">[[</span><span class="n">blankingView</span> <span class="n">layer</span><span class="p">]</span> <span class="nl">setBackgroundFilters</span><span class="p">:</span>
+        <span class="p">[</span><span class="n">NSArray</span> <span class="nl">arrayWithObjects</span><span class="p">:</span><span class="n">exposureFilter</span><span class="p">,</span> <span class="n">saturationFilter</span><span class="p">,</span> <span class="n">gloomFilter</span><span class="p">,</span> <span class="nb">nil</span><span class="p">]];</span>
+
+    <span class="c1">// Present the sheet -- different code depending on whether we&#39;re presenting
+</span><span class="c1"></span>    <span class="c1">// a dialog or regular window
+</span><span class="c1"></span>    <span class="k">if</span> <span class="p">([</span><span class="n">sheetWindow</span> <span class="nl">isKindOfClass</span><span class="p">:[</span><span class="n">NSAlert</span> <span class="k">class</span><span class="p">]])</span>
+    <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">modalWindowDelegate</span> <span class="o">==</span> <span class="nb">nil</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="n">modalWindowDelegate</span> <span class="o">=</span> <span class="nb">self</span><span class="p">;</span>
+            <span class="n">didEndSelector</span> <span class="o">=</span> <span class="k">@selector</span><span class="p">(</span><span class="nl">didEndPresentedAlert</span><span class="p">:</span><span class="nl">returnCode</span><span class="p">:</span><span class="nl">contextInfo</span><span class="p">:);</span>
+        <span class="p">}</span>
+        <span class="p">[(</span><span class="n">NSAlert</span> <span class="o">*</span><span class="p">)</span><span class="n">sheetWindow</span>
+            <span class="nl">beginSheetModalForWindow</span><span class="p">:[</span><span class="nb">self</span> <span class="n">window</span><span class="p">]</span>
+            <span class="nl">modalDelegate</span><span class="p">:</span><span class="n">modalWindowDelegate</span>
+            <span class="nl">didEndSelector</span><span class="p">:</span><span class="n">didEndSelector</span>
+            <span class="nl">contextInfo</span><span class="p">:</span><span class="nb">NULL</span><span class="p">];</span>
+    <span class="p">}</span>
+    <span class="k">else</span>
+    <span class="p">{</span>
+        <span class="p">[[</span><span class="n">NSApplication</span> <span class="n">sharedApplication</span><span class="p">]</span>
+            <span class="nl">beginSheet</span><span class="p">:</span><span class="n">sheetWindow</span>
+            <span class="nl">modalForWindow</span><span class="p">:[</span><span class="nb">self</span> <span class="n">window</span><span class="p">]</span>
+            <span class="nl">modalDelegate</span><span class="p">:</span><span class="n">modalWindowDelegate</span>
+            <span class="nl">didEndSelector</span><span class="p">:</span><span class="n">didEndSelector</span>
+            <span class="nl">contextInfo</span><span class="p">:</span><span class="nb">NULL</span><span class="p">];</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<h2>The rest of the sample application</h2><blockquote>Download the Xcode project for this post: <a href="../../assets/objc-era/PresentSheetWithEffect.zip">PresentSheetWithEffect.zip</a> (190kB)</blockquote><p>The sample application also shows the expected usage: a separate subview controller controls the subview but invokes the window controller to actually present the sheet.</p><p>The presentation code is written to account for the fact that different subview controllers may attempt to present errors at different times without any real coordination but the current incarnation does not allow for sheet "stacking" (i.e. if a new sheet is presented, any existing sheet is immediately dismissed). If you need stacked sheets, you'd need to make changes to permit that.</p><h2>Conclusion</h2><p>Core Image allows a lot of flexibility with this type of visual effect. Even if you're not trying to be as "cute" as the trio of effects used in this sample post, the ability to do something as basic as turning down the saturation is quite powerful.</p><p>Remember: the purpose with visual effects should be to speed up the user experience by drawing focus to where it is needed. If you're slowing the user down, you're doing it wrong.</p></span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../04/background-audio-through-ios-movie.html">Background audio through an iOS movie player</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="classes-for-fetching-and-parsing-xml-or.html">Classes for fetching and parsing XML or JSON via HTTP</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>WhereIsMyMac, a Snow Leopard CoreLocation project</title>
+  <meta name="description" content="In Snow Leopard, you can ask for the computer&#39;s location. Without a GPS, how accurate could that be? The answer in my case is: very accurate. In this post, I&#39;ll show you how to write a CoreLocation app for the Mac that shows the current location in Google Maps, so you can see exactly where your computer thinks it is." />
+
+  <meta name="twitter:title" content="WhereIsMyMac, a Snow Leopard CoreLocation project"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/09/whereismymac-snow-leopard-corelocation.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="In Snow Leopard, you can ask for the computer&#39;s location. Without a GPS, how accurate could that be? The answer in my case is: very accurate. In this post, I&#39;ll show you how to write a CoreLocation app for the Mac that shows the current location in Google Maps, so you can see exactly where your computer thinks it is."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="whereismymac-snow-leopard-corelocation.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">WhereIsMyMac, a Snow Leopard CoreLocation project</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-09-21">September 21, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/snow-leopard.html">Snow Leopard</a>, <a href="../../categories/appkit.html">AppKit</a>, <a href="../../categories/webkit.html">WebKit</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>In Snow Leopard, you can ask for the computer's location. Without a GPS, how accurate could that be? The answer in my case is: very accurate. In this post, I'll show you how to write a CoreLocation app for the Mac that shows the current location in Google Maps, so you can see exactly where your computer thinks it is.</p></span><span class="fullpost"><h2>Where Is My Mac?</h2><p>In this post, I present the following sample project:</p><img src="../../assets/objc-era/whereismymac.png" width="405" height="476" /><blockquote>You can download the Xcode 3.2 project here: <a href="../../assets/objc-era/WhereIsMyMac.zip">WhereIsMyMac.zip</a> (33kB). Mac OS X 10.6 is required.</blockquote><p>The program shows your current location, centered in the map. The zoom level is set so that the accuracy radius reported by CoreLocation is exactly half the width of the window.</p><p>So how accurate is it? For me, my actual location was within about 50 meters of the detected location.</p><p>First, I'll talk about the extremely simple code involved. Afterwards, I'll discuss how CoreLocation gets this information.</p><h2>Implementation</h2><p>If you haven't already used CoreLocation on the iPhone, it's really simple: just turn it on and let it update you when it has location information.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">applicationDidFinishLaunching:</span><span class="p">(</span><span class="n">NSNotification</span> <span class="o">*</span><span class="p">)</span><span class="nv">aNotification</span>
+<span class="p">{</span>
+    <span class="c1">// Turn on CoreLocation
+</span><span class="c1"></span>    <span class="n">locationManager</span> <span class="o">=</span> <span class="p">[[</span><span class="n">CLLocationManager</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">];</span>
+    <span class="n">locationManager</span><span class="p">.</span><span class="n">delegate</span> <span class="o">=</span> <span class="nb">self</span><span class="p">;</span>
+    <span class="p">[</span><span class="n">locationManager</span> <span class="n">startUpdatingLocation</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Then all you need to do is receive the location updates and load the map at the new location when received. We do this in the <code>CLLocationManagerDelegate</code> methods.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">locationManager:</span><span class="p">(</span><span class="n">CLLocationManager</span> <span class="o">*</span><span class="p">)</span><span class="nv">manager</span>
+    <span class="nf">didUpdateToLocation:</span><span class="p">(</span><span class="n">CLLocation</span> <span class="o">*</span><span class="p">)</span><span class="nv">newLocation</span>
+    <span class="nf">fromLocation:</span><span class="p">(</span><span class="n">CLLocation</span> <span class="o">*</span><span class="p">)</span><span class="nv">oldLocation</span>
+<span class="p">{</span>
+    <span class="c1">// Ignore updates where nothing we care about changed
+</span><span class="c1"></span>    <span class="k">if</span> <span class="p">(</span><span class="n">newLocation</span><span class="p">.</span><span class="n">coordinate</span><span class="p">.</span><span class="n">longitude</span> <span class="o">==</span> <span class="n">oldLocation</span><span class="p">.</span><span class="n">coordinate</span><span class="p">.</span><span class="n">longitude</span> <span class="o">&amp;&amp;</span>
+        <span class="n">newLocation</span><span class="p">.</span><span class="n">coordinate</span><span class="p">.</span><span class="n">latitude</span> <span class="o">==</span> <span class="n">oldLocation</span><span class="p">.</span><span class="n">coordinate</span><span class="p">.</span><span class="n">latitude</span> <span class="o">&amp;&amp;</span>
+        <span class="n">newLocation</span><span class="p">.</span><span class="n">horizontalAccuracy</span> <span class="o">==</span> <span class="n">oldLocation</span><span class="p">.</span><span class="n">horizontalAccuracy</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="c1">// Load the HTML for displaying the Google map from a file and replace the
+</span><span class="c1"></span>    <span class="c1">// format placeholders with our location data
+</span><span class="c1"></span>    <span class="n">NSString</span> <span class="o">*</span><span class="n">htmlString</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSString</span> <span class="nl">stringWithFormat</span><span class="p">:</span>
+        <span class="p">[</span><span class="n">NSString</span> 
+            <span class="nl">stringWithContentsOfFile</span><span class="p">:</span>
+                <span class="p">[[</span><span class="n">NSBundle</span> <span class="n">mainBundle</span><span class="p">]</span>
+                    <span class="nl">pathForResource</span><span class="p">:</span><span class="s">@&#34;HTMLFormatString&#34;</span> <span class="nl">ofType</span><span class="p">:</span><span class="s">@&#34;html&#34;</span><span class="p">]</span>
+            <span class="nl">encoding</span><span class="p">:</span><span class="n">NSUTF8StringEncoding</span>
+            <span class="nl">error</span><span class="p">:</span><span class="nb">NULL</span><span class="p">],</span>
+        <span class="n">newLocation</span><span class="p">.</span><span class="n">coordinate</span><span class="p">.</span><span class="n">latitude</span><span class="p">,</span>
+        <span class="n">newLocation</span><span class="p">.</span><span class="n">coordinate</span><span class="p">.</span><span class="n">longitude</span><span class="p">,</span>
+        <span class="p">[</span><span class="n">WhereIsMyMacAppDelegate</span> <span class="nl">latitudeRangeForLocation</span><span class="p">:</span><span class="n">newLocation</span><span class="p">],</span>
+        <span class="p">[</span><span class="n">WhereIsMyMacAppDelegate</span> <span class="nl">longitudeRangeForLocation</span><span class="p">:</span><span class="n">newLocation</span><span class="p">]];</span>
+    
+    <span class="c1">// Load the HTML in the WebView and set the labels
+</span><span class="c1"></span>    <span class="p">[[</span><span class="n">webView</span> <span class="n">mainFrame</span><span class="p">]</span> <span class="nl">loadHTMLString</span><span class="p">:</span><span class="n">htmlString</span> <span class="nl">baseURL</span><span class="p">:</span><span class="nb">nil</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">locationLabel</span> <span class="nl">setStringValue</span><span class="p">:[</span><span class="n">NSString</span> <span class="nl">stringWithFormat</span><span class="p">:</span><span class="s">@&#34;%f, %f&#34;</span><span class="p">,</span>
+        <span class="n">newLocation</span><span class="p">.</span><span class="n">coordinate</span><span class="p">.</span><span class="n">latitude</span><span class="p">,</span> <span class="n">newLocation</span><span class="p">.</span><span class="n">coordinate</span><span class="p">.</span><span class="n">longitude</span><span class="p">]];</span>
+    <span class="p">[</span><span class="n">accuracyLabel</span> <span class="nl">setStringValue</span><span class="p">:[</span><span class="n">NSString</span> <span class="nl">stringWithFormat</span><span class="p">:</span><span class="s">@&#34;%f&#34;</span><span class="p">,</span>
+        <span class="n">newLocation</span><span class="p">.</span><span class="n">horizontalAccuracy</span><span class="p">]];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Notice here that I load the HTML from a file, then use it as a format string, replacing the % sequences. This means that I need to escape the two percent characters in the file that need to remain percents (this is done by turning them into double percents).</p><p>The only other relevant code is the code to convert from meters (the unit for accuracy in CoreLocation) to Longitude and Latitude (used to specify the zoom factor to Google Maps).</p><p>This too is pretty simple: it's just a scale factor for the latitude and a scale plus a trigonometric function for the longitude:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">+</span> <span class="p">(</span><span class="kt">double</span><span class="p">)</span><span class="nf">latitudeRangeForLocation:</span><span class="p">(</span><span class="n">CLLocation</span> <span class="o">*</span><span class="p">)</span><span class="nv">aLocation</span>
+<span class="p">{</span>
+    <span class="k">const</span> <span class="kt">double</span> <span class="n">M</span> <span class="o">=</span> <span class="mf">6367000.0</span><span class="p">;</span> <span class="c1">// mean meridional radius of curvature of Earth
+</span><span class="c1"></span>    <span class="k">const</span> <span class="kt">double</span> <span class="n">metersToLatitude</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">((</span><span class="n">M_PI</span> <span class="o">/</span> <span class="mf">180.0</span><span class="p">)</span> <span class="o">*</span> <span class="n">M</span><span class="p">);</span>
+    <span class="k">const</span> <span class="kt">double</span> <span class="n">accuracyToWindowScale</span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">;</span>
+    
+    <span class="k">return</span> <span class="n">aLocation</span><span class="p">.</span><span class="n">horizontalAccuracy</span> <span class="o">*</span> <span class="n">metersToLatitude</span> <span class="o">*</span> <span class="n">accuracyToWindowScale</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="p">+</span> <span class="p">(</span><span class="kt">double</span><span class="p">)</span><span class="nf">longitudeRangeForLocation:</span><span class="p">(</span><span class="n">CLLocation</span> <span class="o">*</span><span class="p">)</span><span class="nv">aLocation</span>
+<span class="p">{</span>
+    <span class="kt">double</span> <span class="n">latitudeRange</span> <span class="o">=</span>
+        <span class="p">[</span><span class="n">WhereIsMyMacAppDelegate</span> <span class="nl">latitudeRangeForLocation</span><span class="p">:</span><span class="n">aLocation</span><span class="p">];</span>
+    
+    <span class="k">return</span> <span class="n">latitudeRange</span> <span class="o">*</span> <span class="n">cos</span><span class="p">(</span><span class="n">aLocation</span><span class="p">.</span><span class="n">coordinate</span><span class="p">.</span><span class="n">latitude</span> <span class="o">*</span> <span class="n">M_PI</span> <span class="o">/</span> <span class="mf">180.0</span><span class="p">);</span>
+<span class="p">}</span></code></pre></div>
+
+<p>People who are extremely fussy about distance to latitude conversions don't use a constant meridional radius of curvature for Earth (since Earth is an oblate ellipsoid, this value varies from around 6,330,000 to almost 6,400,000) but a constant value is sufficient for most purposes.</p><p>The <code>accuracyToWindowScale</code> value is used so that the accuracy range reported by CoreLocation ends up as half the window width (instead of 100% of the window width).</p><h2>Where does CoreLocation get this information?</h2><p>The documentation is somewhat vague on where CoreLocation gets this information. Apple imply that there are a few different sources of information that may be used, depending on what is available.</p><p>My first thought was: maybe it is using my IP address to determine my location.</p><p>Looking up my IP address using two different online IP geocoding services revealed the exact center of Australia as my location from my IP address &mdash; almost 2000 kilometers from where I actually am.</p><p>My second thought was maybe it is geocoding my address in Address Book. That's not the answer either, since that address is out-of-date and is at least 5 kilometers away.</p><p>The answer is that I have WiFi on my Mac. Apple uses the WiFi networks you can see from your current location and correlates that against a database of known locations of WiFi networks (yes, companies drive down streets and record the approximate street addresses of WiFi networks).</p><p>So my neighbouring networks: "SweetCheeks", "TheSherriff", "MrBojangles" and "Netgear5" are revealing my location (although I doubt the names are important &mdash; its probably the WiFi MAC addresses that are tracked).</p><h2>Conclusion</h2><blockquote>You can download the Xcode 3.2 project here: <a href="../../assets/objc-era/WhereIsMyMac.zip">WhereIsMyMac.zip</a> (33kB). Mac OS X 10.6 is required</blockquote><p>The only use I've seen for CoreLocation in Snow Leopard so far is setting the Time Zone automatically in the Date & Time System Preferences panel. This doesn't require a great deal of accuracy but it turns out that CoreLocation is capable of much more.</p><p>Of course, I'm only reporting on the accuracy that I see, which is anecdotal evidence only. I'd be interested to know how accurate (or inaccurate) this is for other people.</p><p>As you can see in this sample application, the code involved is very simple. Even if it isn't accurate for everyone, it would make a good option in many applications.</p></span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="building-for-earlier-os-versions-in.html">Building for earlier OS versions from Snow Leopard</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="streamtome-version-11-available.html">StreamToMe Version 1.1 available</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

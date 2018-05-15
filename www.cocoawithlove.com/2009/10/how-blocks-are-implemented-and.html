@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>How blocks are implemented (and the consequences)</title>
+  <meta name="description" content="This post is a look at how clang implements blocks and how this implementation leads to a number of strange behaviors including local variables that end up global, Objective-C objects allocated on the stack instead of the heap, C variables that behave like C&#43;&#43; references, Objective-C objects in non-Objective-C languages, copy methods that don&#39;t copy and retain methods that don&#39;t retain." />
+
+  <meta name="twitter:title" content="How blocks are implemented (and the consequences)"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/10/how-blocks-are-implemented-and.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="This post is a look at how clang implements blocks and how this implementation leads to a number of strange behaviors including local variables that end up global, Objective-C objects allocated on the stack instead of the heap, C variables that behave like C&#43;&#43; references, Objective-C objects in non-Objective-C languages, copy methods that don&#39;t copy and retain methods that don&#39;t retain."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="how-blocks-are-implemented-and.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">How blocks are implemented (and the consequences)</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-10-18">October 18, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/objective-c.html">Objective-C</a>, <a href="../../categories/c++.html">C&#43;&#43;</a>, <a href="../../categories/snow-leopard.html">Snow Leopard</a>, <a href="../../categories/foundation.html">Foundation</a>, <a href="../../categories/standard-c.html">Standard C</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>This post is a look at how clang implements blocks and how this implementation leads to a number of strange behaviors including local variables that end up global, Objective-C objects allocated on the stack instead of the heap, C variables that behave like C++ references, Objective-C objects in non-Objective-C languages, copy methods that don't copy and retain methods that don't retain.</p></span>
+
+<span class="fullpost">
+<h2>What blocks are to the compiler</h2>
+
+<p>Blocks are addressable sections of code implemented inline (inside other functions). The inline-edness can be convenient but the real reason why blocks are different to regular functions and function pointers is that they can reference local variables from the scope of the function surrounding their implementation without the invoker of the block needing to know of the surrounding scope variables' existence.</p>
+
+<p>A block is implemented internally using two pieces:</p>
+
+<ol>
+<li>compiled code in the <code>.text</code> segment of the executable</li>
+<li>a data structure that predominantly contains the values of the variables that the block uses from its surrounding scope</li>
+</ol>
+
+<p>The compiled code lives in its own separate location and does not actually reside inside inside the code of its surrounding scope. In implementation, the code is a function like any other. If you run:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">otool</span> <span class="o">-</span><span class="n">tV</span> <span class="n">MyCompiledExecutable</span></code></pre></div>
+
+<p>then you'll see your blocks appearing immediately after their surrounding functions with names like <code>___surroundingFunction_block_invoke_21</code>.</p>
+
+<p>So it is not the code which makes blocks special, it is the separate data structure. It is this data structure that I will focus on for the remainder of this post.</p>
+
+<h2>The block data structure</h2>
+
+<p><a href="http://clang.llvm.org/docs/BlockImplementation.txt">Clang's basic documentation on block implementations</a> indicates that the data structure describing the block looks something like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">struct</span> <span class="n">Block_literal</span> <span class="p">{</span>
+    <span class="kt">void</span> <span class="o">*</span><span class="n">isa</span><span class="p">;</span>
+
+    <span class="kt">int</span> <span class="n">flags</span><span class="p">;</span>
+    <span class="kt">int</span> <span class="n">reserved</span><span class="p">;</span> <span class="c1">// is actually the retain count of heap allocated blocks
+</span><span class="c1"></span>
+    <span class="kt">void</span> <span class="p">(</span><span class="o">*</span><span class="n">invoke</span><span class="p">)(</span><span class="kt">void</span> <span class="o">*</span><span class="p">,</span> <span class="p">...);</span> <span class="c1">// a pointer to the block&#39;s compiled code
+</span><span class="c1"></span>
+    <span class="k">struct</span> <span class="n">Block_descriptor</span> <span class="p">{</span>
+        <span class="kt">unsigned</span> <span class="kt">long</span> <span class="kt">int</span> <span class="n">reserved</span><span class="p">;</span> <span class="c1">// always nil
+</span><span class="c1"></span>        <span class="kt">unsigned</span> <span class="kt">long</span> <span class="kt">int</span> <span class="n">size</span><span class="p">;</span> <span class="c1">// size of the entire Block_literal
+</span><span class="c1"></span>        
+        <span class="c1">// functions used to copy and dispose of the block (if needed)
+</span><span class="c1"></span>        <span class="kt">void</span> <span class="p">(</span><span class="o">*</span><span class="n">copy_helper</span><span class="p">)(</span><span class="kt">void</span> <span class="o">*</span><span class="n">dst</span><span class="p">,</span> <span class="kt">void</span> <span class="o">*</span><span class="n">src</span><span class="p">);</span>
+        <span class="kt">void</span> <span class="p">(</span><span class="o">*</span><span class="n">dispose_helper</span><span class="p">)(</span><span class="kt">void</span> <span class="o">*</span><span class="n">src</span><span class="p">);</span> 
+    <span class="p">}</span> <span class="o">*</span><span class="n">descriptor</span><span class="p">;</span>
+
+    <span class="c1">// Here the struct contains one entry for every surrounding scope variable.
+</span><span class="c1"></span>    <span class="c1">// For non-pointers, these entries are the actual const values of the variables.
+</span><span class="c1"></span>    <span class="c1">// For pointers, there are a range of possibilities (__block pointer,
+</span><span class="c1"></span>    <span class="c1">// object pointer, weak pointer, ordinary pointer)
+</span><span class="c1"></span><span class="p">};</span></code></pre></div>
+
+<p>Of course, the reality is that this structure is never explicitly declared like this in clang. Clang is a compiler &mdash; a code generator &mdash; and the format of this structure is <em>generated</em> programmatically from the <a href="http://clang.llvm.org/doxygen/CGBlocks_8cpp-source.html#l00103">CodeGenFunction::BuildBlockLiteralTmp</a> method.</p>
+
+<h2>Stack blocks and global blocks</h2>
+
+<p>Since the biggest difference between a function pointer and a block is the ability to use variables from the surrounding scope, it is interesting to look at what happens when a block does not reference anything in the surrounding scope.</p>
+
+<p>Normally, the <code>Block_literal</code> data appears on the stack (like a regular <code>struct</code> would in its surrounding function). With no references to the surrounding scope, clang configures the <code>Block_literal</code> as a <em>global</em> block instead. This causes the block to appear in a fixed global location instead of on the stack (the <code>flags</code> value has the <code>BLOCK_IS_GLOBAL</code> flag set to indicate this at runtime but it's not immediately clear to me if this is ever used).</p>
+
+<p>The implication of this is that global blocks are never actually copied or disposed, even if you invoke the functions to do so. This optimisation is possible because without any references to the surrounding scope, no part of the block (neither its code nor its <code>Block_literal</code>) will ever change &mdash; it becomes a shared constant value.</p>
+
+<h2>Blocks are always objects</h2>
+
+<p>If you're familiar with how Objective-C objects are declared, the <code>isa</code> field in the <code>Block_literal</code> above should be familiar &mdash; blocks are Objective-C objects. This may not seem strange in Objective-C but the reality is that even in pure C or C++, blocks are still Objective-C objects and the runtime support for blocks handles the <code>retain</code>/<code>release</code>/<code>copy</code> behaviors for the block in an Objective-C messaging manner.</p>
+
+<p>Clang uses the class names <code>_NSConcreteStackBlock</code> and <code>_NSConcreteGlobalBlock</code> to refer to the classes for block literals but in CoreFoundation projects, this will map onto <code>NSStackBlock</code> and <code>NSGlobalBlock</code>. If you copy an <code>NSStackBlock</code>, it will return an <code>NSMallocBlock</code> (indicating its changed allocation location).</p>
+
+<h2>Blocks are slightly weird objects</h2>
+
+<p>The interesting point to note about <code>NSStackBlock</code> is that it is a stack allocated Objective-C object. If you have ever tried to allocate an Objective-C object on the stack (not as a pointer but statically allocated) you'll know that the compiler normally forbids this.</p>
+
+<p>The reason why blocks are placed on the stack by default is speed. In the common case where the lifetime of the block is less than that of the stack function that contains it, this is a very good optimisation.</p>
+
+<p>The implication of stack blocks being allocated on the stack, is that a stack block cannot simply be <code>retain</code>ed &mdash; it will become invalid once the function that contains it is popped from the stack. If you invoke <code>retain</code> on a stack block, it will have no effect (the retain count of the block will remain at 1).</p>
+
+<p>For this reason, if you need to return a block from a function or method, you must <code>[[block copy] autorelease]</code> it, not simply <code>[[block retain] autorelease]</code> it.</p>
+
+<h2>__block values can move magically</h2>
+
+<p>Scope variables used in a block are normally passed to the block by <code>const</code> value (the compiler won't let you change the value but even if it did, the change wouldn't affect the value of the variable outside the block).</p>
+
+<p>To alter this behavior, the type specifier <code>__block</code> was added. Any variable declared <code>__block</code> is passed by reference into the block (value on the outside will be changed after the block is invoked).</p>
+
+<p>In the implementation, <code>__block</code> variables are initially allocated on the stack but if any block which references them is copied, they are moved onto the heap (<code>malloc</code>ed). This leads to the following strange situation...</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">int</span> <span class="p">(</span><span class="o">^</span><span class="n">function</span><span class="p">())()</span>
+<span class="p">{</span>
+    <span class="k">__block</span> <span class="kt">int</span> <span class="n">x</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    
+    <span class="kt">int</span> <span class="p">(</span><span class="o">^</span><span class="n">block</span><span class="p">)()</span> <span class="o">=</span> <span class="o">^</span><span class="p">{</span>
+        <span class="n">x</span> <span class="o">+=</span> <span class="mi">1</span><span class="p">;</span>
+        <span class="k">return</span> <span class="n">x</span><span class="p">;</span>
+    <span class="p">};</span>
+    
+    <span class="n">NSLog</span><span class="p">(</span><span class="s">@&#34;x&#39;s location is on the stack: %p&#34;</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">x</span><span class="p">);</span>
+    <span class="n">block</span> <span class="o">=</span> <span class="p">[[</span><span class="n">block</span> <span class="k">copy</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span>
+    <span class="n">NSLog</span><span class="p">(</span><span class="s">@&#34;x&#39;s location is now on the heap: %p&#34;</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">x</span><span class="p">);</span>
+    
+    <span class="k">return</span> <span class="n">block</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>In this example, x's address changes when the copy is invoked. This is because when we declare a <code>__block</code> variable, a pointer to the real variable is created and any attempt to use the variable dereferences it. When <code>copy</code> is invoked, the location pointed to by the pointer changes to the new heap location, so any use of <code>x</code> causes a dereference to this new location.</p>
+
+<p>This makes <code>__block</code> similar to to a reference parameter in C++ since C++ references are also transparently dereferenced pointers.</p>
+
+<h2>NSMallocBlock never actually copies</h2>
+
+<p>Copying a block doesn't really give you a copy of the block &mdash; if the block is already an <code>NSMallocBlock</code>, a <code>copy</code> simply increases the retain count of the block (this retain count is an internal <code>reserved</code> field &mdash; the <code>retainCount</code> returned from the object will remain at 1). This is perfectly appropriate since the scope of the block cannot change after it is created (therefore the block is constant) but it does mean that invoking <code>copy</code> on a block is not the same thing as recreating it.</p>
+
+<p>Assume the following code is in the same program as the previous example.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">int</span> <span class="p">(</span><span class="o">^</span><span class="n">someBlock</span><span class="p">)()</span> <span class="o">=</span> <span class="n">counterBlock</span><span class="p">();</span>
+<span class="kt">int</span> <span class="p">(</span><span class="o">^</span><span class="n">someBlockCopy</span><span class="p">)()</span> <span class="o">=</span> <span class="p">[[</span><span class="n">someBlock</span> <span class="k">copy</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span>
+<span class="kt">int</span> <span class="p">(</span><span class="o">^</span><span class="n">anotherBlock</span><span class="p">)()</span> <span class="o">=</span> <span class="n">counterBlock</span><span class="p">();</span></code></pre></div>
+
+<p>The block returned from <code>counterBlock()</code> counts the number of times that it is invoked by saving the count in the <code>__block</code> variable <code>x</code>.</p>
+
+<p>In this example though, <code>someBlock</code> and <code>someBlockCopy</code> share the same <code>x</code> variable &mdash; they are not actually separate copies. However, <code>anotherBlock</code> does have its own separate <code>x</code> value.</p>
+
+<p>If you need a genuinely separate copy, recreate the block, don't copy it.</p>
+
+<h2>Blocks retain their NSObject scope variables</h2>
+
+<p>Blocks will <code>retain</code> any <code>NSObject</code> that they use from their enclosing scope when they are copied.</p>
+
+<p>The biggest implication of this is that you must remember to <a href="../07/rules-to-avoid-retain-cycles.html">avoid retain cycles</a> if the block will be held beyond a simple stack lifetime.</p>
+
+<p>A <a href="http://www.mikeash.com/?page=pyblog/friday-qa-2009-08-14-practical-blocks.html">pointed out elsewhere</a>, you can suppress this retain of <code>NSObject</code>s by assigning the object to a <code>__block</code> variable outside the block and only ever using the <code>__block</code> variable inside the block.</p>
+
+<p>You can also do the reverse of this and force a pointer that isn't an <code>NSObject</code> derived class to be retained when copied. Do this by declaring the pointer with <code>__attribute__((NSObject))</code>. Of course, the situations where you'd want to do this are exceedingly rare.</p>
+
+<h2>Conclusion</h2>
+
+<p>Blocks are very simple to use in the case where you declare one inline and immediately pass into another function but once you need to copy or hold onto a block for a while, there are a number of quirks, some of which I've covered in this post.</p>
+
+<p>Sadly at this time, <a href="http://developer.apple.com/mac/library/documentation/Cocoa/Conceptual/Blocks/Articles/00_Introduction.html">Apple's documentation on blocks</a> is fairly basic and lacking in detail. This is what led me to start looking at clang's source code.</p>
+
+<p>Of course, you don't need to stare at someone else's C++ code to learn about blocks. There are other sources of lighter, more approachable documentation on the topic. In addition to sources that I've already linked, there's also:</p>
+
+<ul>
+<li>Mike Ash's colorfully titled "<a href="http://www.mikeash.com/?page=pyblog/friday-qa-2008-12-26.html">Friday Q&A 2008-12-26</a>" &mdash; an excellent run-down of potential use-cases for blocks in Objective-C.</li>
+<li>Joachim Bengtsson's <a href="http://thirdcog.eu/pwcblocks/">Programming with C Blocks</a> &mdash; a good general summary of most aspects of blocks</li>
+<li>Jim Dovey's Blocks <a href="http://alanquatermain.net/post/138827791/blocks-episode-2-life-cycles">Episode 2: Life Cycles</a> &mdash; a look at stack and heap allocation of blocks with diagrams</li>
+<li>clang's <a href="http://clang.llvm.org/docs/BlockLanguageSpec.txt">BlockLanguageSpec</a></li>
+</ul>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="objective-c-niche-why-it-survives-in.html">Objective-C&#39;s niche: why it survives in a world of alternatives</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="memory-and-thread-safe-custom-property.html">Memory and thread-safe custom property methods</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

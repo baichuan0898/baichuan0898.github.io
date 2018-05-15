@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Comparing Swift to C&#43;&#43; for parsing</title>
+  <meta name="description" content="I present an implementation of Swift&#39;s Demangle.cpp, rewritten in Swift and use the two versions (the original C&#43;&#43; and my Swift version) to compare the C&#43;&#43; and Swift for writing parsers." />
+
+  <meta name="twitter:title" content="Comparing Swift to C&#43;&#43; for parsing"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/blog/2016/05/01/swift-name-demangling.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="I present an implementation of Swift&#39;s Demangle.cpp, rewritten in Swift and use the two versions (the original C&#43;&#43; and my Swift version) to compare the C&#43;&#43; and Swift for writing parsers."/>
+
+  <link rel="icon" href="../../../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../../../css/main.css" />
+  <link rel="canonical" href="swift-name-demangling.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../../../index.html"><img class="heartandcup" src="../../../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../../../about/index.html">about</a>
+        <a class="page-link" href="../../../../archive/index.html">archive</a>
+        <a class="page-link" href="../../../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Comparing Swift to C&#43;&#43; for parsing</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2016-05-01">May 1, 2016</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../../../tags/swift.html">Swift</a>, <a href="../../../../tags/parsing.html">parsing</a>
+		 
+	</div>
+</header>
+
+
+<main role="main">
+	<article itemscope itemtype="http://schema.org/BlogPosting">
+		<div class="post-content" itemprop="articleBody">
+			
+
+<p>I rewrote the C++ implementation of Swift&rsquo;s <a href="https://github.com/apple/swift/blob/master/lib/Demangling/OldDemangler.cpp">Demangle.cpp</a> in Swift. <a href="https://github.com/mattgallagher/CwlDemangle">My reimplementation</a> is completely standalone and can be dropped directly into any Swift project.</p>
+
+<p>On its own though, that isn&rsquo;t necessarily very interesting. Demangling Swift names isn&rsquo;t a very common task – most Swift/Cocoa reflection functions will return an already demangled name. You usually have to go through C functions to get a mangled name in the first place.</p>
+
+<p>To make it interesting, I turned the exercise into an opportunity to compare C++ and Swift – to see if Swift could be used as a C++ replacement for relatively low level tasks like a <a href="https://en.wikipedia.org/wiki/Recursive_descent_parser">recursive descent parser</a>. Would C++ do things with preprocessor macros or templates and metaprogramming that can&rsquo;t be recreated in Swift, leading to cumbersome workarounds? Would Swift turn out to have critical performance problems?</p>
+
+<p>And if I could clear all the technical hurdles, could I improve on the C++ implementation by making it more &ldquo;Swifty&rdquo;? What would idiomatic Swift look like for this type of work?</p>
+
+<p>As an aside to the whole language comparison, the <code>ScalarScanner</code> that I implemented as part of the parser <a href="https://github.com/mattgallagher/CwlUtils/blob/master/Sources/CwlUtils/CwlScalarScanner.swift?ts=3">is available separately</a> and might be useful if you&rsquo;re looking for an alternative to using <code>NSScanner</code>, <code>NSRegularExpression</code> or other tools poorly suited to character-by-character parsing.</p>
+
+<blockquote>
+<p>NOTE: as of November 2017, CwlDemangle has added Swift 4 name parsing based on <a href="https://github.com/apple/swift/blob/master/lib/Demangling/Demangler.cpp">Demangler.cpp</a>. This article compares the older Swift 3 parsing which is still present – functions starting with <code>demangleSwift3</code> in CwlDemangle – and the corresponding <a href="https://github.com/apple/swift/blob/master/lib/Demangling/OldDemangler.cpp">OldDemangle.cpp</a> in the Swift repository.</p>
+</blockquote>
+
+<nav id="TableOfContents"><span class="toc-heading">Contents</span>
+<ul>
+<li>
+<ul>
+<li><a href="#a-particular-style-of-c">A particular style of C++</a></li>
+<li><a href="#a-swift-unicodescalar-scanner">A Swift <code>UnicodeScalar</code> scanner</a></li>
+<li><a href="#translation-is-boring">Translation is boring</a></li>
+<li><a href="#biggest-difference-between-swift-and-c-error-handling">Biggest difference between Swift and C++: error handling</a></li>
+<li><a href="#c-exceptions-versus-swift-error-handling">C++ exceptions versus Swift error handling</a></li>
+<li><a href="#conditionals-and-switch-statements">Conditionals and <code>switch</code> statements</a></li>
+<li><a href="#processing-collections">Processing collections</a></li>
+<li><a href="#why-does-pragmatic-c-avoid-abstraction">Why does pragmatic C++ avoid abstraction?</a></li>
+<li><a href="#a-quick-comparison-of-performance">A quick comparison of performance</a></li>
+<li><a href="#some-minor-points-against-swift">Some minor points against Swift</a></li>
+<li><a href="#usage">Usage</a></li>
+<li><a href="#conclusion">Conclusion</a></li>
+<li><a href="#appendix-why-reimplement-demangle-cpp">Appendix: why reimplement Demangle.cpp?</a></li>
+</ul></li>
+</ul>
+</nav>
+
+<h2 id="a-particular-style-of-c">A particular style of C++</h2>
+
+<p>I&rsquo;m going to compare my opinion of what idiomatic Swift is to the style of C++ found in <a href="https://github.com/apple/swift/blob/master/lib/Demangling/OldDemangler.cpp">Demangle.cpp</a> from the Swift project.</p>
+
+<p>I&rsquo;m going to refer to traits of C++ throughout this article but I will usually mean: traits of C++ as used in Demangle.cpp. Of course, there are lots of different ways of writing C++ and the C++ on display in Demangle.cpp is a very narrow subset. Demangle.cpp uses a particular, minimalist, conservative style. I will discuss some possible pragmatic reasons <em>why</em> Demangle.cpp is so minimalist but for now, please keep in mind: I&rsquo;m not saying C++ <em>can&rsquo;t</em> do things differently but that a mainstream C++ compiler project from experienced, professional developers <em>chooses</em> to do things a certain way.</p>
+
+<h2 id="a-swift-unicodescalar-scanner">A Swift <code>UnicodeScalar</code> scanner</h2>
+
+<p>Starting at the beginning, the most important tool for writing a <a href="https://en.wikipedia.org/wiki/Recursive_descent_parser">recursive descent parser</a> is a scanner (character, string and other token reader) for traversing the input data.</p>
+
+<p>Demangle.cpp defines its own scanner class named <code>NameSource</code> for traversing data provided by an LLVM <code>StringRef</code>.</p>
+<div class="highlight"><pre class="chroma"><code class="language-cpp" data-lang="cpp"><span class="k">class</span> <span class="nc">NameSource</span> <span class="p">{</span>
+  <span class="n">StringRef</span> <span class="n">Text</span><span class="p">;</span>
+<span class="k">public</span><span class="o">:</span>
+  <span class="n">NameSource</span><span class="p">(</span><span class="n">StringRef</span> <span class="n">text</span><span class="p">);</span>
+
+  <span class="kt">bool</span> <span class="nf">hasAtLeast</span><span class="p">(</span><span class="n">size_t</span> <span class="n">len</span><span class="p">);</span>
+  <span class="kt">bool</span> <span class="nf">isEmpty</span><span class="p">();</span>
+  <span class="k">explicit</span> <span class="k">operator</span> <span class="nf">bool</span><span class="p">();</span>
+  <span class="kt">char</span> <span class="nf">peek</span><span class="p">();</span>
+  <span class="kt">char</span> <span class="nf">next</span><span class="p">();</span>
+  <span class="kt">bool</span> <span class="nf">nextIf</span><span class="p">(</span><span class="kt">char</span> <span class="n">c</span><span class="p">);</span>
+  <span class="kt">bool</span> <span class="nf">nextIf</span><span class="p">(</span><span class="n">StringRef</span> <span class="n">str</span><span class="p">);</span>
+  <span class="n">StringRef</span> <span class="nf">slice</span><span class="p">(</span><span class="n">size_t</span> <span class="n">len</span><span class="p">);</span>
+  <span class="n">StringRef</span> <span class="nf">str</span><span class="p">();</span>
+  <span class="kt">void</span> <span class="nf">advanceOffset</span><span class="p">(</span><span class="n">size_t</span> <span class="n">len</span><span class="p">);</span>
+  <span class="n">StringRef</span> <span class="nf">getString</span><span class="p">();</span>
+  <span class="kt">bool</span> <span class="nf">readUntil</span><span class="p">(</span><span class="kt">char</span> <span class="n">c</span><span class="p">,</span> <span class="n">std</span><span class="o">::</span><span class="n">string</span> <span class="o">&amp;</span><span class="n">result</span><span class="p">);</span>
+<span class="p">};</span></code></pre></div>
+<p>We need something with similar functionality. The obvious choice for this in Cocoa is usually <code>NSScanner</code> (or a subclass) but for a number of reasons, <code>NSScanner</code> isn&rsquo;t really the right tool for this type of job. In particular: it doesn&rsquo;t read single characters, it doesn&rsquo;t peek, you can&rsquo;t inline Objective-C method invocations and it doesn&rsquo;t use Swift error handling.</p>
+
+<p>So I wrote <code>ScalarScanner</code>to behave like a Swift version of <code>NameSource</code>:</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">struct</span> <span class="nc">ScalarScanner</span><span class="p">&lt;</span><span class="n">C</span><span class="p">:</span> <span class="n">Collection</span><span class="o">&gt;</span> <span class="k">where</span> <span class="n">C</span><span class="p">.</span><span class="n">Iterator</span><span class="p">.</span><span class="n">Element</span> <span class="p">==</span> <span class="nb">UnicodeScalar</span><span class="p">,</span>
+   <span class="n">C</span><span class="p">.</span><span class="n">Index</span><span class="p">:</span> <span class="nb">Comparable</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">scalars</span><span class="p">:</span> <span class="n">C</span>
+   <span class="kd">var</span> <span class="nv">index</span><span class="p">:</span> <span class="n">C</span><span class="p">.</span><span class="n">Index</span>
+   <span class="kd">var</span> <span class="nv">consumed</span><span class="p">:</span> <span class="nb">Int</span>
+   
+   <span class="kd">init</span><span class="p">(</span><span class="n">scalars</span><span class="p">:</span> <span class="n">C</span><span class="p">)</span>
+   <span class="kr">mutating</span> <span class="kd">func</span> <span class="nf">match</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">String</span><span class="p">)</span> <span class="kr">throws</span>
+   <span class="kr">mutating</span> <span class="kd">func</span> <span class="nf">match</span><span class="p">(</span><span class="n">scalar</span><span class="p">:</span> <span class="nb">UnicodeScalar</span><span class="p">)</span> <span class="kr">throws</span>
+   <span class="kr">mutating</span> <span class="kd">func</span> <span class="nf">readUntil</span><span class="p">(</span><span class="n">scalar</span><span class="p">:</span> <span class="nb">UnicodeScalar</span><span class="p">)</span> <span class="kr">throws</span> <span class="p">-&gt;</span> <span class="nb">String</span>
+   <span class="kr">mutating</span> <span class="kd">func</span> <span class="nf">readUntil</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">String</span><span class="p">)</span> <span class="kr">throws</span> <span class="p">-&gt;</span> <span class="nb">String</span>
+   <span class="kr">mutating</span> <span class="kd">func</span> <span class="nf">readWhile</span><span class="p">(</span><span class="n">testTrue</span><span class="p">:</span> <span class="p">(</span><span class="nb">UnicodeScalar</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Bool</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">String</span>
+   <span class="kr">mutating</span> <span class="kd">func</span> <span class="nf">skipWhile</span><span class="p">(</span><span class="n">testTrue</span><span class="p">:</span> <span class="p">(</span><span class="nb">UnicodeScalar</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Bool</span><span class="p">)</span>
+   <span class="kr">mutating</span> <span class="kd">func</span> <span class="nf">skipUntil</span><span class="p">(</span><span class="n">scalar</span><span class="p">:</span> <span class="nb">UnicodeScalar</span><span class="p">)</span> <span class="kr">throws</span>
+   <span class="kr">mutating</span> <span class="kd">func</span> <span class="nf">skipUntil</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">String</span><span class="p">)</span> <span class="kr">throws</span>
+   <span class="kr">mutating</span> <span class="kd">func</span> <span class="nf">skip</span><span class="p">(</span><span class="bp">count</span><span class="p">:</span> <span class="nb">Int</span> <span class="p">=</span> <span class="mi">1</span><span class="p">)</span> <span class="kr">throws</span>
+   <span class="kr">mutating</span> <span class="kd">func</span> <span class="nf">backtrack</span><span class="p">(</span><span class="bp">count</span><span class="p">:</span> <span class="nb">Int</span> <span class="p">=</span> <span class="mi">1</span><span class="p">)</span> <span class="kr">throws</span>
+   <span class="kr">mutating</span> <span class="kd">func</span> <span class="nf">remainder</span><span class="p">()</span> <span class="p">-&gt;</span> <span class="nb">String</span>
+   <span class="kr">mutating</span> <span class="kd">func</span> <span class="nf">conditional</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="nb">String</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Bool</span>
+   <span class="kr">mutating</span> <span class="kd">func</span> <span class="nf">conditional</span><span class="p">(</span><span class="n">scalar</span><span class="p">:</span> <span class="nb">UnicodeScalar</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Bool</span>
+   <span class="kd">func</span> <span class="nf">requirePeek</span><span class="p">()</span> <span class="kr">throws</span> <span class="p">-&gt;</span> <span class="nb">UnicodeScalar</span>
+   <span class="kd">func</span> <span class="nf">peek</span><span class="p">(</span><span class="n">skipCount</span><span class="p">:</span> <span class="nb">Int</span> <span class="p">=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">UnicodeScalar</span><span class="p">?</span>
+   <span class="kr">mutating</span> <span class="kd">func</span> <span class="nf">readScalar</span><span class="p">()</span> <span class="kr">throws</span> <span class="p">-&gt;</span> <span class="nb">UnicodeScalar</span>
+   <span class="kr">mutating</span> <span class="kd">func</span> <span class="nf">readInt</span><span class="p">()</span> <span class="kr">throws</span> <span class="p">-&gt;</span> <span class="nb">Int</span>
+   <span class="kr">mutating</span> <span class="kd">func</span> <span class="nf">readScalars</span><span class="p">(</span><span class="bp">count</span><span class="p">:</span> <span class="nb">Int</span><span class="p">)</span> <span class="kr">throws</span> <span class="p">-&gt;</span> <span class="nb">String</span>
+   <span class="kd">func</span> <span class="nf">unexpectedError</span><span class="p">()</span> <span class="p">-&gt;</span> <span class="n">Error</span>
+   <span class="kd">var</span> <span class="nv">isAtEnd</span><span class="p">:</span> <span class="nb">Bool</span>
+<span class="p">}</span></code></pre></div>
+<p>From the first line, we can see a difference between the Swift and C++ versions. Swift has a standard set of protocols and constraints for defining data providers, so it makes sense to use them. C++ <em>could</em> use a template parameter to define the data provider but since C++ lacks an equivalent to Swift&rsquo;s protocol constraints and lacks a corresponding set of standard behaviors, the mulitple constraints for the data provider would be a confusing black box thrust upon any user of <code>NameSource</code> – likely manifesting in weird errors in internal headers if any requirements were not met.</p>
+
+<p>Unless there&rsquo;s a strong need for abstraction in C++, it&rsquo;s not worth the effort. Meanwhile, in Swift, there&rsquo;s no reason to make collections, sequences and other common providers concrete.</p>
+
+<p>This has immediate reuse benefits for Swift. This <code>ScalarScanner</code> can read equally from <code>Array&lt;UnicodeScalar&gt;</code> or from a <code>String.UnicodeScalarView</code> and is completely reusable in any Swift project. Meanwhile <code>NameSource</code> is completely dependent on LLVM&rsquo;s <code>StringRef</code> and would need to be rewritten to be used with a different data provider.</p>
+
+<h2 id="translation-is-boring">Translation is boring</h2>
+
+<p>I translated about 4200 lines of C++ into about 2800 lines of Swift in roughly 5 hours. All that typing, copying, regex replacing and glancing between code files is as mind numbing as you&rsquo;d expect.</p>
+
+<p>The answer to my question about whether there would be any difficulties is: there were no major hurdles at all. Demangle.cpp is a very clear, simple, easy to translate file.</p>
+
+<p>Later, because I&rsquo;m a glutton for punishment, I spent another few hours refactoring to make things a little more &ldquo;Swifty&rdquo; and get the line count down under 2100.</p>
+
+<h2 id="biggest-difference-between-swift-and-c-error-handling">Biggest difference between Swift and C++: error handling</h2>
+
+<p>The initial implementation – even before any refactoring to make the code more &ldquo;Swifty&rdquo; – included Swift error handling as a replacement for the C++ approach of returning a <code>nullptr</code> on error. Swift error handling is such an obvious inclusion that it doesn&rsquo;t require a second pass or a rethink, even during a relatively mindless translation task.</p>
+
+<p>You can see how simple it is to switch from <code>nullptr</code> results to Swift error handling from the first line of the parser:</p>
+
+<p>C++:</p>
+<div class="highlight"><pre class="chroma"><code class="language-cpp" data-lang="cpp"><span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">Mangled</span><span class="p">.</span><span class="n">nextIf</span><span class="p">(</span><span class="sa"></span><span class="s">&#34;_T&#34;</span><span class="p">))</span>
+   <span class="k">return</span> <span class="k">nullptr</span><span class="p">;</span></code></pre></div>
+<p>Swift:</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="k">try</span> <span class="n">scanner</span><span class="p">.</span><span class="n">match</span><span class="p">(</span><span class="n">string</span><span class="p">:</span> <span class="s">&#34;_T&#34;</span><span class="p">)</span></code></pre></div>
+<p>The difference between these two approaches is profound.</p>
+
+<p>Most importantly, there are significant benefits for reliability. When Tony Hoare called null his <a href="https://en.wikipedia.org/wiki/Null_pointer">&ldquo;billion dollar mistake&rdquo;</a>, he was referring to the likelihood of bugs when a potentially null result is not checked for null. Looking at the Git history for Demangle.cpp reveals this happening on more than one occasion – and this doesn&rsquo;t include bugs that may have been fixed prior to committing. Using <code>nullptr</code> to indicate failure has a real-world maintenance cost.</p>
+
+<p>Also of potential benefit for maintenance: the Swift approach includes contextual information. All errors thrown by the parser include the index where the parsed failed and brief information about the type of token that couldn&rsquo;t be read. If something goes wrong, there&rsquo;s at least some information about <em>why</em> the failure occurred.</p>
+
+<p>But the most visible difference in adopting Swift error handling is a significant reduction in code size. Switching to Swift error handling immediately eliminated 149 <code>return nullptr</code> early exit lines from the C++ version. Furthermore, Swift can happily exit from a function in the middle of an expression when a parse attempt fails instead of needing to break expressions into multiple pieces either side of early exits.</p>
+
+<p>For example, the following C++:</p>
+<div class="highlight"><pre class="chroma"><code class="language-cpp" data-lang="cpp"><span class="cp">#define DEMANGLE_CHILD_OR_RETURN(PARENT, CHILD_KIND) do { \
+</span><span class="cp"></span>   <span class="k">auto</span> <span class="n">_node</span> <span class="o">=</span> <span class="n">demangle</span><span class="cp">##CHILD_KIND();                  \
+</span><span class="cp"></span>   <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">_node</span><span class="p">)</span> <span class="k">return</span> <span class="k">nullptr</span><span class="p">;</span>                           \
+   <span class="p">(</span><span class="n">PARENT</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">addChild</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">move</span><span class="p">(</span><span class="n">_node</span><span class="p">));</span>                 \
+<span class="p">}</span> <span class="k">while</span> <span class="p">(</span><span class="nb">false</span><span class="p">)</span>
+
+<span class="k">auto</span> <span class="n">metaclass</span> <span class="o">=</span> <span class="n">NodeFactory</span><span class="o">::</span><span class="n">create</span><span class="p">(</span><span class="n">Node</span><span class="o">::</span><span class="n">Kind</span><span class="o">::</span><span class="n">Metaclass</span><span class="p">);</span>
+<span class="n">DEMANGLE_CHILD_OR_RETURN</span><span class="p">(</span><span class="n">metaclass</span><span class="p">,</span> <span class="n">Type</span><span class="p">);</span>
+<span class="k">return</span> <span class="n">metaclass</span><span class="p">;</span></code></pre></div>
+<p>Is reduced down to:</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="k">return</span> <span class="n">SwiftName</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="p">.</span><span class="n">metaclass</span><span class="p">,</span> <span class="n">children</span><span class="p">:</span> <span class="p">[</span><span class="k">try</span> <span class="n">demangleType</span><span class="p">(&amp;</span><span class="n">scanner</span><span class="p">)])</span></code></pre></div>
+<p>Swift is happy to run <code>demangleType</code> and exit before proceeding with construction of the <code>Array</code> or <code>SwiftName</code>.</p>
+
+<h2 id="c-exceptions-versus-swift-error-handling">C++ exceptions versus Swift error handling</h2>
+
+<p>C++ could have used exceptions to improve syntactic efficiency and achieve some of the same effects as Swift error handling. Why rely on error prone <code>nullptr</code> to communicate results in Demangle.cpp?</p>
+
+<p>Many large C++ projects – Swift included – are compiled with C++ exceptions entirely disabled. Why deliberately remove a potentially useful feature from the language? The Swift developers answer this question when <a href="https://github.com/apple/swift/blob/master/docs/ErrorHandlingRationale.rst#id1">considering error handling options for Swift</a>:</p>
+
+<blockquote>
+<p>C++ aspires to making out-of-memory a recoverable condition, and so allocation can throw [&hellip;] Since constructors are called pervasively and implicitly, it makes sense for the default rule to be that all functions can throw [&hellip;] Different error sites occur with a different set of cleanups active, and there are a large number of such sites. In fact, prior to C++11, compilers were forced to assume by default that destructor calls could throw, so cleanups actually created more error sites. This all adds up to a significant code-size penalty for exceptions, even in projects which don&rsquo;t directly use them and which have no interest in recovering from out-of-memory conditions.</p>
+</blockquote>
+
+<p>C++ exceptions bloat the entire project – even if you only use them sparingly. The code size increase alone can start to slow your program. Then, if you actually throw an exception, the stack unwinding is between 4 and 100 times slower than simply returning a value from a the function (depending on compiler and host details). And you have to maintain rigorous RAII discipline or risk leaking memory. And you have to be careful to avoid exceptions in destructors.</p>
+
+<p>Exceptions are not well-loved.</p>
+
+<h2 id="conditionals-and-switch-statements">Conditionals and <code>switch</code> statements</h2>
+
+<p>The majority of any recursive descent parser is conditional logic based on the token encountered. Accordingly, the C++ parser is filled with functions that look like this:</p>
+<div class="highlight"><pre class="chroma"><code class="language-cpp" data-lang="cpp"><span class="k">if</span> <span class="p">(</span><span class="n">Mangled</span><span class="p">.</span><span class="n">nextIf</span><span class="p">(</span><span class="sa"></span><span class="sc">&#39;M&#39;</span><span class="p">))</span> <span class="p">{</span>
+ <span class="k">if</span> <span class="p">(</span><span class="n">Mangled</span><span class="p">.</span><span class="n">nextIf</span><span class="p">(</span><span class="sa"></span><span class="sc">&#39;P&#39;</span><span class="p">))</span> <span class="p">{</span>
+    <span class="k">auto</span> <span class="n">pattern</span> <span class="o">=</span>
+        <span class="n">NodeFactory</span><span class="o">::</span><span class="n">create</span><span class="p">(</span><span class="n">Node</span><span class="o">::</span><span class="n">Kind</span><span class="o">::</span><span class="n">GenericTypeMetadataPattern</span><span class="p">);</span>
+    <span class="n">DEMANGLE_CHILD_OR_RETURN</span><span class="p">(</span><span class="n">pattern</span><span class="p">,</span> <span class="n">Type</span><span class="p">);</span>
+    <span class="k">return</span> <span class="n">pattern</span><span class="p">;</span>
+  <span class="p">}</span>
+  <span class="k">if</span> <span class="p">(</span><span class="n">Mangled</span><span class="p">.</span><span class="n">nextIf</span><span class="p">(</span><span class="sa"></span><span class="sc">&#39;a&#39;</span><span class="p">))</span> <span class="p">{</span>
+    <span class="k">auto</span> <span class="n">accessor</span> <span class="o">=</span>
+      <span class="n">NodeFactory</span><span class="o">::</span><span class="n">create</span><span class="p">(</span><span class="n">Node</span><span class="o">::</span><span class="n">Kind</span><span class="o">::</span><span class="n">TypeMetadataAccessFunction</span><span class="p">);</span>
+    <span class="n">DEMANGLE_CHILD_OR_RETURN</span><span class="p">(</span><span class="n">accessor</span><span class="p">,</span> <span class="n">Type</span><span class="p">);</span>
+    <span class="k">return</span> <span class="n">accessor</span><span class="p">;</span>
+  <span class="p">}</span>
+  <span class="c1">// ... and so on
+</span><span class="c1"></span><span class="p">}</span></code></pre></div>
+<p>The control flow here shows two tiers of conditionals, checking for <code>'M'</code> at the top level and <code>'P'</code> and <code>'a'</code> at the second.</p>
+
+<p>With Swift <code>switch</code> statements, we can check both tiers of conditionals simultaneously:</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="k">switch</span> <span class="p">(</span><span class="k">try</span> <span class="n">scanner</span><span class="p">.</span><span class="n">readScalar</span><span class="p">(),</span> <span class="k">try</span> <span class="n">scanner</span><span class="p">.</span><span class="n">readScalar</span><span class="p">())</span> <span class="p">{</span>
+<span class="k">case</span> <span class="p">(</span><span class="s">&#34;M&#34;</span><span class="p">,</span> <span class="s">&#34;P&#34;</span><span class="p">):</span> <span class="k">return</span> <span class="n">SwiftName</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="p">.</span><span class="n">genericTypeMetadataPattern</span><span class="p">,</span> <span class="n">children</span><span class="p">:</span> <span class="p">[</span><span class="k">try</span> <span class="n">demangleType</span><span class="p">(&amp;</span><span class="n">scanner</span><span class="p">)])</span>
+<span class="k">case</span> <span class="p">(</span><span class="s">&#34;M&#34;</span><span class="p">,</span> <span class="s">&#34;a&#34;</span><span class="p">):</span> <span class="k">return</span> <span class="n">SwiftName</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="p">.</span><span class="n">typeMetadataAccessFunction</span><span class="p">,</span> <span class="n">children</span><span class="p">:</span> <span class="p">[</span><span class="k">try</span> <span class="n">demangleType</span><span class="p">(&amp;</span><span class="n">scanner</span><span class="p">)])</span>
+<span class="c1">// ... and so on</span>
+<span class="p">}</span></code></pre></div>
+<p>Technically, C++ could pack two <code>char</code>s into a <code>uint16_t</code> and switch on that, just like I have done in Swift. With macros, you could probably make the case label vaguely readable. The point is really that this wouldn&rsquo;t be idiomatic C++ so you&rsquo;d need to weigh the syntactic benefit against the familiarity shock.</p>
+
+<p>Let&rsquo;s look at some non-idiomatic C++ and see how that usually goes. The following exerpt from Demangle.cpp is an implementation of a two tier conditional construct in C++:</p>
+<div class="highlight"><pre class="chroma"><code class="language-cpp" data-lang="cpp"><span class="k">enum</span> <span class="k">class</span> <span class="nc">ImplConventionContext</span> <span class="p">{</span> <span class="n">Callee</span><span class="p">,</span> <span class="n">Parameter</span><span class="p">,</span> <span class="n">Result</span> <span class="p">};</span>
+
+<span class="n">StringRef</span> <span class="nf">demangleImplConvention</span><span class="p">(</span><span class="n">ImplConventionContext</span> <span class="n">ctxt</span><span class="p">)</span> <span class="p">{</span>
+<span class="cp">#define CASE(CHAR, FOR_CALLEE, FOR_PARAMETER, FOR_RESULT)            \
+</span><span class="cp"></span>  <span class="k">if</span> <span class="p">(</span><span class="n">Mangled</span><span class="p">.</span><span class="n">nextIf</span><span class="p">(</span><span class="n">CHAR</span><span class="p">))</span> <span class="p">{</span>                                      \
+    <span class="k">switch</span> <span class="p">(</span><span class="n">ctxt</span><span class="p">)</span> <span class="p">{</span>                                                \
+    <span class="k">case</span> <span class="n">ImplConventionContext</span><span class="o">::</span><span class="nl">Callee</span><span class="p">:</span> <span class="k">return</span> <span class="p">(</span><span class="n">FOR_CALLEE</span><span class="p">);</span>       \
+    <span class="k">case</span> <span class="n">ImplConventionContext</span><span class="o">::</span><span class="nl">Parameter</span><span class="p">:</span> <span class="k">return</span> <span class="p">(</span><span class="n">FOR_PARAMETER</span><span class="p">);</span> \
+    <span class="k">case</span> <span class="n">ImplConventionContext</span><span class="o">::</span><span class="nl">Result</span><span class="p">:</span> <span class="k">return</span> <span class="p">(</span><span class="n">FOR_RESULT</span><span class="p">);</span>       \
+    <span class="p">}</span>                                                              \
+    <span class="n">unreachable</span><span class="p">(</span><span class="sa"></span><span class="s">&#34;bad context&#34;</span><span class="p">);</span>                               \
+  <span class="p">}</span>
+  <span class="k">auto</span> <span class="n">Nothing</span> <span class="o">=</span> <span class="n">StringRef</span><span class="p">();</span>
+  <span class="n">CASE</span><span class="p">(</span><span class="sa"></span><span class="sc">&#39;a&#39;</span><span class="p">,</span>   <span class="n">Nothing</span><span class="p">,</span>                <span class="n">Nothing</span><span class="p">,</span>         <span class="sa"></span><span class="s">&#34;@autoreleased&#34;</span><span class="p">)</span>
+  <span class="n">CASE</span><span class="p">(</span><span class="sa"></span><span class="sc">&#39;d&#39;</span><span class="p">,</span>   <span class="sa"></span><span class="s">&#34;@callee_unowned&#34;</span><span class="p">,</span>      <span class="sa"></span><span class="s">&#34;@unowned&#34;</span><span class="p">,</span>      <span class="sa"></span><span class="s">&#34;@unowned&#34;</span><span class="p">)</span>
+  <span class="n">CASE</span><span class="p">(</span><span class="sa"></span><span class="sc">&#39;D&#39;</span><span class="p">,</span>   <span class="n">Nothing</span><span class="p">,</span>                <span class="n">Nothing</span><span class="p">,</span>         <span class="sa"></span><span class="s">&#34;@unowned_inner_pointer&#34;</span><span class="p">)</span>
+  <span class="n">CASE</span><span class="p">(</span><span class="sa"></span><span class="sc">&#39;g&#39;</span><span class="p">,</span>   <span class="sa"></span><span class="s">&#34;@callee_guaranteed&#34;</span><span class="p">,</span>   <span class="sa"></span><span class="s">&#34;@guaranteed&#34;</span><span class="p">,</span>   <span class="n">Nothing</span><span class="p">)</span>
+  <span class="n">CASE</span><span class="p">(</span><span class="sa"></span><span class="sc">&#39;e&#39;</span><span class="p">,</span>   <span class="n">Nothing</span><span class="p">,</span>                <span class="sa"></span><span class="s">&#34;@deallocating&#34;</span><span class="p">,</span> <span class="n">Nothing</span><span class="p">)</span>
+  <span class="n">CASE</span><span class="p">(</span><span class="sa"></span><span class="sc">&#39;i&#39;</span><span class="p">,</span>   <span class="n">Nothing</span><span class="p">,</span>                <span class="sa"></span><span class="s">&#34;@in&#34;</span><span class="p">,</span>           <span class="sa"></span><span class="s">&#34;@out&#34;</span><span class="p">)</span>
+  <span class="n">CASE</span><span class="p">(</span><span class="sa"></span><span class="sc">&#39;l&#39;</span><span class="p">,</span>   <span class="n">Nothing</span><span class="p">,</span>                <span class="sa"></span><span class="s">&#34;@inout&#34;</span><span class="p">,</span>        <span class="n">Nothing</span><span class="p">)</span>
+  <span class="n">CASE</span><span class="p">(</span><span class="sa"></span><span class="sc">&#39;o&#39;</span><span class="p">,</span>   <span class="sa"></span><span class="s">&#34;@callee_owned&#34;</span><span class="p">,</span>        <span class="sa"></span><span class="s">&#34;@owned&#34;</span><span class="p">,</span>        <span class="sa"></span><span class="s">&#34;@owned&#34;</span><span class="p">)</span>
+  <span class="k">return</span> <span class="n">Nothing</span><span class="p">;</span>
+<span class="cp">#undef CASE
+</span><span class="cp"></span><span class="p">}</span></code></pre></div>
+<p>This was the trickiest construct from Demangle.cpp to translate into Swift because it&rsquo;s so unconventional. It was an effort to work out, given possible values of <code>ctxt</code> on input, what were the possible results from the function.</p>
+
+<p>That&rsquo;s the result of doing something non-idiomatic in any language: it can take a little time to get your head around what it&rsquo;s trying to do. Basically, it tries to consume the <code>char</code> in the left column of each <code>CASE</code> and if it succeeds, it will return the result from the second, third or fourth column, as determined by the <code>ctxt</code> parameter passed into the function.</p>
+
+<p>Now, the <code>demangleImplConvention</code> function is used from two locations: <code>demangleImplCalleeConvention</code> and <code>demangleImplParameterOrResult</code>. The former always invokes <code>demangleImplConvention</code> with <code>ctxt</code> equal to <code>ImplConventionContext::Callee</code> and the latter goes through the following logic to determine the <code>ctxt</code> parameter:</p>
+<div class="highlight"><pre class="chroma"><code class="language-cpp" data-lang="cpp"><span class="k">auto</span> <span class="n">getContext</span> <span class="o">=</span> <span class="p">[](</span><span class="n">Node</span><span class="o">::</span><span class="n">Kind</span> <span class="n">kind</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ImplConventionContext</span> <span class="p">{</span>
+  <span class="k">if</span> <span class="p">(</span><span class="n">kind</span> <span class="o">==</span> <span class="n">Node</span><span class="o">::</span><span class="n">Kind</span><span class="o">::</span><span class="n">ImplParameter</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ImplConventionContext</span><span class="o">::</span><span class="n">Parameter</span><span class="p">;</span>
+  <span class="k">else</span> <span class="nf">if</span> <span class="p">(</span><span class="n">kind</span> <span class="o">==</span> <span class="n">Node</span><span class="o">::</span><span class="n">Kind</span><span class="o">::</span><span class="n">ImplResult</span>
+           <span class="o">||</span> <span class="n">kind</span> <span class="o">==</span> <span class="n">Node</span><span class="o">::</span><span class="n">Kind</span><span class="o">::</span><span class="n">ImplErrorResult</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ImplConventionContext</span><span class="o">::</span><span class="n">Result</span><span class="p">;</span>
+  <span class="k">else</span>
+    <span class="nf">unreachable</span><span class="p">(</span><span class="sa"></span><span class="s">&#34;unexpected node kind&#34;</span><span class="p">);</span>
+<span class="p">};</span>
+
+<span class="k">auto</span> <span class="n">convention</span> <span class="o">=</span> <span class="n">demangleImplConvention</span><span class="p">(</span><span class="n">getContext</span><span class="p">(</span><span class="n">kind</span><span class="p">));</span>
+<span class="k">if</span> <span class="p">(</span><span class="n">convention</span><span class="p">.</span><span class="n">empty</span><span class="p">())</span> <span class="k">return</span> <span class="k">nullptr</span><span class="p">;</span></code></pre></div>
+<p>The relevant point is that the <code>ImplConventionContext</code> enum used as input to <code>demangleImplConvention</code> is largely pointless. The <code>getContext</code> closure maps <code>Node::Kind::ImplParameter</code> onto <code>ImplConventionContext::Parameter</code> and <code>Node::Kind::ImplResult</code>/<code>Node::Kind::ImplErrorResult</code> onto <code>ImplConventionContext::Result</code>. We might as well eliminating the existence of the <code>ImplConventionContext</code> type, using <code>Node::Kind</code> instead and then <em>both</em> of the previous two C++ code blocks reduce to the following Swift <code>switch</code> statment:</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">demangleImplConvention</span><span class="p">(</span><span class="kr">inout</span> <span class="n">scanner</span><span class="p">:</span> <span class="n">ScalarScanner</span><span class="o">&lt;</span><span class="p">[</span><span class="n">SwiftName</span><span class="p">]</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">kind</span><span class="p">:</span> <span class="n">SwiftName</span><span class="p">.</span><span class="n">Kind</span><span class="p">)</span> <span class="kr">throws</span> <span class="p">-&gt;</span> <span class="nb">String</span> <span class="p">{</span>
+    <span class="k">switch</span> <span class="p">(</span><span class="k">try</span> <span class="n">scanner</span><span class="p">.</span><span class="n">readScalar</span><span class="p">(),</span> <span class="p">(</span><span class="n">kind</span> <span class="p">==</span> <span class="p">.</span><span class="n">implErrorResult</span> <span class="p">?</span> <span class="p">.</span><span class="n">implResult</span> <span class="p">:</span> <span class="n">kind</span><span class="p">))</span> <span class="p">{</span>
+    <span class="k">case</span> <span class="p">(</span><span class="s">&#34;a&#34;</span><span class="p">,</span> <span class="p">.</span><span class="n">implResult</span><span class="p">):</span> <span class="k">return</span> <span class="s">&#34;@autoreleased&#34;</span>
+    <span class="k">case</span> <span class="p">(</span><span class="s">&#34;d&#34;</span><span class="p">,</span> <span class="p">.</span><span class="n">implConvention</span><span class="p">):</span> <span class="k">return</span> <span class="s">&#34;@callee_unowned&#34;</span>
+    <span class="k">case</span> <span class="p">(</span><span class="s">&#34;d&#34;</span><span class="p">,</span> <span class="p">.</span><span class="n">implParameter</span><span class="p">):</span> <span class="k">fallthrough</span>
+    <span class="k">case</span> <span class="p">(</span><span class="s">&#34;d&#34;</span><span class="p">,</span> <span class="p">.</span><span class="n">implResult</span><span class="p">):</span> <span class="k">return</span> <span class="s">&#34;@unowned&#34;</span>
+    <span class="k">case</span> <span class="p">(</span><span class="s">&#34;D&#34;</span><span class="p">,</span> <span class="p">.</span><span class="n">implResult</span><span class="p">):</span> <span class="k">return</span> <span class="s">&#34;@unowned_inner_pointer&#34;</span>
+    <span class="k">case</span> <span class="p">(</span><span class="s">&#34;g&#34;</span><span class="p">,</span> <span class="p">.</span><span class="n">implConvention</span><span class="p">):</span> <span class="k">return</span> <span class="s">&#34;@callee_guaranteed&#34;</span>
+    <span class="k">case</span> <span class="p">(</span><span class="s">&#34;g&#34;</span><span class="p">,</span> <span class="p">.</span><span class="n">implParameter</span><span class="p">):</span> <span class="k">return</span> <span class="s">&#34;@guaranteed&#34;</span>
+    <span class="k">case</span> <span class="p">(</span><span class="s">&#34;e&#34;</span><span class="p">,</span> <span class="p">.</span><span class="n">implParameter</span><span class="p">):</span> <span class="k">return</span> <span class="s">&#34;@deallocating&#34;</span>
+    <span class="k">case</span> <span class="p">(</span><span class="s">&#34;i&#34;</span><span class="p">,</span> <span class="p">.</span><span class="n">implParameter</span><span class="p">):</span> <span class="k">return</span> <span class="s">&#34;@in&#34;</span>
+    <span class="k">case</span> <span class="p">(</span><span class="s">&#34;i&#34;</span><span class="p">,</span> <span class="p">.</span><span class="n">implResult</span><span class="p">):</span> <span class="k">return</span> <span class="s">&#34;@out&#34;</span>
+    <span class="k">case</span> <span class="p">(</span><span class="s">&#34;l&#34;</span><span class="p">,</span> <span class="p">.</span><span class="n">implParameter</span><span class="p">):</span> <span class="k">return</span> <span class="s">&#34;@inout&#34;</span>
+    <span class="k">case</span> <span class="p">(</span><span class="s">&#34;o&#34;</span><span class="p">,</span> <span class="p">.</span><span class="n">implConvention</span><span class="p">):</span> <span class="k">return</span> <span class="s">&#34;@callee_owned&#34;</span>
+    <span class="k">case</span> <span class="p">(</span><span class="s">&#34;o&#34;</span><span class="p">,</span> <span class="p">.</span><span class="n">implParameter</span><span class="p">):</span> <span class="k">fallthrough</span>
+    <span class="k">case</span> <span class="p">(</span><span class="s">&#34;o&#34;</span><span class="p">,</span> <span class="p">.</span><span class="n">implResult</span><span class="p">):</span> <span class="k">return</span> <span class="s">&#34;@owned&#34;</span>
+    <span class="k">case</span> <span class="p">(</span><span class="s">&#34;t&#34;</span><span class="p">,</span> <span class="kc">_</span><span class="p">):</span> <span class="k">return</span> <span class="s">&#34;@convention(thin)&#34;</span>
+    <span class="k">default</span><span class="p">:</span> <span class="k">throw</span> <span class="n">scanner</span><span class="p">.</span><span class="n">unexpectedError</span><span class="p">()</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+<p>This shows the advantage of a two value <code>switch</code> being idiomatic in Swift: compared to the strange series of <code>#define</code>, <code>if</code> and <code>switch</code> constructions in C++, this is clear, simple and readable. If you have a look, you&rsquo;ll notice that the different columns from the C++ statement have become different rows in this example – it&rsquo;s a two dimensional <code>switch</code> but the elements are still presented in a single column. (The appearance of a &ldquo;t&rdquo; case is not an accident; it&rsquo;s an additional case rolled in from the <code>demangleImplCalleeConvention</code> call site.)</p>
+
+<p>When we use a simple <code>switch</code> like this, it&rsquo;s not just clearer to the programmer. It&rsquo;s also clearer to the compiler. In the Swift case, you&rsquo;d get warned by the compiler if you accidentally had two duplicate cases. You&rsquo;re not going to get a warning about this in the C++ code&hellip; which is how the &ldquo;D&rdquo; case was accidentally labelled &ldquo;d&rdquo; for 2 years in the Swift compiler until I <a href="https://github.com/apple/swift/pull/2328">created a pull request to fix the problem</a> while writing this article.</p>
+
+<h2 id="processing-collections">Processing collections</h2>
+
+<p>Thus far, I&rsquo;ve been looking at code changes in the parser but Demangle.cpp actually includes two different parts:</p>
+
+<ul>
+<li>the parser (which reads a mangled string into a tree of nodes) and</li>
+<li>the printer (that serializes the node tree back to an unmangled string).</li>
+</ul>
+
+<p>Swift error handling and switch statements were a big help in the parser but they don&rsquo;t offer much to the printer. The <code>print</code> function is already a single massive switch statement and it doesn&rsquo;t need to return any error results.</p>
+
+<p>Let&rsquo;s look at a typical <code>case</code> from the <code>NodePrinter::print</code> function in C++:</p>
+<div class="highlight"><pre class="chroma"><code class="language-cpp" data-lang="cpp"><span class="k">case</span> <span class="n">Node</span><span class="o">::</span><span class="n">Kind</span><span class="o">::</span><span class="nl">TupleElement</span><span class="p">:</span>
+  <span class="k">if</span> <span class="p">(</span><span class="n">pointer</span><span class="o">-&gt;</span><span class="n">getNumChildren</span><span class="p">()</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">NodePointer</span> <span class="n">type</span> <span class="o">=</span> <span class="n">pointer</span><span class="o">-&gt;</span><span class="n">getChild</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
+    <span class="n">print</span><span class="p">(</span><span class="n">type</span><span class="p">);</span>
+  <span class="p">}</span> <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">pointer</span><span class="o">-&gt;</span><span class="n">getNumChildren</span><span class="p">()</span> <span class="o">==</span> <span class="mi">2</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">NodePointer</span> <span class="n">id</span> <span class="o">=</span> <span class="n">pointer</span><span class="o">-&gt;</span><span class="n">getChild</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
+    <span class="n">NodePointer</span> <span class="n">type</span> <span class="o">=</span> <span class="n">pointer</span><span class="o">-&gt;</span><span class="n">getChild</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+    <span class="n">print</span><span class="p">(</span><span class="n">id</span><span class="p">);</span>
+    <span class="n">print</span><span class="p">(</span><span class="n">type</span><span class="p">);</span>
+  <span class="p">}</span>
+  <span class="k">return</span><span class="p">;</span></code></pre></div>
+<p>On my first pass, I wasn&rsquo;t able to think of anything helpful and the <code>SwiftName.print</code> I wrote ended up looking very similar to the C++.</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="k">case</span> <span class="p">.</span><span class="n">TupleElement</span><span class="p">:</span>
+   <span class="k">if</span> <span class="n">children</span><span class="p">.</span><span class="bp">count</span> <span class="p">==</span> <span class="mi">1</span> <span class="p">{</span>
+      <span class="n">children</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="bp">print</span><span class="p">(&amp;</span><span class="n">output</span><span class="p">)</span>
+   <span class="p">}</span> <span class="k">else</span> <span class="k">if</span> <span class="n">children</span><span class="p">.</span><span class="bp">count</span> <span class="p">==</span> <span class="mi">2</span> <span class="p">{</span>
+      <span class="n">children</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="bp">print</span><span class="p">(&amp;</span><span class="n">output</span><span class="p">)</span>
+      <span class="n">children</span><span class="p">[</span><span class="mi">1</span><span class="p">].</span><span class="bp">print</span><span class="p">(&amp;</span><span class="n">output</span><span class="p">)</span>
+   <span class="p">}</span></code></pre></div>
+<p>In my code, the <code>SwiftName</code> prints itself, rather than requiring a separate <code>NodePrinter</code> class, so the actual output stream is passed as the first parameter (named <code>output</code> here and it&rsquo;s a <code>Swift.OutputStreamType</code>). Other than that difference, the code is structurally identical.</p>
+
+<p>How do you make this more &ldquo;Swifty&rdquo;?</p>
+
+<p>Finally, I concluded that idiomatic Swift implies processing collections – in this case, the <code>children</code> array – in a different way. Idiomatic Swift collection processing implies:</p>
+
+<ul>
+<li>Avoid accessing elements by index.</li>
+<li>Act on the collection unconditionally (conditionals should be inside your operators, not around them).</li>
+<li>Don&rsquo;t loop over or manually enumerate collection contents (act declaratively on the whole collection).</li>
+</ul>
+
+<p>That lead me to this:</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="k">case</span> <span class="p">.</span><span class="n">tupleElement</span><span class="p">:</span>
+   <span class="n">output</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="n">sequence</span><span class="p">:</span> <span class="n">children</span><span class="p">.</span><span class="kr">prefix</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span> <span class="p">{</span> <span class="nv">$1</span><span class="p">.</span><span class="bp">print</span><span class="p">(</span><span class="o">&amp;</span><span class="nv">$0</span><span class="p">)</span> <span class="p">}</span></code></pre></div>
+<p>The <code>prefix</code> function on <code>SequenceType</code> ensures that we don&rsquo;t overstep the bounds, eliminating the need for conditionals.</p>
+
+<p>Obviously, this isn&rsquo;t the typical <code>write</code> function on <code>OutputStreamType</code> but is instead a new overload which iterates over a sequence and runs a <code>render</code> closure to actually write to the <code>OutputStreamType</code> – in this case, that means recursing into the next level of the <code>SwiftName.print</code></p>
+
+<p>Now, it might not be clear why I&rsquo;ve chosen to implement this as a function on <code>OutputStreamType</code> instead of simply running a <code>forEach</code> over the <code>children</code>. The answer is that this approach allows the <code>OutputStreamType</code> to insert prefixes, separators, suffixes or other labels into the stream between iterations of the loop making comma separated lists a simple task.</p>
+
+<p>For example, the following C++:</p>
+<div class="highlight"><pre class="chroma"><code class="language-cpp" data-lang="cpp"><span class="k">case</span> <span class="n">Node</span><span class="o">::</span><span class="n">Kind</span><span class="o">::</span><span class="nl">ProtocolConformance</span><span class="p">:</span> <span class="p">{</span>
+  <span class="n">NodePointer</span> <span class="n">child0</span> <span class="o">=</span> <span class="n">pointer</span><span class="o">-&gt;</span><span class="n">getChild</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
+  <span class="n">NodePointer</span> <span class="n">child1</span> <span class="o">=</span> <span class="n">pointer</span><span class="o">-&gt;</span><span class="n">getChild</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+  <span class="n">NodePointer</span> <span class="n">child2</span> <span class="o">=</span> <span class="n">pointer</span><span class="o">-&gt;</span><span class="n">getChild</span><span class="p">(</span><span class="mi">2</span><span class="p">);</span>
+  <span class="n">print</span><span class="p">(</span><span class="n">child0</span><span class="p">);</span>
+  <span class="n">Printer</span> <span class="o">&lt;&lt;</span> <span class="sa"></span><span class="s">&#34; : &#34;</span><span class="p">;</span>
+  <span class="n">print</span><span class="p">(</span><span class="n">child1</span><span class="p">);</span>
+  <span class="n">Printer</span> <span class="o">&lt;&lt;</span> <span class="sa"></span><span class="s">&#34; in &#34;</span><span class="p">;</span>
+  <span class="n">print</span><span class="p">(</span><span class="n">child2</span><span class="p">);</span>
+  <span class="k">return</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+<p>becomes:</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="k">case</span> <span class="p">.</span><span class="n">protocolConformance</span><span class="p">:</span>
+   <span class="n">output</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="n">sequence</span><span class="p">:</span> <span class="n">children</span><span class="p">.</span><span class="kr">prefix</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="n">labels</span><span class="p">:</span> <span class="p">[</span><span class="kc">nil</span><span class="p">,</span> <span class="s">&#34; : &#34;</span><span class="p">,</span> <span class="s">&#34; in &#34;</span><span class="p">])</span> <span class="p">{</span> <span class="nv">$1</span><span class="p">.</span><span class="bp">print</span><span class="p">(</span><span class="o">&amp;</span><span class="nv">$0</span><span class="p">)</span> <span class="p">}</span></code></pre></div>
+<p>Not all cases in the <code>print</code> function are this simple. In Demangle.cpp, many involve iteration over part of the <code>children</code>, terminated by different conditions, where rendering isn&rsquo;t a simple recursive call to printing the child within.</p>
+
+<p>An example of one of the tricker cases is <code>DependentGenericSignature</code>:</p>
+<div class="highlight"><pre class="chroma"><code class="language-cpp" data-lang="cpp"><span class="k">case</span> <span class="n">Node</span><span class="o">::</span><span class="n">Kind</span><span class="o">::</span><span class="nl">DependentGenericSignature</span><span class="p">:</span> <span class="p">{</span>
+  <span class="n">Printer</span> <span class="o">&lt;&lt;</span> <span class="sa"></span><span class="sc">&#39;&lt;&#39;</span><span class="p">;</span>
+  
+  <span class="kt">unsigned</span> <span class="n">depth</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+  <span class="kt">unsigned</span> <span class="n">numChildren</span> <span class="o">=</span> <span class="n">pointer</span><span class="o">-&gt;</span><span class="n">getNumChildren</span><span class="p">();</span>
+  <span class="k">for</span> <span class="p">(;</span>
+       <span class="n">depth</span> <span class="o">&lt;</span> <span class="n">numChildren</span>
+         <span class="o">&amp;&amp;</span> <span class="n">pointer</span><span class="o">-&gt;</span><span class="n">getChild</span><span class="p">(</span><span class="n">depth</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">getKind</span><span class="p">()</span>
+             <span class="o">==</span> <span class="n">Node</span><span class="o">::</span><span class="n">Kind</span><span class="o">::</span><span class="n">DependentGenericParamCount</span><span class="p">;</span>
+       <span class="o">++</span><span class="n">depth</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">depth</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span>
+      <span class="n">Printer</span> <span class="o">&lt;&lt;</span> <span class="sa"></span><span class="s">&#34;&gt;&lt;&#34;</span><span class="p">;</span>
+    
+    <span class="kt">unsigned</span> <span class="n">count</span> <span class="o">=</span> <span class="n">pointer</span><span class="o">-&gt;</span><span class="n">getChild</span><span class="p">(</span><span class="n">depth</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">getIndex</span><span class="p">();</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="n">index</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">index</span> <span class="o">&lt;</span> <span class="n">count</span><span class="p">;</span> <span class="o">++</span><span class="n">index</span><span class="p">)</span> <span class="p">{</span>
+      <span class="k">if</span> <span class="p">(</span><span class="n">index</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">Printer</span> <span class="o">&lt;&lt;</span> <span class="sa"></span><span class="s">&#34;, &#34;</span><span class="p">;</span>
+      <span class="n">Printer</span> <span class="o">&lt;&lt;</span> <span class="n">archetypeName</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">depth</span><span class="p">);</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+    
+  <span class="k">if</span> <span class="p">(</span><span class="n">depth</span> <span class="o">!=</span> <span class="n">numChildren</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">Printer</span> <span class="o">&lt;&lt;</span> <span class="sa"></span><span class="s">&#34; where &#34;</span><span class="p">;</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="n">i</span> <span class="o">=</span> <span class="n">depth</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">numChildren</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span> <span class="p">{</span>
+      <span class="k">if</span> <span class="p">(</span><span class="n">i</span> <span class="o">&gt;</span> <span class="n">depth</span><span class="p">)</span>
+        <span class="n">Printer</span> <span class="o">&lt;&lt;</span> <span class="sa"></span><span class="s">&#34;, &#34;</span><span class="p">;</span>
+      <span class="n">print</span><span class="p">(</span><span class="n">pointer</span><span class="o">-&gt;</span><span class="n">getChild</span><span class="p">(</span><span class="n">i</span><span class="p">));</span>
+    <span class="p">}</span>
+  <span class="p">}</span>
+  <span class="n">Printer</span> <span class="o">&lt;&lt;</span> <span class="sa"></span><span class="sc">&#39;&gt;&#39;</span><span class="p">;</span>
+  <span class="k">return</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+<p>The logic here is difficult to dramatically simplify but if the operators you use to act on your collections aren&rsquo;t composable (in particular, able to wrap recursively around each other), then you probably haven&rsquo;t designed them correctly.</p>
+
+<p>The nested loops over children from the C++ example are expressed as nested calls to <code>OutputStreamType.write</code> and the loop condition on the outer loop is expressed as a filter on the input sequence.</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="k">case</span> <span class="p">.</span><span class="n">dependentGenericSignature</span><span class="p">:</span>
+   <span class="kd">let</span> <span class="nv">filteredChildren</span> <span class="p">=</span> <span class="n">children</span><span class="p">.</span><span class="bp">filter</span> <span class="p">{</span> <span class="nv">$0</span><span class="p">.</span><span class="n">kind</span> <span class="p">==</span> <span class="p">.</span><span class="n">dependentGenericParamCount</span> <span class="p">}.</span><span class="n">enumerated</span><span class="p">()</span>
+   <span class="kd">var</span> <span class="nv">lastDepth</span> <span class="p">=</span> <span class="mi">0</span>
+   <span class="n">output</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="n">sequence</span><span class="p">:</span> <span class="n">filteredChildren</span><span class="p">,</span> <span class="kr">prefix</span><span class="p">:</span> <span class="s">&#34;&lt;&#34;</span><span class="p">,</span> <span class="n">separator</span><span class="p">:</span> <span class="s">&#34;&gt;&lt;&#34;</span><span class="p">)</span> <span class="p">{</span> <span class="n">o</span><span class="p">,</span> <span class="n">t</span> <span class="k">in</span>
+      <span class="n">lastDepth</span> <span class="p">=</span> <span class="n">t</span><span class="p">.</span><span class="n">offset</span>
+      <span class="n">o</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="n">sequence</span><span class="p">:</span> <span class="mf">0.</span><span class="p">.&lt;</span><span class="n">t</span><span class="p">.</span><span class="n">element</span><span class="p">.</span><span class="n">indexFromContents</span><span class="p">(),</span> <span class="n">separator</span><span class="p">:</span> <span class="s">&#34;, &#34;</span><span class="p">)</span> <span class="p">{</span>
+         <span class="nv">$0</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="n">archetypeName</span><span class="p">(</span><span class="nv">$1</span><span class="p">,</span> <span class="nb">UInt32</span><span class="p">(</span><span class="n">t</span><span class="p">.</span><span class="n">offset</span><span class="p">)))</span>
+      <span class="p">}</span>
+   <span class="p">}</span>
+   <span class="kd">let</span> <span class="nv">prefix</span><span class="p">:</span> <span class="nb">String</span><span class="p">?</span> <span class="p">=</span> <span class="p">(</span><span class="n">lastDepth</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">&lt;</span> <span class="n">children</span><span class="p">.</span><span class="n">endIndex</span><span class="p">)</span> <span class="p">?</span> <span class="s">&#34; where &#34;</span> <span class="p">:</span> <span class="kc">nil</span>
+   <span class="kd">let</span> <span class="nv">s</span> <span class="p">=</span> <span class="n">children</span><span class="p">.</span><span class="n">slice</span><span class="p">(</span><span class="n">lastDepth</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">children</span><span class="p">.</span><span class="n">endIndex</span><span class="p">)</span>
+   <span class="n">output</span><span class="p">.</span><span class="n">write</span><span class="p">(</span><span class="n">sequence</span><span class="p">:</span> <span class="n">s</span><span class="p">,</span> <span class="kr">prefix</span><span class="p">:</span> <span class="kr">prefix</span><span class="p">,</span> <span class="n">separator</span><span class="p">:</span> <span class="s">&#34;, &#34;</span><span class="p">,</span> <span class="bp">suffix</span><span class="p">:</span> <span class="s">&#34;&gt;&#34;</span><span class="p">)</span> <span class="p">{</span> <span class="nv">$1</span><span class="p">.</span><span class="bp">print</span><span class="p">(</span><span class="o">&amp;</span><span class="nv">$0</span><span class="p">)</span> <span class="p">}</span></code></pre></div>
+<p>This implementation of <code>slice</code> that I&rsquo;m using, unlike the typical slice subscript in Swift (e.g. <code>children[(lastDepth + 1)..&lt;children.endIndex]</code>), limits the slice range to the valid indices of the collection and won&rsquo;t raise a fatal error if the start is greater than the end (it simply returns an empty collection).</p>
+
+<p>No loops, no conditionals (except for a ternary operator), no direct accesses by index and the collection is processed by aggregrate statements (in two parts but that&rsquo;s fine).</p>
+
+<h2 id="why-does-pragmatic-c-avoid-abstraction">Why does pragmatic C++ avoid abstraction?</h2>
+
+<p>The abstractions I used to improve the printing could easily be implemented in C++. But despite the standard library including a <code>&lt;functional&gt;</code> header (its included in Demangle.cpp although I&rsquo;m not exactly sure where it&rsquo;s used), C++ is not typically used in a functional fashion.</p>
+
+<p>Part of the problem, as I&rsquo;ve already discussed, is that a lack of protocols and contraints in C++ makes actions on different kinds of collection difficult. Accidentally providing a type that doesn&rsquo;t meet the requirements of a template parameter and getting an esoteric error buried deep inside a header you didn&rsquo;t write is frustrating and slow to resolve.</p>
+
+<p>But there&rsquo;s more to it than that. If you look though large codebases like llvm and Swift, you&rsquo;ll see that they are very spartan. While Demangle.cpp contains a few minor C++11 niceities, in general, most of the code could have been written in the late 1990s. Most types have no template parameters. Most iteration is done using manual indexes. There&rsquo;s no &ldquo;map&rdquo;, &ldquo;reduce&rdquo;, &ldquo;filter&rdquo; or other aggregate processing. And there&rsquo;s no significant library of reusable functionality either – Demangle.cpp is part of a large compiler project but it has to implement its own token scanner.</p>
+
+<p>Why does &ldquo;best practice&rdquo; in C++ often involve writing C++ like it&rsquo;s C?</p>
+
+<p>I&rsquo;m often reminded of one of C++&rsquo;s founding principles: you should only pay for those features that you use. The unfortunate corollary is that you&rsquo;re forced to pay for everything you use.</p>
+
+<p>C++&rsquo;s compilation model requires substantial header includes and the more features you use, the slower and more painful compilation becomes. Templates must appear in the include path, rather than a separate compilation unit, adding significant complexity for every feature.</p>
+
+<p>The end result is that large C++ projects work better when each file keeps to itself and minimizes includes.</p>
+
+<p>I hope these problems don&rsquo;t end up affecting Swift. In general, it feels like there&rsquo;s less resistance in Swift towards using language features and abstractions because less baggage is brought along. No need for headers or declaring before usage. Swift uses easier-to-reason about generics rather than templates, Swift protocols rather than templates again and Swift thankfully uses nothing rather than metaprogramming. Additionally, the fact that reference counting, algebraic types and optionals are all part of the language, rather than bolted on using library features makes abstractions cleaner, less leaky and simpler.</p>
+
+<h2 id="a-quick-comparison-of-performance">A quick comparison of performance</h2>
+
+<p>I don&rsquo;t want to over emphasise the importance of performance here, since I&rsquo;m fairly sure Demangle.cpp wasn&rsquo;t written with performance as a primary consideration and neither was my Swift implementation. But I was curious anyway and I&rsquo;m sure other people would be, also.</p>
+
+<p>I extracted the full set of mangled strings from <a href="https://github.com/apple/swift/blob/master/test/Demangle/Inputs/manglings.txt">Swift&rsquo;s manglings.txt test file</a> and ran both a parse and print to string 10,000 times in a loop. For Apple&rsquo;s Demangle.cpp version (C++), the loop was:</p>
+<div class="highlight"><pre class="chroma"><code class="language-cpp" data-lang="cpp"><span class="k">for</span> <span class="p">(</span><span class="n">llvm</span><span class="o">::</span><span class="n">StringRef</span> <span class="nl">name</span><span class="p">:</span> <span class="n">names</span><span class="p">)</span> <span class="p">{</span>
+   <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mi">10000</span><span class="p">;</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span> <span class="p">{</span>
+      <span class="n">swift</span><span class="o">::</span><span class="n">Demangle</span><span class="o">::</span><span class="n">NodePointer</span> <span class="n">pointer</span> <span class="o">=</span> <span class="n">swift</span><span class="o">::</span><span class="n">demangle_wrappers</span><span class="o">::</span><span class="n">demangleSymbolAsNode</span><span class="p">(</span><span class="n">name</span><span class="p">);</span>
+      <span class="n">std</span><span class="o">::</span><span class="n">string</span> <span class="n">string</span> <span class="o">=</span> <span class="n">swift</span><span class="o">::</span><span class="n">Demangle</span><span class="o">::</span><span class="n">nodeToString</span><span class="p">(</span><span class="n">pointer</span><span class="p">,</span> <span class="n">options</span><span class="p">);</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+<p>For my own CwlDemangle.cpp, the loop was:</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="c1">// NOTE: `input` here is `Array&lt;UnicodeScalar&gt;`, not `String`, to avoid conversion costs inside the loop.</span>
+<span class="k">for</span> <span class="n">input</span> <span class="k">in</span> <span class="n">inputs</span> <span class="p">{</span>
+   <span class="k">for</span> <span class="kc">_</span> <span class="k">in</span> <span class="mf">0.</span><span class="p">.&lt;</span><span class="mi">10_000</span> <span class="p">{</span>
+      <span class="kc">_</span> <span class="p">=</span> <span class="p">(</span><span class="k">try</span><span class="p">?</span> <span class="n">demangleSwiftName</span><span class="p">(</span><span class="n">input</span><span class="p">).</span><span class="n">description</span><span class="p">)</span> <span class="p">??</span> <span class="n">input</span><span class="p">.</span><span class="bp">reduce</span><span class="p">(</span><span class="s">&#34;&#34;</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="nv">$0</span> <span class="o">+</span> <span class="nb">String</span><span class="p">(</span><span class="nv">$1</span><span class="p">)</span> <span class="p">}</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+<p>I built the C++ code with the Swift project&rsquo;s build script with the &ldquo;ReleaseAssert&rdquo; settings (which is <code>-O2</code>, I think) and Swift at <code>-O</code>.</p>
+
+<p>The C++ version took 21.202s and the Swift version took 17.110s (Swift was about 20% faster).</p>
+
+<p>Please don&rsquo;t take this to mean that Swift is 20% faster than C++. That&rsquo;s not what these numbers mean at all. In fact, at a glance it appears that all these numbers show is that the C++ version used a separately allocated pointer for each <code>NodePointer</code> but the corresponding <code>SwiftName</code> in the Swift version is just a plain <code>struct</code>. Yes, the C++ <em>needs</em> the separate allocation to avoid a copy-constructor on <code>Node</code> when used with <code>std::vector</code> but an optimized copy constructor (or an alternative to <code>std::vector</code>) could be easily used if performance was a serious issue.</p>
+
+<p>Let&rsquo;s take a quick look at the top 10 &ldquo;Time Profiler&rdquo; results with &ldquo;Invert call tree&rdquo; selected:</p>
+
+<p>C++</p>
+
+<pre><code>    Running Time    Self (ms)  Symbol Name
+3766.0ms   17.2%    3766.0     szone_free_definite_size
+1830.0ms    8.4%    1830.0     szone_malloc_should_clear
+1741.0ms    7.9%    1741.0     tiny_malloc_from_free_list
+1607.0ms    7.3%    1607.0     std::__1::__shared_weak_count::__release_shared()
+1422.0ms    6.5%    1422.0     _os_lock_spin_lock
+1232.0ms    5.6%    1232.0     tiny_free_list_add_ptr
+1147.0ms    5.2%    1147.0     szone_size
+1079.0ms    4.9%    1079.0     tiny_free_list_remove_ptr
+876.0ms     4.0%     876.0     std::__1::__shared_weak_count::__add_shared()
+679.0ms     3.1%     679.0     get_tiny_free_size
+</code></pre>
+
+<p>Swift</p>
+
+<pre><code>    Running Time    Self (ms)  Symbol Name
+2115.0ms   12.3%    2115.0     _swift_release_(swift::HeapObject*)
+1557.0ms    9.0%    1557.0     _swift_retain_(swift::HeapObject*)
+1159.0ms    6.7%    1159.0     szone_free_definite_size
+771.0ms     4.5%     771.0     szone_malloc_should_clear
+770.0ms     4.5%     770.0     tiny_free_list_add_ptr
+769.0ms     4.4%     769.0     _StringCore._claimCapacity(Int, minElementWidth : Int) -&gt; (Int, COpaquePointer)
+716.0ms     4.1%     716.0     tiny_malloc_from_free_list
+645.0ms     3.7%     645.0     szone_size
+569.0ms     3.3%     569.0     _os_lock_spin_lock
+568.0ms     3.3%     568.0     _os_lock_handoff_lock
+</code></pre>
+
+<p>Bluntly: neither case is particularly optimized. These numbers represent roughly 100,000 names parsed and printed per second but optimized versions of these parsers would be an order of magnitude faster and these memory allocation, deallocation and reference counting calls would barely feature.</p>
+
+<p>Despite C++ coming in slower, I would expect it to be easier to eliminate reference counting and dynamic string and array storage from C++. The reason is that these features are largely opt-in in C++ but opt-out in Swift. A couple days optimizing both codebases would probably see the performance lead swing the other way as the time spent in <code>_swift_release_</code> and <code>_swift_retain_</code> would be much harder to eliminate (not impossible, just harder) than the other calls in these lists.</p>
+
+<p>In any case, I think it&rsquo;s obvious that for parsers of this nature, C++ and Swift are &ldquo;similar enough&rdquo; in performance.</p>
+
+<h2 id="some-minor-points-against-swift">Some minor points against Swift</h2>
+
+<p>The reason retains and releases are difficult to eliminate in Swift is that there&rsquo;s no &ldquo;unique pointer&rdquo; (all reference types are shared pointers). But retains and releases are usually triggered implicitly depending on the <code>@owned</code> or <code>@guaranteed</code> nature of function parameters (attributes you might not know about unless you&rsquo;ve read <a href="https://github.com/apple/swift/blob/master/docs/CallingConvention.rst">Swift&rsquo;s Calling Convention</a> carefully). Dancing around implicit rules like this can vary from difficult to impossible. It would be good to get some help in Instruments for locating lines of code that trigger retains and release and report why they are occurring (the variables and the rules involved) since reading the assembly and trying to connect it back to the Swift code is slow and error prone.</p>
+
+<p>Changing topic from performance to safety, my implementation includes the methods: <code>Array.at</code> and <code>Array.slice</code>. These extensions to <code>Array</code> include non-fatal bounds checks on <code>Array</code> accesses (and no possibility of crashing because the start and end indexes of the slice have crossed over). With Swift&rsquo;s emphasis on safety in other cases, I&rsquo;m surprised that similar &ldquo;crash proof&rdquo; functionality is not part of the standard library. I feel like I need to include these in every project.</p>
+
+<p>Another place where the Swift standard library could add a little more functionality is with <code>UnicodeScalar</code>. Converting between ASCII numerals stored in <code>UnicodeScalar</code> and <code>UInt32</code> is a real pain. Being explicit is fine but since <code>UnicodeScalar</code> <em>is</em> a <code>UInt32</code> under the hood, it would be nice if the two could be used more naturally together for integer arithmetic so I don&rsquo;t feel like need to unwrap and rewrap the <code>UnicodeScalar</code> twice in every expression.</p>
+
+<p>It would also be nice to have an <code>ASCIILiteralType</code> in Swift (or something else for constructing <code>UInt8</code> from a string literal). The absence of such a type is the biggest reason I opted to use <code>UnicodeScalar</code> as my underlying element type, even though the code only ever processes UTF8 code units and is therefore wasting 25 bits of storage out of every 32. It doesn&rsquo;t obviously impact performance here but if the source data was multiple kilobytes instead of a few dozen bytes, it might cause a bigger problem.</p>
+
+<p>Finally, despite having an <code>OptionSetType</code> for managing bitfields, defining their values is still a nuisance in Swift. It would be nice to have an <code>enum</code> that could constrain values to powers of two by default (while allowing  certain cases to have non-power-of-two values for multi-value masks) and could work together with <code>OptionSetType</code> to provide values/names for bits in the set.</p>
+
+<h2 id="usage">Usage</h2>
+
+<blockquote>
+<p>The <code>ScalarScanner</code> presented in this article is contained in the <a href="https://github.com/mattgallagher/CwlUtils/blob/master/Sources/CwlUtils/CwlScalarScanner.swift?ts=3">CwlScalarScanner.swift file</a> in my <a href="https://github.com/mattgallagher/CwlUtils">CwlUtils project on Github</a>.</p>
+</blockquote>
+
+<p>The implementation is fully self-contained, so you can just copy the file if you wish.</p>
+
+<p>Otherwise, the <a href="https://github.com/mattgallagher/CwlUtils/blob/master/README.md">ReadMe.md file for the project</a> contains detailed information on cloning the whole repository and adding the framework it produces to your own projects but the file is fully self-contained so you can just download the &ldquo;CwlScalarScanner.swift&rdquo; file on its own and add it to an existing project, if you wish.</p>
+
+<blockquote>
+<p>The <code>CwlDemangle</code> implementation presented in this article is contained in the <a href="https://github.com/mattgallagher/CwlDemangle/blob/master/CwlDemangle/CwlDemangle.swift?ts=3">CwlDemangle.swift file</a> in my <a href="https://github.com/mattgallagher/CwlDemangle">CwlDemangle project on Github</a>.</p>
+</blockquote>
+
+<p><strong>LICENSE NOTE</strong>: I usually release my code under an <a href="https://en.wikipedia.org/wiki/ISC_license">ISC-style license</a> (an Expat/MIT-style license equivalent which I prefer for its simple, readable phrasing) but since the CwlDemangle.swift code is derived from the Apple/Swift project&rsquo;s Demangle.cpp, I have released it under the same Apache-License 2.0 with runtime exception.</p>
+
+<p>The implementation is fully self-contained, so you can just copy the file if you wish. The whole repository contains full tests for the demangle implementation (tests for <code>ScalarScanner</code> are in the <code>CwlUtils</code> repository, above).</p>
+
+<p>Consult the <a href="https://github.com/mattgallagher/CwlDemangle/blob/master/README.md">README</a> file for further details including a usage example or read the comments on the four functions at the top of the <a href="https://github.com/mattgallagher/CwlDemangle/blob/master/CwlDemangle/CwlDemangle.swift?ts=3">CwlDemangle.swift file</a>.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>Swift worked pretty well for writing a recursive descent parser. I expected performance gotchas in Swift compared to C++ but it worked out better than expected. I expected some C++ constructs, abstractions or library features that wouldn&rsquo;t translate easily to Swift but it turns out such things are generally avoided in C++.</p>
+
+<p>By adding Swift error handling, some multi-dimensional <code>switch</code> statements and some more functional abstractions over collections, I was able to produce code in Swift that passes all the same tests as the C++ version, has less possibility of unchecked <code>nullptr</code> crashes and array index issues, produces significantly better errors on parse failures, is less than half the number of lines and is nearly 20% faster.</p>
+
+<p>None of this should be seen an attack on the Swift developers or their code quality. Quite the opposite: Demangle.cpp&rsquo;s conservative, simple style is very easy to read, was very easy to adapt and has a universality to it that would make it legible to developers familiar with any C-influenced language. The code sometimes looks more like C than C++ but there are pragmatic reasons why that might result in a better experience in large codebases. I also suspect my more densely packed, hastily written Swift code would be a little harder for outsiders to follow.</p>
+
+<p>And, of course, it&rsquo;s the Swift developers who developed the tools in Swift that I&rsquo;m using to iteratively improve upon the tools that are used to develop Swift.</p>
+
+<p>Um, what?</p>
+
+<h2 id="appendix-why-reimplement-demangle-cpp">Appendix: why reimplement Demangle.cpp?</h2>
+
+<p>In general, no Swift API will give you a mangled name but if you interrogate your process through C APIs (or anything that isn&rsquo;t Swift or Cocoa), you&rsquo;ll see names that look like this:</p>
+
+<pre><code>_TFC19CwlUtils_OSXHarness11AppDelegate15someUserAction2fPs9AnyObject_T_   
+</code></pre>
+
+<p>This particular name is taken from the stack trace shown in the <a href="../../04/14/error-recovery-attempter.html">previous article</a>. This name ultimately comes from the C <code>dl_info</code> function (called as part of the <code>symbolsForCallStackAddresses</code> function I introduced in <a href="../../02/28/stack-traces-in-swift.html#implementation-of-callstackreturnaddresses">Tracking tasks with stack traces in Swift</a>) which is not Swift name aware.</p>
+
+<p>The demangled form of the name is:</p>
+
+<pre><code>CwlUtils_OSXHarness.AppDelegate.someUserAction2 (Swift.AnyObject) -&gt; ()
+</code></pre>
+
+<p>The demangled name is far more readable. Where possible, I&rsquo;d prefer to read the demangled name.</p>
+
+<p>It&rsquo;s easily possible to demangle this on the command-line. Assuming Xcode is installed, then the following will do it:</p>
+
+<pre><code>MacPro:~ matt$ xcrun swift-demangle _TFC19CwlUtils_OSXHarness11AppDelegate15someUserAction2fPs9AnyObject_T_
+_TFC19CwlUtils_OSXHarness11AppDelegate15someUserAction2fPs9AnyObject_T_ ---&gt; CwlUtils_OSXHarness.AppDelegate.someUserAction2 (Swift.AnyObject) -&gt; ()
+</code></pre>
+
+<p>but this requires that a recent version of Xcode is installed on the target machine and you want to launch a whole process just to demangle a single name – neither are necessarily true on an end-user device.</p>
+
+<p>Now, the Swift standard library kinda sorta contains a function to perform name demangling. The non-public function <code>stdlib_demangleName</code> exists in the standard library. Search your compiled programs and this identifier likely appears in all of them. Unfortunately, this function is non-public. Why? My guess is that you&rsquo;re not supposed to encounter a mangled name if you&rsquo;re acting in an idiomatically Swift way and the Swift developers are worried about backwards/forwards compatibility issues as the Swift mangled name grammar changes from version to version.</p>
+
+<p>In any case, if we want name demangling, we need to do it ourselves. How complicated could it be?</p>
+
+<p>The full grammar for mangled Swift names appears at the bottom of <a href="https://github.com/apple/swift/blob/master/docs/ABI.rst">The Swift ABI</a> document. It&rsquo;s roughly 10 screens in my browser just for the BNF grammar – it&rsquo;s not exactly complex but it&rsquo;s sizeable.</p>
+
+<p>Faced with the prospect of implementing a 2000 line parser and serializer from scratch, I balked and instead decided to translate the Swift Demangle.cpp from C++ into Swift. This required a lot of typing but much less thinking than coding from scratch.</p>
+
+<p>Why not simply use the Swift C++ version with a C wrapper, just like <code>stdlib_demangleName</code> does in the Swift standard library? For a few reasons, but mostly: I wanted to see what it was like to write a parser in Swift.</p>
+
+		</div>
+	</article>
+</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../../04/14/error-recovery-attempter.html">Presenting unanticipated errors to users</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../19/random-numbers.html">Random number generators in Swift</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../../../feed.json">JSON</a>, <a href="../../../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

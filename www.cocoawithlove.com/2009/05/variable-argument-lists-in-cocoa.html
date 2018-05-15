@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Variable argument lists in Cocoa</title>
+  <meta name="description" content="This week I&#39;ll talk about methods that take variable numbers of arguments, also known as variadic methods. I&#39;ll show you the Objective-C syntax and implementation, give a quick rundown of the ways that Cocoa classes provide variable argument support and I&#39;ll also show you a way to fake va_list parameters to handle Cocoa&#39;s variadic method equivalents at runtime." />
+
+  <meta name="twitter:title" content="Variable argument lists in Cocoa"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/05/variable-argument-lists-in-cocoa.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="This week I&#39;ll talk about methods that take variable numbers of arguments, also known as variadic methods. I&#39;ll show you the Objective-C syntax and implementation, give a quick rundown of the ways that Cocoa classes provide variable argument support and I&#39;ll also show you a way to fake va_list parameters to handle Cocoa&#39;s variadic method equivalents at runtime."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="variable-argument-lists-in-cocoa.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Variable argument lists in Cocoa</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-05-10">May 10, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/objective-c.html">Objective-C</a>, <a href="../../categories/foundation.html">Foundation</a>, <a href="../../categories/standard-c.html">Standard C</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>This week I'll talk about methods that take variable numbers of arguments, also known as variadic methods. I'll show you the Objective-C syntax and implementation, give a quick rundown of the ways that Cocoa classes provide variable argument support and I'll also show you a way to fake va_list parameters to handle Cocoa's variadic method equivalents at runtime.</p></span>
+
+<span class="fullpost">
+<h2>Variable arguments basics</h2>
+<p>Passing a variable number of arguments to a method is a convenient way to handle a list of variables that are in scope at compile time.</p>
+
+<p>The Objective-C language handles variable arguments in the same way that Standard C does. Normally, you will encounter variable argument lists in one of two forms: "Format strings" or "Nil terminated lists".</p>
+
+<h3>Format strings</h3>
+
+<p>The traditional example for variable arguments are format strings. Format strings contain a number of "placeholders" (escape sequences starting with a "%" sign) that are replaced with data from variables when the format string and the variable arguments are passed to the method.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSString</span> <span class="o">*</span><span class="n">myString</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSString</span> <span class="nl">stringWithFormat</span><span class="p">:</span>
+    <span class="s">@&#34;Number %d, String: %@, Float: %g&#34;</span><span class="p">,</span> <span class="mi">123</span><span class="p">,</span> <span class="s">@&#34;SomeString&#34;</span><span class="p">,</span> <span class="mf">34.5</span><span class="p">];</span></code></pre></div>
+
+<p>This method is declared as follows:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">+</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nf">stringWithFormat:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">format</span><span class="p">,</span> <span class="p">...;</span></code></pre></div>
+
+<p>The "..." is the variable argument.</p>
+
+<p>This method declares a first parameter but everything else is "variable". This does not mean optional. Instead, it means that a number of extra parameters will be required. Exactly what number and their types depends on how the method works.</p>
+
+<p>The documented behavior for <code>stringWithFormat:</code>, is that it scans the <code>format</code> string and requires 1 variable argument for every escape sequence (in this case there are 3) and the type must match the specifier for each escape sequence (in this case, "d", "@" and "g" specify <code>int</code>, <code>id</code> and <code>float</code>/<code>double</code>).</p>
+
+<h3>Nil terminated lists</h3>
+
+<p>The other common type of variable argument list method is one that takes a list of objects terminated by nil.</p>
+
+<p>In Cocoa, these are commonly used for constructing collection objects.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSArray</span> <span class="o">*</span><span class="n">myArray</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSArray</span> <span class="nl">arrayWithObjects</span><span class="p">:</span><span class="s">@&#34;One&#34;</span><span class="p">,</span> <span class="s">@&#34;Two&#34;</span><span class="p">,</span> <span class="s">@&#34;Three&#34;</span><span class="p">,</span> <span class="nb">nil</span><span class="p">];</span></code></pre></div>
+
+<p>The documented rule for this type of method is that the last argument must be <code>nil</code>.</p>
+
+<h3>Getting argument numbers wrong</h3>
+
+<p>The details of "Format strings" and "Nil terminated lists" reveal the difficulty with variable argument lists in Objective-C: knowing how many arguments exist &mdash; i.e. when to stop reading arguments.</p>
+
+<p>Objective-C, like C, does not have a runtime argument count, nor does it pass runtime argument types. So the number and types of arguments must be determined by some other policy. In the case of these two examples, the argument count is, respectively: the number of escape sequences in the "Format string" or the number of arguments before the first <code>nil</code>. For "format strings" the types are determined by the escape sequences, for "Nil terminated" lists, the arguments are always pointers.</p>
+
+<p>The penalty for getting variable argument list wrong can be severe: the compiler won't typically notice a problem and your code will crash or behave very strangely at runtime. The important lesson to learn is that you should only use variable arguments in a situation where the policy for numbers and types of arguments is very clear.</p>
+
+<blockquote>You can improve the compiler verification of variable argument lists by using the <code>-Wformat</code> compiler flag in GCC. See below for more about how this works.</blockquote>
+
+<h2>Implementing variable arguments for your own methods</h2>
+
+<p>Lets look at the implementation for the example class:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@interface</span> <span class="nc">StringContainer</span> : <span class="nc">NSObject</span>
+<span class="p">{</span>
+    <span class="n">NSString</span> <span class="o">*</span><span class="n">contents</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="k">@end</span></code></pre></div>
+
+<p>Imagine we wanted a method that would set the <code>contents</code> string this class contains by concatenating a variable argument list of strings together.</p>
+
+<p>In this case, we will use the <code>nil</code> terminated approach &mdash; the list of strings to concatenate will end with a <code>nil</code>, so we know when to stop reading.</p>
+
+<p>The declaration for the method looks like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setContentByAppendingStrings:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">firstString</span><span class="p">,</span> <span class="p">...</span>
+    <span class="n">NS_REQUIRES_NIL_TERMINATION</span><span class="p">;</span></code></pre></div>
+
+<p>The <code>NS_REQUIRES_NIL_TERMINATION</code> part is a macro that tells the compiler that invocations of this method must include a <code>nil</code>-terminated list of arguments. Failure to <code>nil</code>-terminate the list will result in a compiler warning if <code>-Wformat</code> is enabled.</p>
+
+<p>Annoyingly, <code>-Wformat</code> is not enabled by default. Double annoyingly, it is named "Typecheck Calls to printf/scanf" in the "GCC 4.0 Warnings" section of the "Build Settings" in Xcode, even though this setting affects the <code>NS_REQUIRES_NIL_TERMINATION</code> macro which is used commonly throughout all of Cocoa &mdash; far beyond <code>printf</code> and <code>scanf</code>.</p>
+
+<p>The implementation of this method is as follows:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setContentByAppendingStrings:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">firstArg</span><span class="p">,</span> <span class="p">...</span>
+<span class="p">{</span>
+    <span class="n">NSMutableString</span> <span class="o">*</span><span class="n">newContentString</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSMutableString</span> <span class="n">string</span><span class="p">];</span>
+    <span class="n">va_list</span> <span class="n">args</span><span class="p">;</span>
+    <span class="n">va_start</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">firstArg</span><span class="p">);</span>
+    <span class="k">for</span> <span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="n">arg</span> <span class="o">=</span> <span class="n">firstArg</span><span class="p">;</span> <span class="n">arg</span> <span class="o">!=</span> <span class="nb">nil</span><span class="p">;</span> <span class="n">arg</span> <span class="o">=</span> <span class="n">va_arg</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">NSString</span><span class="o">*</span><span class="p">))</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="n">newContentString</span> <span class="nl">appendString</span><span class="p">:</span><span class="n">arg</span><span class="p">];</span>
+    <span class="p">}</span>
+    <span class="n">va_end</span><span class="p">(</span><span class="n">args</span><span class="p">);</span>
+    
+    <span class="p">[</span><span class="n">contents</span> <span class="n">autorelease</span><span class="p">];</span>
+    <span class="n">contents</span> <span class="o">=</span> <span class="p">[</span><span class="n">newContentString</span> <span class="k">retain</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The <code>va_list</code>, <code>va_start</code>, <code>va_arg</code> and <code>va_end</code> are all standard C syntax for handling variable arguments. To describe them simply:</p>
+
+<ul><li><code>va_list</code> - A pointer to a list of variable arguments.</li>
+<li><code>va_start</code> - Initializes a <code>va_list</code> to point to the first argument <em>after</em> the argument specified.</li>
+<li><code>va_arg</code> - Fetches the next argument out of the list. You must specify the type of the argument (so that <code>va_arg</code> knows how many bytes to extract).</li>
+<li><code>va_end</code> - Releases any memory held by the <code>va_list</code> data structure.</li></ul>
+
+<p>Generally speaking, you can use this <code>for</code> loop for any variable argument situation where your arguments are all the same type. Other cases are a bit trickier but far less common &mdash; I'm sure you can work out how they would work if needed.</p>
+
+<h2>va_list in Cocoa</h2>
+
+<p>A number of classes in Cocoa have methods that take variable numbers of arguments. In most cases, these classes will also have an equivalent method that takes a <code>va_list</code>.</p>
+
+<p>We can see an example of these <code>va_list</code> equivalents by looking at <code>NSString</code>. <code>NSString</code> declares the class method <code>stringWithFormat:...</code> (which takes a variable number of arguments) and <code>NSString</code> also declares the instance method <code>initWithFormat:arguments:</code> (where the <code>arguments</code> parameter is a <code>va_list</code>) which handles the equivalent behavior of <code>stringWithFormat:...</code>.</p>
+
+<p>These <code>va_list</code> methods are used in the situation where your class defines a method with a variable argument list and you need to pass those variable arguments into the Cocoa method. For example, if the <code>StringContainer</code> class listed above declared the method:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setContentsWithFormat:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">formatString</span><span class="p">,</span> <span class="p">...;</span></code></pre></div>
+
+<p>The implementation of this method would be as follows:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setContentsWithFormat:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">formatString</span><span class="p">,</span> <span class="p">...</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="n">contents</span> <span class="n">autorelease</span><span class="p">];</span>
+
+    <span class="n">va_list</span> <span class="n">args</span><span class="p">;</span>
+    <span class="n">va_start</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">formatString</span><span class="p">);</span>
+    <span class="n">contents</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSString</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithFormat</span><span class="p">:</span><span class="n">formatString</span> <span class="nl">arguments</span><span class="p">:</span><span class="n">args</span><span class="p">];</span>
+    <span class="n">va_end</span><span class="p">(</span><span class="n">args</span><span class="p">);</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The <code>va_list</code> parameter allows us to pass our own variable argument list to the Cocoa method so that the Cocoa method can handle the arguments.</p>
+
+<h2>Creating a fake va_list</h2>
+
+<p>The <code>va_list</code> methods in Cocoa are helpful if you actually have a variable argument list. </p>
+
+<p>There is another situation you many encounter though: you want to use a method like <code>-[NSString initWithFormat:arguments:]</code> using a runtime generated array of arguments. There is no <code>NSString</code> format method that takes an <code>NSArray</code> of arguments, so how could we handle a format string at runtime?</p>
+
+<p>The answer lies in how <code>va_list</code> works. While GCC makes it very clear that <code>va_list</code> is "platform specific", the reality is that on Mac and iPhone Objective-C platforms, it is simply a byte buffer containing the arguments. In fact, if you've ever used an ABI inspection tool (like <a href="http://iphone.freecoder.org/classdump_en.html">class-dump-x</a>) on a method taking a variable argument list, you'll see that it is simply a <code>char *</code>.</p>
+
+<p>To show how we can use this knowledge, consider the following method on the <code>StringContainer</code> class:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setContentsWithFormat:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">formatString</span> <span class="nf">arguments:</span><span class="p">(</span><span class="n">NSArray</span> <span class="o">*</span><span class="p">)</span><span class="nv">arguments</span><span class="p">;</span></code></pre></div>
+
+<p>If we assume that all of the variable arguments required fro the <code>formatString</code> are objects, then we can implement this method as follows:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setContentsWithFormat:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">formatString</span> <span class="nf">arguments:</span><span class="p">(</span><span class="n">NSArray</span> <span class="o">*</span><span class="p">)</span><span class="nv">arguments</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="n">contents</span> <span class="n">autorelease</span><span class="p">];</span>
+
+    <span class="kt">char</span> <span class="o">*</span><span class="n">argList</span> <span class="o">=</span> <span class="p">(</span><span class="kt">char</span> <span class="o">*</span><span class="p">)</span><span class="n">malloc</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span> <span class="o">*</span> <span class="p">[</span><span class="n">arguments</span> <span class="n">count</span><span class="p">]);</span>
+    <span class="p">[</span><span class="n">arguments</span> <span class="nl">getObjects</span><span class="p">:(</span><span class="kt">id</span> <span class="o">*</span><span class="p">)</span><span class="n">argList</span><span class="p">];</span>
+    
+    <span class="n">contents</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSString</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithFormat</span><span class="p">:</span><span class="n">formatString</span> <span class="nl">arguments</span><span class="p">:</span><span class="n">argList</span><span class="p">];</span>
+    
+    <span class="n">free</span><span class="p">(</span><span class="n">argList</span><span class="p">);</span>
+<span class="p">}</span></code></pre></div>
+
+<p>What I've done here is simply copied the <code>NSArray</code> to a C-style byte buffer and then passed that buffer to the <code>initWithFormat:arguments:</code> method.</p>
+
+<p>If your arguments are not all Objective-C objects, you'd need to take greater care to assemble the byte buffer but the principles would be the same.</p>
+
+<h2>Some variadic notes</h2>
+
+<h3>NSInvcation incompatibility</h3>
+
+<p><code>NSInvocation</code> does not support variadic methods. I'm not sure why this is &mdash; maybe <code>NSInvocation</code> wants to avoid making assumptions about <code>va_list</code>, maybe it is because <code>NSMethodSignature</code> can't describe the storage requirements of variable arguments for <code>NSInvocation</code> or maybe the Cocoa developers have families and just wanted to go home early.</p>
+
+<h3>Variadic macros</h3>
+
+<p>You can also write variadic macros, much like variadic methods, by using the <code>##__VA_ARGS__</code> placeholder in your macros. See the macros near the bottom of my post titled <a href="../../2008/03/supersequent-implementation.html">Supersequent Implementation</a> for an example of how this works. As discussed briefly in that article, the version of GCC used for iPhone development handles variadic macros slightly differently, so pay attention to the differences when targetting the iPhone platform.</p>
+
+<h2>Conclusion</h2>
+
+<p>Variadic methods require a degree more care than regular methods because variable argument lists have no "introspection" (you cannot ask for the number and type of arguments) &mdash; so their usage relies on documentation and implicit agreements between the sender and receiver.</p>
+
+<p>In your own code, variadic methods should be used sparingly &mdash; passing variables in an <code>NSArray</code> or <code>NSDictionary</code> is safer (if slightly slower and syntactically more verbose) due to the fact that these classes <em>do</em> offer introspection.</p>
+
+<p>When the implicit sender/receiver agreement is clear, variadic methods work well. They certainly make creating instances of <code>NSArray</code>, <code>NSSet</code>, <code>NSDictionary</code> easier and they are the only way to create a formatted <code>NSString</code> in a single invocation.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="invoking-other-processes-in-cocoa.html">Invoking other processes in Cocoa</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="intercepting-status-bar-touches-on.html">Intercepting status bar touches on the iPhone</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

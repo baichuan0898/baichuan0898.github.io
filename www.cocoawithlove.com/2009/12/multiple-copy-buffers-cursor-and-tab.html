@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Multiple copy buffers, cursor and tab key tricks in Xcode</title>
+  <meta name="description" content="This week, I&#39;ll show you a few keyboard related tricks for editing in Xcode, including setting up multiple copy-and-paste buffers by adjusting the key mappings, switching tabs on or off for autocomplete and other text editing quirks in Xcode like understanding why the &#34;End&#34; key doesn&#39;t move to the end of the line on the Mac." />
+
+  <meta name="twitter:title" content="Multiple copy buffers, cursor and tab key tricks in Xcode"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/12/multiple-copy-buffers-cursor-and-tab.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="This week, I&#39;ll show you a few keyboard related tricks for editing in Xcode, including setting up multiple copy-and-paste buffers by adjusting the key mappings, switching tabs on or off for autocomplete and other text editing quirks in Xcode like understanding why the &#34;End&#34; key doesn&#39;t move to the end of the line on the Mac."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="multiple-copy-buffers-cursor-and-tab.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="118px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Multiple copy buffers, cursor and tab key tricks in Xcode</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-12-12">December 12, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/xcode.html">Xcode</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>This week, I'll show you a few keyboard related tricks for editing in Xcode, including setting up multiple copy-and-paste buffers by adjusting the key mappings, switching tabs on or off for autocomplete and other text editing quirks in Xcode like understanding why the "End" key doesn't move to the end of the line on the Mac.</p></span>
+
+<span class="fullpost">
+
+<h2>Key bindings, the cursor and Emacs</h2>
+
+<p>Standard text editing on the Mac obeys many more keyboard commands than most casual users realize. This is because the key bindings on the Mac derive from NeXTStep which chose to implement (where possible) a large number of the Emacs key bindings.</p>
+
+<p>First developed in the 1970's, Emacs was designed for keyboards that lacked cursor and forward delete keys and computers that lacked a mouse. And, like its spiritual enemy in the world of text editing, Vi, Emacs was never a program to update its key bindings to stay current.</p>
+
+<p>What this means is that text editing applications that use the standard Cocoa text editor &mdash; like TextEdit.app &mdash; and other more sophisticated text editors that support the operating system's default key bindings &mdash; like Xcode &mdash; support most of the Emacs key controls for navigating and editing &mdash; like Ctrl-F and Ctrl-B for forward and backward by one character or Ctrl-A and Ctrl-E for jump to the start or end of the paragraph.</p>
+
+<p>Of course, most of this is pointless to ordinary users since the standard cursor and home keys will do this in a far less cryptic way.</p>
+
+<p>For those of you who still scream at Xcode when the Home key doesn't move to the start of the line or get annoyed that the cursor doesn't move when using PageUp/PageDown, here's a quick refresher:</p>
+
+<table style="margin-left:10%;width:80%;">
+<thead><tr><td>Key&nbsp;or&nbsp;combination</td><td>Action</td></tr></thead>
+<tr><td>
+&uarr;</td><td>cursor up</td></tr><tr><td>
+&darr;</td><td>cursor down</td></tr><tr><td>
+&larr;</td><td>cursor left</td></tr><tr><td>
+&rarr;</td><td>cursor right</td></tr><tr><td>
+Command &larr;</td><td>cursor to start of line</td></tr><tr><td>
+Command &rarr;</td><td>cursor to end of line</td></tr><tr><td>
+Option &larr;</td><td>cursor to start of previous word</td></tr><tr><td>
+Option &rarr;</td><td>cursor to end of previous word</td></tr><tr><td>
+Control &larr;</td><td>cursor to start of previous camel-case component (Xcode only &mdash; otherwise it works like Command &larr;)</td></tr><tr><td>
+Control &rarr;</td><td>cursor to end of previous camel-case component (Xcode only &mdash; otherwise it works like Command &rarr;)</td></tr><tr><td>
+PageUp or Control &uarr;</td><td>scroll up one page, without moving the cursor</td></tr><tr><td>
+PageDown&nbsp;or&nbsp;Control&nbsp;&darr;</td><td>scroll down one page, without moving the cursor</td></tr><tr><td>
+Home</td><td>scroll to top of document, without moving the cursor</td></tr><tr><td>
+End</td><td>scroll to end of document, without moving the cursor</td></tr><tr><td>
+Option-PageUp</td><td>scroll up one page, moving cursor to center of new location</td></tr><tr><td>
+Option-PageDown</td><td>scroll down one page, moving cursor to center of new location</td></tr><tr><td>
+Command &uarr;</td><td>move cursor to start of document</td></tr><tr><td>
+Command &darr;</td><td>move cursor to end of document</td></tr><tr><td>
+Option &uarr;</td><td>move cursor to start of the paragraph (except in Xcode where it does nothing)</td></tr><tr><td>
+Option &darr;</td><td>move cursor to end of the paragraph (except in Xcode where it does nothing)</td></tr>
+</table>
+
+<p align="center"><em>Due to the importance of the Home/End/PageUp/PageDown keys in text editing, I have no respect for Apple's choice to start shipping keyboards without these keys by default on new computers.</em></p>
+
+<p>I wish there was a little more sense to these bindings. There almost are a few rules &mdash; like Control, Option and Command represent small, medium and largest increments in any direction and combinations involving the cursor keys move the cursor but Home/End/PageUp/PageDown combinations just scroll without moving the cursor &mdash; but sadly there are enough violations of these rules that you must simple learn them all by rote.</p>
+
+<p>The ability to scroll the document without moving the cursor when desired on the Mac is an ability that I sorely miss when I'm stuck using Visual Studio or other development environments &mdash; in these other environment, my cursor always gets stranded when I quickly glance at another point in the document, whereas on the Mac I can just tap a left or right arrow to return to where I was.</p>
+
+<h2>Kill and yank</h2>
+
+<p>A side effect of bringing Emacs key bindings into Xcode though is that a few Emacs commands that don't have common Macintosh equivalents are brought in as well.</p>
+
+<p>This includes kill and yank. Kill and yank are Ctrl-K and Ctrl-Y by default.</p>
+
+<p>In most respects, kill and yank work like cut and paste. Kill something and it gets stored in your kill buffer, yank and the contents of your kill buffer are inserted at the current insertion point. If you have no selection, kill will delete from the cursor to the end of the line, otherwise it will only delete the selection. There are a few differences compared to cut-and-paste: you can't yank between applications (each application has its own, non-shared kill ring) and they store pure text only (no styled text, images or other copyable data).</p>
+
+<p>In their default setup, kill and yank are like a second-rate extra cut-and-paste option. But correctly configured, you can have as many separate cut buffers as you want.</p>
+
+<h3>Setting up kill-and-yank</h3>
+
+<p>The first configuration change you need to make is to set up a binding for <code>yankAndSelect:</code> instead of ordinary <code>yank:</code>. We do this because <code>yank:</code> will only ever insert the most recently killed text whereas <code>yankAndSelect:</code> allows you to cycle through all stored buffers. You can do this in the "Xcode Preferences&rarr;Key Bindings&rarr;Text Key Bindings" but I prefer to make the binding System-wide by using the "<code>/Developer/Applications/Utilities/Property List Editor.app</code>" to create a file at "<code>~/Library/KeyBindings/DefaultKeyBinding.dict</code>" that overrides the <code>yank:</code> command with a <code>yankAndSelect:</code> command.</p>
+
+<img src="../../assets/objc-era/yankAndSelectBinding.png" width="532" height="156" />
+
+<p align="center"><em>The key string is actually caret-y, not Ctrl-Y. You may need to create the KeyBindings<br/>directory in your Library directory as it is not there by default.</em></p>
+
+<blockquote><strong>Update 2016/03/29</strong>: The "Property List Editor.app" is long gone. Xcode will still edit "Property List - Text" format files but Xcode wants them to have the ".plist" extension, rather than the ".dict" extension required for the "DefaultKeyBinding.dict" file. It's probably just easier to create a plain text file at the "DefaultKeyBinding.dict" path with the contents:
+<pre>{
+  "^y" = "yankAndSelect:";
+}</pre></blockquote>
+
+<p>Both <code>yank:</code> and <code>yankAndSelect:</code> are standard commands on <code>NSReponder</code>, so this just exchanges one for another. In a totally bizarre twist of documentation, <code>yankAndSelect:</code> is an undocumented method (it's not in the Cocoa.h headers) that <a href="http://developer.apple.com/mac/library/documentation/Cocoa/Conceptual/EventOverview/TextDefaultsBindings/TextDefaultsBindings.html">appears in the documentation where you are encouraged to used it as required</a>.</p>
+
+<p>The other step to make multiple kill buffers work is to specify how many buffers you want. By default, there is 1 but we want multiple buffers.</p>
+
+<p>To do this, just add the key <code>NSTextKillRingSize</code> with a string or number value greater than 1 to any .plist file. For example, if you only want this behavior added to Xcode, add the line to the Xcode .plist file.</p>
+
+<p>I like to add this like to my Global Preferences. To do this, type:</p>
+
+<div class="highlight"><pre><code class="language-objc" data-lang="objc"><span></span><span class="n">open</span> <span class="o">~/</span><span class="n">Library</span><span class="o">/</span><span class="n">Preferences</span><span class="o">/</span><span class="p">.</span><span class="n">GlobalPreferences</span><span class="p">.</span><span class="n">plist</span>
+</code></pre></div>
+
+
+<p>in a Terminal window (the file is hidden by default in the Finder so you need to open it like this unless you've turned the display of hidden files on).</p>
+
+<img src="../../assets/objc-era/killbuffers.png" width="424" height="60" />
+
+<p align="center"><em>The <code>NSTextKillRingSize</code> setting in my .GlobalPreferences.plist file.</em></p>
+
+<p>With these changes, you can use Control-K to copy something to a kill buffer and then Control-Y to cycle through the last 3 items stored in your kill buffers (the collection of kill buffers is called the "kill ring"). You can use any number or kill buffers but large numbers may make cycling through the complete set harder (since you can only cycle through in one direction).</p>
+
+<h2>The Tab key binding in Xcode</h2>
+
+<p>While I'm talking about key bindings, one of the biggest shocks in Xcode 3.2 for me was the fact that the Tab key is configured by default to select the next Code Sense Completion, instead of inserting a Tab character.</p>
+
+<p>This meant that if I had code like this:</p>
+
+<img src="../../assets/objc-era/autocomplete.png" width="550" height="58" />
+
+<p>and I hit the Tab key to indent the second line, it wouldn't indent &mdash; instead the autocomplete field would be selected.</p>
+
+<p>I found this particularly frustrating since I normally use Ctrl-/ to select autocomplete fields, making the Tab key redundant as well as interfering.</p>
+
+<p>Fortunately, Xcode supports a "Insert Tab without Extra Action" that is normally bound to Option-Tab which will only ever insert a Tab character (will never perform other UI actions). By exchanging the key bindings between "Insert Tab" and "Insert Tab without Extra Action", my complaint was solved.</p>
+
+<blockquote style="width:50%;float:right;margin-left:10px;"><strong>On the topic of search and replace:</strong> a change to menus in Xcode 3.2 means that single file Search and Replace no longer appears in the menu (unless you're holding down the Control key, since its binding is now Ctrl-Command-F and "Ctrl" variants of menu items aren't shown unless "Ctrl" is held). This can make search and replace hard to find in Xcode 3.2. Another feature that has become harder to find are the search options &mdash; the little magnifying glass on the search field hides a popup menu that contains the essential options like "Ignore case".</blockquote>
+
+<p>A sideeffect of changing the tab bindings is that all text fields in the user interface &mdash; including the Search and Replace text fields &mdash; will change their behavior when the Tab key is pressed. Once the bindings are changed, Tab will no longer move the input focus from the search field to the replace field &mdash; it will instead insert the tab character into the selected field. This means that to jump from the Search field to the Replace field you will need to type Option-Tab. Of course, the ability to easily enter tab characters in the search field has its advantages too.</p>
+
+<h2>Conclusion</h2>
+
+<p>Text editing on the Mac is loaded with features that most people never use. While there's often no need to use many of the extra features, extra navigation options or extra kill-and-yank buffers can be useful additions.</p>
+
+<p>The .GlobalPreferences.plist and global DefaultKeyBinding.dict files used to alter global key mappings provide a surprising amount of flexibility to applications that respect their content, like Xcode. You can use them to remap most key combinations to other commands if you choose. A corollary though: you should try to respect these dictionaries if writing your own custom text editor.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="design-of-iphone-application.html">The design of an iPhone application</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="sample-mac-application-with-complete.html">A sample Mac application with complete unit tests</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

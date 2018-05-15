@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Is a virtual machine for Cocoa programming inevitable?</title>
+  <meta name="description" content="Recent articles by Jesper have re-ignited some discussion about whether Apple might be working on another programming language to replace Objective-C. Neither of these articles closely examined a related but possibly more important question: is Apple planning to move application development to a virtual machine? In this article, I&#39;ll look at why I think moving to a virtual machine might happen along with a possible language transition." />
+
+  <meta name="twitter:title" content="Is a virtual machine for Cocoa programming inevitable?"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2010/07/is-virtual-machine-for-cocoa.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Recent articles by Jesper have re-ignited some discussion about whether Apple might be working on another programming language to replace Objective-C. Neither of these articles closely examined a related but possibly more important question: is Apple planning to move application development to a virtual machine? In this article, I&#39;ll look at why I think moving to a virtual machine might happen along with a possible language transition."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="is-virtual-machine-for-cocoa.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="118px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Is a virtual machine for Cocoa programming inevitable?</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2010-07-15">July 15, 2010</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/objective-c.html">Objective-C</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>Recent articles by <a href="http://arstechnica.com/apple/news/2010/06/copland-2010-revisited.ars/">John Siracusa</a> and <a href="http://waffle.wootest.net/2010/06/19/surpass/">Jesper</a> have re-ignited some discussion about whether Apple might be working on another programming language to replace Objective-C. Neither of these articles closely examined a related but possibly more important question: is Apple planning to move application development to a virtual machine? In this article, I'll look at why I think moving to a virtual machine might happen along with a possible language transition.</p></span>
+
+<span class="fullpost">
+
+<blockquote><strong>Disclaimer</strong>: this entire post is either a) speculation, b) aspiration or c) incrimination.</blockquote>
+
+<h2>Introduction: criticisms of Objective-C</h2>
+
+<p>Programmers, onlookers and pundits have criticised Objective-C for longer than Apple has been using it.</p>
+
+<p>If the criticisms were valid and pressing, most could actually be addressed without replacing Objective-C/Cocoa.</p>
+
+<p>Fixable complaints in the language and APIs include the lack of tuples, slices, maps or associations at a syntax level; the lack of template programming; the lack of namespaces; the lack of default parameters to methods; the lack of operator overrides/overloading; leaks and premature collection by the garbage collector (or lack of garbage collection on iOS platforms); the wordy, camel-coded naming conventions; the lack of package management; the lack of out-of-the-box support for "business" APIs like REST, SOAP, SQL, etc. Even the commonly mocked square bracket method invocation syntax could be changed (or supplemented) if the need existed.</p>
+
+<p>None of these criticisms in isolation is a reason to replace Objective-C. All you could argue is that if Objective-C actually <em>needed</em> to change all of these points, then perhaps you might as well replace the entire language.</p>
+
+<p>But replacing the primary application programming language is a jarring task for a development community (especially one that has only just given up on Carbon) and Apple wouldn't do it to address aesthetic issues or minor features. The reasons for replacing a language would need to be more pragmatic and functional.</p>
+
+<p>More relevant in the long term is the one feature that Objective-C can't remove or fix: complaints about C itself, in particular <em>C pointers</em>.</p>
+
+<p>While code level compatibility with C is arguably Objective-C's best feature, it is also the source of Objective-C's most unpopular feature: the direct memory model.</p>
+
+<h2>Direct access memory models are a shrinking market</h2>
+
+<p>You can't stop the shift away from direct access memory models like the one use in C language; they're simply losing popularity.</p>
+
+<p>According to this list of <a href="http://www.tiobe.com/index.php/content/paperinfo/tpci/index.html">top 20 most popular programming languages</a> (not exactly a scientific source but it will suffice) only 32% of people still use a language with a direct memory model (C, C++, Objective-C, Pascal and Delphi). In 10 years time, you probably won't see direct memory models used in new projects outside of kernels, drivers, computer games and low-level embedded software.</p>
+
+<p>This means that whether or not Apple deprecate their direct memory model APIs (they probably won't), and whether or not they introduce a new language, Apple will introduce an official application environment with an abstracted memory model.</p>
+
+<h2>The role of an application virtual machine in memory abstraction</h2>
+
+<p>Technically, Objective-C's current garbage collector is an abstracted memory model. But I'm excluding it from consideration because it's not a complete abstraction and it never will be while Objective-C contains C pointers.</p>
+
+<p>Just because you don't need to release your memory, doesn't mean there aren't other memory problems. You still have pointers. These pointers can still point to anything. You still have C arrays that you can overrun. You can still have buffer overflows. You can still accidentally overwrite sections of memory. There are even situations where you can get the garbage collector to collect memory that you're still using.</p>
+
+<p>That's a pretty leaky abstraction.</p>
+
+<p>It is possible to create a memory model abstraction without using a genuine virtual machine (see <a href="#adifferentpath">A Different Path</a>, below) but a virtual machine allows you to lock down the abstraction so that there aren't any accidental loop holes. You no longer need pointers. You can't simply overwrite memory. You can't overrun arrays. You can't overflow buffers.</p>
+
+<p>The virtual machine does this by removing instructions that offer direct access to memory. Instead, the instructions on the machine relate to objects, properties and values &mdash; you cannot access the wrong piece of memory and garbage collection can be precise rather than conservative because all memory references are known absolutely.</p>
+
+<blockquote><strong>Clarification on what I mean by virtual machine</strong>: A virtual machine is a description of a computer that is not directly tied to any specific computer implementation but instead can be mapped onto an actual machine. This mapping is normally either through runtime interpretation (like a scripting language), runtime simulation (like a computer emulator) or just-in-time compilation into native machine code (like Java's JVM). Regardless of how the virtual machine is run, the point is that the programmer only ever deals with this virtual scenario and the exact architecture and behaviors of the target machine are never directly accessed.</blockquote>
+
+<h2>Platform independence</h2>
+
+<p>A second argument for a virtual machine is actually unrelated to the language considerations: platform independence.</p>
+
+<p>Apple have already switched CPU architectures twice in 17 years. It will almost certainly happen again. While the transition to Intel CPUs was unbelievably smooth (I remain stunned about how seamless it was) there was still a significant wait for Intel-native versions of many programs and significant cost to Apple and other developers to make the whole transition work.</p>
+
+<p>With Apple's additional focus on iOS devices, it's also possible to imagine a range of different CPUs could be used across a single lineup and fat binaries (such as the existing armv6/armv7 iOS binaries) are only convenient for a small number of CPUs. If Apple wanted to use a dozen different CPUs, a single bytecode runtime would be the only way.</p>
+
+<p>Wherever possible, good programming generally avoids coding to specific hardware components. Abstracting the CPU and the platform away from our programs is simply a logical step along the same lines.</p>
+
+<blockquote>On the topic of running across different CPUs, an interesting point to consider is that Apple actually did recently introduce a new, platform independent language that runs in JIT compiled virtual machine: OpenCL. I don't foresee any push to re-implement Cocoa in OpenCL (it's way more cryptic than Objective-C) but the technology to do these things certainly exists.</blockquote>
+
+<h2>Virtual machine without a new language</h2>
+
+<p>An important point to note is that the introduction of a virtual machine could <em>preceed</em> a new language.</p>
+
+<p>If Apple decided that fear of manual memory management was keeping good programmers away but wasn't ready to actually transition to a new language in one leap, it would be possible to transition to the virtual machine <em>first</em> (and gain many of the memory abstraction advantages) while keeping the code-level changes relatively minor.</p>
+
+<p>While this might seem like a thoroughly strange thing to do, it does have a couple advantages.</p>
+
+<p>The first is that an implementation of Objective-C adapted to run inside a virtual machine would be easier to bridge to native Objective-C outside the virtual machine. If you remember Apple's retired effort at bridging Java and Objective-C, the biggest technical difficulty was that Java's view of an object is less runtime dynamic than that of Objective-C and Java had difficulty keeping track of method and isa pointer changes on the Objective-C side. Bridging a virtual machine language to its non-virtual machine equivalent would be easier on this modelling level.</p>
+
+<p>The second advantage of keeping Objective-C during the transition to a virtual machine is that Cocoa is currently written to match Objective-C's feature set. Cocoa might be able to remain substantially similar, making Apple's work upfront much easier.</p>
+
+<blockquote><strong>Update:</strong> <a href="http://waffle.wootest.net/2010/07/16/objective-dash/">Jesper has responded to this point</a> and explained why virtualizing Objective-C while keeping some level of compatibility with non-virtualized Objective-C is probably not a good idea.<br/><br/>In short: a virtualized version of Objective-C would (like C++.NET before it) need to have a number of language features removed (to the point where it is not source compatible enough to matter) or it would need to throw runtime exceptions all over the place if your code violated a long list of rules (which doesn't solve the memory abstraction problem it just hurts you if you get it wrong).</blockquote>
+
+<a name"adifferentpath"></a>
+<h2>A different path</h2>
+
+<p>Of course, just because the above advantages exist, doesn't mean that a virtual machine environment is a guaranteed next step in Mac programming evolution.</p>
+
+<p>There do exist compiled, garbage collected, memory safe languages that don't require virtual machines but would satisfy the requirement of a totally abstracted memory model. <a href="http://golang.org/">Google's Go language</a> is one example.</p>
+
+<p>It is unlikely Apple would literally adopt Go. Aside from the fact that Go is still a work in progress, there is also the problem that Go (and most other languages) are not interoperable or bridgeable with Objective-C classes (again this is why bridging Java to Objective-C was problematic &mdash; the runtimes need to be significantly compatible). In fact, Go does not yet easily bridge to C or C++, yet.</p>
+
+<p>Actually moving to a Go-like language would require a clean break with no backwards compatibility. While a clean break is not impossible (Carbon to Cocoa was a clean break), I think it more likely that Apple would choose to keep some amount of interoperability by either using a custom language &mdash; or a custom variation of an existing language &mdash; that uses a runtime closer to Objective-C. The reason why I suspect this is that Apple have already had the chance to replace Cocoa (with iOS) but chose to keep largely the same design &mdash; I suspect that they'd choose to keep Cocoa into the future on the Mac, even if the language or environment changes.</p>
+
+<p>The greater possibilities of backwards compatibility, bridging and portability afforded by virtual machines, and the excellent performance of modern JIT implementations, lend me to think that a non-virtual machine option doesn't provide enough flexibility and advantages for the next isn't a compelling enough to warrant the pain of a language transition.</p>
+
+<h2>Conclusion</h2>
+
+<p>Obviously, I like Objective-C and Cocoa; I'm sure that much is clear from the existence of this blog and my <a href="../../2009/10/objective-c-niche-why-it-survives-in.html">posts</a> <a href="../../2008/08/in-defense-of-objective-c-20-properties.html">defending</a> its <a href="../../2009/06/method-names-in-objective-c.html">traits</a>. I don't agree with most of the criticisms that I've listed in this article &mdash; for the most part, I think the criticisms are either trivialities or they're philosophically and technically misguided.</p>
+
+<p>But Mac programmers can't fight against an overwhelming trend towards totally abstracted memory models that's largely happening outside the borders of Mac programming.</p>
+
+<p>Furthermore, I don't think the eventual move towards an application virtual machine is a change that needs to be fought. Most of what currently defines Cocoa and Mac programming &mdash; the attention to detail, the way widgets, methods, classes and APIs all work well together won't change. In fact most of Cocoa might actually stay the same.</p>
+
+<p>Eventually though, I'm sure Apple will switch to a new programming language; fashions change and a new language is always refreshing (if a little weird in the beginning).</p>
+
+<p>There really isn't a rush to do this though. Certainly iOS devices don't need the performance hit right now. But even on the Mac I think there will be a few years warning before anything happens and no forced transition when it finally does.</p>
+
+<p>When I say there isn't a rush: I mean it. I think its probable that you will still be able to release new, non-virtual-machine, Cocoa/Objective-C programs for the Mac OS du jour in 10 years time (in the same way that you can still write Carbon programs today if you choose). I just don't think it will be the most common choice.</p>
+
+</span>
+
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="tips-tricks-for-conditional-ios3-ios32.html">Tips &amp; Tricks for conditional iOS3, iOS3.2 and iOS4 code</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../08/alternative-objective-c-object.html">Alternative Objective-C object allocation for large arrays</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

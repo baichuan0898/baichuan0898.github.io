@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Writing a parser using NSScanner (a CSV parsing example)</title>
+  <meta name="description" content="Comma-separated value (CSV) files are one of the most commonly used data formats for exchanging rows of simple data. There are many implementations of CSV parsing for Cocoa strings but the purpose of this post is to use the example of an RFC4180 compliant CSV parser implementation to show you the basics of writing a recursive descent parser for importing data into your Cocoa applications." />
+
+  <meta name="twitter:title" content="Writing a parser using NSScanner (a CSV parsing example)"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/11/writing-parser-using-nsscanner-csv.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Comma-separated value (CSV) files are one of the most commonly used data formats for exchanging rows of simple data. There are many implementations of CSV parsing for Cocoa strings but the purpose of this post is to use the example of an RFC4180 compliant CSV parser implementation to show you the basics of writing a recursive descent parser for importing data into your Cocoa applications."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="writing-parser-using-nsscanner-csv.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Writing a parser using NSScanner (a CSV parsing example)</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-11-30">November 30, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/core-data.html">Core Data</a>, <a href="../../categories/foundation.html">Foundation</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>Comma-separated value (CSV) files are one of the most commonly used data formats for exchanging rows of simple data. There are many implementations of CSV parsing for Cocoa strings but the purpose of this post is to use the example of an RFC4180 compliant CSV parser implementation to show you the basics of writing a recursive descent parser for importing data into your Cocoa applications.</p></span>
+
+<span class="fullpost">
+<h2>Introduction</h2>
+
+<p>CSV parsers for Cocoa already exist: Drew McCormack at <a href="http://www.macresearch.org">MacResearch</a> has <a href="http://www.macresearch.org/cocoa-scientists-part-xxvi-parsing-csv-data">a good article covering his implementation of a CSV parser</a> and <a href="http://michael.stapelberg.de/cCSVParse">cCSVParse</a> will also do the job. Instead of CSV and the implementation itself, I'm going to try and focus on reading a parser grammar and adapting that into a program of your own.</p>
+
+<p>Most common solutions for parsing CSV files involve quick parsers which don't consider the full format and instead just split strings into lines using <code>-[NSString componentsSeparatedByString:@"\n"]</code> and then split lines into columns with <code>-[NSString componentsSeparatedByString:@","]</code>. This will work for some cases but it does not handle all aspects of RFC4180 and is limited to simple CSV files.</p>
+
+<h2>The technical description of a CSV file</h2>
+
+<p>Adapting slightly from <a href="http://tools.ietf.org/html/rfc4180">RFC 4180 - Common Format and MIME Type for Comma-Separated Values (CSV) files</a>, the Extended Backus-Naur Format (EBNF) grammar for a CSV file is as follows:</p>
+
+<ul>
+file = [header lineSeparator] record {lineSeparator record}<br/>
+header = name {separator name}<br/>
+record = field {separator field}<br/>
+name = field<br/>
+field = escaped | nonEscaped<br/>
+escaped = doubleQuote {textData | separator | lineSeparator | twoDoubleQuotes} doubleQuote<br/>
+nonEscaped = textData<br/>
+doubleQuote = '"'<br/>
+twoDoubleQuotes = '""'<br/>
+separator = ','<br/>
+lineSeparator = ('\r' | '\n') {'\r' | '\n'}<br/>
+textData = {<em>characters up to the next double quote character, separator string or lineSeparator</em>}
+</ul>
+
+<p>If you're not accustomed to reading EBNFs, the very first line here (the "file" line) states that a CSV "file":</p>
+
+<ul><li>optionally has a "header", which if used must be followed by a "lineSeparator"</li>
+<li>must have a "record"</li>
+<li>the first record may be followed by any number of "lineSeparator" plus "record" entries.</li>
+</ul>
+
+<p>The grammar shown here is slightly less restrictive than RFC4180 in that it allows any data (not just the CSV subset of US-ASCII) in the "textData". I'll also implement the parser so that different separators (including any string that contains no new line or double quote characters) can be used instead of commas. The implementation will also support Unix newlines or classic Mac carriage returns can be used instead of DOS "\r\n" line separators.</p>
+
+<h2>Design of the parser</h2>
+
+<p>The parser will be a form of <a href="http://en.wikipedia.org/wiki/Recursive_descent_parser">recursive descent parser</a>, which is the easiest way to implement most simple grammars like the one above. The idea is that we write a method for each line of the grammar. If any line contains a reference to another line, the implementation method will attempt to descend into the method for the referenced line.</p>
+
+<p>If you're accustomed to the lex/yacc school of thought and are curious to know if the approach will similarly split tokenizing and parsing into separate stages: yes, it will. Most of the tokenizing is done by <code>NSScanner</code> (although it presents each token as requested, not as a pre-prepared stream). The code we actually implement will predominantly deal with the parser/generator side.</p>
+
+<p>Initialization of the parser will be handled by the following method:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nf">initWithString:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">csvString</span>
+    <span class="nf">separator:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">separatorString</span>
+    <span class="nf">hasHeader:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">hasHeader</span>
+    <span class="nf">fieldNames:</span><span class="p">(</span><span class="n">NSArray</span> <span class="o">*</span><span class="p">)</span><span class="nv">fieldNames</span><span class="p">;</span></code></pre></div>
+
+<p>The structure of CSV files means that it is difficult to guess if the header line is actually present &mdash; so we need to tell the parser whether to look for it. An array of names for fields can be provided if there is no header (if no names are provided, they'll be given names with the format "FIELD_X").</p>
+
+<p>The parsing will be initiated by invoking either:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">NSArray</span> <span class="o">*</span><span class="p">)</span><span class="nf">arrayOfParsedRows</span><span class="p">;</span></code></pre></div>
+
+<p>where the result is an <code>NSArray</code> of <code>NSDictionary</code> objects or with:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">parseRowsForReceiver:</span><span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nv">receiver</span> <span class="nf">selector:</span><span class="p">(</span><span class="kt">SEL</span><span class="p">)</span><span class="nv">receiverSelector</span><span class="p">;</span></code></pre></div>
+
+<p>where the method <code>receiverSelector</code> must take a single <code>NSDictionary</code> parameter. This second method does not return the entire result but instead sends each row as it is parsed to the receiver. It is more efficient since it does not need to keep copies of all row data.</p>
+
+<h2>Parser methods</h2>
+
+<p>There are two types of parsing methods that we need to implement:</p>
+
+<ul><li>Structural methods which don't directly access the string (<code>parseFile</code>, <code>parseHeader</code>, <code>parseRecord</code>, <code>parseName</code>, <code>parseField</code>, <code>parseEscaped</code>, <code>parseNonEscaped</code>)</li>
+<li>Tokenizing methods which use <code>NSScanner</code> to access the string (<code>parseDoubleQuote</code>, <code>parseTwoDoubleQuotes</code>, <code>parseSeparator</code>, <code>parseLineSeparator</code>, <code>parseTextData</code>)</li></ul>
+
+<p>I'm not going to show all of them here (you can download the full code to see them) but I will show one of each type.</p>
+
+<p>The tokenizing methods are the easiest. All they do is invoke <code>NSScanner</code> methods.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nf">parseLineSeparator</span>
+<span class="p">{</span>
+    <span class="n">NSString</span> <span class="o">*</span><span class="n">matchedNewlines</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
+    <span class="p">[</span><span class="n">scanner</span>
+        <span class="nl">scanCharactersFromSet</span><span class="p">:[</span><span class="n">NSCharacterSet</span> <span class="n">newlineCharacterSet</span><span class="p">]</span>
+        <span class="nl">intoString</span><span class="p">:</span><span class="o">&amp;</span><span class="n">matchedNewlines</span><span class="p">];</span>
+    <span class="k">return</span> <span class="n">matchedNewlines</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The structural elements have a bit more to do but are still fairly simple. The "escaped" element in the grammar has the following structure:</p>
+
+<ul>doubleQuote {textData | separator | lineSeparator | twoDoubleQuotes} doubleQuote</ul>
+
+<p>This structure is directly reflected in its implementation &mdash; it starts and ends with a check for "doubleQuote" and loops over checks for "textData", "separator", "lineSeparator" or "twoDoubleQuotes" in the middle.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nf">parseEscaped</span>
+<span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="p">[</span><span class="nb">self</span> <span class="n">parseDoubleQuote</span><span class="p">])</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="nb">nil</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="n">NSString</span> <span class="o">*</span><span class="n">accumulatedData</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSString</span> <span class="n">string</span><span class="p">];</span>
+    <span class="k">while</span> <span class="p">(</span><span class="nb">YES</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">NSString</span> <span class="o">*</span><span class="n">fragment</span> <span class="o">=</span> <span class="p">[</span><span class="nb">self</span> <span class="n">parseTextData</span><span class="p">];</span>
+        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">fragment</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="n">fragment</span> <span class="o">=</span> <span class="p">[</span><span class="nb">self</span> <span class="n">parseSeparator</span><span class="p">];</span>
+            <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">fragment</span><span class="p">)</span>
+            <span class="p">{</span>
+                <span class="n">fragment</span> <span class="o">=</span> <span class="p">[</span><span class="nb">self</span> <span class="n">parseLineSeparator</span><span class="p">];</span>
+                <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">fragment</span><span class="p">)</span>
+                <span class="p">{</span>
+                    <span class="k">if</span> <span class="p">([</span><span class="nb">self</span> <span class="n">parseTwoDoubleQuotes</span><span class="p">])</span>
+                    <span class="p">{</span>
+                        <span class="n">fragment</span> <span class="o">=</span> <span class="s">@&#34;</span><span class="se">\&#34;</span><span class="s">&#34;</span><span class="p">;</span>
+                    <span class="p">}</span>
+                    <span class="k">else</span>
+                    <span class="p">{</span>
+                        <span class="k">break</span><span class="p">;</span>
+                    <span class="p">}</span>
+                <span class="p">}</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+        
+        <span class="n">accumulatedData</span> <span class="o">=</span> <span class="p">[</span><span class="n">accumulatedData</span> <span class="nl">stringByAppendingString</span><span class="p">:</span><span class="n">fragment</span><span class="p">];</span>
+    <span class="p">}</span>
+    
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="p">[</span><span class="nb">self</span> <span class="n">parseDoubleQuote</span><span class="p">])</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="nb">nil</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="k">return</span> <span class="n">accumulatedData</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>An interesting point to note is that most parsing stages return the text that they parse. However, when <code>parseTwoDoubleQuotes</code> is used, we instead append just one double quote character, since the two double quotes is actually an escape sequence representing one.</p>
+
+<h2>Lookaheads</h2>
+
+<p>The most annoying feature to implement in a recursive descent parser is a lookahead &mdash; this happens in the <code>parseTextData</code> method.</p>
+
+<p>Lookahead is required because of my choice to accept separator strings longer than a single character. This means that the "textData" element will end with any of:</p>
+
+<ul>
+<li>\r</li>
+<li>\n</li>
+<li>U+0085</li>
+<li>"</li>
+<li>the separator string</li></ul>
+
+<p>Unfortunately, <code>NSScanner</code> can't scan until it reaches one of these 5 elements. The best we can do is create a character set from the first four and the first character in the separator string and use <code>scanUpToCharactersFromSet:intoString:</code></p>
+
+<p>When scanning through text data, if we reach the first character of the separator string, we need to scan ahead and see if it is actually the whole separator string. The whole separator string will terminate the "textData" without being added, otherwise we backtrack and add the character to the existing "textData" and continue scanning.</p>
+
+<p>If <code>NSScanner</code> had a <code>scanUpToStringFromArray:intoString:</code> method, this lookahead could be avoided (or at least shifted out of our code and into <code>NSScanner</code>). But this method does not exist and it looked like too much work to efficiently implement as part of this post.</p>
+
+<h2>The sample program</h2>
+
+<p>The sample program that I've provided uses this parser to parse a 1.7 MB CSV file containing 16,081 Australian postcode entries, names and longitude/latitudes (data from <a href="http://www.sixfive.co.uk/index.cfm/2007/3/25/Geocoding-Australian-Postcodes">SixFive.co.uk</a>). As results are parsed, they are entered into a Core Data SQLite file.</p>
+
+<p>The whole process takes about 0.47 seconds on my Mac Pro with parsing taking 0.28 seconds of this time and Core Data object creation taking 0.19 seconds. I'm sure a more carefully coded parser could halve this time or better but it represents good performance for minimal effort.</p>
+
+<h2>Conclusion</h2>
+
+<blockquote>You can <a href="../../assets/objc-era/CSVImporter.zip">download the CSVParser class and CSVImporter sample project</a> (315kB).</blockquote>
+
+<p>The aim in this post was to present a complete, flexible CSV parser while making the code as easy to read as possible. I hope that it has shown how you can import data from unconventional formats into Cocoa-friendly formats easily while obeying the more minor quirks that many formats have.</p>
+
+<p>The type of parser presented here is a recursive descent parser. This is the easiest parser to implement for simple grammars. However, this is not how commercial parsers are written &mdash; larger parsers use generated action and goto tables to handle their branches instead of manually written methods and code. Have a look at the <a href="http://en.wikipedia.org/wiki/LR_parser">Wikipedia entry on LR parsers</a> for more on how this is done.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="performance-tests-replacing-core-data.html">Performance tests: Replacing Core Data Key Paths</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../12/there-garbage-collection-ninja-hiding.html">There&#39;s a Garbage Collection ninja hiding in the project templates</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

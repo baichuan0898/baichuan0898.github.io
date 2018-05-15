@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Random number generators in Swift</title>
+  <meta name="description" content="I present a few random number generators in Swift and investigate their quality versus performance. I also look at performance implementations and see if I can make a C algorithm run as fast as Swift." />
+
+  <meta name="twitter:title" content="Random number generators in Swift"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/blog/2016/05/19/random-numbers.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="I present a few random number generators in Swift and investigate their quality versus performance. I also look at performance implementations and see if I can make a C algorithm run as fast as Swift."/>
+
+  <link rel="icon" href="../../../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../../../css/main.css" />
+  <link rel="canonical" href="random-numbers.html" />
+
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML.js"></script>
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../../../index.html"><img class="heartandcup" src="../../../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../../../about/index.html">about</a>
+        <a class="page-link" href="../../../../archive/index.html">archive</a>
+        <a class="page-link" href="../../../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Random number generators in Swift</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2016-05-19">May 19, 2016</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../../../tags/swift.html">Swift</a>, <a href="../../../../tags/mathematics.html">mathematics</a>
+		 
+	</div>
+</header>
+
+
+<main role="main">
+	<article itemscope itemtype="http://schema.org/BlogPosting">
+		<div class="post-content" itemprop="articleBody">
+			
+
+<p>What&rsquo;s the best general purpose random number generating algorithm available?</p>
+
+<p>In this article I&rsquo;ll present a <code>RandomGenerator</code> protocol and use it to implement 8 different random number generating algorithms. Implementations will include wrappers around Mac/iOS built-in algorithms, my own implementations in Swift of some popular algorithms and some corresponding C implementations for comparison. The implementations of the <code>RandomGenerator</code> protocol all seed from /dev/urandom by default, can generate data of arbitrary size (although I&rsquo;ll focus on 64-bit integer generation) and offer conversion to <code>Double</code> (preserving up to 52-bits of randomness in the significand).</p>
+
+<p>As an aside, my Swift implementation of the Mersenne Twister ended up 20% faster than the official <a href="http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/VERSIONS/C-LANG/mt19937-64.c">mt19937-64.c</a> implementation. Curious to understand what I had done, I ended up &ldquo;fixing&rdquo; the C version to be just as fast as the Swift version. Yes, it&rsquo;s true: with a little tuning, C can be just as fast as Swift.</p>
+
+<p>Welcome to C with love.</p>
+
+<nav id="TableOfContents"><span class="toc-heading">Contents</span>
+<ul>
+<li>
+<ul>
+<li><a href="#use-case">Use case</a></li>
+<li><a href="#built-in-sources-of-randomness-on-mac-and-ios">Built-in sources of randomness on Mac and iOS</a>
+<ul>
+<li><a href="#dev-urandom">/dev/urandom</a></li>
+<li><a href="#the-allegedly-rc4-generator">The &ldquo;allegedly&rdquo; RC4 generator</a></li>
+</ul></li>
+<li><a href="#other-general-purpose-random-number-generators">Other general-purpose random number generators</a>
+<ul>
+<li><a href="#linear-feedback-shift-register">Linear feedback shift register</a></li>
+<li><a href="#mersenne-twister">Mersenne Twister</a></li>
+<li><a href="#xoroshiro">Xoroshiro</a></li>
+</ul></li>
+<li><a href="#implementations">Implementations</a></li>
+<li><a href="#performance">Performance</a></li>
+<li><a href="#mersennetwister-in-c-versus-swift">MersenneTwister in C versus Swift</a>
+<ul>
+<li><a href="#why">Why?</a></li>
+<li><a href="#what-happens-if-the-c-code-does-the-same-thing">What happens if the C code does the same thing?</a></li>
+</ul></li>
+<li><a href="#usage">Usage</a></li>
+<li><a href="#conclusion">Conclusion</a></li>
+</ul></li>
+</ul>
+</nav>
+
+<h2 id="use-case">Use case</h2>
+
+<p>My primary use for random numbers is in fuzz testing; deliberately sending mixed and garbled inputs to my functions (to look for data handling errors) or running large numbers of threads with different timing offsets and data sizes (to look for timing or thread-safety bugs).</p>
+
+<p>It&rsquo;s difficult to know exactly what performance or quality I require from random numbers in this scenario – most &ldquo;good quality&rdquo; options would probably suffice – but what I do require is:</p>
+
+<ul>
+<li>no shared global data (since I run multiple tests in parallel)</li>
+<li>the ability to set the initial seed (since I want to reproduce bugs when I find them)</li>
+</ul>
+
+<p>Historically, I&rsquo;ve used a C implementation of the Mersenne Twister. I don&rsquo;t have any particular problems with it but the algorithm is nearing its 20th birthday so I was curious to see what else was around.</p>
+
+<h2 id="built-in-sources-of-randomness-on-mac-and-ios">Built-in sources of randomness on Mac and iOS</h2>
+
+<p>The C standard library on the Mac and iOS contains a few different functions for random number generation:</p>
+
+<ol>
+<li><code>rand()</code></li>
+<li><code>random()</code></li>
+<li><code>[d|e|j|l|m]rand48()</code> et al</li>
+<li><code>arc4random()</code></li>
+<li>/dev/[u]random</li>
+</ol>
+
+<p>In iOS 10, macOS 10.12 and later, the first 3 are all &ldquo;unavailable&rdquo; in Swift, leaving us with just <code>arc4random()</code> and /dev/urandom as default sources of random numbers in Swift.</p>
+
+<h3 id="dev-urandom">/dev/urandom</h3>
+
+<p>If you need cryptographically secure random numbers, the <em>only</em> option you should consider is /dev/[u]random.</p>
+
+<p>On Mac and iOS, both /dev/random and /dev/urandom are identical and use the <a href="https://en.wikipedia.org/wiki/Yarrow_algorithm">Yarrow algorithm</a> in conjunction with bits accumulated from hardware entropy sources. The existence of two different names is largely for cross-compatibility with Linux where the different devices have historically had a complicated range of distinct security considerations with general advice leaning towards /dev/urandom. I&rsquo;ve used /dev/urandom to minimize portability problems.</p>
+
+<p>The problem is that reading from /dev/urandom is slow. In my testing, it is between 100 and 1000 times slower than other generators and uses additional system resources on top of the userspace resources of typical random number generators.</p>
+
+<p>The end result is that /dev/urandom, while useful for setting initial values, is a poor choice for a general-use random number generator.</p>
+
+<h3 id="the-allegedly-rc4-generator">The &ldquo;allegedly&rdquo; RC4 generator</h3>
+
+<p>The only &ldquo;general purpose&rdquo; random number generator available by default in Swift is <code>arc4random</code>. It is generally high quality but it is slow due to the use of large amounts of state, locks on the global data and periodic mixing of additional entropy from /dev/urandom.</p>
+
+<p>Like /dev/urandom, <code>arc4random</code> can&rsquo;t be seeded, so you can&rsquo;t regenerate previous sequences. This means that, while useful for <em>random</em> generation, it is harder to test and less useful for dynamically generated content, distributions or modelling.</p>
+
+<p>The &ldquo;arc4&rdquo; in the name is because the algorithm is <a href="https://en.wikipedia.org/wiki/RC4">&ldquo;allegedly&rdquo; compatible with the RC4 algorithm</a> developed by RSA Labs. Like the official RC4, <code>arc4random</code> was originally intended for use as a cryptographic random number generator. While the <code>arc4random</code> implementation in Mac/iOS doesn&rsquo;t suffer the same problems that made the RC4 implementation in WEP vulnerable to trivial attacks, the output of <code>arc4random</code> should be treated as no longer cryptographically secure.</p>
+
+<p>What does that mean?</p>
+
+<p><code>arc4random</code> provides good quality but is about 5 times slower than algorithms of equivalent quality. It uses global state and can&rsquo;t be directly seeded for debugging purposes or other situations requiring repeatability.</p>
+
+<h2 id="other-general-purpose-random-number-generators">Other general-purpose random number generators</h2>
+
+<p>I&rsquo;m going to look at some high quality, simple, fast random number generators, implement them in Swift and see how they compare.</p>
+
+<h3 id="linear-feedback-shift-register">Linear feedback shift register</h3>
+
+<p>A linear-feedback shift register (LFSR) is just a series of shift and XOR operations. <a href="https://en.wikipedia.org/wiki/Linear-feedback_shift_register">Wikipedia has a very clear animated GIF</a> of the operation generating a random sequence from a 4-bit number.</p>
+
+<p>By carefully selecting the feedback points, the shift amounts and combining multiple registers, you can get very long cycles, good distribution and low predicatability. Researcher Pierre L&rsquo;Ecuyer gives some tables of values for &ldquo;Tausworthe&rdquo; style linear-feedback shift register generators in his paper <a href="http://www.iro.umontreal.ca/~lecuyer/myftp/papers/tausme2.ps">Tables of Maximally-Equidistributed Combined LFSR Generators</a>.</p>
+
+<p>In the code I present as part of this article, I give two variants, <code>Lfsr176</code> and <code>Lfsr258</code> – with periods approximately equal to <math><msup><mi>2</mi><mrow><mn>176</mn></mrow></msup></math> and <math><msup><mi>2</mi><mrow><mn>258</mn></mrow></msup></math> respectively.</p>
+
+<h3 id="mersenne-twister">Mersenne Twister</h3>
+
+<p>The <a href="https://en.wikipedia.org/wiki/Mersenne_Twister">Mersenne Twister</a> was a huge advancement when it was introduced by M Matsumoto and T Nishimura in 1997 and it remains the random generator that newer non-cryptographic generators are compared against (the algorithm isn&rsquo;t cryptographic because you can observe just 624 values and from that point, predict the sequence).</p>
+
+<p>So the Mersenne Twister fails the &ldquo;unpredictable&rdquo; test but it is well tested, has a good distribution, very long period and is fairly fast. But there are some caveats.</p>
+
+<p>In a tight loop, the Mersenne Twister is within a factor of 2 of the fastest algorithms tested. However, the standard Mersenne Twister uses 2496 bytes of internal storage. That might not seem like a lot of space on a modern computer but it is big enough to put additional burden on your L1 cache.</p>
+
+<p>On the quality front: the Mersenne Twister has some known problems with entering &ldquo;zero&rdquo; states (situations where its internal state contains a large number of zeros and the generator gets &ldquo;stuck&rdquo;).</p>
+
+<h3 id="xoroshiro">Xoroshiro</h3>
+
+<p>There has been an academic contest in the last three years between Melissa O&rsquo;Neill (creator of <a href="http://www.pcg-random.org">PCG</a>) and Sebastiano Vigna (creator  of <a href="http://xoroshiro.di.unimi.it/xorshift128plus.c">xorshift+</a> and <a href="http://xoroshiro.di.unimi.it/xorshift1024star.c">xorshift*</a>). Both authors have relied on automated statistical quality tests to experiment with different variations on themes to find heavily refined versions of their respective approaches – O&rsquo;Neill applying block ciphers on top of linear congruential generators and Vigna performing variations on <a href="https://en.wikipedia.org/wiki/Xorshift">xorshift</a>.</p>
+
+<p>The latest release from Sebastiano Vigna (in collaboration with David Blackman) is <a href="http://xoroshiro.di.unimi.it/xoroshiro128plus.c">xoroshiro128plus</a> – a specialized linear-feedback shift register. Xoroshiro claims to be the fastest algorithm to fare well on the <a href="http://www.iro.umontreal.ca/~simardr/testu01/tu01.html">TestU01</a> set of quality tests for random number generators and claims to provide a better statistical distribution on the <a href="http://pracrand.sourceforge.net">PracRand</a> tests than previous xorshift algorithms.</p>
+
+<p>While the period of the generator is fairly low (<math><msup><mi>2</mi><mrow><mn>128</mn></mrow></msup></math>), it&rsquo;s easily high enough for any common purpose.</p>
+
+<h2 id="implementations">Implementations</h2>
+
+<p>I defined the following protocol and provided implementations of the protocol for each of the algorithms:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">public</span> <span class="kd">protocol</span> <span class="nc">RandomGenerator</span> <span class="p">{</span>
+   <span class="kd">public</span> <span class="kd">init</span><span class="p">()</span>
+   <span class="kr">mutating</span> <span class="kd">public</span> <span class="kd">func</span> <span class="nf">randomize</span><span class="p">(</span><span class="n">buffer</span><span class="p">:</span> <span class="nb">UnsafeMutablePointer</span><span class="p">&lt;</span><span class="nb">Void</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">size</span><span class="p">:</span> <span class="nb">Int</span><span class="p">)</span>
+   <span class="kr">mutating</span> <span class="kd">public</span> <span class="kd">func</span> <span class="nf">random64</span><span class="p">()</span> <span class="p">-&gt;</span> <span class="nb">UInt64</span>
+   <span class="kr">mutating</span> <span class="kd">public</span> <span class="kd">func</span> <span class="nf">random32</span><span class="p">()</span> <span class="p">-&gt;</span> <span class="nb">UInt32</span>
+
+   <span class="kr">mutating</span> <span class="kd">public</span> <span class="kd">func</span> <span class="nf">random64</span><span class="p">(</span><span class="bp">max</span><span class="p">:</span> <span class="nb">UInt64</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">UInt64</span>
+   <span class="kr">mutating</span> <span class="kd">public</span> <span class="kd">func</span> <span class="nf">random32</span><span class="p">(</span><span class="bp">max</span><span class="p">:</span> <span class="nb">UInt32</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">UInt32</span>
+
+   <span class="c1">/// Generates a double with a random 52 bit significand on the half open range [0, 1)</span>
+   <span class="kr">mutating</span> <span class="kd">public</span> <span class="kd">func</span> <span class="nf">randomHalfOpen</span><span class="p">()</span> <span class="p">-&gt;</span> <span class="nb">Double</span>
+
+   <span class="c1">/// Generates a double with a random 52 bit significand on the closed range [0, 1]</span>
+   <span class="kr">mutating</span> <span class="kd">public</span> <span class="kd">func</span> <span class="nf">randomClosed</span><span class="p">()</span> <span class="p">-&gt;</span> <span class="nb">Double</span>
+
+   <span class="c1">/// Generates a double with a random 51 bit significand on the open range (0, 1)</span>
+   <span class="kr">mutating</span> <span class="kd">public</span> <span class="kd">func</span> <span class="nf">randomOpen</span><span class="p">()</span> <span class="p">-&gt;</span> <span class="nb">Double</span>
+<span class="p">}</span></code></pre></div>
+
+<p>and a derived protocol:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">public</span> <span class="kd">protocol</span> <span class="nc">RandomWordGenerator</span><span class="p">:</span> <span class="n">RandomGenerator</span> <span class="p">{</span>
+   <span class="n">associatedtype</span> <span class="n">WordType</span>
+   <span class="kr">mutating</span> <span class="kd">func</span> <span class="nf">randomWord</span><span class="p">()</span> <span class="p">-&gt;</span> <span class="n">WordType</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The advantage with these protocols: a generator need only implement <code>randomize(_, size:)</code> or <code>randomWord()</code> and all the remaining functions are automatically provided (although I&rsquo;ve implemented optimized versions of <code>random64()</code> in all cases to ensure a fair comparison).</p>
+
+<p>The implementations are:</p>
+
+<ul>
+<li><code>Arc4Random</code> – 64 bit integers generated with <code>arc4random_buf</code></li>
+<li><code>DevRandom</code> – data read from /dev/urandom</li>
+<li><code>Lfsr176</code> – a 3 register linear-feedback shift register with period <math><msup><mi>2</mi><mrow><mn>176</mn></mrow></msup></math></li>
+<li><code>Lfsr258</code> – a 5 register linear-feedback shift register with period <math><msup><mi>2</mi><mrow><mn>258</mn></mrow></msup></math></li>
+<li><code>MersenneTwister</code> – a Swift implementation of MT19937_64</li>
+<li><code>MT19937_64</code> – the Mersenne Twister as generated by <a href="http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/VERSIONS/C-LANG/mt19937-64.c">mt19937-64.c</a> by Takuji Nishimura and Makoto Matsumoto.</li>
+<li><code>Xoroshiro</code> – 64-bit integers generated by this custom xor/shift generator</li>
+<li><code>xoroshiro128plus</code> – the <a href="http://xoroshiro.di.unimi.it/xoroshiro128plus.c">original C implementation of <code>Xoroshiro</code></a> by David Blackman and Sebastiano Vigna</li>
+</ul>
+
+<p>and</p>
+
+<ul>
+<li><code>ConstantNonRandom</code> – baseline that returns a constant 64-bit number</li>
+</ul>
+
+<h2 id="performance">Performance</h2>
+
+<p>All algorithms were used to generate 100 million 64-bit <code>UInt64</code> values. These are the timing results:</p>
+
+<table>
+<thead>
+<tr>
+<th align="right"></th>
+<th>Seconds</th>
+</tr>
+</thead>
+
+<tbody>
+<tr>
+<td align="right"><code>DevRandom</code></td>
+<td>113.250</td>
+</tr>
+
+<tr>
+<td align="right"><code>Arc4Random</code></td>
+<td>4.359</td>
+</tr>
+
+<tr>
+<td align="right"><code>Lfsr258</code></td>
+<td>0.717</td>
+</tr>
+
+<tr>
+<td align="right"><code>MT19937_64</code></td>
+<td>0.535</td>
+</tr>
+
+<tr>
+<td align="right"><code>MersenneTwister</code></td>
+<td>0.533</td>
+</tr>
+
+<tr>
+<td align="right"><code>Lfsr176</code></td>
+<td>0.498</td>
+</tr>
+
+<tr>
+<td align="right"><code>xoroshiro128plus</code></td>
+<td>0.352</td>
+</tr>
+
+<tr>
+<td align="right"><code>Xoroshiro</code></td>
+<td>0.347</td>
+</tr>
+
+<tr>
+<td align="right"><code>ConstantNonRandom</code></td>
+<td>0.211</td>
+</tr>
+</tbody>
+</table>
+
+<div class="caption">Time taken to generate 100 million 64-bit values</div>
+
+<p>Tests were performed on a 2.67Ghz Nehalem Mac Pro, using Swift 3.0. CwlRandom.swift was statically linked with the testing bundle (rather than dynamically linked through the CwlUtils.framework) for performance reasons. The <code>MT19937_64</code> and <code>xoroshiro128plus</code> implementations were implemented in the same file as the tests so the extra function call layer for these tests would be inlined away. The testing bundle was compiled with whole module optimization <em>off</em> to ensure they weren&rsquo;t optimized into the core loop.</p>
+
+<p>performance ranges from 300 million per second for <code>Xoroshiro</code> to 813 thousand per second for <code>DevRandom</code>.</p>
+
+<p>These numbers show the Swift version of <code>Xoroshiro</code> faster than <code>xoroshiro128plus</code> but from run to run, they trade places. Any difference between them is within the margin of error of this test setup.</p>
+
+<h2 id="mersennetwister-in-c-versus-swift">MersenneTwister in C versus Swift</h2>
+
+<p>So the Swift implementation of MersenneTwister ended up 20% faster than the <a href="http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/VERSIONS/C-LANG/mt19937-64.c">mt19937-64.c</a> C implementation. Hooray, Swift is the fastest!</p>
+
+<h3 id="why">Why?</h3>
+
+<p>The Mersenne Twister is made up of two parts:</p>
+
+<ol>
+<li>The &ldquo;xor-shift-mask&rdquo; steps performed on every iteration</li>
+<li>The &ldquo;twist&rdquo; steps performed every 312 iterations</li>
+</ol>
+
+<p>The &ldquo;xor-shift-mask&rdquo; has very little wiggle room. Here&rsquo;s the C implementation:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-c" data-lang="c"><span class="n">x</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">[</span><span class="n">ctx</span><span class="o">-&gt;</span><span class="n">index</span><span class="o">++</span><span class="p">];</span>
+<span class="n">x</span> <span class="o">^=</span> <span class="p">(</span><span class="n">x</span> <span class="o">&gt;&gt;</span> <span class="mi">29</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mh">0x5555555555555555ULL</span><span class="p">;</span>
+<span class="n">x</span> <span class="o">^=</span> <span class="p">(</span><span class="n">x</span> <span class="o">&lt;&lt;</span> <span class="mi">17</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mh">0x71D67FFFEDA60000ULL</span><span class="p">;</span>
+<span class="n">x</span> <span class="o">^=</span> <span class="p">(</span><span class="n">x</span> <span class="o">&lt;&lt;</span> <span class="mi">37</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mh">0xFFF7EEE000000000ULL</span><span class="p">;</span>
+<span class="n">x</span> <span class="o">^=</span> <span class="p">(</span><span class="n">x</span> <span class="o">&gt;&gt;</span> <span class="mi">43</span><span class="p">);</span>
+<span class="k">return</span> <span class="n">x</span><span class="p">;</span></code></pre></div>
+
+<p>There is a minor performance issue with this code but there&rsquo;s no <em>significant</em> room for refactoring here. The real difference between my Swift code and the C is in the &ldquo;twist&rdquo; steps.</p>
+
+<p>A simple Swift implementation of &ldquo;twist&rdquo; would look like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="k">for</span> <span class="n">i</span> <span class="k">in</span> <span class="mf">0.</span><span class="p">.&lt;</span><span class="n">stateCount</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">x</span> <span class="p">=</span> <span class="p">(</span><span class="n">state</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">upperMask</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">state</span><span class="p">[(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="n">stateCount</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">lowerMask</span><span class="p">)</span>
+   <span class="n">int</span> <span class="n">xA</span> <span class="p">=</span> <span class="p">(</span><span class="n">x</span> <span class="o">&amp;</span> <span class="mi">1</span> <span class="p">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">?</span> <span class="p">(</span><span class="n">x</span> <span class="o">&gt;&gt;</span> <span class="mi">1</span><span class="p">)</span> <span class="p">:</span> <span class="p">((</span><span class="n">x</span> <span class="o">&gt;&gt;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">^</span> <span class="mh">0xB5026F5AA96619E9</span><span class="p">)</span>
+   <span class="n">state</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="p">=</span> <span class="n">state</span><span class="p">[(</span><span class="n">i</span> <span class="o">+</span> <span class="p">(</span><span class="n">stateCount</span> <span class="o">/</span> <span class="mi">2</span><span class="p">))</span> <span class="o">%</span> <span class="n">stateCount</span><span class="p">]</span> <span class="o">^</span> <span class="n">xA</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This code would work but unfortunately, <code>%</code> is not a fast operation and at 100 million per second speeds, the ternary conditional operator <code>?:</code> is also too slow (don&rsquo;t worry about the <code>stateCount / 2</code> part, that&rsquo;s a constant and is optimized away). Avoiding these requires restructuring the loop so that they&rsquo;re not required.</p>
+
+<p>The mt19937-64.c implementation breaks the loop apart into two halves and follows up with an epilogue to handle the final position:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-c" data-lang="c"><span class="k">for</span> <span class="p">(</span><span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="p">(</span><span class="n">stateCount</span> <span class="o">/</span> <span class="mi">2</span><span class="p">);</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+   <span class="n">x</span> <span class="o">=</span> <span class="p">(</span><span class="n">ctx</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">upperMask</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">ctx</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">lowerMask</span><span class="p">);</span>
+   <span class="n">ctx</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="p">(</span><span class="n">stateCount</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)]</span> <span class="o">^</span> <span class="p">(</span><span class="n">x</span> <span class="o">&gt;&gt;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">^</span> <span class="n">mag01</span><span class="p">[</span><span class="n">x</span> <span class="o">&amp;</span> <span class="mi">1</span><span class="p">];</span>
+<span class="p">}</span>
+<span class="k">for</span> <span class="p">(;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">stateCount</span> <span class="o">-</span> <span class="mi">1</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+   <span class="n">x</span> <span class="o">=</span> <span class="p">(</span><span class="n">ctx</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">upperMask</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">ctx</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">lowerMask</span><span class="p">);</span>
+   <span class="n">ctx</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">[</span><span class="n">i</span> <span class="o">-</span> <span class="p">(</span><span class="n">stateCount</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)]</span> <span class="o">^</span> <span class="p">(</span><span class="n">x</span> <span class="o">&gt;&gt;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">^</span> <span class="n">mag01</span><span class="p">[</span><span class="n">x</span> <span class="o">&amp;</span> <span class="mi">1</span><span class="p">];</span>
+<span class="p">}</span>
+<span class="n">x</span> <span class="o">=</span> <span class="p">(</span><span class="n">ctx</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">[</span><span class="n">stateCount</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">upperMask</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">ctx</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">lowerMask</span><span class="p">);</span>
+<span class="n">ctx</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">[</span><span class="n">stateCount</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">[(</span><span class="n">stateCount</span> <span class="o">/</span> <span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">^</span> <span class="p">(</span><span class="n">x</span> <span class="o">&gt;&gt;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">^</span> <span class="n">mag01</span><span class="p">[</span><span class="n">x</span> <span class="o">&amp;</span> <span class="mi">1</span><span class="p">];</span></code></pre></div>
+
+<p><em>(I&rsquo;ve renamed the variables and reformatted this to look more like my Swift code, to aid comparison.)</em></p>
+
+<p>This code contains no division or modulo (remember: the <code>stateCount / 2</code> is a constant and optimized away) and no conditionals or ternary operators (except the loops themselves). But there&rsquo;s a weird <code>mag01</code> array (which is <code>0</code> at index 0 and <code>0xB5026F5AA96619E9</code> at index 1) and worse: the <code>ctx-&gt;state</code> is fully iterated multiple times since the <code>ctx-&gt;state[i + (stateCount / 2)]</code> and <code>ctx-&gt;state[i - (stateCount / 2)]</code> accesses each walk the values from the <em>other</em> loop.</p>
+
+<p>I took a different approach to optimize the &ldquo;twist&rdquo; code for my implementation. My code walks both halves of the loop simultaneously, using two different indexes, offset by <code>stateCount / 2</code>:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">let</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="n">mid</span><span class="p">,</span> <span class="n">stateMid</span><span class="p">)</span> <span class="p">=</span> <span class="p">(</span><span class="mh">0xB5026F5AA96619E9</span><span class="p">,</span> <span class="n">stateCount</span> <span class="o">/</span> <span class="mi">2</span><span class="p">,</span> <span class="n">state</span><span class="p">[</span><span class="n">stateCount</span> <span class="o">/</span> <span class="mi">2</span><span class="p">])</span>
+<span class="kd">var</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span> <span class="p">=</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">mid</span><span class="p">)</span>
+<span class="k">repeat</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">x1</span> <span class="p">=</span> <span class="p">(</span><span class="n">state</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">upperMask</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">state</span><span class="p">[</span><span class="n">i</span> <span class="o">&amp;+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">lowerMask</span><span class="p">)</span>
+   <span class="n">state</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="p">=</span> <span class="n">state</span><span class="p">[</span><span class="n">i</span> <span class="o">&amp;+</span> <span class="n">mid</span><span class="p">]</span> <span class="o">^</span> <span class="p">(</span><span class="n">x1</span> <span class="o">&gt;&gt;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">^</span> <span class="p">((</span><span class="n">state</span><span class="p">[</span><span class="n">i</span> <span class="o">&amp;+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">&amp;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&amp;*</span> <span class="n">a</span><span class="p">)</span>
+   <span class="kd">let</span> <span class="nv">x2</span> <span class="p">=</span> <span class="p">(</span><span class="n">state</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">upperMask</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">state</span><span class="p">[</span><span class="n">j</span> <span class="o">&amp;+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">lowerMask</span><span class="p">)</span>
+   <span class="n">state</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="p">=</span> <span class="n">state</span><span class="p">[</span><span class="n">j</span> <span class="o">&amp;-</span> <span class="n">mid</span><span class="p">]</span> <span class="o">^</span> <span class="p">(</span><span class="n">x2</span> <span class="o">&gt;&gt;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">^</span> <span class="p">((</span><span class="n">state</span><span class="p">[</span><span class="n">j</span> <span class="o">&amp;+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">&amp;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&amp;*</span> <span class="n">a</span><span class="p">)</span>
+   <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">)</span> <span class="p">=</span> <span class="p">(</span><span class="n">i</span> <span class="o">&amp;+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">j</span> <span class="o">&amp;+</span> <span class="mi">1</span><span class="p">)</span>
+<span class="p">}</span> <span class="k">while</span> <span class="n">i</span> <span class="o">!=</span> <span class="n">mid</span> <span class="o">&amp;-</span> <span class="mi">1</span>
+
+<span class="kd">let</span> <span class="nv">x3</span> <span class="p">=</span> <span class="p">(</span><span class="n">state</span><span class="p">[</span><span class="n">mid</span> <span class="o">&amp;-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">upperMask</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">stateMid</span> <span class="o">&amp;</span> <span class="n">lowerMask</span><span class="p">)</span>
+<span class="n">state</span><span class="p">[</span><span class="n">mid</span> <span class="o">&amp;-</span> <span class="mi">1</span><span class="p">]</span> <span class="p">=</span> <span class="n">state</span><span class="p">[</span><span class="n">stateCount</span> <span class="o">&amp;-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">^</span> <span class="p">(</span><span class="n">x3</span> <span class="o">&gt;&gt;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">^</span> <span class="p">((</span><span class="n">stateMid</span> <span class="o">&amp;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&amp;*</span> <span class="n">a</span><span class="p">)</span>
+<span class="kd">let</span> <span class="nv">x4</span> <span class="p">=</span> <span class="p">(</span><span class="n">state</span><span class="p">[</span><span class="n">stateCount</span> <span class="o">&amp;-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">upperMask</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">state</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">lowerMask</span><span class="p">)</span>
+<span class="n">state</span><span class="p">[</span><span class="n">stateCount</span> <span class="o">&amp;-</span> <span class="mi">1</span><span class="p">]</span> <span class="p">=</span> <span class="n">state</span><span class="p">[</span><span class="n">mid</span> <span class="o">&amp;-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">^</span> <span class="p">(</span><span class="n">x4</span> <span class="o">&gt;&gt;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">^</span> <span class="p">((</span><span class="n">state</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&amp;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">&amp;*</span> <span class="n">a</span><span class="p">)</span></code></pre></div>
+
+<p>The epilogue needs to handle <em>two</em> indexes but the <code>state</code> array is only traversed once, we&rsquo;re hitting <em>half</em> as many loop conditions and a simple multiply by <code>0</code> or <code>1</code> (optimized to bitwise arithmetic) is used to eliminate the ternary operator conditional.</p>
+
+<p>If there were no other elements at play, this alone would improve performance 7% versus the mt19937-64.c implementation.</p>
+
+<p>But there&rsquo;s another advantage: with these two iterations (using the <code>i</code> index and the <code>j</code> index) side-by-side in the same loop, the compiler can automatically optimize to SIMD instructions to give us an extra 10% boost.</p>
+
+<p>There&rsquo;s another 3% performance difference but to understand that, we&rsquo;ll need to make the C and Swift code more similar.</p>
+
+<h3 id="what-happens-if-the-c-code-does-the-same-thing">What happens if the C code does the same thing?</h3>
+
+<p>Swift is faster but it&rsquo;s not an apples-to-apples comparison. Is it possible to make a true comparison? Where both C and Swift follow the same logic?</p>
+
+<p>Let&rsquo;s try changing the C code to:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-c" data-lang="c"><span class="k">for</span> <span class="p">(</span><span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">j</span> <span class="o">=</span> <span class="n">mid</span><span class="p">;</span> <span class="n">i</span> <span class="o">!=</span> <span class="n">mid</span> <span class="o">-</span> <span class="mi">1</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">,</span> <span class="n">j</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+   <span class="n">x</span> <span class="o">=</span> <span class="p">(</span><span class="n">ctx</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">upperMask</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">ctx</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">lowerMask</span><span class="p">);</span>
+   <span class="n">ctx</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="n">mid</span><span class="p">]</span> <span class="o">^</span> <span class="p">(</span><span class="n">x</span> <span class="o">&gt;&gt;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">^</span> <span class="p">((</span><span class="n">ctx</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">&amp;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">a</span><span class="p">);</span>
+   <span class="n">y</span> <span class="o">=</span> <span class="p">(</span><span class="n">ctx</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">upperMask</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">ctx</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">lowerMask</span><span class="p">);</span>
+   <span class="n">ctx</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">[</span><span class="n">j</span> <span class="o">-</span> <span class="n">mid</span><span class="p">]</span> <span class="o">^</span> <span class="p">(</span><span class="n">y</span> <span class="o">&gt;&gt;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">^</span> <span class="p">((</span><span class="n">ctx</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">&amp;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">a</span><span class="p">);</span>
+<span class="p">}</span>
+<span class="n">x</span> <span class="o">=</span> <span class="p">(</span><span class="n">ctx</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">[</span><span class="n">mid</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">upperMask</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">stateMid</span> <span class="o">&amp;</span> <span class="n">lowerMask</span><span class="p">);</span>
+<span class="n">ctx</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">[</span><span class="n">mid</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">[</span><span class="n">stateCount</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">^</span> <span class="p">(</span><span class="n">x</span> <span class="o">&gt;&gt;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">^</span> <span class="p">((</span><span class="n">stateMid</span> <span class="o">&amp;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">a</span><span class="p">);</span>
+<span class="n">y</span> <span class="o">=</span> <span class="p">(</span><span class="n">ctx</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">[</span><span class="n">stateCount</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">upperMask</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">ctx</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&amp;</span> <span class="n">lowerMask</span><span class="p">);</span>
+<span class="n">ctx</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">[</span><span class="n">stateCount</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">[</span><span class="n">mid</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span> <span class="o">^</span> <span class="p">(</span><span class="n">y</span> <span class="o">&gt;&gt;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">^</span> <span class="p">((</span><span class="n">ctx</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&amp;</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">a</span><span class="p">);</span></code></pre></div>
+
+<p>As expected, this brings the C to within 3% of Swift.</p>
+
+<p>So what&rsquo;s the cause of the remaining difference?</p>
+
+<p>At this point, the only differences are a few <code>int</code> types in C that are <code>Int</code> in Swift. We need to move the C code to a more consistent 64-bit everywhere with <code>unsigned long long</code> instead of <code>int</code>.</p>
+
+<p>The remaining difference? The use of the postincrement operator I showed in the first line of the C &ldquo;xor-shift-mask&rdquo; code. We need to change:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-c" data-lang="c"><span class="n">x</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">[</span><span class="n">ctx</span><span class="o">-&gt;</span><span class="n">index</span><span class="o">++</span><span class="p">];</span></code></pre></div>
+
+<p>to</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-c" data-lang="c"><span class="n">x</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">[</span><span class="n">ctx</span><span class="o">-&gt;</span><span class="n">index</span><span class="p">];</span>
+<span class="n">ctx</span><span class="o">-&gt;</span><span class="n">index</span> <span class="o">=</span> <span class="n">ctx</span><span class="o">-&gt;</span><span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="p">;</span></code></pre></div>
+
+<p>It might seem like this shouldn&rsquo;t make any difference but it does affect the generated assembly and appears to result in a 1-2% difference.</p>
+
+<p>Both the C and Swift are now the same. I don&rsquo;t just mean &ldquo;they take the same time&rdquo;, I mean <strong>they are compiled to literally the same instructions</strong>.</p>
+
+<p>Hooray, C is also the fastest!</p>
+
+<h2 id="usage">Usage</h2>
+
+<blockquote>
+<p>The project containing these <code>RandomGenerator</code> implementations is available on github: <a href="https://github.com/mattgallagher/CwlUtils">mattgallagher/CwlUtils</a>.</p>
+</blockquote>
+
+<p>The <a href="https://github.com/mattgallagher/CwlUtils/blob/master/Sources/CwlUtils/CwlRandom.swift?ts=3">CwlRandom.swift</a> file is fully self-contained so you can just copy the file, if that&rsquo;s all you need.</p>
+
+<p>Otherwise, the <a href="https://github.com/mattgallagher/CwlUtils/blob/master/README.md">ReadMe.md file for the project</a> contains detailed information on cloning the whole repository and adding the framework it produces to your own projects.</p>
+
+<p>The <a href="https://github.com/mattgallagher/CwlUtils/blob/master/Sources/CwlUtilsTests/mt19937-64.c">mt19937-64.c</a> file contains my changes to the Takuji Nishimura and Makoto Matsumoto file of the same name. You&rsquo;re welcome to use this in your own C projects, if desired.</p>
+
+<blockquote>
+<p><strong>License note</strong>: the <a href="https://github.com/mattgallagher/CwlUtils/blob/master/Sources/CwlUtilsTests/mt19937-64.c">mt19937-64.c file</a> is &ldquo;Copyright &copy; 2004, Makoto Matsumoto and Takuji Nishimura&rdquo; and contains its own BSD 3-clause license however, this file is <em>not</em> built into the CwlUtils.framework, it is used only by the testing bundle for validation and performance testing.</p>
+</blockquote>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>It looks like Xoroshiro is the best general purpose algorithm currently available. Low memory (just 128 bits of storage), extremely high performance (1.2 nanoseconds per 64-bit number, after subtracting baseline overheads) and very well distributed (beating other algorithms on a range of automated tests). Mersenne Twister might still be a better choice for highly conservative projects unwilling to switch to such a new algorithm, but the current generation of statistically tested algorithms brings a baseline of assurance from the outset that previous generations lacked.</p>
+
+<p>Of course, if you only need a few random numbers in your program and you don&rsquo;t really care about multithreading or repeatability then these alternative algorithms are unnecessary – there&rsquo;s no problem with the built-in <code>arc4random</code> or even reading from /dev/urandom (you could generate hundreds of numbers from /dev/urandom per second without overheads reaching 1%). However, the <code>RandomGenerator</code> protocol I&rsquo;ve presented makes it easier to seed and generate 64-bit values or <code>Double</code> from these sources too.</p>
+
+<p>Getting C-level performance in Swift for numerical algorithms is quirky but not particularly difficult. If you limit yourself to value types (no classes or existentials), use unsafe pointers and tuples instead of arrays, use overflow discarding operators <code>&amp;+</code>/<code>&amp;-</code>/<code>&amp;*</code> instead of normal <code>+</code>/<code>-</code>/<code>*</code>, use <code>while</code> or <code>repeat/while</code> for your loops, then Swift and clang C will generally compile to identical instructions.</p>
+
+<p>It&rsquo;s not as though C is maximally performant without a little contortion. Using <code>int</code> types for indexes on 64-bit systems should be avoided and so should common idioms like inline use of the <code>++</code> postincrement operator.</p>
+
+		</div>
+	</article>
+</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../01/swift-name-demangling.html">Comparing Swift to C&#43;&#43; for parsing</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../../06/02/threads-and-mutexes.html">Mutexes and closure capture in Swift</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../../../feed.json">JSON</a>, <a href="../../../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

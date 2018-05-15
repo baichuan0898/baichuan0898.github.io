@@ -1,0 +1,164 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<!--
+Local Variables:
+sgml-default-dtd-file: "~/html-loose.ced"
+End:
+-->
+<html>
+  <head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+
+    <title>Hamster Emporium: [objc explain]: Exceptions and autorelease pools</title>
+    <link title="RSS 2.0" href="../../../../rss.xml.rss" type="application/rss+xml" rel="alternate">
+  </head>
+  <body bgcolor="#ffffff">
+    <table cellpadding="0" cellspacing="0">
+      <tr>
+	  <td valign="top" align="left">
+	    <a href="../../../../index.html"><img src="http://www.sealiesoftware.com/hamster.jpg" alt="" width="108" height="160"></a><br><br>
+	    <b>blog</b><br>
+	    <a href="../../../../index.html">recent</a><br>
+	    <a href="../../../index.html">archive</a><br>
+	    <a href="http://twitter.com/gparker">twitter</a><br>
+	    <br>
+	    <b>projects</b><br>
+	    <a href="http://www.apple.com/macosx/">Mac OS X</a><br>
+	    <a href="http://www.sealiesoftware.com/keyboard/index.html">Keyboard</a><br>
+	     &nbsp; <a href="http://www.sealiesoftware.com/keyboard/index.html">backlight</a><br>
+	    <a href="http://www.sealiesoftware.com/cscmenu/index.html">CSC Menu</a><br>
+	    <a href="http://www.sealiesoftware.com/valgrind/index.html">Valgrind</a><br>
+	    <a href="http://www.sealiesoftware.com/fringe/index.html">Fringe Player</a><br>
+	    <a href="http://www.sealiesoftware.com/pssh/index.html">pssh</a><br>
+	    <a href="http://www.sealiesoftware.com/peal/index.html">Peal</a><br>
+	    <a href="http://www.sealiesoftware.com/frankenmouse/index.html">Frankenmouse</a><br>
+	    <br>
+	  </td>
+	  <td>
+	    &nbsp; &nbsp;
+	  </td>
+	  <td valign="top">
+	      <h2>Hamster Emporium archive</h2>
+  <p>
+     &lt;&lt; &nbsp; <a href="../22/objc_explain_So_you_crashed_in_objc_msgSend.html">[objc explain]: So you crashed in objc_msgSend()</a> &nbsp; | &nbsp;  
+    <a href="../../../index.html">archive</a>
+     &nbsp; | &nbsp; <a href="../../../2007/4/21/objc_explain_return_value_of_message_to_nil.html">[objc explain]: return value of message to nil</a> &nbsp; &gt;&gt; 
+  </p>
+  <table cellpadding="0" cellspacing="3">
+      <tr>
+	<td>
+	  <a href="objc_explain_Exceptions_and_autorelease_pools.html"><img src="http://www.sealiesoftware.com/link.gif" width="14" height="16" border="0" alt="(link)"></a>
+	</td>
+	<td>
+	  <b><font size="+1">[objc explain]: Exceptions and autorelease pools</font></b> &nbsp; 
+	  <font size="-1">(<a href="objc_explain_Exceptions_and_autorelease_pools.html">2008-09-16 2:45 PM</a>)</font>
+	</td>
+      </tr>
+      <tr>
+	<td>
+	  &nbsp;
+	</td>
+	<td>
+	        <p>
+	Autorelease pools are automatically cleaned up after
+	exceptions. If you want to write exception-safe code, then
+	autorelease pools are a useful tool. 
+      </p>
+      <p>
+	Exception objects themselves should be
+	autoreleased. <code>+[NSException exceptionWithName:...]</code>
+	and <code>+[NSException raise:...]</code> do this for you.
+      </p>
+      <p>
+	Autorelease pools can help make your other memory
+	exception-safe. These two patterns will correctly free memory even
+	if an exception is thrown. (With GC you have a third option - do
+	nothing - but these two also work there.)
+      </p>
+      <p>
+	<pre>
+    id obj = [[[MyClass alloc] init] autorelease];
+    CodeThatMightThrow();
+	</pre>
+      </p>
+      <p>
+	<pre>
+    id obj = [[MyClass alloc] init];
+    @try {
+        CodeThatMightThrow();
+    } @finally {
+        [obj release];
+    }
+	</pre>
+      </p>
+      <p>
+	The <code>-autorelease</code> version works like this. Autorelease
+	pools form a 
+	stack. The current autorelease pool is the top of that stack. If
+	you call <code>[pool drain]</code> on an autorelease pool that is
+	not the 
+	current pool, then your pool <i>and every more recent pool after 
+	  it</i> is destroyed.
+      </p>
+      <p>
+	When an exception unwinds the stack, some <code>-drain</code>
+	calls are skipped. But 
+	those pools don't leak. Eventually the exception is caught, inside
+	the scope of some pool. When the <code>[pool drain]</code> for
+	that pool is 
+	reached, the other pools bypassed by the exception are also
+	destroyed.
+      </p>
+      <p>
+	If you write your own processing loop with an autorelease pool and an
+	exception handler, be sure to delete your pool after you catch and
+	handle an exception. Otherwise the bypassed pools won't be
+	destroyed until you return to the next autorelease pool out, if
+	any.
+      </p>
+      <p>
+	If you write <code>@catch</code> or <code>@finally</code>
+	handlers, don't drain your local 
+	autorelease pool inside the handler. The exception object might be
+	in that pool (or another pool inside that), and you don't want to
+	delete it yet. Instead, just abandon your pool and let the next
+	pool out take care of it. (You're free to create and destroy a new
+	pool inside <code>@catch</code> or <code>@finally</code>; just
+	don't drain any pool that was 
+	created before.)
+      </p>
+      <p>
+	In other words, don't do this:
+	<pre>
+   NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+   @try {
+       // stuff
+   } @finally {
+       [pool drain];  WRONG
+   }
+	</pre>
+	Do this instead:
+	<pre>
+   NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+   @try {
+       // stuff
+   } @finally {
+       // cleanup things other than pool itself
+   }
+   [pool drain];
+	</pre>
+      </p>
+
+	  </td>
+      </tr>
+  </table>
+
+	  </td>
+	</tr>
+    </table>
+    <hr>
+    <img align="right" src="http://www.sealiesoftware.com/sealie.gif" alt="seal!" width="114" height="69">
+    Greg Parker<br>
+    <a href="mailto:gparker-www@sealiesoftware.com">gparker-www@sealiesoftware.com</a><br>
+    <a href="http://www.sealiesoftware.com/index.html">Sealie Software</a>
+  </body>
+</html>

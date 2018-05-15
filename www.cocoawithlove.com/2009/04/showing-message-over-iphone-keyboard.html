@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Showing a &#34;Loading...&#34; message over the iPhone  keyboard</title>
+  <meta name="description" content="The &#34;Text&#34; (SMS) application on the iPhone uses a custom, semi-transparent view to show its &#34;Sending...&#34; message over the keyboard. I&#39;ll show you a simple class that can display semi-transparent loading messages and how you can display messages over the keyboard." />
+
+  <meta name="twitter:title" content="Showing a &#34;Loading...&#34; message over the iPhone  keyboard"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/04/showing-message-over-iphone-keyboard.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="The &#34;Text&#34; (SMS) application on the iPhone uses a custom, semi-transparent view to show its &#34;Sending...&#34; message over the keyboard. I&#39;ll show you a simple class that can display semi-transparent loading messages and how you can display messages over the keyboard."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="showing-message-over-iphone-keyboard.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Showing a &#34;Loading...&#34; message over the iPhone  keyboard</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-04-12">April 12, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/uikit.html">UIKit</a>, <a href="../../categories/coregraphics.html">CoreGraphics</a>, <a href="../../categories/cocoa-touch.html">Cocoa Touch</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>The "Text" (SMS) application on the iPhone uses a custom, semi-transparent view to show its "Sending..." message over the keyboard. I'll show you a simple class that can display semi-transparent loading messages and how you can display messages over the keyboard.</p></span>
+
+<span class="fullpost">
+<h2>Introduction</h2>
+<h3>"Loading..." messages</h3>
+<p>When waiting for data loaded from the internet, many iPhone applications use a mostly black, semi-transparent view to block the display. Most use a basic "spinner" (<code>UIActivityIndicatorView</code>) to reassure the user that the application is still running, frequently accompanied by "Loading..." text.</p>
+
+<p>Despite the prevalence of this type of loading message, it is not a standard control and must be constructed manually.</p>
+
+<h3>Finding the keyboard</h3>
+
+<p>Apple give no methods to locate the keyboard or even the current first responder in an iPhone application. I'll show you how you can find both.</p>
+
+<h3>The sample application</h3>
+
+<p>The sample LoadingView application in this post can display the following two types of loading window:</p>
+
+<img src="../../assets/objc-era/loadingview.png" width="529" height="384" />
+
+<p style="text-align:center;"><em>A full-window loading message and a keyboard-only loading message.</em></p>
+
+<p>The sample application doesn't actually load anything. The "Refresh" button displays the full-window loading message for 5 seconds and the text field lets you enter some text and hit "Send" to see the keyboard-only loading message for 5 seconds.</p>
+
+<h2>Displaying a loading view</h2>
+
+<p>A loading view is not the most complicated piece of custom user-interface but there are a handful of common behaviors it should implement so it is a good idea to have a reusable class for the purpose.</p>
+
+<p>The behaviors in my loading view include:</p>
+
+<ul>
+<li>Always fill the whole view that it blocks (even though it <em>looks</em> inset on all sides for aesthetic reasons).</li>
+<li>Fade in and fade out when added and removed.</li>
+<li>Semi-transparent, allowing the unloaded view to show through.</li>
+<li>Autoresizeable so that a portrait to landscape rotation during loading won't disrupt the display.</li>
+<li>Displays a centered status message and activity indicator.</li>
+</ul>
+
+<p>To ensure that these behaviors are applied to the view on construction, I use a <code>loadingViewInView:</code> method instead of a normal constructor. This method constructs, adds to superview and handles the fade animation all at once.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">+</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nf">loadingViewInView:</span><span class="p">(</span><span class="n">UIView</span> <span class="o">*</span><span class="p">)</span><span class="nv">aSuperview</span>
+<span class="p">{</span>
+    <span class="n">LoadingView</span> <span class="o">*</span><span class="n">loadingView</span> <span class="o">=</span>
+        <span class="p">[[[</span><span class="n">LoadingView</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithFrame</span><span class="p">:[</span><span class="n">aSuperview</span> <span class="n">bounds</span><span class="p">]]</span> <span class="n">autorelease</span><span class="p">];</span>
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">loadingView</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="nb">nil</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="n">loadingView</span><span class="p">.</span><span class="n">opaque</span> <span class="o">=</span> <span class="nb">NO</span><span class="p">;</span>
+    <span class="n">loadingView</span><span class="p">.</span><span class="n">autoresizingMask</span> <span class="o">=</span>
+        <span class="n">UIViewAutoresizingFlexibleWidth</span> <span class="o">|</span>
+        <span class="n">UIViewAutoresizingFlexibleHeight</span><span class="p">;</span>
+    <span class="p">[</span><span class="n">aSuperview</span> <span class="nl">addSubview</span><span class="p">:</span><span class="n">loadingView</span><span class="p">];</span>
+
+    <span class="c1">// Code to create and configure the label and activity view goes here.
+</span><span class="c1"></span>    <span class="c1">// Download the sample project to see it.
+</span><span class="c1"></span>
+    <span class="c1">// Set up the fade-in animation
+</span><span class="c1"></span>    <span class="n">CATransition</span> <span class="o">*</span><span class="n">animation</span> <span class="o">=</span> <span class="p">[</span><span class="n">CATransition</span> <span class="n">animation</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">animation</span> <span class="nl">setType</span><span class="p">:</span><span class="n">kCATransitionFade</span><span class="p">];</span>
+    <span class="p">[[</span><span class="n">aSuperview</span> <span class="n">layer</span><span class="p">]</span> <span class="nl">addAnimation</span><span class="p">:</span><span class="n">animation</span> <span class="nl">forKey</span><span class="p">:</span><span class="s">@&#34;layerAnimation&#34;</span><span class="p">];</span>
+    
+    <span class="k">return</span> <span class="n">loadingView</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>All that's required to make it look semi-transparent is a custom drawing method.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">drawRect:</span><span class="p">(</span><span class="n">CGRect</span><span class="p">)</span><span class="nv">rect</span>
+<span class="p">{</span>
+    <span class="n">rect</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span> <span class="o">-=</span> <span class="mi">1</span><span class="p">;</span>
+    <span class="n">rect</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">width</span> <span class="o">-=</span> <span class="mi">1</span><span class="p">;</span>
+    
+    <span class="k">const</span> <span class="n">CGFloat</span> <span class="n">RECT_PADDING</span> <span class="o">=</span> <span class="mf">8.0</span><span class="p">;</span>
+    <span class="n">rect</span> <span class="o">=</span> <span class="n">CGRectInset</span><span class="p">(</span><span class="n">rect</span><span class="p">,</span> <span class="n">RECT_PADDING</span><span class="p">,</span> <span class="n">RECT_PADDING</span><span class="p">);</span>
+    
+    <span class="k">const</span> <span class="n">CGFloat</span> <span class="n">ROUND_RECT_CORNER_RADIUS</span> <span class="o">=</span> <span class="mf">5.0</span><span class="p">;</span>
+    <span class="n">CGPathRef</span> <span class="n">roundRectPath</span> <span class="o">=</span>
+        <span class="n">NewPathWithRoundRect</span><span class="p">(</span><span class="n">rect</span><span class="p">,</span> <span class="n">ROUND_RECT_CORNER_RADIUS</span><span class="p">);</span>
+    
+    <span class="n">CGContextRef</span> <span class="n">context</span> <span class="o">=</span> <span class="n">UIGraphicsGetCurrentContext</span><span class="p">();</span>
+
+    <span class="k">const</span> <span class="n">CGFloat</span> <span class="n">BACKGROUND_OPACITY</span> <span class="o">=</span> <span class="mf">0.85</span><span class="p">;</span>
+    <span class="n">CGContextSetRGBFillColor</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">BACKGROUND_OPACITY</span><span class="p">);</span>
+    <span class="n">CGContextAddPath</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">roundRectPath</span><span class="p">);</span>
+    <span class="n">CGContextFillPath</span><span class="p">(</span><span class="n">context</span><span class="p">);</span>
+
+    <span class="k">const</span> <span class="n">CGFloat</span> <span class="n">STROKE_OPACITY</span> <span class="o">=</span> <span class="mf">0.25</span><span class="p">;</span>
+    <span class="n">CGContextSetRGBStrokeColor</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">STROKE_OPACITY</span><span class="p">);</span>
+    <span class="n">CGContextAddPath</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">roundRectPath</span><span class="p">);</span>
+    <span class="n">CGContextStrokePath</span><span class="p">(</span><span class="n">context</span><span class="p">);</span>
+
+    <span class="n">CGPathRelease</span><span class="p">(</span><span class="n">roundRectPath</span><span class="p">);</span>
+<span class="p">}</span></code></pre></div>
+
+<h2>Round Rects are Everywhere!</h2>
+
+<p>I continue to find it strange that Apple don't provide a function to draw a round rectangle in one line. They do provide the (more flexible) <code>CGPathAddArcToPoint</code> function but it lacks the simplicity of a single line function to handle the common case. Download the project and see how the implementation of <code>NewPathWithRoundRect</code> creates round rects using the <code>CGPathAddArcToPoint</code> function if you don't know how to draw round rects on the iPhone.</p>
+
+<p>The absence of a round rectangle function is particularly strange given the <a href="http://www.folklore.org/StoryView.py?project=Macintosh&amp;story=Round_Rects_Are_Everywhere.txt&amp;sortOrder=Sort%20by%20Date&amp;detail=medium&amp;search=round%20rects">anecdote that Andy Hertzfeld relates on folklore.org</a> and in his excellent book <a href="http://oreilly.com/catalog/9780596007195/">Revolution in the Valley</a>. In this anecdote, Steve Jobs drags Bill Atkinson on a walk around the block with Steve pointing out how everything is made of round rects until Bill relents and agrees to put the <code>RoundRect</code> function into Quickdraw.</p>
+
+<p>Round rectangles continue to be everywhere on the iPhone &mdash; maybe more so than on the Mac in 1984. It's a good idea to use a function like <code>NewPathWithRoundRect</code> in your own code.</p>
+
+<h2>Finding the keyboard</h2>
+
+<p>The keyboard on the iPhone is an instance of <code>UIKeyboard</code> (a private class) in its own <code>UIWindow</code> (actually, it may share the window with the <code>UIAutoCorrectInlineView</code>).</p>
+
+<p>You can find the <code>UIKeyboard</code> with a simple search.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@implementation</span> <span class="nc">UIApplication</span> <span class="nl">(KeyboardView)</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="n">UIView</span> <span class="o">*</span><span class="p">)</span><span class="nf">keyboardView</span>
+<span class="p">{</span>
+    <span class="n">NSArray</span> <span class="o">*</span><span class="n">windows</span> <span class="o">=</span> <span class="p">[</span><span class="nb">self</span> <span class="n">windows</span><span class="p">];</span>
+    <span class="k">for</span> <span class="p">(</span><span class="n">UIWindow</span> <span class="o">*</span><span class="n">window</span> <span class="k">in</span> <span class="p">[</span><span class="n">windows</span> <span class="n">reverseObjectEnumerator</span><span class="p">])</span>
+    <span class="p">{</span>
+        <span class="k">for</span> <span class="p">(</span><span class="n">UIView</span> <span class="o">*</span><span class="n">view</span> <span class="k">in</span> <span class="p">[</span><span class="n">window</span> <span class="n">subviews</span><span class="p">])</span>
+        <span class="p">{</span>
+            <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">strcmp</span><span class="p">(</span><span class="n">object_getClassName</span><span class="p">(</span><span class="n">view</span><span class="p">),</span> <span class="sa"></span><span class="s">&#34;UIKeyboard&#34;</span><span class="p">))</span>
+            <span class="p">{</span>
+                <span class="k">return</span> <span class="n">view</span><span class="p">;</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+    
+    <span class="k">return</span> <span class="nb">nil</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">@end</span></code></pre></div>
+
+<p>The keyboard itself is a series of nested views which eventually reach the underlying functionality for the keys:</p>
+
+<ul><li><code>UIKeyboard</code></li>
+    <ul><li><code>UIKeyboardImpl</code></li>
+        <ul><li><code>UIKeyboardLayoutQWERTY</code></li>
+            <ul><li><code>UIKeyboardSublayout</code></li>
+                <ul>
+<li><code>UIImageView</code></li>
+<li><code>UIKeyboardSpaceKeyView</code></li>
+<li><code>UIKeyboardReturnKeyView</code></li>
+                </ul>
+            </ul>
+        </ul>
+    </ul>
+</ul>
+
+<p>Interestingly, the keys for the main part of the keyboard are all a single image. This arrangement probably explains why the "space" and "return" keys behave more like regular buttons than the other keys.</p>
+
+<p>For the sample application, since the implementation of <code>LoadingView</code> will size the loading view to cover its immediate superview, passing the keyboard view fetched in this manner will create the keyboard-only loading view shown above.</p>
+
+<p>If you wanted to show a full-window <code>LoadingView</code> that also covers the keyboard, you could pass the keyboard view's <code>superview</code> to the <code>loadingViewInView:</code> but you might want to add an extra 20 pixels padding at the top in this case, since the <code>superview</code> (the window) extends underneath the status bar at the top of the window.</p>
+
+<h2>Finding the firstResponder</h2>
+
+<p>While it isn't required for the sample project, I thought I'd mention how to fetch a related piece of information: the <code>firstResponder</code> in an iPhone application.</p>
+
+<p>On the iPhone <code>firstResponder</code> is the view which has the current keyboard focus (or <code>nil</code> if no view is focussed).</p>
+
+<p>This is an important piece of information, so it's strange that Apple didn't choose to provide a public method to access it. Curiously, there is a method, <code>firstResponder</code>, on <code>UIWindow</code> which returns this value but it isn't public. This will work:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">UIView</span> <span class="o">*</span><span class="n">firstResponder</span> <span class="o">=</span>
+    <span class="p">[[</span><span class="n">UIApplication</span> <span class="n">sharedApplication</span><span class="p">]</span>
+        <span class="n">keyWindow</span><span class="p">]</span>
+            <span class="nl">performSelector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="n">firstResponder</span><span class="p">)];</span></code></pre></div>
+
+<h2>Conclusion</h2>
+
+<blockquote>You can see all this code and more in the sample project for this post: <a href="../../assets/objc-era/LoadingView.zip">LoadingView.zip</a> (129kB)</blockquote>
+
+<p>Displaying a loading view is not a very difficult task (lots of people write their own) but implementing all of the different expected behaviors is time consuming &mdash; the implementation in this post is at least 65 lines of code, depending on how you count it &mdash; so keeping a resusable implementation can save a lot of time.</p>
+
+<p>Finding the keyboard and finding the current first responder on the iPhone are harder to work out since the API is hidden, and it requires a little investigative work.</p>
+
+<p>Putting it all together, you could easily recreate Apple's "Sending..." progress view used in the Text program.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="8-confusing-objective-c-warnings-and.html">8 Confusing Objective-C Warnings and Errors</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="what-does-it-mean-when-you-assign-super.html">What does it mean when you assign [super init] to self?</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

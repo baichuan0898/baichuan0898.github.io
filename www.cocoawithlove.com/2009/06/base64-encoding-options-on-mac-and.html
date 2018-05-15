@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Base64 encoding options on the Mac and iPhone</title>
+  <meta name="description" content="On Unix platforms, a common approach for Base64 encoding is to use libcrypto (the OpenSSL library). However, like most C libraries, you need to wrap it to integrate with Objective-C data types (like NSData and NSString) and it isn&#39;t available on the iPhone. I&#39;ll show you how to handle base64 encoding/decoding with OpenSSL and without so you can handle the Mac and iPhone equally." />
+
+  <meta name="twitter:title" content="Base64 encoding options on the Mac and iPhone"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/06/base64-encoding-options-on-mac-and.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="On Unix platforms, a common approach for Base64 encoding is to use libcrypto (the OpenSSL library). However, like most C libraries, you need to wrap it to integrate with Objective-C data types (like NSData and NSString) and it isn&#39;t available on the iPhone. I&#39;ll show you how to handle base64 encoding/decoding with OpenSSL and without so you can handle the Mac and iPhone equally."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="base64-encoding-options-on-mac-and.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Base64 encoding options on the Mac and iPhone</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-06-03">June 3, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/foundation.html">Foundation</a>, <a href="../../categories/standard-c.html">Standard C</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>On Unix platforms, a common approach for Base64 encoding is to use libcrypto (the OpenSSL library). However, like most C libraries, you need to wrap it to integrate with Objective-C data types (like NSData and NSString) and it isn't available on the iPhone. I'll show you how to handle base64 encoding/decoding with OpenSSL and without so you can handle the Mac and iPhone equally.</p></span>
+
+<span class="fullpost">
+<h2>Introduction</h2>
+
+<p><a href="http://en.wikipedia.org/wiki/Base64">Base64</a> is an encoding for transferring binary data in 7-bit text. Originally used in <a href="http://en.wikipedia.org/wiki/MIME#Content-Transfer-Encoding">email</a>, it is also used for binary encoding data in HTML files. Another common use for Base64 is in <a href="http://en.wikipedia.org/wiki/Basic_access_authentication">HTTP Basic Access Authentication</a> where it is used to transfer login details (which might not be printable characters).</p>
+
+<p>The key library for handling Base64 on the Mac is normally libcrypto (the OpenSSL library), so it's a little disappointing that libcrypto isn't available on the iPhone.</p>
+
+<h2>Using OpenSSL</h2>
+
+<h3>Via the command line</h3>
+
+<p>On the Mac, you can handle simple encoding tasks like base64 encoding with OpenSSL on the command line:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">echo</span> <span class="sa"></span><span class="s">&#34;Base64 encode this text.&#34;</span> <span class="o">|</span> <span class="n">openssl</span> <span class="n">enc</span> <span class="o">-</span><span class="n">base64</span></code></pre></div>
+
+<p>gives the encoding result:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">QmFzZTY0IGVuY29kZSB0aGlzIHRleHQuCg</span><span class="o">==</span></code></pre></div>
+
+<p>The reverse is handled in the following manner:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">echo</span> <span class="sa"></span><span class="s">&#34;QmFzZTY0IGVuY29kZSB0aGlzIHRleHQuCg==&#34;</span> <span class="o">|</span> <span class="n">openssl</span> <span class="n">enc</span> <span class="o">-</span><span class="n">d</span> <span class="o">-</span><span class="n">base64</span></code></pre></div>
+
+<p>giving</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">Base64</span> <span class="n">encode</span> <span class="n">this</span> <span class="n">text</span><span class="p">.</span></code></pre></div>
+
+<h3>In code</h3>
+
+<p>As you'd expect, doing the same work in code takes a little more typing. First, we're using a library, so we need to include it (in your Project's Build Settings under Other Linker Flags add the flag <code>-lcrypto</code>). Once that's done, you should be able to use the following method in a category on <code>NSData</code>:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="cp">#include</span> <span class="cpf">&lt;openssl/bio.h&gt;</span><span class="cp">
+</span><span class="cp">#include</span> <span class="cpf">&lt;openssl/evp.h&gt;</span><span class="cp">
+</span><span class="cp"></span>
+<span class="p">-</span> <span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nf">base64EncodedString</span>
+<span class="p">{</span>
+    <span class="c1">// Construct an OpenSSL context
+</span><span class="c1"></span>    <span class="n">BIO</span> <span class="o">*</span><span class="n">context</span> <span class="o">=</span> <span class="n">BIO_new</span><span class="p">(</span><span class="n">BIO_s_mem</span><span class="p">());</span>
+
+    <span class="c1">// Tell the context to encode base64
+</span><span class="c1"></span>    <span class="n">BIO</span> <span class="o">*</span><span class="n">command</span> <span class="o">=</span> <span class="n">BIO_new</span><span class="p">(</span><span class="n">BIO_f_base64</span><span class="p">());</span>
+    <span class="n">context</span> <span class="o">=</span> <span class="n">BIO_push</span><span class="p">(</span><span class="n">command</span><span class="p">,</span> <span class="n">context</span><span class="p">);</span>
+
+    <span class="c1">// Encode all the data
+</span><span class="c1"></span>    <span class="n">BIO_write</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="p">[</span><span class="nb">self</span> <span class="n">bytes</span><span class="p">],</span> <span class="p">[</span><span class="nb">self</span> <span class="n">length</span><span class="p">]);</span>
+    <span class="n">BIO_flush</span><span class="p">(</span><span class="n">context</span><span class="p">);</span>
+
+    <span class="c1">// Get the data out of the context
+</span><span class="c1"></span>    <span class="kt">char</span> <span class="o">*</span><span class="n">outputBuffer</span><span class="p">;</span>
+    <span class="kt">long</span> <span class="n">outputLength</span> <span class="o">=</span> <span class="n">BIO_get_mem_data</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">outputBuffer</span><span class="p">);</span>
+    <span class="n">NSString</span> <span class="o">*</span><span class="n">encodedString</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSString</span>
+        <span class="nl">stringWithCString</span><span class="p">:</span><span class="n">outputBuffer</span>
+        <span class="nl">length</span><span class="p">:</span><span class="n">outputLength</span><span class="p">];</span>
+
+    <span class="n">BIO_free_all</span><span class="p">(</span><span class="n">context</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="n">encodedString</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>To handle a Base64 encode.</p>
+
+<p>By default, <code>encodedString</code> will have newlines every 64 characters. If needed, you can disable the inclusion of newlines by adding the following line before the <code>BIO_write</code>:</p> 
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">BIO_set_flags</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">BIO_FLAGS_BASE64_NO_NL</span><span class="p">);</span></code></pre></div>
+
+<p>Tthe "BIO" system (I think it stands for buffered I/O) is not very symmetric so the code for decoding is quite different:</p> 
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">+</span> <span class="p">(</span><span class="n">NSData</span> <span class="o">*</span><span class="p">)</span><span class="nf">dataByBase64DecodingString:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">decode</span>
+<span class="p">{</span>
+    <span class="n">decode</span> <span class="o">=</span> <span class="p">[</span><span class="n">decode</span> <span class="nl">stringByAppendingString</span><span class="p">:</span><span class="s">@&#34;</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">];</span>
+    <span class="n">NSData</span> <span class="o">*</span><span class="n">data</span> <span class="o">=</span> <span class="p">[</span><span class="n">decode</span> <span class="nl">dataUsingEncoding</span><span class="p">:</span><span class="n">NSASCIIStringEncoding</span><span class="p">];</span>
+    
+    <span class="c1">// Construct an OpenSSL context
+</span><span class="c1"></span>    <span class="n">BIO</span> <span class="o">*</span><span class="n">command</span> <span class="o">=</span> <span class="n">BIO_new</span><span class="p">(</span><span class="n">BIO_f_base64</span><span class="p">());</span>
+    <span class="n">BIO</span> <span class="o">*</span><span class="n">context</span> <span class="o">=</span> <span class="n">BIO_new_mem_buf</span><span class="p">((</span><span class="kt">void</span> <span class="o">*</span><span class="p">)[</span><span class="n">data</span> <span class="n">bytes</span><span class="p">],</span> <span class="p">[</span><span class="n">data</span> <span class="n">length</span><span class="p">]);</span>
+        
+    <span class="c1">// Tell the context to encode base64
+</span><span class="c1"></span>    <span class="n">context</span> <span class="o">=</span> <span class="n">BIO_push</span><span class="p">(</span><span class="n">command</span><span class="p">,</span> <span class="n">context</span><span class="p">);</span>
+
+    <span class="c1">// Encode all the data
+</span><span class="c1"></span>    <span class="n">NSMutableData</span> <span class="o">*</span><span class="n">outputData</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSMutableData</span> <span class="n">data</span><span class="p">];</span>
+    
+    <span class="cp">#define BUFFSIZE 256
+</span><span class="cp"></span>    <span class="kt">int</span> <span class="n">len</span><span class="p">;</span>
+    <span class="kt">char</span> <span class="n">inbuf</span><span class="p">[</span><span class="n">BUFFSIZE</span><span class="p">];</span>
+    <span class="k">while</span> <span class="p">((</span><span class="n">len</span> <span class="o">=</span> <span class="n">BIO_read</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">inbuf</span><span class="p">,</span> <span class="n">BUFFSIZE</span><span class="p">))</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="n">outputData</span> <span class="nl">appendBytes</span><span class="p">:</span><span class="n">inbuf</span> <span class="nl">length</span><span class="p">:</span><span class="n">len</span><span class="p">];</span>
+    <span class="p">}</span>
+
+    <span class="n">BIO_free_all</span><span class="p">(</span><span class="n">context</span><span class="p">);</span>
+    <span class="p">[</span><span class="n">data</span> <span class="nb">self</span><span class="p">];</span> <span class="c1">// extend GC lifetime of data to here
+</span><span class="c1"></span>
+    <span class="k">return</span> <span class="n">outputData</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>An interesting point to note at the top of this function: I add an extra newline to the start of the string. This is because if you have not disabled newlines and the string does not contain at least 1 newline, <code>BIO_read</code> will fail.</p>
+
+<h2>Handling Base64 on the iPhone</h2>
+
+<p>Using libcrypto isn't possible by default on the iPhone &mdash; the library isn't there. You could probably build libcrypto.a and link it statically against your app but that can be difficult to set up and would require that you notify Apple that your app contains encryption.</p>
+
+<p>Normally, it is better to avoid libcrypto on the iPhone. The other functions that libcrypto handles can be found elsewhere:</p>
+
+<ul><li>md5 &mdash; use the CommonCrypto implementation <code>CC_MD5</code></li>
+<li>sha &mdash; use the CommonCrypto implementation <code>CC_SHA</code></li>
+<li>Public/Private Key Encryption/Decryption &mdash; use the <code>SecKeyEncrypt</code>/<code>SecKeyDecrypt</code> functions in the Security framework</li></ul>
+
+<p>You can find the documentation for the Security Framework by performing a standard Xcode API lookup. For some reason though, the CommonCrypto functions only appear in a full-text search.</p>
+
+<p>The Base64 functionality of OpenSSL doesn't have an accessible equivalent on the iPhone, even though <code>NSURLConnection</code>, <code>CFHTTPMessageRef</code> and WebKit must all have access to an implementation &mdash; whatever they use is not accessible.</p>
+
+<h3>Encoding Base64</h3>
+
+<p>Fortunately, Base64 is a fairly simple encoding. At its heart, it looks like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">static</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="n">base64EncodeLookup</span><span class="p">[</span><span class="mi">65</span><span class="p">]</span> <span class="o">=</span>
+    <span class="sa"></span><span class="s">&#34;ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/&#34;</span><span class="p">;</span>
+
+<span class="c1">//
+</span><span class="c1">// Inner loop: turn 3 bytes into 4 base64 characters
+</span><span class="c1">//
+</span><span class="c1"></span><span class="n">outputBuffer</span><span class="p">[</span><span class="n">j</span><span class="o">++</span><span class="p">]</span> <span class="o">=</span> <span class="n">base64EncodeLookup</span><span class="p">[(</span><span class="n">inputBuffer</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&amp;</span> <span class="mh">0xFC</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="mi">2</span><span class="p">];</span>
+<span class="n">outputBuffer</span><span class="p">[</span><span class="n">j</span><span class="o">++</span><span class="p">]</span> <span class="o">=</span> <span class="n">base64EncodeLookup</span><span class="p">[((</span><span class="n">inputBuffer</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&amp;</span> <span class="mh">0x03</span><span class="p">)</span> <span class="o">&lt;&lt;</span> <span class="mi">4</span><span class="p">)</span>
+    <span class="o">|</span> <span class="p">((</span><span class="n">inputBuffer</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">&amp;</span> <span class="mh">0xF0</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="mi">4</span><span class="p">)];</span>
+<span class="n">outputBuffer</span><span class="p">[</span><span class="n">j</span><span class="o">++</span><span class="p">]</span> <span class="o">=</span> <span class="n">base64EncodeLookup</span><span class="p">[((</span><span class="n">inputBuffer</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">&amp;</span> <span class="mh">0x0F</span><span class="p">)</span> <span class="o">&lt;&lt;</span> <span class="mi">2</span><span class="p">)</span>
+    <span class="o">|</span> <span class="p">((</span><span class="n">inputBuffer</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">2</span><span class="p">]</span> <span class="o">&amp;</span> <span class="mh">0xC0</span><span class="p">)</span> <span class="o">&gt;&gt;</span> <span class="mi">6</span><span class="p">)];</span>
+<span class="n">outputBuffer</span><span class="p">[</span><span class="n">j</span><span class="o">++</span><span class="p">]</span> <span class="o">=</span> <span class="n">base64EncodeLookup</span><span class="p">[</span><span class="n">inputBuffer</span><span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">2</span><span class="p">]</span> <span class="o">&amp;</span> <span class="mh">0x3F</span><span class="p">];</span></code></pre></div>
+
+<p>This might be a little ugly to look at if you're not use to seeing bitmasks and bitshifts but it is only a couple lines. It does little more than the comment states: it turns 3 bytes into 4 chars, with the specific chars specified by the <code>base64EncodeLookup</code> mapping.</p>
+
+<p>Of course, while this code handles the center of the main loop, there's almost a hundred lines total in the complete implementation that I wrote.</p>
+
+<p>As part of keeping the function optimal, I wanted to keep the conditionals out of the inner loop (making vectorizing easier). I succeeded and there are no conditionals in the inner loop but this means that there are a few tail conditions to handle in the epilogue.</p>
+
+<p>I also wanted to calculate the exact size that would be required for the output buffer, so it can be allocated once with no waste, but this too occupies a few lines worth of space.</p>
+
+<h3>Decoding Base64</h3>
+
+<p>Decoding works similarly to encoding, except that in decoding we are reducing 4 characters down to 3 bytes instead of vice versa:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="c1">//
+</span><span class="c1">// Store the 6 bits from each of the 4 characters as 3 bytes
+</span><span class="c1">//
+</span><span class="c1"></span><span class="n">outputBuffer</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">accumulated</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">&lt;&lt;</span> <span class="mi">2</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">accumulated</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;&gt;</span> <span class="mi">4</span><span class="p">);</span>
+<span class="n">outputBuffer</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">accumulated</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&lt;&lt;</span> <span class="mi">4</span><span class="p">)</span> <span class="o">|</span> <span class="p">(</span><span class="n">accumulated</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">&gt;&gt;</span> <span class="mi">2</span><span class="p">);</span>
+<span class="n">outputBuffer</span><span class="p">[</span><span class="n">j</span> <span class="o">+</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">accumulated</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">&lt;&lt;</span> <span class="mi">6</span><span class="p">)</span> <span class="o">|</span> <span class="n">accumulated</span><span class="p">[</span><span class="mi">3</span><span class="p">];</span></code></pre></div>
+
+<p>More interesting than the code in this case is the lookup table that each of these accumulated bytes passes through before being used here:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="c1">//
+</span><span class="c1">// Definition for &#34;masked-out&#34; areas of the base64DecodeLookup mapping
+</span><span class="c1">//
+</span><span class="c1"></span><span class="cp">#define xx 65
+</span><span class="cp"></span>
+<span class="c1">//
+</span><span class="c1">// Mapping from ASCII character to 6 bit pattern.
+</span><span class="c1">//
+</span><span class="c1"></span><span class="k">static</span> <span class="kt">unsigned</span> <span class="kt">char</span> <span class="n">base64DecodeLookup</span><span class="p">[</span><span class="mi">256</span><span class="p">]</span> <span class="o">=</span>
+<span class="p">{</span>
+    <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> 
+    <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> 
+    <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="mi">62</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="mi">63</span><span class="p">,</span> 
+    <span class="mi">52</span><span class="p">,</span> <span class="mi">53</span><span class="p">,</span> <span class="mi">54</span><span class="p">,</span> <span class="mi">55</span><span class="p">,</span> <span class="mi">56</span><span class="p">,</span> <span class="mi">57</span><span class="p">,</span> <span class="mi">58</span><span class="p">,</span> <span class="mi">59</span><span class="p">,</span> <span class="mi">60</span><span class="p">,</span> <span class="mi">61</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> 
+    <span class="n">xx</span><span class="p">,</span>  <span class="mi">0</span><span class="p">,</span>  <span class="mi">1</span><span class="p">,</span>  <span class="mi">2</span><span class="p">,</span>  <span class="mi">3</span><span class="p">,</span>  <span class="mi">4</span><span class="p">,</span>  <span class="mi">5</span><span class="p">,</span>  <span class="mi">6</span><span class="p">,</span>  <span class="mi">7</span><span class="p">,</span>  <span class="mi">8</span><span class="p">,</span>  <span class="mi">9</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="mi">14</span><span class="p">,</span> 
+    <span class="mi">15</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">17</span><span class="p">,</span> <span class="mi">18</span><span class="p">,</span> <span class="mi">19</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">21</span><span class="p">,</span> <span class="mi">22</span><span class="p">,</span> <span class="mi">23</span><span class="p">,</span> <span class="mi">24</span><span class="p">,</span> <span class="mi">25</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> 
+    <span class="n">xx</span><span class="p">,</span> <span class="mi">26</span><span class="p">,</span> <span class="mi">27</span><span class="p">,</span> <span class="mi">28</span><span class="p">,</span> <span class="mi">29</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">31</span><span class="p">,</span> <span class="mi">32</span><span class="p">,</span> <span class="mi">33</span><span class="p">,</span> <span class="mi">34</span><span class="p">,</span> <span class="mi">35</span><span class="p">,</span> <span class="mi">36</span><span class="p">,</span> <span class="mi">37</span><span class="p">,</span> <span class="mi">38</span><span class="p">,</span> <span class="mi">39</span><span class="p">,</span> <span class="mi">40</span><span class="p">,</span> 
+    <span class="mi">41</span><span class="p">,</span> <span class="mi">42</span><span class="p">,</span> <span class="mi">43</span><span class="p">,</span> <span class="mi">44</span><span class="p">,</span> <span class="mi">45</span><span class="p">,</span> <span class="mi">46</span><span class="p">,</span> <span class="mi">47</span><span class="p">,</span> <span class="mi">48</span><span class="p">,</span> <span class="mi">49</span><span class="p">,</span> <span class="mi">50</span><span class="p">,</span> <span class="mi">51</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> 
+    <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> 
+    <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> 
+    <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> 
+    <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> 
+    <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> 
+    <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> 
+    <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> 
+    <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> <span class="n">xx</span><span class="p">,</span> 
+<span class="p">};</span></code></pre></div>
+
+<p>The "<code>xx</code>"s in this table are just a <code>#define</code> of 65 (i.e. outside the valid range of Base64) but they provide an interesting visual representation of the 6-bits that each Base64 character can occupy within the 8-bit byte.</p>
+
+<p>I was unable to remove all of the conditionals from the inner loop of the decode side and keep the "skip over invalid characters" requirement.</p>
+
+<p>This "skip over invalid characters" stage (where characters are accumulated until 4 valid characters are found) is handled by the following loop (which immediately preceeds the previous "store the 6 bits from each of the 4 characters as 3 bytes" code):</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="c1">//
+</span><span class="c1">// Accumulate 4 valid characters (ignore everything else)
+</span><span class="c1">//
+</span><span class="c1"></span><span class="kt">unsigned</span> <span class="kt">char</span> <span class="n">accumulated</span><span class="p">[</span><span class="n">BASE64_UNIT_SIZE</span><span class="p">];</span>
+<span class="n">size_t</span> <span class="n">accumulateIndex</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+<span class="k">while</span> <span class="p">(</span><span class="n">i</span> <span class="o">&lt;</span> <span class="n">length</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kt">unsigned</span> <span class="kt">char</span> <span class="n">decode</span> <span class="o">=</span> <span class="n">base64DecodeLookup</span><span class="p">[</span><span class="n">inputBuffer</span><span class="p">[</span><span class="n">i</span><span class="o">++</span><span class="p">]];</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">decode</span> <span class="o">!=</span> <span class="n">xx</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">accumulated</span><span class="p">[</span><span class="n">accumulateIndex</span><span class="p">]</span> <span class="o">=</span> <span class="n">decode</span><span class="p">;</span>
+        <span class="n">accumulateIndex</span><span class="o">++</span><span class="p">;</span>
+        
+        <span class="k">if</span> <span class="p">(</span><span class="n">accumulateIndex</span> <span class="o">==</span> <span class="n">BASE64_UNIT_SIZE</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="k">break</span><span class="p">;</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This is the only part which makes the decode stage sub-optimal. If you had Base64 input data with no newlines and no other characters requiring skipping, I think you could remove this section entirely so that the inner loop of the decode function could be vectorizable.</p>
+
+<h2>Conclusion</h2>
+
+<blockquote>Download the <a href="../../assets/objc-era/NSData_Base64.zip">NSData+Base64 class and header</a> (4kB).</blockquote>
+
+<p>In this post, I've shown you how to use the default command-line and library options for Base64 handling on Mac OS X. I've also shown you the approach I use for Base64 encoding and decoding on the iPhone.</p>
+
+<p>The libcrypto libraries (when available) are not as tight and simple as custom code for the task but do have the advantage that the pipeline for feeding data into them is more configurable.</p>
+
+<p>I'm certainly not the only one to present C libraries for Base64 encoding that will work on the iPhone but the approach I've used should be efficient (especially the internal implementations in the C-functions) and it should drop into a Cocoa project on the iPhone very easily.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../05/simple-methods-for-date-formatting-and.html">Simple methods for date formatting and transcoding</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="method-names-in-objective-c.html">Method names in Objective-C</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

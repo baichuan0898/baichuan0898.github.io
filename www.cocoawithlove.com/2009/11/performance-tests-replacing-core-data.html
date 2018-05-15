@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Performance tests: Replacing Core Data Key Paths</title>
+  <meta name="description" content="In Mac OS X 10.5, Core Data switched from using &lt;code&gt;valueForKey:&lt;/code&gt; as the recommended way to access Core Data attributes and relationships to auto-generated accessor methods. This new approach is faster for fetching values but lacks &lt;code&gt;NSKeyValueCoding&lt;/code&gt;&#39;s ability to coalesce the values extracted from every object in a &#34;to-many&#34; relationship in a single statement. In this post, I&#39;ll look at replacing the &lt;code&gt;NSSet&lt;/code&gt; traversal and &lt;code&gt;NSSet&lt;/code&gt; coalescing abilities offered by &lt;code&gt;NSKeyValueCoding&lt;/code&gt; with an approach that invokes accessor methods directly to see if I can bring some of the performance improvement of auto-generated accessor methods to situations involving &lt;code&gt;NSSet&lt;/code&gt; traversals." />
+
+  <meta name="twitter:title" content="Performance tests: Replacing Core Data Key Paths"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/11/performance-tests-replacing-core-data.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="In Mac OS X 10.5, Core Data switched from using &lt;code&gt;valueForKey:&lt;/code&gt; as the recommended way to access Core Data attributes and relationships to auto-generated accessor methods. This new approach is faster for fetching values but lacks &lt;code&gt;NSKeyValueCoding&lt;/code&gt;&#39;s ability to coalesce the values extracted from every object in a &#34;to-many&#34; relationship in a single statement. In this post, I&#39;ll look at replacing the &lt;code&gt;NSSet&lt;/code&gt; traversal and &lt;code&gt;NSSet&lt;/code&gt; coalescing abilities offered by &lt;code&gt;NSKeyValueCoding&lt;/code&gt; with an approach that invokes accessor methods directly to see if I can bring some of the performance improvement of auto-generated accessor methods to situations involving &lt;code&gt;NSSet&lt;/code&gt; traversals."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="performance-tests-replacing-core-data.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="118px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Performance tests: Replacing Core Data Key Paths</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-11-21">November 21, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/core-data.html">Core Data</a>, <a href="../../categories/performance-tests.html">performance tests</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>In Mac OS X 10.5, Core Data switched from using <code>valueForKey:</code> as the recommended way to access Core Data attributes and relationships to auto-generated accessor methods. This new approach is faster for fetching values but lacks <code>NSKeyValueCoding</code>'s ability to coalesce the values extracted from every object in a "to-many" relationship in a single statement.</p>
+
+<p>In this post, I'll look at replacing the <code>NSSet</code> traversal and <code>NSSet</code> coalescing abilities offered by <code>NSKeyValueCoding</code> with an approach that invokes accessor methods directly to see if I can bring some of the performance improvement of auto-generated accessor methods to situations involving <code>NSSet</code> traversals.</p></span>
+
+<span class="fullpost">
+<h2>Accessing the attributes and relationships of an NSManagedObject</h2>
+
+<p>In this post, I'll look at performance in a Core Data program using the following model:</p>
+
+<img src="../../assets/objc-era/modelentities.png" width="504" height="129" />
+
+<p>If you're not familiar with Core Data entity diagrams, the important point here is that every <code>Company</code> can have multiple <code>Project</code>s and every <code>Project</code> can have multiple <code>Employee</code>s</p>
+
+<p>Given this model, if I have a pointer, <code>aCompany</code>, which points to one of the <code>Company</code> objects, getting the company's name is straightforward:</p>
+
+<div class="highlight"><pre><code class="language-objc" data-lang="objc"><span></span><span class="bp">NSString</span> <span class="o">*</span><span class="n">companyName</span> <span class="o">=</span> <span class="n">aCompany</span><span class="p">.</span><span class="n">name</span><span class="p">;</span>
+</code></pre></div>
+
+
+<p>The <code>name</code> property accessed here is implemented in an auto-generated accessor method that <code>NSManagedObject</code> provides for us.</p>
+
+<p>Before Mac OS X 10.5, the only way of accessing values in Core Data was using key value coding:</p>
+
+<div class="highlight"><pre><code class="language-objc" data-lang="objc"><span></span><span class="bp">NSString</span> <span class="o">*</span><span class="n">companyName</span> <span class="o">=</span> <span class="p">[</span><span class="n">aCompany</span> <span class="nl">valueForKey</span><span class="p">:</span><span class="s">@&quot;name&quot;</span><span class="p">];</span>
+</code></pre></div>
+
+
+<p>Why was the change away from key value coding made? The main reason was performance (although improved syntax and type-safety also helped). Fetching the name one million times using key value coding takes 0.284016 seconds but using the auto-generated property accessor method this drops to 0.109017 seconds &mdash; 2.6 times faster.</p>
+
+<h2>Set traversal</h2>
+
+<p>But key-value coding (the "old" method) still has one important advantage over the auto-generated methods: it's quicker when traversing a set returned from a 'to-many' relationship.</p>
+
+<p>For example, if I want to get the full set of <code>Project</code> names used by <code>aCompany</code> it is easy with Key Value Coding:</p>
+
+<div class="highlight"><pre><code class="language-objc" data-lang="objc"><span></span><span class="bp">NSSet</span> <span class="o">*</span><span class="n">projectNames</span> <span class="o">=</span> <span class="p">[</span><span class="n">aCompany</span> <span class="nl">valueForKeyPath</span><span class="p">:</span><span class="s">@&quot;projects.name&quot;</span><span class="p">];</span>
+</code></pre></div>
+
+
+<p>This works because the <code>NSSet</code> implementation of the <code>NSKeyValueCoding</code> protocol automatically traverses into itself to get the names for each <code>Project</code> object it contains.</p>
+
+<p>Using the accessor methods, the na&iuml;ve equivalent would be:</p>
+
+<div class="highlight"><pre><code class="language-objc" data-lang="objc"><span></span><span class="bp">NSMutableSet</span> <span class="o">*</span><span class="n">result</span> <span class="o">=</span> <span class="p">[</span><span class="bp">NSMutableSet</span> <span class="n">set</span><span class="p">];</span>
+<span class="k">for</span> <span class="p">(</span><span class="n">Project</span> <span class="o">*</span><span class="n">project</span> <span class="k">in</span> <span class="n">aCompany</span><span class="p">.</span><span class="n">projects</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="bp">NSString</span> <span class="o">*</span><span class="n">name</span> <span class="o">=</span> <span class="n">project</span><span class="p">.</span><span class="n">name</span><span class="p">;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">value</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="n">result</span> <span class="nl">addObject</span><span class="p">:</span><span class="n">value</span><span class="p">];</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+
+<p>Not only is this more code than the key value coding approach but it is actually <em>slower</em>. For 10,000 Company objects, each with 100 Project objects, the key value coding approach took 0.25692 seconds and the na&iuml;ve approach using auto-generated accessors took 0.52873 seconds.</p>
+
+<p>The new and improved approach has gone from 2.6 times faster to 2 times slower.</p>
+
+<h2>Fixing the speed problems</h2>
+
+<h3>The old method got faster</h3>
+
+<p>Before I get to why the "new" method was slower, the first point to notice is that the key value coding approach (the "old" approach) was actually <em>faster</em> when using set traversal. Despite the extra work involved in traversing from the <code>Company</code> to the <code>Project</code> and uniquing the names to form a single <code>NSSet</code>, the key value coding took just 0.25692 seconds to fetch one million <code>Project</code> names, down from the 0.284016 seconds to fetch one million <code>Company</code> names.</p>
+
+<p>This isn't a glitch; despite more work involved, Key Value Coding improves its performance when sets are iterated internally (as part of the key path) rather than externally (as I did when iterating over one million <code>Company</code> objects).</p>
+
+<p>Despite its improvements, we should still be able to beat Key Value Coding with our approach using the auto-generated accessor methods but the margin is obviously going to be a lot closer than it was for the <code>aCompany.name</code> iteration..</p>
+
+<h3>Fixing the new method</h3>
+
+<p>Basic profiling quickly reveals that the problems here have little to do with the actual property accessors. The slow speed is primarily due to <code>addObject:</code>
+
+<p>After looking at the private methods on the stack in the profiler, it became clear that the reason was reallocation. Every time the <code>NSMutableSet</code> needed to grow in size, it was reallocating its internal storage, resulting in the poor performance.</p>
+
+<p>We can pre-allocate the entire set based on the worst-case size (all Project names unique). The code then becomes:</p>
+
+<div class="highlight"><pre><code class="language-objc" data-lang="objc"><span></span><span class="bp">NSSet</span> <span class="o">*</span><span class="n">projects</span> <span class="o">=</span> <span class="n">aCompany</span><span class="p">.</span><span class="n">projects</span><span class="p">;</span>
+<span class="bp">NSMutableSet</span> <span class="o">*</span><span class="n">result</span> <span class="o">=</span> <span class="p">[</span><span class="bp">NSMutableSet</span> <span class="nl">setWithCapacity</span><span class="p">:[</span><span class="n">projects</span> <span class="n">count</span><span class="p">]];</span>
+<span class="k">for</span> <span class="p">(</span><span class="n">Project</span> <span class="o">*</span><span class="n">project</span> <span class="k">in</span> <span class="n">projects</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="bp">NSString</span> <span class="o">*</span><span class="n">name</span> <span class="o">=</span> <span class="n">project</span><span class="p">.</span><span class="n">name</span><span class="p">;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">value</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="n">result</span> <span class="nl">addObject</span><span class="p">:</span><span class="n">value</span><span class="p">];</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+
+<p>Success! This version now runs in 0.19104 seconds (down from 0.52873 seconds) and is now 25% faster than the key value coding approach.</p>
+
+<p>We're no longer 2.6 times faster but <code>NSSet</code>'s internal implementation of Key Value Coding has some advantages over us here: since it has internal access to the storage, it can optimize the iteration over the "to-many" relationship and the building of the new set more than we can.</p>
+
+<h2>A category implementation</h2>
+
+<p>To reuse the above approach in future, we can implement a category on <code>NSSet</code>.</p>
+
+<p>There will be two methods:</p>
+
+<ul>
+<li><code>objectValuesForProperty:</code></li>
+<li><code>coalescedValuesForProperty:</code></li>
+</ul>
+
+<p>The first will implement the previously mentioned example (where the <code>NSSet</code> contains basic objects).</p>
+
+<p>The second will replicate the Key Value Coding operator <code>@distinctUnionOfSets</code> (to handle the case where the <code>NSSet</code> contains an <code>NSSet</code> and you need to coalesce the objects inside the child sets).</p>
+
+<p>An example of this second case is getting all the <code>Employee</code> objects at a <code>Company</code>. In Key Value Coding we would write:</p>
+
+<div class="highlight"><pre><code class="language-objc" data-lang="objc"><span></span><span class="bp">NSSet</span> <span class="o">*</span><span class="n">allEmployees</span> <span class="o">=</span> <span class="p">[</span><span class="n">aCompany</span> <span class="nl">valueForKeyPath</span><span class="p">:</span><span class="s">@&quot;projects.@distinctUnionOfSets.employees&quot;</span><span class="p">];</span>
+</code></pre></div>
+
+
+<p>With the <code>coalescedValuesForProperty:</code> method, we could write:</p>
+
+<div class="highlight"><pre><code class="language-objc" data-lang="objc"><span></span><span class="bp">NSSet</span> <span class="o">*</span><span class="n">allEmployees</span> <span class="o">=</span> <span class="p">[</span><span class="n">aCompany</span><span class="p">.</span><span class="n">projects</span> <span class="nl">coalescedValuesForProperty</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="n">employees</span><span class="p">)];</span>
+</code></pre></div>
+
+
+<p>The implementation is then:</p>
+
+<div class="highlight"><pre><code class="language-objc" data-lang="objc"><span></span><span class="cp">#import &lt;objc/message.h&gt;</span>
+
+<span class="k">@implementation</span> <span class="bp">NSSet</span> <span class="nl">(PropertyCoalescing)</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="bp">NSSet</span> <span class="o">*</span><span class="p">)</span><span class="nf">objectValuesForProperty:</span><span class="p">(</span><span class="kt">SEL</span><span class="p">)</span><span class="nv">propertySelector</span>
+<span class="p">{</span>
+    <span class="bp">NSMutableSet</span> <span class="o">*</span><span class="n">result</span> <span class="o">=</span> <span class="p">[</span><span class="bp">NSMutableSet</span> <span class="nl">setWithCapacity</span><span class="p">:[</span><span class="nb">self</span> <span class="n">count</span><span class="p">]];</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kt">id</span> <span class="n">object</span> <span class="k">in</span> <span class="nb">self</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="kt">id</span> <span class="n">value</span> <span class="o">=</span> <span class="n">objc_msgSend</span><span class="p">(</span><span class="n">object</span><span class="p">,</span> <span class="n">propertySelector</span><span class="p">);</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="p">[</span><span class="n">result</span> <span class="nl">addObject</span><span class="p">:</span><span class="n">value</span><span class="p">];</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="bp">NSSet</span> <span class="o">*</span><span class="p">)</span><span class="nf">coalescedValuesForProperty:</span><span class="p">(</span><span class="kt">SEL</span><span class="p">)</span><span class="nv">propertySelector</span>
+<span class="p">{</span>
+    <span class="n">NSInteger</span> <span class="n">count</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kt">id</span> <span class="n">object</span> <span class="k">in</span> <span class="nb">self</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">count</span> <span class="o">+=</span> <span class="p">[</span><span class="n">objc_msgSend</span><span class="p">(</span><span class="n">object</span><span class="p">,</span> <span class="n">propertySelector</span><span class="p">)</span> <span class="n">count</span><span class="p">];</span>
+    <span class="p">}</span>
+    <span class="bp">NSMutableSet</span> <span class="o">*</span><span class="n">result</span> <span class="o">=</span> <span class="p">[</span><span class="bp">NSMutableSet</span> <span class="nl">setWithCapacity</span><span class="p">:</span><span class="n">count</span><span class="p">];</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kt">id</span> <span class="n">object</span> <span class="k">in</span> <span class="nb">self</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="kt">id</span> <span class="n">value</span> <span class="o">=</span> <span class="n">objc_msgSend</span><span class="p">(</span><span class="n">object</span><span class="p">,</span> <span class="n">propertySelector</span><span class="p">);</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="p">[</span><span class="n">result</span> <span class="nl">unionSet</span><span class="p">:</span><span class="n">value</span><span class="p">];</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">@end</span>
+</code></pre></div>
+
+
+<p>With the <code>coalescedValuesForProperty:</code> method we iterate over the whole set twice to get the size but this remains the fastest option &mdash; in fact, this method is about 35% faster than the Key Value Coding approach compared to <code>objectValuesForProperty:</code>'s 25% improvement.</p>
+
+<h2>Conclusion</h2>
+
+<blockquote>By request, here's the code used in the testing: <a href="../../assets/objc-era/PropertyAccessors.zip">PropertyAccessors.zip</a> (32kB). It's hastily thrown together to accompany this post, so it's not necessarily well written but it's there if you're interested.</blockquote>
+
+<p>I wrote this code and ran these performance tests because I have a lot of code that uses Key Value Coding for traversing "to-many" relationships. I was concerned that since Core Data advocates the use of the auto-generated accessor methods for performance reasons, that my use of key value coding in these cases would be significantly slower than it should be.</p>
+
+<p>The result is that while it is possible to improve upon the performance of Key Value Coding for traversing sets in Core Data, the improvement is only 25-35%, not the 260% improvement from replacing Key Value Coding for individual property access. Key Value Coding is quite efficient when dealing with sets &mdash; certainly more efficient than it is when accessing single properties.</p>
+
+<p>Of course, the 35% speed improvement offered by the approach presented here will certainly be beneficial in performance critical areas.</p>
+
+<p>With regards to the implementation itself: never underestimate the performance impact of keeping memory reallocations at a minimum. Starting with a zero capacity <code>NSSet</code> and continually growing it using <code>addObject:</code> was 3 times slower than allocating once.</p>
+
+<p>The capacity of the <code>NSMutableSet</code> allocated is large enough to hold all objects but if the objects are not all unique, this will be bigger than required. If this extra memory usage is a concern, you can copy the set once it is generated. The copy will be only as big as strictly required and you can release the original. The drawback is that this copying process will add another 10-15% onto the time taken.</p>
+
+</span>
+
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="drop-in-fix-for-problems-with-nshost.html">A drop-in fix for the problems with NSHost</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="writing-parser-using-nsscanner-csv.html">Writing a parser using NSScanner (a CSV parsing example)</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

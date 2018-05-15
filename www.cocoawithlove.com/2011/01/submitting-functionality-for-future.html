@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Submitting functionality for a future version of iOS</title>
+  <meta name="description" content="A number of websites are reporting that my application, StreamToMe 3.5 was approved with mention of a piece of future iOS functionality. While this was actually the case, it does not mean that Apple have started accepting apps for this new version of iOS." />
+
+  <meta name="twitter:title" content="Submitting functionality for a future version of iOS"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2011/01/submitting-functionality-for-future.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="A number of websites are reporting that my application, StreamToMe 3.5 was approved with mention of a piece of future iOS functionality. While this was actually the case, it does not mean that Apple have started accepting apps for this new version of iOS."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="submitting-functionality-for-future.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="118px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Submitting functionality for a future version of iOS</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2011-01-26">January 26, 2011</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/objective-c.html">Objective-C</a>, <a href="../../categories/cocoa-touch.html">Cocoa Touch</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>A number of websites are reporting that my application, <a href="http://itunes.apple.com/au/app/streamtome/id325327899?mt=8">StreamToMe 3.5</a> was approved with mention of a piece of future iOS functionality. While this was actually the case, it does not mean that Apple have started accepting apps for this new version of iOS.</p></span>
+
+<span class="fullpost">
+
+<h2>What happened? What is this article about?</h2>
+
+<img src="../../assets/objc-era/streamtome_ios_icon.png" style="float:right;margin:0px;margin-left:16px;padding:0px;" width="64px" height="64px">
+
+<p>A few different websites (<a href="http://www.macrumors.com/2011/01/25/apple-now-approving-ios-4-3-compatible-airplay-apps/">Mac Rumors</a>, <a href="http://www.google.com.au/url?sa=t&amp;source=web&amp;cd=2&amp;ved=0CBwQFjAB&amp;url=http%3A%2F%2Fwww.engadget.com%2F2011%2F01%2F25%2Fios-4-3-ready-apps-begin-turning-up-in-the-app-store%2F&amp;ei=O9M_TZ2kJo2mugOR6_zMAw&amp;usg=AFQjCNFAV-KO-6xclSl2ebB-L8nAS1Scmg&amp;sig2=jIUR97OJiQY75vc_99ptRg">Engadget</a> and <a href="http://www.google.com.au/search?q=streamtome+ios+4.3">dozens of others according to Google</a>) have picked up on an unfortunate point: the "What's new in version 3.5" text for <a href="http://itunes.apple.com/au/app/streamtome/id325327899?mt=8">StreamToMe</a> discussed a feature that will be enabled once a future version of iOS is released.</p>
+
+<p>From these articles, it appears people are assuming that Apple have started accepting submissions for applications built with iOS 4.3. At the time of this post, the current SDK is <em>iOS 4.2</em> so approval of an iOS 4.3 linked application would be newsworthy.</p>
+
+<p>While I love the attention, it pains me to point out the fact that it might not be as newsworthy as people hope.</p>
+
+<p>While the feature line was not a lie, this version of StreamToMe has <em><strong>not</strong></em> been linked against iOS 4.3 &mdash; it is an iOS 4.2 application &mdash; and Apple are not ready for people to mention future functionality in their programs.</p>
+
+<h2>Can I submit my app linked against iOS 4.3?</h2>
+
+<p>Apple won't let you submit an application to the iOS app store if it is linked against a future or beta version of the iOS SDK. At the moment, the current version of the iOS SDK is iOS 4.2. Do not submit an application linked against a beta SDK &mdash; it will be rejected.</p>
+
+<p>If you are an Apple developer, Apple will probably email you when iOS 4.3 submissions are being accepted. They have traditionally done this about 2 weeks before the release of the iOS version to consumers and there's no reason to expect this to change in future.</p>
+
+<p>Apple have not notified developers that they can submit using iOS 4.3. Therefore you should only use iOS 4.2 for current submissions.</p>
+
+<h2>So what's up with StreamToMe claiming iOS 4.3 behavior then?</h2>
+
+<p>First: it was a bit of clumsy copy writing on my part. I shouldn't have mentioned it when I submitted and have removed the mention from the application description.</p>
+
+<p>Sometimes there are elements of a future version of iOS that you can defensively code to support. In this case, I wanted to invoke a single method to support functionality, should it become available in a future version.</p>
+
+<p>How does StreamToMe use this magic method without linking against it?</p>
+
+<p>The answer is: dynamically. StreamToMe looks at runtime to see if the magic method is there. The code looks like this:</p>
+
+<div class="highlight"><pre><code class="language-objc" data-lang="objc"><span></span><span class="k">if</span> <span class="p">([</span><span class="n">someCurrentObject</span> <span class="nl">respondsToSelector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="nl">magicMethodToEnableFutureFunctionality</span><span class="p">:)])</span>
+<span class="p">{</span>
+    <span class="kt">IMP</span> <span class="n">imp</span> <span class="o">=</span> <span class="p">[</span><span class="n">someCurrentObject</span> <span class="nl">methodForSelector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="nl">magicMethodToEnableFutureFunctionality</span><span class="p">:)];</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">imp</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="p">((</span><span class="kt">void</span><span class="p">(</span><span class="o">*</span><span class="p">)(</span><span class="kt">id</span><span class="p">,</span> <span class="kt">SEL</span><span class="p">,</span> <span class="kt">BOOL</span><span class="p">))</span><span class="n">imp</span><span class="p">)(</span><span class="n">someCurrentObject</span><span class="p">,</span> <span class="k">@selector</span><span class="p">(</span><span class="nl">magicMethodToEnableFutureFunctionality</span><span class="p">:),</span> <span class="nb">YES</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div>
+
+
+<p>I've used the name <code>magicMethodToEnableFutureFunctionality:</code> here instead of the real method name, to protect the guilty party involved.</p>
+
+<p>Getting the <code>IMP</code> followed by the ugly looking typecast function invocation is just to make sure the parameter is passed to <code>magicMethodToEnableFutureFunctionality:</code> correctly (since the compiler has no method declaration to use, we typecast to ensure correctness). You can achieve the same result by declaring the method in a category of the <code>someCurrentObject</code>'s class but I preferred this approach here purely to keep my only-temporary-until-the-future-version-is-official code in one place. In either case the <code>respondsToSelector:</code> call is required as it is the step that ensures the method exists.</p>
+
+<p>By doing everything both dynamically and defensively, the limitations associated with linkage and current iOS funtionality are avoided.</p>
+
+<h2>That's great, I can make all my future changes like this!</h2>
+
+<p>Be careful!</p>
+
+<p>This type of action is a calculated risk. The risk is that the final release of the iOS version you're hoping to support in future might change the name of the method to something else, in which case, this code have any effect. The future version of iOS could change the <em>type</em> of the parameter &mdash; which could cause your program to <em>crash</em> until you change your code. There's also the risk that the future functionality could be removed from iOS entirely before release for whatever reason.</p>
+
+<p>While you're coding defensively to support changes, you're still creating risk.</p>
+
+<p>The reasons I decided to take this risk with StreamToMe 3.5 were:</p>
+
+<ul><li>The functionality was very simple (one simple method was all that was required)</li>
+<li>StreamToMe 3.5's feature set was complete and it was due for a release <em>now</em>, while the future iOS release is an indeterminate time into the future</li>
+<li>I didn't think anyone would really notice until after iOS 4.3 (<strong>oops: I spot a flaw in my plan</strong>)</li></ul>
+
+<p>Even if you do include changes like this: don't mention them in your text. Clearly, such mentions may slip through accidentally but it is against your developer agreement to mention future functionality.</p>
+
+<h2>Conclusion</h2>
+
+<p><a href="http://itunes.apple.com/au/app/streamtome/id325327899?mt=8">StreamToMe 3.5</a> is mega-hyper-super wünderfantastic. You should buy 12 copies just for yourself and dozens more for your friends.</p>
+
+<p>But sorry, it's not an iOS 4.3 application. It was built using the current, plain vanilla Xcode 3.2.5 and plain chocolate (without sprinkles) iOS 4.2 SDK. What it may or may not support in the future remains something to be seen when it happens. The world continues to turn at the normal, sub-ludicrous speed.</p>
+
+<p>Please, don't link your own applications against future iOS versions and submit then until Apple give the green light to do so. You'll just get told to resubmit using the current SDK.</p>
+
+<p>If you're prepared to be a cavalier cowboy coder like I have been, and take crazy risks that promise future functionality without any real guarantee, well you can clearly do that but at least know you're taking a risk so that when you get burned you'll understand why.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../../2010/12/uitableview-construction-drawing-and.html">UITableView construction, drawing and management (revisited)</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="advanced-drawing-using-appkit.html">Advanced drawing using AppKit</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

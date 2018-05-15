@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>The differences between Core Data and a Database</title>
+  <meta name="description" content="The Core Data Programming Guide clearly states that Core Data is not a database but since both Core Data and a database are ways of providing searchable, persistent storage, exactly how and why they are different may not be clear. In this post, I&#39;ll look at the way Core Data works and the reasons why its features and capabilities are different to those of common SQL databases &amp;mdash; even though an SQL database may be used as the backing store." />
+
+  <meta name="twitter:title" content="The differences between Core Data and a Database"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2010/02/differences-between-core-data-and.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="The Core Data Programming Guide clearly states that Core Data is not a database but since both Core Data and a database are ways of providing searchable, persistent storage, exactly how and why they are different may not be clear. In this post, I&#39;ll look at the way Core Data works and the reasons why its features and capabilities are different to those of common SQL databases &amp;mdash; even though an SQL database may be used as the backing store."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="differences-between-core-data-and.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="118px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">The differences between Core Data and a Database</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2010-02-16">February 16, 2010</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/core-data.html">Core Data</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>The <a href="http://developer.apple.com/Mac/library/documentation/Cocoa/Conceptual/CoreData/index.html">Core Data Programming Guide</a> clearly states that Core Data is not a database but since both Core Data and a database are ways of providing searchable, persistent storage, exactly how and why they are different may not be clear. In this post, I'll look at the way Core Data works and the reasons why its features and capabilities are different to those of common SQL databases &mdash; even though an SQL database may be used as the backing store.</p></span>
+
+<span class="fullpost">
+
+<h2>Introduction</h2>
+
+<p>Both Core Data and an SQL database provide a means of persistently storing structured data in a searchable store.</p>
+
+<p>Since programmers are generally familiar with databases and since Core Data is actually backed by an SQLite database, it is understandable that Core Data is often treated and used as though it were a wrapper around SQLite.</p>
+
+<p>It is important to realize that although you can use Core Data in this way (in fact, it works very well like this), that Core Data actually operates over a different domain to SQLite &mdash; meaning that it provides lots of services that SQLite doesn't but also that Core Data can't provide some of the services that SQLite can. Even for services that both technologies provide, there are different performance considerations.</p>
+
+<h2>Primary function of a database</h2>
+
+<p>The somewhat narrow description of database that I will use is: persistent and searchable storage for data in table, row, column format where the primary goal is to keep the data up-to-date on disk at all times, with a secondary goal of powerful, focussed, narrow fetching and updating capabilities.</p>
+
+<p>There are lots of database implementations and many provide features far beyond this description but I'm really looking at the key components of a straightforward SQLite-style database implementation with which many programmers are familiar.</p>
+
+<p>Despite many databases being called "relational" (which implies that they have a degree of support for object connectivity), SQLite and many other relational databases don't handle the mechanics of connecting objects; maintaining state (like a an object relation) between columns, rows or tables is left to the user of the database. In this sense, a database is "dumb" storage &mdash; rows have few behaviors beyond "read" and "write" and extending or customizing their behavior would involve extending the database system itself. Even when triggers are available, their programmatic capabilities are limited.</p>
+
+<h2>Primary function of Core Data</h2>
+
+<p>At its heart, Core Data is an object graph manager with lifecycle, searching and persistence features. In the case of Core Data, object graph management includes:</p>
+
+<ul>
+<li>You can connect object A to object B and the connection at both the A and B ends is kept perpetually in sync.</li>
+<li>If you change the connection at the A end, the B end will be updated and all changes trigger notifications (to which you can attach arbitrary code)</li>
+<li>Deletion of objects at one end of a connection can trigger cascading deletion or nullify responses.</li>
+<li>The other end of a connection can exist out of memory (faulted) unless the connection is actually followed at which time the connected object is loaded.</li>
+</ul>
+
+<p>Unlike a typical database, Core Data can be used totally in-memory. While Core Data is often called a "object persistence" framework (since it is expected that you will use its persistence features), it is actually possible to use Core Data entirely in-memory without any form of persistence. Of course, once you have data, it is reasonable to want to keep that data, so persistence is treated as a major feature of the framework but it is important to know that persistence is not mandatory.</p>
+
+<p>Also unlike a database, it is possible to use Core Data without any form of searching. If you allocate and connect all your objects, all you need to do is hold onto one of them and you can walk through everything without needing a fetch request. This search-less behavior is not because Core Data transparently performs a search: once data is loaded in memory, following a connection does not involve a search.</p>
+
+<p>All Core Data objects are fully instantiated Objective-C objects that manage most of their own attributes, relationships and lifecycle. This also means that their properties and behaviors are implemented by methods, making them both observable and overrideable.</p>
+
+<h2>Databases and object graph management are not inherently exclusive</h2>
+
+<p>While not available by default in SQLite, the "foreign key" of MySQL, and other SQL:2003 compliant databases, can handle keeping identifiers in different tables in sync and even cascade deletion when requested. The programmatic customization abilities of overrideable objects is not available but the basics of graph management are there.</p>
+
+<p>There are other object relational frameworks that work closer to Core Data's model but which try to behave as an atomic, transactional database. To update the object graph, these frameworks must:</p>
+
+<ul><li>load appropriate rows from a database</li>
+<li>instantiate objects from these rows</li>
+<li>make changes to the graph objects that are now in memory</li>
+<li>commit the changes back to the database</li></ul>
+
+<p>To be properly atomic, these steps must all be performed as a single transaction (with no other reads or write to the affected rows during the transaction). While some systems might require this, it is far too slow for a general object graph system.</p>
+
+<p>Core Data does not follow this model as Core Data aims to be a more general object management system &mdash; and that means that it needs far better performance and flexibility than this model would allow.</p>
+
+<h2>Operating in-memory versus an on-disk database</h2>
+
+<p>Without access to the source code, it's not entirely clear. We can only assume that the <code>NSManagedObjectContext</code> tracks instantiated objects in a heap or structured container of some form so that it can find them again.</p>
+
+<p>This tracking structure may behave a bit like an in-memory database but it would only be for tracking the existence of instantiated objects &mdash; it is important to note that it would not itself store any data. Also note that the centralized <code>NSManagedObjectContext</code> and any structures it might maintain are not how you interact with instantiated <code>NSManagedObject</code>s &mdash; you interact with an <code>NSManagedObject</code> by sending messages to <code>NSManagedObject</code> pointers.</p>
+
+<p>The reason that Core Data focuses on an in-memory representation is speed. For object graph changes that affect multiple objects, it is much faster if they are all in memory already, rather than needing to search for them again in the database.</p>
+
+<p>For temporary objects (data that doesn't have to be saved to disk) Core Data can create, change and manipulate objects much faster than SQLite can since SQLite has to update indexes and update nodes in the B-tree, as well as simply allocating space and setting values. Core Data can allocate millions of objects in a few seconds, where SQLite might take a few minutes for the same number of allocations.</p>
+
+<p>The tradeoff with an in-memory approach is that SQLite is still used as the backing store. Reading from disk and saving to disk involves all of SQLite's overheads plus the overhead of the Core Data to SQLite conversion process &mdash; so is invariably slower than SQLite alone.</p>
+
+<h2>Common database tasks that Core Data doesn't do</h2>
+
+<p>I've spoken about features that Core Data has that databases do not. It is important to consider some of the features that Core Data's approach lacks with respect to a database.</p>
+
+<h3>Core Data cannot operate on data without loading the data into memory</h3>
+
+<p>In SQL you can simply "<code>DROP tableName</code>" to delete whole tables or update every column of a table with commands like "<code>UPDATE tableName SET key1 = value WHERE key2 = otherValue</code>". These commands can efficiently update vast amounts of data because they only need to load small amounts of data into RAM at any given time.</p>
+
+<p>Core Data doesn't work in this perpetually on-disk manner &mdash; it only works on objects in memory. Even if you only want to delete an object, it must be loaded and instantiated in RAM.</p>
+
+<p>Of course, this is necessary because the object, and its potentially overridden behaviors must be loaded and invoked. There are also connections to be kept up to date with other objects.</p>
+
+<p>However this constraint has implications: if you're trying to change huge numbers of objects (tens of thousands or more) you will need to consider keeping your memory footprint down. This can be done by periodically refaulting unchanged values (<code>refreshObject:mergeChanges:</code>) or avoiding the fetch of an object's data (<code>setIncludesPropertyValues:NO</code> on <code>NSFetchRequest</code>) or even saving the whole context and releasing all the objects you're holding.</p>
+
+<h3>Core Data does not handle data logic</h3>
+
+<p>There are a few data-related features that SQL contains, a good example being "unique" keys, that Core Data does not include.</p>
+
+<p>There are a couple of technical reasons why this might be the case. Subclasses can override the getter and setter for an attribute to the point where it is unclear whether it is or is not unique. In fact, transient Core Data attributes need not even support <code>isEqual:</code>.</p>
+
+<p>However, I suspect the distinction is actually that Core Data offers no real support for attribute behaviors at all. Core Data manages the "graph" (connections) but the data attributes are all the responsibility of the business logic in the rest of the program; convenient as it may be, it falls outside Core Data's conceptual domain.</p>
+
+<h3>Multi-threaded, multi-user scenarios</h3>
+
+<p>Core Data does not offer any amount of threading support. To be fair, <code>SQLite</code> is single threaded too but many other databases are multi-threaded and multi-user.</p>
+
+<p>Core Data has been designed for single-user environments (running inside desktop and iPhone apps). Getting rid of threading and locking makes the framework much faster and simpler to work with in its standard usage scenarios.</p>
+
+<p>However, there are still situations where you will want multiple threads reading your data. <code>NSManagedObject</code>s and their <code>NSManagedObjectContext</code> should be accessed from a single thread only. If you need another thread working on the same data, you need to save the file and reopen using a different <code>NSManagedObjectContext</code> in the other thread.</p>
+
+<h2>Summary</h2>
+
+<table>
+<thead>
+<tr><td><strong>Database</strong></td><td><strong>Core Data</strong></td></tr>
+</thead>
+<tr><td>Primary function is storing and fetching data</td><td>Primary function is graph management (although reading and writing to disk is an important supporting feature)</td></tr>
+<tr><td>Operates on data stored on disk (or minimally and incrementally loaded)</td><td>Operates on objects stored in memory (although they can be lazily loaded from disk)</td></tr>
+<tr><td>Stores "dumb" data</td><td>Works with fully-fledged objects that self-manage a lot of their behavior and can be subclassed and customized for further behaviors</td></tr>
+<tr><td>Can be transactional, thread-safe, multi-user</td><td>Non-transactional, single threaded, single user (unless you create an entire abstraction around Core Data which provides these things)</td></tr>
+<tr><td>Can drop tables and edit data without loading into memory</td><td>Only operates in memory</td></tr>
+<tr><td>Perpetually saved to disk (and often crash resilient)</td><td>Requires a save process</td></tr>
+<tr><td>Can be slow to create millions of new rows</td><td>Can create millions of new objects in-memory very quickly (although saving these objects will be slow)</td></tr>
+<tr><td>Offers data constraints like "unique" keys</td><td>Leaves data constraints to the business logic side of the program</td></tr>
+</table>
+
+<p>&nbsp;</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="custom-build-rules-generated-tables-and.html">Custom build rules, generated tables and faster floating point</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="resolving-path-containing-mixture-of.html">Resolving a path containing a mixture of aliases and symlinks</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

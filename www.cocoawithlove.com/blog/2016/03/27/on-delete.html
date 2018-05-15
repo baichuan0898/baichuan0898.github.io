@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Breaking Swift with reference counted structs</title>
+  <meta name="description" content="Struct types are not usually heap allocated, reference counted or able to perform work on deallocation. You can coerce them into having these properties but careful if you do: it can be a source of memory leaks, errant behavior and compiler crashes." />
+
+  <meta name="twitter:title" content="Breaking Swift with reference counted structs"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/blog/2016/03/27/on-delete.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Struct types are not usually heap allocated, reference counted or able to perform work on deallocation. You can coerce them into having these properties but careful if you do: it can be a source of memory leaks, errant behavior and compiler crashes."/>
+
+  <link rel="icon" href="../../../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../../../css/main.css" />
+  <link rel="canonical" href="on-delete.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../../../index.html"><img class="heartandcup" src="../../../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../../../about/index.html">about</a>
+        <a class="page-link" href="../../../../archive/index.html">archive</a>
+        <a class="page-link" href="../../../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Breaking Swift with reference counted structs</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2016-03-27">March 27, 2016</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../../../tags/hacks.html">hacks</a>, <a href="../../../../tags/swift.html">Swift</a>
+		 
+	</div>
+</header>
+
+
+<main role="main">
+	<article itemscope itemtype="http://schema.org/BlogPosting">
+		<div class="post-content" itemprop="articleBody">
+			
+
+<p>In Swift, a <code>class</code> type is allocated on the heap, uses reference counting to track its lifetime and can perform cleanup behaviors when it is deleted. By contrast, a <code>struct</code> is not separately allocated on the heap, does not use reference counting and cannot perform cleanup behaviors.</p>
+
+<p>Right?</p>
+
+<p>In reality all of these traits &ldquo;heap&rdquo;, &ldquo;reference counting&rdquo; and &ldquo;cleanup behaviors&rdquo; can be true of <code>struct</code> types too. Be careful though: out-of-character behaviors are a good way to cause problems. I&rsquo;m going to show how a <code>struct</code> can end up with some of the traits you might associate with a <code>class</code> and show how this can be a source of memory leaks, errant behavior and compiler crashes.</p>
+
+<blockquote>
+<p><strong>THIS ARTICLE IS OUT OF DATE AS OF SWIFT 3</strong>: While it is still possible to have a heap allocated, reference counted struct with cleanup behaviors in Swift 3, it is no longer possible to capture a reference to <code>self</code> in a struct method as described in this article. The problems detailed in section 2 in this article have been fixed in Swift 3 and the remainder of this article is merely a historical artefact. Don&rsquo;t worry: you&rsquo;re better off as a result.</p>
+</blockquote>
+
+<nav id="TableOfContents"><span class="toc-heading">Contents</span>
+<ul>
+<li>
+<ul>
+<li><a href="#class-fields-in-a-struct">Class fields in a struct</a></li>
+<li><a href="#trying-to-access-a-struct-from-a-closure">Trying to access a struct from a closure</a></li>
+<li><a href="#completely-loopy">Completely loopy</a></li>
+<li><a href="#can-we-break-the-loop">Can we break the loop?</a></li>
+<li><a href="#copies-bad-shared-references-good">Copies bad, shared references good?</a></li>
+<li><a href="#some-perspective">Some perspective</a></li>
+<li><a href="#conclusion">Conclusion</a></li>
+</ul></li>
+</ul>
+</nav>
+
+<h2 id="class-fields-in-a-struct">Class fields in a struct</h2>
+
+<p>While a <code>struct</code> doesn&rsquo;t usually have any <code>deinit</code> behavior, values of <code>struct</code> type are required (like all other values in Swift) to correctly maintain reference counts for their contents. Any reference counted field within the <code>struct</code> must have its reference counts correctly incremented and decremented as they are added to the <code>struct</code> and when they are removed, or when the <code>struct</code> is deleted.</p>
+
+<p>We can exploit the fact that reference counted fields are decremented when a <code>struct</code> falls out of scope to attach behaviors to the <code>struct</code> as though it had a <code>deinit</code> method.</p>
+
+<p>To do this, all we need to do is add a class field to a struct:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">struct</span> <span class="nc">OrdinaryStruct</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">classField</span><span class="p">:</span> <span class="n">SomeClass</span>
+<span class="p">}</span></code></pre></div>
+
+<p>An example of using this effect productively is to attach an <code>OnDelete</code> field to your struct. An <code>OnDelete</code> class runs a customized closure at cleanup:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">public</span> <span class="kr">final</span> <span class="kd">class</span> <span class="nc">OnDelete</span> <span class="p">{</span>
+   <span class="kd">var</span> <span class="nv">block</span><span class="p">:</span> <span class="p">()</span> <span class="p">-&gt;</span> <span class="nb">Void</span>
+   <span class="kd">public</span> <span class="kd">init</span><span class="p">(</span><span class="kc">_</span> <span class="p">@</span><span class="n">escaping</span> <span class="n">c</span><span class="p">:</span> <span class="p">()</span> <span class="p">-&gt;</span> <span class="nb">Void</span><span class="p">)</span> <span class="p">{</span>
+      <span class="n">block</span> <span class="p">=</span> <span class="n">c</span>
+   <span class="p">}</span>
+   <span class="kd">deinit</span> <span class="p">{</span>
+      <span class="n">block</span><span class="p">()</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Here&rsquo;s an example struct named <code>DeletionLogger</code> that uses an <code>OnDelete</code> class to write to standard output when it is deleted:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">struct</span> <span class="nc">DeletionLogger</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">od</span> <span class="p">=</span> <span class="n">OnDelete</span> <span class="p">{</span> <span class="bp">print</span><span class="p">(</span><span class="s">&#34;DeletionLogger deleted&#34;</span><span class="p">)</span> <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">do</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">dl</span> <span class="p">=</span> <span class="n">DeletionLogger</span><span class="p">()</span>
+   <span class="bp">print</span><span class="p">(</span><span class="s">&#34;Not deleted, yet&#34;</span><span class="p">)</span>
+   <span class="bp">withExtendedLifetime</span><span class="p">(</span><span class="n">dl</span><span class="p">)</span> <span class="p">{}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>which will output:</p>
+
+<pre><code>Not deleted, yet
+DeletionLogger deleted
+</code></pre>
+
+<h2 id="trying-to-access-a-struct-from-a-closure">Trying to access a struct from a closure</h2>
+
+<p>So far, there&rsquo;s nothing too strange. An <code>OnDelete</code> object can perform a function at cleanup time for a <code>struct</code>, a little like a <code>deinit</code> method. But while it might appear to mimic the <code>deinit</code> behavior of a <code>class</code>, an <code>OnDelete</code> closure is unable to do the most important thing a <code>deinit</code> method can do: operate on the fields of the <code>struct</code>.</p>
+
+<p>Despite some obvious reasons why it&rsquo;s a bad idea, let&rsquo;s try to access the <code>struct</code> anyway and see what goes wrong. We&rsquo;ll use a simple <code>struct</code> that contains an <code>Int</code> value and we&rsquo;ll try to output the value of the <code>Int</code> when the <code>OnDelete</code> closure runs.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">struct</span> <span class="nc">Counter</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">count</span> <span class="p">=</span> <span class="mi">0</span>
+   <span class="kd">let</span> <span class="nv">od</span> <span class="p">=</span> <span class="n">OnDelete</span> <span class="p">{</span> <span class="bp">print</span><span class="p">(</span><span class="s">&#34;Counter value is </span><span class="si">\(</span><span class="bp">count</span><span class="si">)</span><span class="s">&#34;</span><span class="p">)</span> <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>We can&rsquo;t do this (error: <code>Instance member 'count' cannot be used on type 'SomeStruct'</code>). That&rsquo;s not so strange though: we wouldn&rsquo;t be allowed to do that, even on a <code>class</code> since you&rsquo;re not allowed to access other fields from an initializer like that.</p>
+
+<p>Let&rsquo;s initialize the <code>struct</code> properly and then try to capture one of its fields.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">struct</span> <span class="nc">Counter</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">count</span> <span class="p">=</span> <span class="mi">0</span>
+   <span class="kd">var</span> <span class="nv">od</span><span class="p">:</span> <span class="n">OnDelete</span><span class="p">?</span> <span class="p">=</span> <span class="kc">nil</span>
+   <span class="kd">init</span><span class="p">()</span> <span class="p">{</span>
+      <span class="n">od</span> <span class="p">=</span> <span class="n">OnDelete</span> <span class="p">{</span> <span class="bp">print</span><span class="p">(</span><span class="s">&#34;Counter value is </span><span class="si">\(</span><span class="kc">self</span><span class="p">.</span><span class="bp">count</span><span class="si">)</span><span class="s">&#34;</span><span class="p">)</span> <span class="p">}</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<blockquote>
+<p>This is no longer possible in Swift 3. It prevents us doing anything this profoundly silly with the error message: &ldquo;Closure cannot implicitly capture a mutating self parameter&rdquo;.</p>
+</blockquote>
+
+<p>The compiler throws a segmentation fault in Swift 2.2 and a fatal error in Swift Development Snapshot 2016-03-24.</p>
+
+<p>Excellent! I&rsquo;m having fun already.</p>
+
+<p>Of course, I could avoid all compiler problems by doing this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">struct</span> <span class="nc">Counter</span> <span class="p">{</span>
+   <span class="kd">var</span> <span class="nv">count</span><span class="p">:</span> <span class="nb">Int</span>
+   <span class="kd">let</span> <span class="nv">od</span><span class="p">:</span> <span class="n">OnDelete</span>
+   <span class="kd">init</span><span class="p">()</span> <span class="p">{</span>
+      <span class="kd">let</span> <span class="nv">c</span> <span class="p">=</span> <span class="mi">0</span>
+      <span class="bp">count</span> <span class="p">=</span> <span class="n">c</span>
+      <span class="n">od</span> <span class="p">=</span> <span class="n">OnDelete</span> <span class="p">{</span> <span class="bp">print</span><span class="p">(</span><span class="s">&#34;Counter value is </span><span class="si">\(</span><span class="n">c</span><span class="si">)</span><span class="s">&#34;</span><span class="p">)</span> <span class="p">}</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>or the seldom-seen capture list which, in this case, is equivalent:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">struct</span> <span class="nc">Counter</span> <span class="p">{</span>
+   <span class="kd">var</span> <span class="nv">count</span> <span class="p">=</span> <span class="mi">0</span>
+   <span class="kd">let</span> <span class="nv">od</span><span class="p">:</span> <span class="n">OnDelete</span><span class="p">?</span>
+   <span class="kd">init</span><span class="p">()</span> <span class="p">{</span>
+      <span class="n">od</span> <span class="p">=</span> <span class="n">OnDelete</span> <span class="p">{</span> <span class="p">[</span><span class="bp">count</span><span class="p">]</span> <span class="k">in</span> <span class="bp">print</span><span class="p">(</span><span class="s">&#34;Counter value is </span><span class="si">\(</span><span class="bp">count</span><span class="si">)</span><span class="s">&#34;</span><span class="p">)</span> <span class="p">}</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>but neither of these options actually let us access the <code>struct</code> itself; both these options capture an immutable copy of the <code>count</code> field but we want access to the up-to-date mutable <code>count</code>.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">struct</span> <span class="nc">Counter</span> <span class="p">{</span>
+   <span class="kd">var</span> <span class="nv">count</span> <span class="p">=</span> <span class="mi">0</span>
+   <span class="kd">var</span> <span class="nv">od</span><span class="p">:</span> <span class="n">OnDelete</span><span class="p">?</span>
+   <span class="kd">init</span><span class="p">()</span> <span class="p">{</span>
+      <span class="n">od</span> <span class="p">=</span> <span class="n">OnDelete</span> <span class="p">{</span> <span class="bp">print</span><span class="p">(</span><span class="s">&#34;Counter value is </span><span class="si">\(</span><span class="kc">self</span><span class="p">.</span><span class="bp">count</span><span class="si">)</span><span class="s">&#34;</span><span class="p">)</span> <span class="p">}</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<blockquote>
+<p>As before, this is no longer possible in Swift 3.</p>
+</blockquote>
+
+<p>Hooray! That&rsquo;s better. Everything is mutable and shared. We&rsquo;ve captured the <code>count</code> variable and there are no compiler crashes.</p>
+
+<p>We should ship this code since it clearly works, doesn&rsquo;t it?</p>
+
+<h2 id="completely-loopy">Completely loopy</h2>
+
+<p>It clearly doesn&rsquo;t work. If we run the code the same way as before:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="k">do</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">c</span> <span class="p">=</span> <span class="n">Counter</span><span class="p">()</span>
+   <span class="bp">print</span><span class="p">(</span><span class="s">&#34;Not deleted, yet&#34;</span><span class="p">)</span>
+   <span class="bp">withExtendedLifetime</span><span class="p">(</span><span class="n">c</span><span class="p">)</span> <span class="p">{}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>the only output we get is:</p>
+
+<pre><code>Not deleted, yet
+</code></pre>
+
+<p>The <code>OnDelete</code> closure is not getting invoked. Why?</p>
+
+<p>Looking at the SIL (Swift Intermediate Language, as returned by <code>swiftc -emit-sil</code>), it&rsquo;s clear that capturing <code>self</code> in the <code>OnDelete</code> closure prevents <code>self</code> from being optimized to the stack. This means that instead of using <code>alloc_stack</code>, the <code>self</code> variable is allocated using <code>alloc_box</code>:</p>
+
+<pre><code>%1 = alloc_box $Counter, var, name &quot;self&quot;, argno 1 // users: %2, %20, %22, %29
+</code></pre>
+
+<p>and the <code>OnDelete</code> closure retains this <code>alloc_box</code>.</p>
+
+<p>Why is this a problem? It&rsquo;s a reference counted loop:</p>
+
+<ul>
+<li>closure retains the boxed version of <code>Counter</code> → the boxed version of <code>Counter</code> retains <code>OnDelete</code> → <code>OnDelete</code> retains closure</li>
+</ul>
+
+<p>With this loop created, our <code>OnDelete</code> object is never deallocated and never invokes its closure.</p>
+
+<h2 id="can-we-break-the-loop">Can we break the loop?</h2>
+
+<p>If <code>Counter</code> was a <code>class</code>, we would capture it using a <code>[weak self]</code> closure and avoid the reference counted loop that way. However, since <code>Counter</code> is a <code>struct</code>, attempting to do that is an error. No luck there.</p>
+
+<p>Can we break the loop manually, after construction, by setting the <code>od</code> field to <code>nil</code>?</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">var</span> <span class="nv">c</span> <span class="p">=</span> <span class="n">Counter</span><span class="p">()</span>
+<span class="n">c</span><span class="p">.</span><span class="n">od</span> <span class="p">=</span> <span class="kc">nil</span></code></pre></div>
+
+<p>Nope. Still doesn&rsquo;t work. Why not?</p>
+
+<p>When the <code>Counter.init</code> function returns, the <code>alloc_box</code> it creates is copied to the stack. This means that the version <code>OnDelete</code> has retained is different from this version we can accces. The version <code>OnDelete</code> has is now inaccessible.</p>
+
+<p>We&rsquo;ve created an <em>unbreakable</em> loop.</p>
+
+<p>As <a href="https://twitter.com/jckarter/status/715171466283646977">Joe Groff highlights in this thread on Twitter</a>, Swift evolution change <a href="https://github.com/apple/swift-evolution/blob/master/proposals/0035-limit-inout-capture.md">SE-0035</a> should prevent this problem by limiting <code>inout</code> capture (the kind of capture used in the <code>Counter.init</code> method) to <code>@noescape</code> closures (which would prevent capture by <code>OnDelete</code>&rsquo;s escaping closure).</p>
+
+<h2 id="copies-bad-shared-references-good">Copies bad, shared references good?</h2>
+
+<p>So the problem is that a different copy of <code>self</code> is returned by the <code>Counter.init</code> method than the version we capture during the method. What we need is to make the returned and retained versions the same.</p>
+
+<p>Let&rsquo;s avoid doing anything in an <code>init</code> method and instead set things up in <code>static</code> function instead.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">struct</span> <span class="nc">Counter</span> <span class="p">{</span>
+   <span class="kd">var</span> <span class="nv">count</span> <span class="p">=</span> <span class="mi">0</span>
+   <span class="kd">var</span> <span class="nv">od</span><span class="p">:</span> <span class="n">OnDelete</span><span class="p">?</span> <span class="p">=</span> <span class="kc">nil</span>
+   <span class="kd">static</span> <span class="kd">func</span> <span class="nf">construct</span><span class="p">()</span> <span class="p">-&gt;</span> <span class="n">Counter</span> <span class="p">{</span>
+      <span class="kd">var</span> <span class="nv">c</span> <span class="p">=</span> <span class="n">Counter</span><span class="p">()</span>
+      <span class="n">c</span><span class="p">.</span><span class="n">od</span> <span class="p">=</span> <span class="n">OnDelete</span><span class="p">{</span>
+         <span class="bp">print</span><span class="p">(</span><span class="s">&#34;Value loop break is </span><span class="si">\(</span><span class="n">c</span><span class="p">.</span><span class="bp">count</span><span class="si">)</span><span class="s">&#34;</span><span class="p">)</span>
+      <span class="p">}</span>
+      <span class="k">return</span> <span class="n">c</span>
+   <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">do</span> <span class="p">{</span>
+   <span class="kd">var</span> <span class="nv">c</span> <span class="p">=</span> <span class="n">Counter</span><span class="p">.</span><span class="n">construct</span><span class="p">()</span>
+   <span class="n">c</span><span class="p">.</span><span class="bp">count</span> <span class="o">+=</span> <span class="mi">1</span>
+   <span class="n">c</span><span class="p">.</span><span class="n">od</span> <span class="p">=</span> <span class="kc">nil</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Nope: we still have the same problem. We&rsquo;ve got a captured version of <code>Counter</code>, permanently embedded in <code>OnDelete</code>, that&rsquo;s different to the returned version.</p>
+
+<p>Let&rsquo;s change that <code>static</code> method&hellip;</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">struct</span> <span class="nc">Counter</span> <span class="p">{</span>
+   <span class="kd">var</span> <span class="nv">count</span> <span class="p">=</span> <span class="mi">0</span>
+   <span class="kd">var</span> <span class="nv">od</span><span class="p">:</span> <span class="n">OnDelete</span><span class="p">?</span> <span class="p">=</span> <span class="kc">nil</span>
+   <span class="kd">static</span> <span class="kd">func</span> <span class="nf">construct</span><span class="p">()</span> <span class="p">-&gt;</span> <span class="p">()</span> <span class="p">-&gt;</span> <span class="p">()</span> <span class="p">{</span>
+      <span class="kd">var</span> <span class="nv">c</span> <span class="p">=</span> <span class="n">Counter</span><span class="p">()</span>
+      <span class="n">c</span><span class="p">.</span><span class="n">od</span> <span class="p">=</span> <span class="n">OnDelete</span><span class="p">{</span>
+         <span class="bp">print</span><span class="p">(</span><span class="s">&#34;Value loop break is </span><span class="si">\(</span><span class="n">c</span><span class="p">.</span><span class="bp">count</span><span class="si">)</span><span class="s">&#34;</span><span class="p">)</span>
+      <span class="p">}</span>
+      <span class="k">return</span> <span class="p">{</span>
+         <span class="n">c</span><span class="p">.</span><span class="bp">count</span> <span class="o">+=</span> <span class="mi">1</span>
+         <span class="n">c</span><span class="p">.</span><span class="n">od</span> <span class="p">=</span> <span class="kc">nil</span>
+      <span class="p">}</span>
+   <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">do</span> <span class="p">{</span>
+   <span class="kd">var</span> <span class="nv">loopBreaker</span> <span class="p">=</span> <span class="n">Counter</span><span class="p">.</span><span class="n">construct</span><span class="p">()</span>
+   <span class="n">loopBreaker</span><span class="p">()</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The output is now:</p>
+
+<pre><code>Counter value is 1
+</code></pre>
+
+<p>This finally works, and we can see the state change from the <code>loopBreaker</code> closure is correctly affecting the result printed in the <code>OnDelete</code> closure.</p>
+
+<p>Now that we&rsquo;re no longer returning the <code>Counter</code> instance, we&rsquo;ve stopped making a separate copy of it. There is only one copy of the <code>Counter</code> instance and that&rsquo;s the <code>alloc_box</code> version shared by the two closures. We have a referenced counted <code>struct</code> on the heap and an <code>OnDelete</code> method that can access the fields of the <code>struct</code> at cleanup time.</p>
+
+<h2 id="some-perspective">Some perspective</h2>
+
+<p>The code technically &ldquo;works&rdquo; but the result is a mess. We have a reference counted loop that we need to manually break, we can only access the <code>Counter</code> type through closures set up in the <code>construct</code> function and for a single underlying instance we now have four heap allocations (the closure in <code>OnDelete</code>, the <code>OnDelete</code> object itself, the boxed allocation of the <code>c</code> variable and the <code>loopBreaker</code> closure).</p>
+
+<p>If you haven&rsquo;t realized by now&hellip; this has all been a big waste of time.</p>
+
+<p>We could just have made the <code>Counter</code> a <code>class</code> in the first place, keeping the number of heap allocations to 1.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">class</span> <span class="nc">Counter</span> <span class="p">{</span>
+   <span class="kd">var</span> <span class="nv">count</span> <span class="p">=</span> <span class="mi">0</span>
+   <span class="kd">deinit</span> <span class="p">{</span>
+      <span class="bp">print</span><span class="p">(</span><span class="s">&#34;Counter value is </span><span class="si">\(</span><span class="bp">count</span><span class="si">)</span><span class="s">&#34;</span><span class="p">)</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Long story short: if you need access to the same mutable data from different scopes, a <code>struct</code> probably isn&rsquo;t a great choice.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>Closure capture is something we just write and assume the compiler will do what is required. However, capturing mutable values has a few, subtly different semantics, that may need to be understood to avoid problems. This is complicated by a couple minor design issues that we&rsquo;re still waiting on Swift 3 to fix.</p>
+
+<p>Remember to consider the possibility of reference counted loops when capturing <code>struct</code> values with <code>class</code> fields. You can&rsquo;t weakly capture a <code>struct</code> so if a reference counted loop occurs, you&rsquo;ll need to break the loop another way.</p>
+
+<p>In any case, most of this article has looked at a completely stupid idea: trying to make a <code>struct</code> capture itself. Don&rsquo;t do that. Capturing, like other reference counting structures, should be an <em>acyclic</em> graph. If you find yourself trying to make loops, it&rsquo;s probably because you should be using <code>class</code> types with <code>weak</code> links from child to parent.</p>
+
+<p>Finally, there are some <em>good</em> reasons to use an <code>OnDelete</code> class but don&rsquo;t start thinking it works like a <code>deinit</code> method – it&rsquo;s predominantly for side effects (state outside the scope to which it&rsquo;s attached).</p>
+
+		</div>
+	</article>
+</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../17/non-pure-errors.html">Errors: unexpected, composite, non-pure, external.</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../../04/01/neither-tabs-nor-spaces.html">Indent with tabs or spaces? I wish I didn&#39;t need to know.</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../../../feed.json">JSON</a>, <a href="../../../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

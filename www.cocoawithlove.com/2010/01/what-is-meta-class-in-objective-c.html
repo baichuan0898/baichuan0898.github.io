@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>What is a meta-class in Objective-C?</title>
+  <meta name="description" content="In this post, I look at one of the stranger concepts in Objective-C &amp;mdash; the meta-class. Every class in Objective-C has its own associated meta-class but since you rarely ever use a meta-class directly, they can remain enigmatic. I&#39;ll start by looking at how to create a class at runtime. By examining the &#34;class pair&#34; that this creates, I&#39;ll explain what the meta-class is and also cover the more general topic of what it means for data to be an object or a class in Objective-C." />
+
+  <meta name="twitter:title" content="What is a meta-class in Objective-C?"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2010/01/what-is-meta-class-in-objective-c.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="In this post, I look at one of the stranger concepts in Objective-C &amp;mdash; the meta-class. Every class in Objective-C has its own associated meta-class but since you rarely ever use a meta-class directly, they can remain enigmatic. I&#39;ll start by looking at how to create a class at runtime. By examining the &#34;class pair&#34; that this creates, I&#39;ll explain what the meta-class is and also cover the more general topic of what it means for data to be an object or a class in Objective-C."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="what-is-meta-class-in-objective-c.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">What is a meta-class in Objective-C?</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2010-01-17">January 17, 2010</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/objective-c.html">Objective-C</a>, <a href="../../categories/foundation.html">Foundation</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>In this post, I look at one of the stranger concepts in Objective-C &mdash; the meta-class. Every class in Objective-C has its own associated meta-class but since you rarely ever use a meta-class directly, they can remain enigmatic. I'll start by looking at how to create a class at runtime. By examining the "class pair" that this creates, I'll explain what the meta-class is and also cover the more general topic of what it means for data to be an object or a class in Objective-C.</p></span>
+
+<span class="fullpost">
+<h2>Creating a class at runtime</h2>
+<p>The following code creates a new subclass of <code>NSError</code> at runtime and adds one method to it:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">Class</span> <span class="n">newClass</span> <span class="o">=</span>
+    <span class="n">objc_allocateClassPair</span><span class="p">([</span><span class="n">NSError</span> <span class="k">class</span><span class="p">],</span> <span class="sa"></span><span class="s">&#34;RuntimeErrorSubclass&#34;</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+<span class="n">class_addMethod</span><span class="p">(</span><span class="n">newClass</span><span class="p">,</span> <span class="k">@selector</span><span class="p">(</span><span class="n">report</span><span class="p">),</span> <span class="p">(</span><span class="kt">IMP</span><span class="p">)</span><span class="n">ReportFunction</span><span class="p">,</span> <span class="sa"></span><span class="s">&#34;v@:&#34;</span><span class="p">);</span>
+<span class="n">objc_registerClassPair</span><span class="p">(</span><span class="n">newClass</span><span class="p">);</span></code></pre></div>
+
+<p>The method added uses the function named <code>ReportFunction</code> as its implementation, which is defined as follows:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">void</span> <span class="nf">ReportFunction</span><span class="p">(</span><span class="kt">id</span> <span class="nb">self</span><span class="p">,</span> <span class="kt">SEL</span> <span class="n">_cmd</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">NSLog</span><span class="p">(</span><span class="s">@&#34;This object is %p.&#34;</span><span class="p">,</span> <span class="nb">self</span><span class="p">);</span>
+    <span class="n">NSLog</span><span class="p">(</span><span class="s">@&#34;Class is %@, and super is %@.&#34;</span><span class="p">,</span> <span class="p">[</span><span class="nb">self</span> <span class="k">class</span><span class="p">],</span> <span class="p">[</span><span class="nb">self</span> <span class="n">superclass</span><span class="p">]);</span>
+    
+    <span class="kt">Class</span> <span class="n">currentClass</span> <span class="o">=</span> <span class="p">[</span><span class="nb">self</span> <span class="k">class</span><span class="p">];</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mi">5</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">NSLog</span><span class="p">(</span><span class="s">@&#34;Following the isa pointer %d times gives %p&#34;</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">currentClass</span><span class="p">);</span>
+        <span class="n">currentClass</span> <span class="o">=</span> <span class="n">object_getClass</span><span class="p">(</span><span class="n">currentClass</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="n">NSLog</span><span class="p">(</span><span class="s">@&#34;NSObject&#39;s class is %p&#34;</span><span class="p">,</span> <span class="p">[</span><span class="n">NSObject</span> <span class="k">class</span><span class="p">]);</span>
+    <span class="n">NSLog</span><span class="p">(</span><span class="s">@&#34;NSObject&#39;s meta class is %p&#34;</span><span class="p">,</span> <span class="n">object_getClass</span><span class="p">([</span><span class="n">NSObject</span> <span class="k">class</span><span class="p">]));</span>
+<span class="p">}</span></code></pre></div>
+
+<p>On the surface, this is all pretty simple. Creating a class at runtime is just three easy steps:</p>
+
+<ol><li>Allocate storage for the "class pair" (using <code>objc_allocateClassPair</code>).</li>
+<li>Add methods and ivars to the class as needed (I've added one method using <code>class_addMethod</code>).</li>
+<li>Register the class so that it can be used (using <code>objc_registerClassPair</code>).</li></ol>
+
+<p>However, the immediate question is: what is a "class pair"? The function <code>objc_allocateClassPair</code> only returns one value: the class. Where is the other half of the pair?</p>
+
+<p>I'm sure you've guessed that the other half of the pair is the meta-class (it's the title of this post) but to explain what that is and why you need it, I'm going to give some background on objects and classes in Objective-C.</p>
+
+<h2>What is needed for a data structure to be an object?</h2>
+
+<p>Every object has a class. This is a fundamental object-oriented concept but in Objective-C, it is also a fundamental part of the data. Any data structure which has a pointer to a class in the right location can be treated as an object.</p>
+
+<p>In Objective-C, an object's class is determined by its <code>isa</code> pointer. The <code>isa</code> pointer points to the object's Class.</p>
+
+<p>In fact, the basic definition of an object in Objective-C looks like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">typedef</span> <span class="k">struct</span> <span class="n">objc_object</span> <span class="p">{</span>
+    <span class="kt">Class</span> <span class="n">isa</span><span class="p">;</span>
+<span class="p">}</span> <span class="o">*</span><span class="kt">id</span><span class="p">;</span></code></pre></div>
+
+<p>What this says is: any structure which starts with a pointer to a <code>Class</code> structure can be treated as an <code>objc_object</code>.</p>
+
+<p>The most important feature of objects in Objective-C is that you can send messages to them:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">[</span><span class="s">@&#34;stringValue&#34;</span>
+    <span class="nl">writeToFile</span><span class="p">:</span><span class="s">@&#34;/file.txt&#34;</span> <span class="nl">atomically</span><span class="p">:</span><span class="nb">YES</span> <span class="nl">encoding</span><span class="p">:</span><span class="n">NSUTF8StringEncoding</span> <span class="nl">error</span><span class="p">:</span><span class="nb">NULL</span><span class="p">];</span></code></pre></div>
+
+<p>This works because when you send a message to an Objective-C object (like the <code>NSCFString</code> here), the runtime follows object's <code>isa</code> pointer to get to the object's <code>Class</code> (the <code>NSCFString</code> class in this case). The <code>Class</code> then contains a list of the <code>Method</code>s which apply to all objects of that <code>Class</code> and a pointer to the <code>superclass</code> to look up inherited methods. The runtime looks through the list of <code>Method</code>s on the <code>Class</code> and superclasses to find one that matches the message selector (in the above case, <code>writeToFile:atomically:encoding:error</code> on <code>NSString</code>). The runtime then invokes the function (<code>IMP</code>) for that method.</p>
+
+<p>The important point is that the <code>Class</code> defines the messages that you can send to an object.</p>
+
+<h2>What is a meta-class?</h2>
+
+<p>Now, as you probably already know, a <code>Class</code> in Objective-C is also an object. This means that you can send messages to a <code>Class</code>.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSStringEncoding</span> <span class="n">defaultStringEncoding</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSString</span> <span class="n">defaultStringEncoding</span><span class="p">];</span></code></pre></div>
+
+<p>In this case, <code>defaultStringEncoding</code> is sent to the <code>NSString</code> class.</p>
+
+<p>This works because every <code>Class</code> in Objective-C is an object itself. This means that the <code>Class</code> structure must start with an <code>isa</code> pointer so that it is binary compatible with the <code>objc_object</code> structure I showed above and the next field in the structure must be a pointer to the <code>superclass</code> (or <code>nil</code> for base classes).</p>
+
+<p><a href="getting-subclasses-of-objective-c-class.html">As I showed last week</a>, there are a couple different ways that a <code>Class</code> can be defined, depending on the version of the runtime you are running, but yes, they all start with an <code>isa</code> field followed by a <code>superclass</code> field.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">typedef</span> <span class="k">struct</span> <span class="n">objc_class</span> <span class="o">*</span><span class="kt">Class</span><span class="p">;</span>
+<span class="k">struct</span> <span class="n">objc_class</span> <span class="p">{</span>
+    <span class="kt">Class</span> <span class="n">isa</span><span class="p">;</span>
+    <span class="kt">Class</span> <span class="n">super_class</span><span class="p">;</span>
+    <span class="cm">/* followed by runtime specific details... */</span>
+<span class="p">};</span></code></pre></div>
+
+<p>However, in order to let us invoke a method on a <code>Class</code>, the <code>isa</code> pointer of the <code>Class</code> must itself point to a <code>Class</code> structure and that <code>Class</code> structure must contain the list of <code>Method</code>s that we can invoke on the Class.</p>
+
+<p>This leads to the definition of a meta-class: the meta-class is the class for a <code>Class</code> object.</p>
+
+<p>Simply put:</p>
+
+<ul><li>When you send a message to an object, that message is looked up in the method list on the object's class.</li>
+<li>When you send a message to a class, that message is looked up in the method list on the class' meta-class.</li></ul>
+
+<p>The meta-class is essential because it stores the class methods for a <code>Class</code>. There must be a unique meta-class for every <code>Class</code> because every <code>Class</code> has a potentially unique list of class methods.</p>
+
+<h2>What is the class of the meta-class?</h2>
+
+<p>The meta-class, like the <code>Class</code> before it, is also an object. This means that you can invoke methods on it too. Naturally, this means that it must also have a class.</p>
+
+<p>All meta-classes use the base class' meta-class (the meta-class of the top <code>Class</code> in their inheritance hierarchy) as their class. This means that for all classes that descend from <code>NSObject</code> (most classes), the meta-class has the <code>NSObject</code> meta-class as its class.</p>
+
+<p>Following the rule that all meta-classes use the base class' meta-class as their class, any base meta-classes will be its own class (their <code>isa</code> pointer points to themselves). This means that the <code>isa</code> pointer on the <code>NSObject</code> meta-class points to itself (it is an instance of itself).</p>
+
+<h2>Inheritance for classes and meta-classes</h2>
+
+<p>In the same way that the <code>Class</code> points to the superclass with its <code>super_class</code> pointer, the meta-class points to the meta-class of the <code>Class</code>' <code>super_class</code> using its own <code>super_class</code> pointer.</p>
+
+<p>As a further quirk, the base class' meta-class sets its <code>super_class</code> to the base class itself.</p>
+
+<p>The result of this inheritance hierarchy is that all instances, classes and meta-classes in the hierarchy inherit from the hierarchy's base class.</p>
+
+<p>For all instances, classes and meta-classes in the <code>NSObject</code> hierarchy, this means that all <code>NSObject</code> instance methods are valid. For the classes and meta-classes, all <code>NSObject</code> class methods are also valid.</p>
+
+<p>All this is pretty confusing in text. <a href="http://www.sealiesoftware.com/blog/">Greg Parker</a> has put together an <a href="http://www.sealiesoftware.com/blog/archive/2009/04/14/objc_explain_Classes_and_metaclasses.html">excellent diagram of instances, classes, meta-classes and their super classes</a> and how they all fit together.</p>
+
+<h2>Experimental confirmation of this</h2>
+
+<p>To confirm all of this, let's look at the output of the <code>ReportFunction</code> I gave at the start of this post. The purpose of this function is to follow the <code>isa</code> pointers and log what it finds.</p>
+
+<p>To run the <code>ReportFunction</code>, we need to create an instance of the dynamically created class and invoke the <code>report</code> method on it.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">id</span> <span class="n">instanceOfNewClass</span> <span class="o">=</span>
+    <span class="p">[[</span><span class="n">newClass</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithDomain</span><span class="p">:</span><span class="s">@&#34;someDomain&#34;</span> <span class="nl">code</span><span class="p">:</span><span class="mi">0</span> <span class="nl">userInfo</span><span class="p">:</span><span class="nb">nil</span><span class="p">];</span>
+<span class="p">[</span><span class="n">instanceOfNewClass</span> <span class="nl">performSelector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="n">report</span><span class="p">)];</span>
+<span class="p">[</span><span class="n">instanceOfNewClass</span> <span class="k">release</span><span class="p">];</span></code></pre></div>
+
+<p>Since there is no declaration of the <code>report</code> method, I invoke it using <code>performSelector:</code> so the compiler doesn't give a warning.</p>
+
+<p>The <code>ReportFunction</code> will now traverse through the <code>isa</code> pointers and tell us what objects are used as the class, meta-class and class of the meta-class.</p>
+
+<blockquote><strong>Getting the class of an object:</strong> the <code>ReportFunction</code> uses <code>object_getClass</code> to follow the <code>isa</code> pointers because the <code>isa</code> pointer is a protected member of the class (you can't directly access other object's <code>isa</code> pointers). The <code>ReportFunction</code> does not use the <code>class</code> method to do this because invoking the <code>class</code> method on a <code>Class</code> object does not return the meta-class, it instead returns the <code>Class</code> again (so <code>[NSString class]</code> will return the <code>NSString</code> class instead of the <code>NSString</code> meta-class).</blockquote>
+
+<p>This is the output (minus <code>NSLog</code> prefixes) when the program runs:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">This</span> <span class="n">object</span> <span class="n">is</span> <span class="mh">0x10010c810</span><span class="p">.</span>
+<span class="kt">Class</span> <span class="n">is</span> <span class="n">RuntimeErrorSubclass</span><span class="p">,</span> <span class="n">and</span> <span class="nb">super</span> <span class="n">is</span> <span class="n">NSError</span><span class="p">.</span>
+<span class="n">Following</span> <span class="n">the</span> <span class="n">isa</span> <span class="n">pointer</span> <span class="mi">1</span> <span class="n">times</span> <span class="n">gives</span> <span class="mh">0x10010c600</span>
+<span class="n">Following</span> <span class="n">the</span> <span class="n">isa</span> <span class="n">pointer</span> <span class="mi">2</span> <span class="n">times</span> <span class="n">gives</span> <span class="mh">0x10010c630</span>
+<span class="n">Following</span> <span class="n">the</span> <span class="n">isa</span> <span class="n">pointer</span> <span class="mi">3</span> <span class="n">times</span> <span class="n">gives</span> <span class="mh">0x7fff71038480</span>
+<span class="n">Following</span> <span class="n">the</span> <span class="n">isa</span> <span class="n">pointer</span> <span class="mi">4</span> <span class="n">times</span> <span class="n">gives</span> <span class="mh">0x7fff71038480</span>
+<span class="n">NSObject</span><span class="err">&#39;</span><span class="n">s</span> <span class="k">class</span> <span class="n">is</span> <span class="mh">0x7fff710384a8</span>
+<span class="n">NSObject</span><span class="err">&#39;</span><span class="n">s</span> <span class="n">meta</span> <span class="k">class</span> <span class="n">is</span> <span class="mh">0x7fff71038480</span></code></pre></div>
+
+<p>Looking at the addresses reached by following the <code>isa</code> value repeatedly:</p>
+
+<ul>
+<li>the object is address <code>0x10010c810</code>.</li>
+<li>the class is address <code>0x10010c600</code>.</li>
+<li>the meta-class is address <code>0x10010c630</code>.</li>
+<li>the meta-class's class (i.e. the <code>NSObject</code> meta-class) is address <code>0x7fff71038480</code>.</li>
+<li>the <code>NSObject</code> meta-class' class is itself.</li>
+</ul>
+
+<p>The value of the addresses is not really important except that it shows the progress from class to meta-class to <code>NSObject</code> meta-class as discussed.</p>
+
+<h2>Conclusion</h2>
+
+<p>The meta-class is the class for a <code>Class</code> object. Every <code>Class</code> has its own unique meta-class (since every <code>Class</code> can have its own unique list of methods). This means that all <code>Class</code> objects are not themselves all of the same class.</p>
+
+<p>The meta-class will always ensure that the <code>Class</code> object has all the instance <em>and</em> class methods of the base class in the hierarchy, plus all of the class methods in-between. For classes descended from <code>NSObject</code>, this means that all the <code>NSObject</code> instance and protocol methods are defined for all <code>Class</code> (and meta-class) objects.</p>
+
+<p>All meta-classes themselves use the base class' meta-class (<code>NSObject</code> meta-class for <code>NSObject</code> hierarchy classes) as their class, including the base level meta-class which is the only self-defining class in the runtime.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="getting-subclasses-of-objective-c-class.html">Getting the subclasses of an Objective-C class</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="5-key-value-coding-approaches-in-cocoa.html">5 key-value coding approaches in Cocoa</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

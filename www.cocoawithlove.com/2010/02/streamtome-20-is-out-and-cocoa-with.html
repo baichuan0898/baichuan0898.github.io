@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>StreamToMe 2.0 is out (and Cocoa With Love is 2 years old).</title>
+  <meta name="description" content="Two different things turning two different kinds of &#34;2&#34;. Snap." />
+
+  <meta name="twitter:title" content="StreamToMe 2.0 is out (and Cocoa With Love is 2 years old)."/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2010/02/streamtome-20-is-out-and-cocoa-with.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Two different things turning two different kinds of &#34;2&#34;. Snap."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="streamtome-20-is-out-and-cocoa-with.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="118px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">StreamToMe 2.0 is out (and Cocoa With Love is 2 years old).</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2010-02-26">February 26, 2010</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/self-promotion.html">self promotion</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>Two different things turning two different kinds of "2". Snap.</p></span>
+
+<span class="fullpost">
+<h2>Cocoa With Love is two years old today</h2>
+
+<p>I've been writing a feature article every week for two years now &mdash; haven't missed a single week yet (hope that doesn't jinx me).</p>
+
+<p>To commemorate, I've put the complete list of downloadable code samples from my blog on the <a href="../../assets/objc-era/index.html">Projects With Love: Open Source Projects</a> page.</p>
+
+<h2>StreamToMe 2.0 is out!</h2>
+
+<p>For those who don't know, <a href="http://zqueue.com/streamtome/index.html">StreamToMe</a> is an iPhone application for streaming video and music from your Mac to your iPhone/iPod Touch. Plug your phone into your TV and you can use it to stream your Mac's music and video files to your TV. No prior conversion necessary &mdash; a huge range of codecs and formats (including AVI, WMV, MOV, MP4, FLV and more) will just play.</p>
+
+<p>StreamToMe 2.0 adds:</p>
+
+<ul>
+<li>Thumbnail previews for video files</li>
+<li>Album artwork for music files (including while playing)</li>
+<li>Artist and title metadata display</li>
+<li>Subtitle rendering (including SRT and SSA files, MKV embedded SSA tracks and MOV text tracks)</li>
+<li>Multiple audio tracks</li>
+<li>Continuous and random play modes</li>
+<li>Sort options including folder flattening (so you can view the full hierarchy of your iTunes collection as a single flat collection)</li>
+<li>Preliminary support for EyeTV streams</li>
+<li>Persistent playback &mdash; if you quit or are interrupted by a phone call during playback, you can continue from where you were.</li>
+</ul>
+
+<p>And more!</p>
+
+<blockquote><a href="http://itunes.apple.com/WebObjects/MZStore.woa/wa/viewSoftware?id=325327899&amp;mt=8"><img src="../../assets/objc-era/streamtome_ios_icon.png" style="float:left;margin:0px;margin-right:16px;padding:0px;" width="64px" height="64px"></a>
+   <p>StreamToMe is available to purchase from the iTunes App Store:</p>
+   <p><a href="http://itunes.apple.com/WebObjects/MZStore.woa/wa/viewSoftware?id=325327899&amp;mt=8"><strong>Download StreamToMe 2.0 from the AppStore now</strong></a></p>
+   <div style="clear:both"></div>
+</blockquote>
+
+<p>Free upgrade for existing customers. Lucky them! Don't forget to update <a href="http://zqueue.com/servetome/index.html">ServeToMe</a> to enable some of the newer features.</p>
+
+<p>Windows XP support for ServeToMe is coming soon (I'm hoping by the end of March).</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="resolving-path-containing-mixture-of.html">Resolving a path containing a mixture of aliases and symlinks</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../03/load-from-nib-or-construct-views-in.html">Load from NIB or construct views in code: which is faster?</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

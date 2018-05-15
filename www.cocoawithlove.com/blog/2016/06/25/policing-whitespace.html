@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Parsing whitespace in an Xcode extension</title>
+  <meta name="description" content="Fun with a pushdown automaton (implemented as a single mighty switch statement) for parsing whitespace in Swift source files. The result is an Xcode 8 Source Editor Command extension for detecting and correcting whitespace issues in Swift files." />
+
+  <meta name="twitter:title" content="Parsing whitespace in an Xcode extension"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/blog/2016/06/25/policing-whitespace.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Fun with a pushdown automaton (implemented as a single mighty switch statement) for parsing whitespace in Swift source files. The result is an Xcode 8 Source Editor Command extension for detecting and correcting whitespace issues in Swift files."/>
+
+  <link rel="icon" href="../../../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../../../css/main.css" />
+  <link rel="canonical" href="policing-whitespace.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../../../index.html"><img class="heartandcup" src="../../../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../../../about/index.html">about</a>
+        <a class="page-link" href="../../../../archive/index.html">archive</a>
+        <a class="page-link" href="../../../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Parsing whitespace in an Xcode extension</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2016-06-25">June 25, 2016</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../../../tags/swift.html">Swift</a>, <a href="../../../../tags/parsing.html">parsing</a>, <a href="../../../../tags/xcode.html">Xcode</a>
+		 
+	</div>
+</header>
+
+
+<main role="main">
+	<article itemscope itemtype="http://schema.org/BlogPosting">
+		<div class="post-content" itemprop="articleBody">
+			
+
+<p>I took a break from converting projects to Swift 3 this weekend and instead played around with writing a new &ldquo;Source Editor Command&rdquo; extension for Xcode 8. The result is an extension that detects and corrects whitespace issues. It&rsquo;s <a href="../../04/01/neither-tabs-nor-spaces.html">a topic I&rsquo;ve touched on before</a> because I&rsquo;m frustrated by the continuous burden of correcting whitespace in my projects. I wanted to see if an Xcode source extension could reduce my annoyance with this issue.</p>
+
+<p>The fun part of this exercise for me was writing a pushdown automaton parser where all of the parser logic was expressed through the <code>case</code> patterns of a single Swift <code>switch</code> statement. Accordingly, most of this article is not really about Xcode Source Editor Command extensions or whitespace issues but is actually about design choices related to large, complex <code>switch</code> statements in Swift: choosing data types to <code>switch</code> upon, designing <code>case</code> patterns to handle a deep decision tree in a single <code>switch</code> statement, when to use custom pattern matching and when to use <code>where</code> clauses.</p>
+
+<nav id="TableOfContents"><span class="toc-heading">Contents</span>
+<ul>
+<li>
+<ul>
+<li><a href="#reformatting-source-files-in-xcode">Reformatting source files in Xcode</a></li>
+<li><a href="#a-pushdown-automaton-for-whitespace-parsing">A pushdown automaton for whitespace parsing</a></li>
+<li><a href="#custom-matching-patterns-in-swift">Custom matching patterns in Swift</a></li>
+<li><a href="#creating-better-case-patterns">Creating better <code>case</code> patterns</a>
+<ul>
+<li><a href="#when-to-where-clause">When to <code>where</code> clause</a></li>
+<li><a href="#external-conditions">External conditions</a></li>
+<li><a href="#compose-program-state-into-fewer-variables">Compose program state into fewer variables</a></li>
+<li><a href="#compromise">Compromise</a></li>
+<li><a href="#case-lists">Case lists?</a></li>
+</ul></li>
+<li><a href="#usage">Usage</a></li>
+<li><a href="#conclusion">Conclusion</a></li>
+</ul></li>
+</ul>
+</nav>
+
+<h2 id="reformatting-source-files-in-xcode">Reformatting source files in Xcode</h2>
+
+<p>Code edited in Xcode is particularly prone to whitespace problems. Xcode file templates hard code indentation, ignoring your project settings. Code snippets also hard code indents and additionally ignore the indentation of the current scope, leading to code completion that falls into the left margin until you dig it out again:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift">   <span class="kd">func</span> <span class="nf">applicationDidBecomeActive</span><span class="p">(</span><span class="kc">_</span> <span class="n">application</span><span class="p">:</span> <span class="n">UIApplication</span><span class="p">)</span> <span class="p">{</span>
+      <span class="k">for</span> <span class="o">&lt;</span><span class="p">#</span><span class="n">item</span><span class="p">#</span><span class="o">&gt;</span> <span class="k">in</span> <span class="o">&lt;</span><span class="p">#</span><span class="n">items</span><span class="p">#</span><span class="o">&gt;</span> <span class="p">{</span>
+    <span class="o">&lt;</span><span class="p">#</span><span class="n">code</span><span class="p">#</span><span class="o">&gt;</span>
+<span class="p">}</span>
+   <span class="p">}</span></code></pre></div>
+
+<p>Beyond indentation problems, there are different Swift community opinions about whether some <code>:</code> characters should have spaces on both sides or just the right side, about whether <code>case</code> labels should be indented, about whether <code>#if</code> contents should be indented and more. Additionally, there&rsquo;s always the possibility of typos inserting whitespace where it doesn&rsquo;t belong or deleting whitespace you&rsquo;d prefer to keep.</p>
+
+<p>Xcode does offer &ldquo;Re-Indent&rdquo; for correcting the indentation of your file (menu &ldquo;Editor → Structure → Re-Indent&rdquo;, or Ctrl-I, by default). In general, it&rsquo;s fairly good. I often wonder why it isn&rsquo;t run automatically over code created from templates or snippets to apply the user&rsquo;s indentation preferences.</p>
+
+<p>It does have four limitations:</p>
+
+<ol>
+<li>It only fixes indentation problems (not other whitespace issues).</li>
+<li>It can&rsquo;t be run in a &ldquo;pre-flight&rdquo; mode to see if or what it would change.</li>
+<li>It always marks the file as &ldquo;dirty&rdquo; so it&rsquo;s difficult to tell what, if anything, changed.</li>
+<li>It&rsquo;s not open source so I can&rsquo;t customize it to my personal preferences.</li>
+</ol>
+
+<p>With the new &ldquo;Source Editor Command&rdquo; extensions possible in Xcode 8, I wanted to see if I could produce something that enforces whitespace rules as I&rsquo;d like them to be enforced in my own projects.</p>
+
+<h2 id="a-pushdown-automaton-for-whitespace-parsing">A pushdown automaton for whitespace parsing</h2>
+
+<p>I&rsquo;ve written recursive descent parsers on Cocoa with Love before but they&rsquo;re a lot of work (particularly if you need to refactor the grammar) and in this case, it&rsquo;s probably not the best option.</p>
+
+<p>The most important task in whitespace parsing is tracking the number of scopes entered and exited – we need this to determine the indent level. This involves pushing &ldquo;scope&rdquo; items on and off of a parse stack as they are encountered and counting the number of &ldquo;scope&rdquo; items on the stack to determine the indent level.</p>
+
+<p>In a recursive descent parser, the parse stack is the call stack. This is efficient in most cases but since we can&rsquo;t simply count items on the call stack (without preventing inlining and doing other unsafe things) we end up needing to replicate the parse stack in an array as well as on the call stack, which ends up feeling redundant.</p>
+
+<p>Instead, I&rsquo;m going to create a pushdown automaton, using an updated version of my <code>ScalarScanner</code> from <a href="../../05/01/swift-name-demangling.html">Comparing Swift to C++ for parsing</a> as part of the underlying tokenizer.</p>
+
+<p>In most respects, a pushdown automaton is really just an extension of a finite automaton. You&rsquo;ve probably seen diagrams for finite automatons, they look like this:</p>
+
+<p><img src="../../../../assets/blog/finite_automaton.svg" alt="a non-linear, three node graph" /></p>
+
+<p>In this diagram is a finite automaton with two states: it&rsquo;s either parsing &ldquo;body&rdquo; text or it&rsquo;s parsing a &ldquo;comment&rdquo;. If it&rsquo;s in the &ldquo;body&rdquo; and it hits a &ldquo;/*&rdquo; then it will transition to &ldquo;comment&rdquo; and if it&rsquo;s in the &ldquo;comment&rdquo; and it hits a &ldquo;*/&rdquo; it will transition back. Any other token will cause the parser to spin in-place.</p>
+
+<p>The problem with this type of automaton is that it can&rsquo;t handle nesting. If there&rsquo;s a comment inside a comment (valid in Swift) this parser will see the inner &ldquo;*/&rdquo; and will immediately return to &ldquo;body&rdquo; state incorrectly treating the remainder of the outer comment as &ldquo;body&rdquo;. You could add additional states for a finite number of comment nesting level states but it quickly gets complicated dealing with large numbers of states and it will only ever handle a finite nesting level rather than true unbounded nesting levels.</p>
+
+<p>Let&rsquo;s look instead at a pushdown automaton:</p>
+
+<p><img src="../../../../assets/blog/pushdown_automaton.svg" alt="a non-linear, three node graph" /></p>
+
+<p>The key distinction versus a plain automaton is that each arrow may also push and pop values on a stack and any arrow may fork along multiple paths based on the contents of the stack. Unlike the finite automaton, the stack gives the pushdown automaton an unlimited number of states, so it can represent unlimited nested – in this case of multiline comments.</p>
+
+<p>The nice thing about Swift for modelling automata is that the logic for the states, arrows and stack can all be handled by a single <code>switch</code> statement, resulting in code that very closely models the structure of the automaton. Here&rsquo;s the main loop of the pushdown automaton in the whitespace parser, showing the cases in the previous diagram:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="k">while</span> <span class="kd">let</span> <span class="nv">token</span> <span class="p">=</span> <span class="n">nextToken</span><span class="p">(&amp;</span><span class="n">scanner</span><span class="p">)</span> <span class="p">{</span>
+   <span class="k">switch</span> <span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">stack</span><span class="p">)</span> <span class="p">{</span>
+   <span class="k">case</span> <span class="p">(.</span><span class="n">body</span><span class="p">,</span> <span class="p">.</span><span class="n">slashStar</span><span class="p">,</span> <span class="kc">_</span><span class="p">):</span> <span class="n">arrow</span><span class="p">(</span><span class="n">to</span><span class="p">:</span> <span class="p">.</span><span class="n">multiComment</span><span class="p">,</span> <span class="n">push</span><span class="p">:</span> <span class="p">.</span><span class="n">comment</span><span class="p">)</span>
+   <span class="k">case</span> <span class="p">(.</span><span class="n">body</span><span class="p">,</span> <span class="kc">_</span><span class="p">):</span> <span class="k">break</span>
+
+   <span class="k">case</span> <span class="p">(.</span><span class="n">multiComment</span><span class="p">,</span> <span class="p">.</span><span class="n">starSlash</span><span class="p">,</span> <span class="n">UniqueScope</span><span class="p">(.</span><span class="n">comment</span><span class="p">)):</span> <span class="n">arrow</span><span class="p">(</span><span class="n">to</span><span class="p">:</span> <span class="p">.</span><span class="n">body</span><span class="p">,</span> <span class="n">pop</span><span class="p">:</span> <span class="p">.</span><span class="n">comment</span><span class="p">)</span>
+   <span class="k">case</span> <span class="p">(.</span><span class="n">multiComment</span><span class="p">,</span> <span class="p">.</span><span class="n">starSlash</span><span class="p">,</span> <span class="kc">_</span><span class="p">):</span> <span class="n">arrow</span><span class="p">(</span><span class="n">to</span><span class="p">:</span> <span class="p">.</span><span class="n">multiComment</span><span class="p">,</span> <span class="n">pop</span><span class="p">:</span> <span class="p">.</span><span class="n">comment</span><span class="p">)</span>
+   <span class="k">case</span> <span class="p">(.</span><span class="n">multiComment</span><span class="p">,</span> <span class="p">.</span><span class="n">slashStar</span><span class="p">,</span> <span class="kc">_</span><span class="p">):</span> <span class="n">arrow</span><span class="p">(</span><span class="n">to</span><span class="p">:</span> <span class="p">.</span><span class="n">multiComment</span><span class="p">,</span> <span class="n">push</span><span class="p">:</span> <span class="p">.</span><span class="n">comment</span><span class="p">)</span>
+   <span class="k">case</span> <span class="p">(.</span><span class="n">multiComment</span><span class="p">,</span> <span class="kc">_</span><span class="p">,</span> <span class="kc">_</span><span class="p">):</span> <span class="k">break</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This code tests the stack <em>before</em> popping, unlike the diagram, so it tests for a <em>unique</em> value in the stack, not an empty stack, but otherwise this code contains the same logic as the previous diagram.</p>
+
+<p>The full parser is about 120 lines long but it is simply more states like this and more tokens.</p>
+
+<h2 id="custom-matching-patterns-in-swift">Custom matching patterns in Swift</h2>
+
+<p>When a <code>.starSlash</code> is encountered in the <code>.multiComment</code> state, the code implements the following logic:</p>
+
+<ol>
+<li>if exactly 1 comment is on the stack
+
+<ul>
+<li>pop the comment</li>
+<li>return to body</li>
+</ul></li>
+<li>otherwise
+
+<ul>
+<li>pop the comment</li>
+<li>stay at multiline comment.</li>
+</ul></li>
+</ol>
+
+<p>This logic involves evaluating the condition &ldquo;if exactly 1 comment is on the stack&rdquo; which is implemented with the <code>UniqueScope(.comment)</code> pattern in the code. It&rsquo;s fairly unusual to see this type of construction in Swift but it really makes the code clearer and more concise in this situation so I wanted to talk about it a little more.</p>
+
+<p>The <code>stack</code> is an <code>Array&lt;Scope&gt;</code>. By default, there&rsquo;s no pattern matching for <code>Array</code> – not even basic equality matching. For example, the following code won&rsquo;t compile:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="k">switch</span> <span class="p">[</span><span class="s">&#34;a&#34;</span><span class="p">,</span> <span class="s">&#34;b&#34;</span><span class="p">]</span> <span class="p">{</span>
+<span class="k">case</span> <span class="p">[</span><span class="s">&#34;a&#34;</span><span class="p">,</span> <span class="s">&#34;b&#34;</span><span class="p">]:</span> <span class="bp">print</span><span class="p">(</span><span class="s">&#34;Can&#39;t match arrays&#34;</span><span class="p">)</span>
+<span class="k">default</span><span class="p">:</span> <span class="k">break</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Pattern matching is automatically defined for types that implement <code>Equatable</code> but (due to type system limitations), <code>Array</code> does not implement <code>Equatable</code> (despite having a <code>==</code> operator definition).</p>
+
+<p>In any case, we&rsquo;re not interested in &ldquo;equality&rdquo; style matching here. Instead we want to match against arrays that contain a single instance of a given <code>Scope</code>. For this purpose, I&rsquo;ve used a type named <code>UniqueScope</code>. This type is basically a predicate pattern and is defined as follows:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">struct</span> <span class="nc">UniqueScope</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">scope</span><span class="p">:</span> <span class="n">Scope</span>
+   <span class="kd">init</span><span class="p">(</span><span class="kc">_</span> <span class="n">scope</span><span class="p">:</span> <span class="n">Scope</span><span class="p">)</span> <span class="p">{</span>
+      <span class="kc">self</span><span class="p">.</span><span class="n">scope</span> <span class="p">=</span> <span class="n">scope</span>
+   <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kd">func</span> <span class="o">~=</span><span class="p">(</span><span class="n">test</span><span class="p">:</span> <span class="n">UniqueScope</span><span class="p">,</span> <span class="n">array</span><span class="p">:</span> <span class="nb">Array</span><span class="p">&lt;</span><span class="n">Scope</span><span class="o">&gt;</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Bool</span> <span class="p">{</span>
+   <span class="k">return</span> <span class="n">array</span><span class="p">.</span><span class="bp">reduce</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="p">{</span> <span class="nv">$1</span> <span class="p">==</span> <span class="n">test</span><span class="p">.</span><span class="n">scope</span> <span class="p">?</span> <span class="nv">$0</span> <span class="o">+</span> <span class="mi">1</span> <span class="p">:</span> <span class="nv">$0</span> <span class="p">}</span> <span class="p">==</span> <span class="mi">1</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The <code>UniqueScope</code> type is clearly very simple. Its only purpose is to offer the associated <code>~=</code> implementation which will be used when evaluating the <code>case</code> expression. Technically, the following two <code>switch</code> cases are equivalent:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="k">switch</span> <span class="n">stack</span> <span class="p">{</span>
+<span class="k">case</span> <span class="n">UniqueScope</span><span class="p">(.</span><span class="n">comment</span><span class="p">):</span> <span class="bp">print</span><span class="p">(</span><span class="s">&#34;Just one .comment in the stack&#34;</span><span class="p">)</span>
+<span class="k">case</span> <span class="kc">_</span> <span class="k">where</span> <span class="n">UniqueScope</span><span class="p">(.</span><span class="n">comment</span><span class="p">)</span> <span class="o">~=</span> <span class="n">stack</span><span class="p">:</span> <span class="bp">print</span><span class="p">(</span><span class="s">&#34;Just one .comment in the stack&#34;</span><span class="p">)</span></code></pre></div>
+
+<h2 id="creating-better-case-patterns">Creating better <code>case</code> patterns</h2>
+
+<p>The first <code>case</code> in the previous code sample isn&rsquo;t just more syntactically efficient, it&rsquo;s a vastly better conceptual design. The second <code>case</code> should be considered an anti-pattern: you should never use a <code>where</code> clause to do what should be done in the <code>case</code> pattern.</p>
+
+<h3 id="when-to-where-clause">When to <code>where</code> clause</h3>
+
+<p>The only scenario where a <code>where</code> clause is likely to be the best option is in testing properties unwrapped by the case pattern:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="k">switch</span> <span class="n">anOptionalInt</span> <span class="p">{</span>
+<span class="k">case</span> <span class="p">.</span><span class="n">some</span><span class="p">(</span><span class="kd">let</span> <span class="nv">value</span><span class="p">)</span> <span class="k">where</span> <span class="n">value</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span> <span class="bp">print</span><span class="p">(</span><span class="s">&#34;Value is greater than 1&#34;</span><span class="p">)</span> </code></pre></div>
+
+<p>You could avoid the <code>where</code> clause here by writing another custom pattern matching predicate:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="k">switch</span> <span class="n">anOptionalInt</span> <span class="p">{</span>
+<span class="k">case</span> <span class="n">MatchValue</span><span class="p">(</span><span class="n">greaterThan</span><span class="p">:</span> <span class="mi">1</span><span class="p">):</span> <span class="bp">print</span><span class="p">(</span><span class="s">&#34;Value is greater than 1&#34;</span><span class="p">)</span> </code></pre></div>
+
+<p>which is syntactically a little tighter but unless you needed to apply this pattern dozens of times, the effort of defining the type is probably more than you&rsquo;re saving. Additionally, using the standard syntax of the language has familiarity advantages to new readers.</p>
+
+<h3 id="external-conditions">External conditions</h3>
+
+<p>What about situations where the <code>where</code> clause tests a value that is completely unrelated to the <code>switch</code> expression or unwrapped values therein?</p>
+
+<p>For example, in a previous version of the parser, I had written:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="k">switch</span> <span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">stack</span><span class="p">)</span> <span class="p">{</span>
+<span class="k">case</span> <span class="p">(.</span><span class="n">body</span><span class="p">,</span> <span class="p">.</span><span class="n">space</span><span class="p">,</span> <span class="kc">_</span><span class="p">)</span> <span class="k">where</span> <span class="n">lengthOfToken</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+   <span class="c1">// ... flag multiple spaces as &#34;unexpected&#34; in body text ...</span></code></pre></div>
+
+<p>There&rsquo;s no technical problem with this code but there is a conceptual problem. The <code>case</code> chosen by the <code>switch</code> statement is now dependent on properties outside the <code>switch</code> expression. This is conceptually dishonest.</p>
+
+<p>More honest might be adding <code>lengthOfToken</code> to the tuple in the <code>switch</code> expression:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="k">switch</span> <span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">stack</span><span class="p">,</span> <span class="n">lengthOfToken</span><span class="p">)</span> <span class="p">{</span>
+<span class="k">case</span> <span class="p">(.</span><span class="n">body</span><span class="p">,</span> <span class="p">.</span><span class="n">space</span><span class="p">,</span> <span class="kc">_</span><span class="p">,</span> <span class="mf">1.</span><span class="p">..</span><span class="nb">Int</span><span class="p">.</span><span class="bp">max</span><span class="p">):</span>
+   <span class="c1">// ... flag multiple spaces as &#34;unexpected&#34; in body text ...</span></code></pre></div>
+
+<p>which is fine but this <code>switch</code> statement contains nearly 100 cases and this field will be a mere placeholder for all other cases. It&rsquo;s arguably better conceptually but it&rsquo;s worse sytactically.</p>
+
+<h3 id="compose-program-state-into-fewer-variables">Compose program state into fewer variables</h3>
+
+<p>Ultimately I made the decision that the design was wrong; that <code>.space where length == 1</code> and <code>.space where length &gt; 1</code> were different tokens. This eliminated the need to test the <code>length</code>, since that test would already be implicit when matching on <code>.multiSpace</code>.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="k">switch</span> <span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">token</span><span class="p">,</span> <span class="n">stack</span><span class="p">)</span> <span class="p">{</span>
+<span class="k">case</span> <span class="p">(.</span><span class="n">body</span><span class="p">,</span> <span class="p">.</span><span class="n">multiSpace</span><span class="p">,</span> <span class="kc">_</span><span class="p">):</span>
+   <span class="c1">// ... flag multiple spaces as &#34;unexpected&#34; in body text ...</span></code></pre></div>
+
+<p>If you compose your values correctly on construction, then you&rsquo;re effectively hoisting conditionals from later to earlier in your data pipeline – which can simplify your program if the later code is larger, more complex or runs more often.</p>
+
+<h3 id="compromise">Compromise</h3>
+
+<p>I&rsquo;ve given a bunch of rules here but ultimately, sometimes you have to make judgement calls, trading syntactic efficiency for conceptual honesty. The final case I want to show is where the indentation level is validated for the line:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="k">case</span> <span class="p">(.</span><span class="n">indentEnded</span><span class="p">,</span> <span class="n">ValidIndent</span><span class="p">(</span><span class="kc">self</span><span class="p">,</span> <span class="n">column</span><span class="p">),</span> <span class="kc">_</span><span class="p">):</span>
+   <span class="c1">// ... proceed normally ...</span>
+<span class="k">case</span> <span class="p">(.</span><span class="n">indentEnded</span><span class="p">,</span> <span class="kc">_</span><span class="p">,</span> <span class="kc">_</span><span class="p">):</span>
+   <span class="c1">// ... flag invalid indent ...</span></code></pre></div>
+
+<p>The <code>ValidIndent</code> predicate pattern type is constructed with <code>self</code> and the current <code>column</code> and it is matched against the last read <code>token</code>. What this means is that it is essentially given the whole function and parser state to evaluate its result.</p>
+
+<p>This behavior of this <code>case</code> pattern isn&rsquo;t conceptually pure. This <code>case</code> is actually dependent on the <code>stack</code> (i.e. the third column of the <code>switch</code> but which sits as an empty placeholder in the <code>case</code> pattern) via the <code>self</code> argument, even though it is nominally only matching against the <code>token</code>. However, without this pattern matching, the 8 tokens and 2 stack configuration this pattern conceals would need to be pulled back into the main <code>switch</code> statement and then <em>doubled</em> (once for a valid indent and once for an invalid indent).</p>
+
+<p>I opted for a little conceptual muddiness over <code>case</code> replication.</p>
+
+<h3 id="case-lists">Case lists?</h3>
+
+<p>One option I didn&rsquo;t really look at closely was <code>case</code> <em>lists</em>. All of my code takes this form:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="k">switch</span> <span class="n">expression</span> <span class="p">{</span>
+<span class="k">case</span> <span class="n">a</span><span class="p">:</span> <span class="k">fallthrough</span>
+<span class="k">case</span> <span class="n">b</span><span class="p">:</span> <span class="k">fallthrough</span>
+<span class="k">case</span> <span class="n">c</span><span class="p">:</span> <span class="k">fallthrough</span>
+<span class="k">case</span> <span class="n">d</span><span class="p">:</span> <span class="bp">print</span><span class="p">(</span><span class="s">&#34;Matched a to d&#34;</span><span class="p">)</span>
+<span class="p">}</span></code></pre></div>
+
+<p>but this type of <code>switch</code> can be written as:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="k">switch</span> <span class="n">expression</span> <span class="p">{</span>
+<span class="k">case</span> <span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">d</span><span class="p">:</span> <span class="bp">print</span><span class="p">(</span><span class="s">&#34;Matched a to d&#34;</span><span class="p">)</span>
+<span class="p">}</span></code></pre></div>
+
+<p>With short <code>case</code> patterns, this is an improvement. I&rsquo;m not sure it would really help with the large <code>case</code> patterns involved when matching against three-element tuples nor would it make a very long <code>switch</code> easier to read.</p>
+
+<h2 id="usage">Usage</h2>
+
+<blockquote>
+<p>The code for the Xcode Source Editor Command extension and whitespace parser discussed in this article is available as part of the <a href="https://github.com/mattgallagher/CwlWhitespace">CwlWhitespace project on Github</a>. This project is written for Swift 3 and requires Xcode 8 to build.</p>
+</blockquote>
+
+<p>The application is the delivery mechanism. Run the application once and the extension will be installed. <em>(If running Xcode 8 on El Capitan, you need to enable Xcode extensions. See the <a href="https://developer.apple.com/go/?id=xcode8-0-beta-release-notes">Xcode 8 release notes</a> for more.)</em> To uninstall, drag the application to the Trash.</p>
+
+<p>The extension itself has two commands, available from the &ldquo;Whitespace Policing&rdquo; submenu at the bottom of the &ldquo;Editor&rdquo; menu in Xcode when editing a source file:</p>
+
+<ul>
+<li>Detect problems</li>
+<li>Correct problems</li>
+</ul>
+
+<p>The first command uses multiple selections to select every text range in your file that it believes is violating a whitespace rule. If a line contains a zero-length problem (missing whitespace or missing indent) then the whole line will be selected.</p>
+
+<p>The second command edits whitespace problems to the expected values and selects the changed regions in your editor.</p>
+
+<p>The tests in &ldquo;CwlWhitespaceTaggingTests.swift&rdquo; are the only documentation about what whitespace is permitted and what is disallowed.</p>
+
+<blockquote>
+<p><strong>WARNING</strong>: this is a program that – if you use the &ldquo;Correct Problems&rdquo; command – may deliberately delete characters from your source file. The only tests I have performed are the tests in the &ldquo;CwlWhitespaceTests&rdquo; bundle. There could be bugs outside the tested behavior so be prepared. Pay attention to what the extension has done to your file and if unhappy, use Xcode&rsquo;s &ldquo;Undo&rdquo; (which should roll back any changes made by the extension). Please keep your files in a version control system and also use a backup system to protect your data.</p>
+</blockquote>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>I mostly wrote this Xcode Source Extension for myself. Without an authoritative &ldquo;swift-format&rdquo; to enforce common rules, these types of code formatting choices end up being personal rather than universal. However, the code is open source so you&rsquo;re welcome to hack at it and use it as the basis for something that enforces your own preferences if you wish.</p>
+
+<p>I think the core parser involved is pretty good. To this point is has endured tweaks and additions quite easily (although if it gets much bigger it might make sense to split it across different functions for each <code>state</code>). I&rsquo;ve only focussed on a few key features in the current version and I haven&rsquo;t included any rules for vertical whitespace, operators or a hundred other little areas in Swift where whitespace can occur. It&rsquo;s possible that it might be better to leave it a little minimalist – I&rsquo;ll need to see how I feel after using it for a while.</p>
+
+<p>It was interesting to iterate my design of the <code>switch</code> statement and try to decide what constitutes a good <code>case</code> statement and what might be considered bad. The power of Swift&rsquo;s <code>switch</code> statement remains one of my favorite features of the language but you still have to use it in a way that makes conceptual sense – particularly when it&rsquo;s over 100 lines long and you can&rsquo;t necessarily read all parts of it at once.</p>
+
+<p>There&rsquo;s a tokenizer (also known as a lexer) in the code too (the <code>nextToken</code> and <code>readNext</code> functions in the &ldquo;CwlWhitespaceTagging.swift&rdquo; file). I didn&rsquo;t really discuss it&rsquo;s a little quirky – although it works well.</p>
+
+		</div>
+	</article>
+</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../02/threads-and-mutexes.html">Mutexes and closure capture in Swift</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../../07/12/type-checker-issues.html">Exponential time complexity in the Swift type checker</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../../../feed.json">JSON</a>, <a href="../../../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

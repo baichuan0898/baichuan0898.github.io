@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Debugging tips for Objective-C programming</title>
+  <meta name="description" content="This post is about getting extra information from your program at runtime. Xcode and gdb both support a wide range of information access tools &amp;mdash; but you need to know that they&#39;re there. Here are some Objective-C specific gdb tips and commands that all Cocoa programmers should know." />
+
+  <meta name="twitter:title" content="Debugging tips for Objective-C programming"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2008/10/debugging-tips-for-objective-c.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="This post is about getting extra information from your program at runtime. Xcode and gdb both support a wide range of information access tools &amp;mdash; but you need to know that they&#39;re there. Here are some Objective-C specific gdb tips and commands that all Cocoa programmers should know."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="debugging-tips-for-objective-c.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Debugging tips for Objective-C programming</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2008-10-25">October 25, 2008</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/objective-c.html">Objective-C</a>, <a href="../../categories/xcode.html">Xcode</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>This post is about getting extra information from your program at runtime. Xcode and gdb both support a wide range of information access tools &mdash; but you need to know that they're there. Here are some Objective-C specific gdb tips and commands that all Cocoa programmers should know.</p></span>
+
+<span class="fullpost">
+<h2>Talking to gdb directly</h2>
+<p>The Debugger Console window is the way to talk to gdb. Show the console window in Xcode from the Run menu (or type command-shift-R).</p>
+
+<img src="../../assets/objc-era/consolewindow.png" width="522" height="298" />
+
+<p>You can only send commands to gdb when the program is paused (stopped at a breakpoint). When you have the <span class="monospace">(gdb)</span> prompt, then you can talk to gdb.</p>
+
+<p>Most <a href="http://developer.apple.com/documentation/DeveloperTools/gdb/gdb/gdb_4.html">commands that gdb accepts</a>, Xcode handles automatically for you by showing the values in the Debugger window. So I'm going to ignore most of them.</p>
+
+<h2>"po" : print object</h2>
+<p>The print object command displays a textual representation of an Objective-C object.</p>
+
+<p>Imagine you wanted to know why your call to:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nf">getFirstObjectFrom:</span><span class="p">(</span><span class="n">NSDictionary</span> <span class="o">*</span><span class="p">)</span><span class="nv">stringDictionary</span>
+<span class="p">{</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">stringDictionary</span> <span class="nl">objectForKey</span><span class="p">:</span><span class="s">@&#34;FirstKey&#34;</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>is returning <span class="monospace">nil</span>. Set a breakpoint on the line and when the debugger stops at that point, go to the Debugger Console and type:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">po</span> <span class="n">stringDictionary</span></code></pre></div>
+
+<p>Hit return and gdb will give the result. In my case, it was:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">{</span>
+    <span class="n">firstKey</span> <span class="o">=</span> <span class="n">firstObject</span><span class="p">;</span>
+    <span class="n">secondKey</span> <span class="o">=</span> <span class="n">secondObject</span><span class="p">;</span>
+    <span class="n">thirdKey</span> <span class="o">=</span> <span class="n">thirdObject</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The key name I should have used was <span class="monospace">@"firstKey"</span> with a lowercase 'f'. Problem solved.</p>
+
+<p>In this case, gdb is invoking the <span class="monospace">description</span> method on the <span class="monospace">NSDictionary</span> to generate a string. The <span class="monospace">description</span> method is used all throughout Cocoa to generate strings from objects and you can override it to provide a string representation of your objects.</p>
+
+<h2>Xcode data formatters</h2>
+
+<p>If the debugger is still stopped at the same line and you open the Debugger window in Xcode, the "Arguments" list of variables will contain an entry for <span class="monospace">stringDictionary</span>. For an <span class="monospace">NSDictionary</span> object like this, Xcode will show "3 key/value pairs" in the "Summary" column.</p>
+
+<p>This information comes from a "Data Formatter" that is set up for <span class="monospace">NSDictionary</span> by default. You can learn about them in Apple's <a href="http://developer.apple.com/library/mac/#documentation/DeveloperTools/Conceptual/XcodeDebugging/220-Viewing_Variables_and_Memory/variables_and_memory.html%23//apple_ref/doc/uid/TP40007057-CH9-SW24">Xcode Debugging Guide: Using Data Formatters</a>. Essentially, a data formatter tells Xcode how to fetch some data to display in the column.</p>
+
+<p>A different data formatter can be seen if we right-click on the <span class="monospace">stringDictionary</span> row in the Debugger window and choose "Print Description to Console" from the context menu.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">Printing</span> <span class="n">description</span> <span class="n">of</span> <span class="nl">stringDictionary</span><span class="p">:</span>
+<span class="o">&lt;</span><span class="n">CFDictionary</span> <span class="mh">0x35edd0</span> <span class="p">[</span><span class="mh">0xa0b06174</span><span class="p">]</span><span class="o">&gt;</span><span class="p">{</span><span class="n">type</span> <span class="o">=</span> <span class="n">immutable</span><span class="p">,</span> <span class="n">count</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span> <span class="n">capacity</span> <span class="o">=</span> <span class="mi">3</span><span class="p">,</span> <span class="n">pairs</span> <span class="o">=</span> <span class="p">(</span>
+   <span class="mi">0</span> <span class="o">:</span> <span class="o">&lt;</span><span class="n">CFString</span> <span class="mh">0x2090</span> <span class="p">[</span><span class="mh">0xa0b06174</span><span class="p">]</span><span class="o">&gt;</span><span class="p">{</span><span class="n">contents</span> <span class="o">=</span> <span class="sa"></span><span class="s">&#34;secondKey&#34;</span><span class="p">}</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">CFString</span> <span class="mh">0x2080</span> <span class="p">[</span><span class="mh">0xa0b06174</span><span class="p">]</span><span class="o">&gt;</span><span class="p">{</span><span class="n">contents</span> <span class="o">=</span> <span class="sa"></span><span class="s">&#34;secondObject&#34;</span><span class="p">}</span>
+   <span class="mi">1</span> <span class="o">:</span> <span class="o">&lt;</span><span class="n">CFString</span> <span class="mh">0x20b0</span> <span class="p">[</span><span class="mh">0xa0b06174</span><span class="p">]</span><span class="o">&gt;</span><span class="p">{</span><span class="n">contents</span> <span class="o">=</span> <span class="sa"></span><span class="s">&#34;thirdKey&#34;</span><span class="p">}</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">CFString</span> <span class="mh">0x20a0</span> <span class="p">[</span><span class="mh">0xa0b06174</span><span class="p">]</span><span class="o">&gt;</span><span class="p">{</span><span class="n">contents</span> <span class="o">=</span> <span class="sa"></span><span class="s">&#34;thirdObject&#34;</span><span class="p">}</span>
+   <span class="mi">3</span> <span class="o">:</span> <span class="o">&lt;</span><span class="n">CFString</span> <span class="mh">0x2070</span> <span class="p">[</span><span class="mh">0xa0b06174</span><span class="p">]</span><span class="o">&gt;</span><span class="p">{</span><span class="n">contents</span> <span class="o">=</span> <span class="sa"></span><span class="s">&#34;firstKey&#34;</span><span class="p">}</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">CFString</span> <span class="mh">0x2060</span> <span class="p">[</span><span class="mh">0xa0b06174</span><span class="p">]</span><span class="o">&gt;</span><span class="p">{</span><span class="n">contents</span> <span class="o">=</span> <span class="sa"></span><span class="s">&#34;firstObject&#34;</span><span class="p">}</span>
+<span class="p">)}</span></code></pre></div>
+
+<p>Without a data formatter, "Print Description to Console" will output the same information as the "po" command. In this case though, it is clearly outputting a much more detailed description of the dictionary, with full type information and indices. Exactly where this <span class="monospace">CFDictionary</span> data formatter resides is unknown to me (it's not in the standard locations for Xcode Data Formatters).</p>
+
+<h2>Other "print" commands</h2>
+
+<p>The <span class="monospace">po</span> command in gdb only ever shows the result from invoking <span class="monospace">description</span> on an object but the more general <span class="monospace">print</span> command will let us do other things.</p>
+
+<p>I could have used the command:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">print</span> <span class="p">(</span><span class="kt">char</span><span class="o">*</span><span class="p">)[[</span><span class="n">stringDictionary</span> <span class="n">description</span><span class="p">]</span> <span class="n">cString</span><span class="p">]</span></code></pre></div>
+
+<p>which would have output:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="err">$</span><span class="mi">1</span> <span class="o">=</span> <span class="mh">0x360031</span> <span class="sa"></span><span class="s">&#34;{</span><span class="se">\n</span><span class="s">    firstKey = firstObject;</span><span class="se">\n</span><span class="s">    secondKey = secondObject;</span><span class="se">\n</span><span class="err">
+</span><span class="err"></span><span class="s">    thirdKey = thirdObject;</span><span class="se">\n</span><span class="s">}&#34;</span></code></pre></div>
+
+<p>which is the same data representation as the <span class="monospace">po</span> example, minus the nice formatting.</p>
+
+<p>I could also use the command:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">print</span> <span class="p">(</span><span class="kt">int</span><span class="p">)[</span><span class="n">stringDictionary</span> <span class="n">retainCount</span><span class="p">]</span></code></pre></div>
+
+<p>to work out the retain count of the <span class="monospace">stringDictionary</span> to help me work out why memory is or isn't getting released.</p>
+
+<p>As with the <span class="monospace">po</span> command and the "Print Description to Console" equivalent in Xcode, the <span class="monospace">print</span> command has an Xcode equivalent too. You can open the Expressions window from the Run->Show->Expressions menu.</p>
+
+<h2>"info symbol": get the symbolic name for an address</h2>
+
+<p>The final gdb command I'm going to discuss here is <span class="monospace">info symbol <em>address</em></span> which returns the name of any variable or code associated with the memory location given by <span class="monospace"><em>address</em></span>.</p>
+
+<p>Imagine, for example, that you were confused by the memory address "<span class="monospace">0xa0b06174</span>" shown by the "Print Description to Console" output for <span class="monospace">stringDictionary</span> that I showed above. All you need to do then is type:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">info</span> <span class="n">symbol</span> <span class="mh">0xa0b06174</span></code></pre></div>
+
+<p>into the Debugger Console and gdb will tell you:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">__kCFAllocatorSystemDefault</span> <span class="k">in</span> <span class="n">section</span> <span class="n">LC_SEGMENT</span><span class="p">.</span><span class="n">__DATA</span><span class="p">.</span><span class="n">__data</span> <span class="n">of</span> <span class="o">/</span><span class="n">System</span><span class="o">/</span><span class="n">Library</span><span class="o">/</span><span class="n">Frameworks</span><span class="o">/</span><span class="n">CoreFoundation</span><span class="p">.</span><span class="n">framework</span><span class="o">/</span><span class="n">Versions</span><span class="o">/</span><span class="n">A</span><span class="o">/</span><span class="n">CoreFoundation</span></code></pre></div>
+
+<p>It's the system default CoreFoundation memory allocator. Maybe that still doesn't mean a whole lot but at least we know the name of the object declared at that address.</p>
+
+<p>More useful is when you get an exception log that looks like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="mi">2008</span><span class="o">-</span><span class="mi">10</span><span class="o">-</span><span class="mi">26</span> <span class="mi">13</span><span class="o">:</span><span class="mi">25</span><span class="o">:</span><span class="mf">43.381</span> <span class="n">CrashExample</span><span class="p">[</span><span class="mi">41720</span><span class="o">:</span><span class="mi">20</span><span class="n">b</span><span class="p">]</span> <span class="o">***</span> <span class="o">-</span><span class="p">[</span><span class="n">TransitionView</span> <span class="n">doesntExist</span><span class="p">]</span><span class="o">:</span> <span class="n">unrecognized</span> <span class="n">selector</span> <span class="n">sent</span> <span class="n">to</span> <span class="n">instance</span> <span class="mh">0xf4fbb0</span>
+<span class="mi">2008</span><span class="o">-</span><span class="mi">10</span><span class="o">-</span><span class="mi">26</span> <span class="mi">13</span><span class="o">:</span><span class="mi">25</span><span class="o">:</span><span class="mf">43.383</span> <span class="n">CrashExample</span><span class="p">[</span><span class="mi">41720</span><span class="o">:</span><span class="mi">20</span><span class="n">b</span><span class="p">]</span> <span class="o">***</span> <span class="n">Terminating</span> <span class="n">app</span> <span class="n">due</span> <span class="n">to</span> <span class="n">uncaught</span> <span class="n">exception</span> <span class="err">&#39;</span><span class="n">NSInvalidArgumentException</span><span class="err">&#39;</span><span class="p">,</span> <span class="nl">reason</span><span class="p">:</span> <span class="err">&#39;</span><span class="o">***</span> <span class="o">-</span><span class="p">[</span><span class="n">TransitionView</span> <span class="n">doesntExist</span><span class="p">]</span><span class="o">:</span> <span class="n">unrecognized</span> <span class="n">selector</span> <span class="n">sent</span> <span class="n">to</span> <span class="n">instance</span> <span class="mh">0xf4fbb0</span><span class="err">&#39;</span>
+<span class="mi">2008</span><span class="o">-</span><span class="mi">10</span><span class="o">-</span><span class="mi">26</span> <span class="mi">13</span><span class="o">:</span><span class="mi">25</span><span class="o">:</span><span class="mf">43.385</span> <span class="n">CrashExample</span><span class="p">[</span><span class="mi">41720</span><span class="o">:</span><span class="mi">20</span><span class="n">b</span><span class="p">]</span> <span class="nl">Stack</span><span class="p">:</span> <span class="p">(</span>
+    <span class="mi">2528013804</span><span class="p">,</span>
+    <span class="mi">2478503148</span><span class="p">,</span>
+    <span class="mi">2528042920</span><span class="p">,</span>
+    <span class="mi">2528036272</span><span class="p">,</span>
+    <span class="mi">2528036920</span><span class="p">,</span>
+    <span class="mi">11076</span><span class="p">,</span>
+    <span class="mi">11880</span><span class="p">,</span>
+    <span class="mi">816174880</span><span class="p">,</span>
+    <span class="mi">816174880</span><span class="p">,</span>
+    <span class="mi">816504036</span><span class="p">,</span>
+    <span class="mi">816500960</span><span class="p">,</span>
+    <span class="mi">816258792</span><span class="p">,</span>
+    <span class="mi">816202128</span><span class="p">,</span>
+    <span class="mi">816199508</span><span class="p">,</span>
+    <span class="mi">829005520</span><span class="p">,</span>
+    <span class="mi">829014772</span><span class="p">,</span>
+    <span class="mi">2527564456</span><span class="p">,</span>
+    <span class="mi">829007724</span><span class="p">,</span>
+    <span class="mi">816173016</span><span class="p">,</span>
+    <span class="mi">816212336</span><span class="p">,</span>
+    <span class="mi">9888</span><span class="p">,</span>
+    <span class="mi">9668</span>
+<span class="p">)</span></code></pre></div>
+
+<p>The log tells us the the problem occurred because an unrecognized selector was sent to an object but we might not know where in the program this occurred.</p>
+
+<p>You can look at the stack trace, see that the highest address that is "small" (i.e. likely to be in your code, not the default libraries) is "11076", then give gdb the command:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">info</span> <span class="n">symbol</span> <span class="mi">11076</span></code></pre></div>
+
+<p>and gdb will tell you:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="o">-</span><span class="p">[</span><span class="n">CrashExampleAppDelegate</span> <span class="n">performTransition</span><span class="p">]</span> <span class="o">+</span> <span class="mi">88</span> <span class="k">in</span> <span class="n">section</span> <span class="n">LC_SEGMENT</span><span class="p">.</span><span class="n">__TEXT</span><span class="p">.</span><span class="n">__text</span> <span class="n">of</span> <span class="o">/</span><span class="n">Users</span><span class="o">/</span><span class="n">matt</span><span class="o">/</span><span class="n">Projects</span><span class="o">/</span><span class="n">CrashExample</span><span class="p">.</span><span class="n">app</span><span class="o">/</span><span class="n">CrashExample</span></code></pre></div>
+
+<p>which tells us that the problem occurred in the method <span class="monospace">performTransition</span>.</p>
+
+<blockquote><strong>Update:</strong> As noted by "g" in the comments, there is a better way to determine the method and line of code for an address in this case. <code>info line *11076</code> will give the line in the original source code file, not just the byte offset from the start of the function.</blockquote>
+
+<p>If you look at the 5 addresses above 11076 in the list, they are all associated with throwing the exception itself &mdash; which makes it annoying that the Mac OS X 10.5 <span class="monospace">objc_exception_throw</span> only returns the top 5 addresses because these 5 addresses are often the same exception throwing addresses (they don't say anything about <em>why</em> the exception is thrown).</p>
+
+<h2>Addresses and symbols outside the debugger</h2>
+
+<p>Since I mentioned reading crash files and looking at memory addresses: gdb isn't the best way to do this if <em>someone else</em> gives you the memory address. To do this, you should have the .dSYM file from the exact build that they are using.</p>
+
+<p>If you don't know how to generate .dSYM files, go to Project->Edit Project Settings->Build->Build Options->Debug Information Format and make sure you have a dSYM file. You should keep these files around for every build you release. The iPhone SDK generates these files by default but you will need to turn in on manually for Mac builds.</p>
+
+<p>Invoke the following on the command-line:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">dwarfdump</span> <span class="o">-</span><span class="n">a</span> <span class="o">&lt;</span><span class="n">em</span><span class="o">&gt;</span><span class="n">NameOfdSYMFile</span><span class="o">&lt;/</span><span class="n">em</span><span class="o">&gt;</span></code></pre></div>
+
+<p>This will tell you every know address in the file. All you need to do is find the closest preceeding address to your crash location and that will be the culprit method or function.</p>
+
+<p>However, that's a very heavy-handed approach. To get single addresses at a time, put the .dSYM and the .app to which it refers in the same directory and you can use the <span class="monospace">atos</span> command to get a single symbol for a single address. For the CrashExample crash bug shown above, you could invoke this command like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">atos</span> <span class="o">-</span><span class="n">o</span> <span class="n">CrashExample</span><span class="p">.</span><span class="n">app</span><span class="o">/</span><span class="n">Contents</span><span class="o">/</span><span class="n">MacOS</span><span class="o">/</span><span class="n">CrashExample</span> <span class="o">-</span><span class="n">arch</span> <span class="n">ppc</span> <span class="mi">11076</span></code></pre></div>
+
+<p>which would give the result:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="o">-</span><span class="p">[</span><span class="n">CrashExampleAppDelegate</span> <span class="n">performTransition</span><span class="p">]</span> <span class="p">(</span><span class="k">in</span> <span class="n">CrashExample</span><span class="p">)</span> <span class="p">(</span><span class="n">CrashExampleAppDelegate</span><span class="p">.</span><span class="nl">m</span><span class="p">:</span><span class="mi">94</span><span class="p">)</span></code></pre></div>
+
+<p>Finally, if you want to get all the address from a crash log, you can use <a href="http://developer.apple.com/tools/xcode/symbolizingcrashdumps.html">Apple's symbolizecrashlog script</a>. This finds the .app and .dSYM files for a .crash.log file and invokes <span class="monospace">atos</span> to get every possible symbol contained within. <em>Thanks to millenomi for pointing this out in the comments.</em></p>
+
+<h2>Conclusion</h2>
+
+<p>There's a lot more information to squeeze out when debugging than just the raw values in your variables. Having access to this information, during debugging, can make tracking down bugs just that little bit faster.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="synthesizing-touch-event-on-iphone.html">Synthesizing a touch event on the iPhone</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="using-libxml2-for-parsing-and-xpath.html">Using libxml2 for XML parsing and XPath queries in Cocoa</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

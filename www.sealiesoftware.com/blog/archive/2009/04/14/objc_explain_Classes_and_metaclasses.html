@@ -1,0 +1,150 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<!--
+Local Variables:
+sgml-default-dtd-file: "~/html-loose.ced"
+End:
+-->
+<html>
+  <head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+
+    <title>Hamster Emporium: [objc explain]: Classes and metaclasses</title>
+    <link title="RSS 2.0" href="../../../../rss.xml.rss" type="application/rss+xml" rel="alternate">
+  </head>
+  <body bgcolor="#ffffff">
+    <table cellpadding="0" cellspacing="0">
+      <tr>
+	  <td valign="top" align="left">
+	    <a href="../../../../index.html"><img src="http://www.sealiesoftware.com/hamster.jpg" alt="" width="108" height="160"></a><br><br>
+	    <b>blog</b><br>
+	    <a href="../../../../index.html">recent</a><br>
+	    <a href="../../../index.html">archive</a><br>
+	    <a href="http://twitter.com/gparker">twitter</a><br>
+	    <br>
+	    <b>projects</b><br>
+	    <a href="http://www.apple.com/macosx/">Mac OS X</a><br>
+	    <a href="http://www.sealiesoftware.com/keyboard/index.html">Keyboard</a><br>
+	     &nbsp; <a href="http://www.sealiesoftware.com/keyboard/index.html">backlight</a><br>
+	    <a href="http://www.sealiesoftware.com/cscmenu/index.html">CSC Menu</a><br>
+	    <a href="http://www.sealiesoftware.com/valgrind/index.html">Valgrind</a><br>
+	    <a href="http://www.sealiesoftware.com/fringe/index.html">Fringe Player</a><br>
+	    <a href="http://www.sealiesoftware.com/pssh/index.html">pssh</a><br>
+	    <a href="http://www.sealiesoftware.com/peal/index.html">Peal</a><br>
+	    <a href="http://www.sealiesoftware.com/frankenmouse/index.html">Frankenmouse</a><br>
+	    <br>
+	  </td>
+	  <td>
+	    &nbsp; &nbsp;
+	  </td>
+	  <td valign="top">
+	      <h2>Hamster Emporium archive</h2>
+  <p>
+     &lt;&lt; &nbsp; <a href="../../05/14/objc_explain_Monomorphic_dispatch.html">[objc explain]: Monomorphic dispatch</a> &nbsp; | &nbsp;  
+    <a href="../../../index.html">archive</a>
+     &nbsp; | &nbsp; <a href="../../01/27/objc_explain_Non-fragile_ivars.html">[objc explain]: Non-fragile ivars</a> &nbsp; &gt;&gt; 
+  </p>
+  <table cellpadding="0" cellspacing="3">
+      <tr>
+	<td>
+	  <a href="objc_explain_Classes_and_metaclasses.html"><img src="http://www.sealiesoftware.com/link.gif" width="14" height="16" border="0" alt="(link)"></a>
+	</td>
+	<td>
+	  <b><font size="+1">[objc explain]: Classes and metaclasses</font></b> &nbsp; 
+	  <font size="-1">(<a href="objc_explain_Classes_and_metaclasses.html">2009-04-14 08:35 PM</a>)</font>
+	</td>
+      </tr>
+      <tr>
+	<td>
+	  &nbsp;
+	</td>
+	<td>
+	        <p>
+	Objective-C is a class-based object system. Each object is an
+	instance of some class; the object's <code>isa</code> pointer
+	points to its class. That class describes the object's data:
+	allocation size and ivar types and layout. The class also
+	describes the object's behavior: the selectors it responds to and
+	instance methods it implements.
+      </p>
+      <p>
+	The class's method list is the set of instance methods, the
+	selectors that the object responds to. When 
+	you send a message to an instance, <code>objc_msgSend()</code>
+	looks through the method list of that object's class (and
+	superclasses, if any) to decide what method to call. 
+      </p>
+      <p>
+	Each Objective-C class is also an object. It has an
+	<code>isa</code> pointer and other data, and can respond to
+	selectors. When you call a "class method" like <code>[NSObject
+	alloc]</code>, you are actually sending a message to that class
+	object. 
+      </p>
+      <p>
+	<a href="../../../../class%20diagram.pdf"><img width=50% src="../../../../class%20diagram.pdf" align=right></a>
+	Since a class is an object, it must be an instance of some other
+	class: a metaclass. The metaclass is the description of the class
+	object, just like the class is the description of ordinary
+	instances. In particular, the metaclass's method list is the
+	class methods: the selectors that the class object responds
+	to. When you send a message to a class - an instance of a
+	metaclass - <code>objc_msgSend()</code> looks through the method
+	list of the metaclass (and its superclasses, if any) to decide
+	what method to call. Class methods are described by the metaclass
+	on behalf of the class object, just like instance methods are
+	described by the class on behalf of the instance objects.
+      </p>
+      <p>
+	What about the metaclass? Is it metaclasses all the way down?
+	No. A metaclass is an instance of the root class's metaclass; the
+	root metaclass is itself an instance of the root metaclass. The
+	<code>isa</code> chain ends in a cycle here: instance to class to
+	metaclass to root metaclass to itself. The behavior of metaclass
+	<code>isa</code> pointers rarely matters, since in the real world
+	nobody sends messages to metaclass objects. 
+      </p>
+      <p>
+	More important is the superclass of
+	a metaclass. The metaclass's superclass chain parallels the
+	class's superclass chain, so class methods are inherited in
+	parallel with instance methods. And the root metaclass's
+	superclass is the root class, so each class object responds to the
+	root class's instance methods. In the end, a class object is an
+	instance of (a subclass of) the root class, just like any other
+	object. 
+      </p>
+      <p>
+	Confused? The diagram may help. Remember, when a message is sent
+	to any object, the method lookup starts with that object's
+	<code>isa</code> pointer, then continues up the superclass
+	chain. "Instance methods" are defined by the class, and "class
+	methods" are defined by the metaclass plus the root (non-meta) class.
+      </p>
+      <p>
+	In proper computer science
+	language theory, a class and metaclass hierarchy can be more
+	free-form, with deeper metaclass chains and multiple classes
+	instantiated from any single metaclass. Objective-C uses metaclasses
+	for practical goals like class methods, but otherwise tends to
+	hide metaclasses. For example, <code>[NSObject class]</code> is
+	identical to <code>[NSObject self]</code>, even though in formal
+	terms it ought to return the metaclass that
+	<code>NSObject->isa</code> points to. The Objective-C language is
+	a set of practical compromises; here it limits the class schema
+	before it gets too, well, <i>meta</i>. 
+      </p>
+
+	  </td>
+      </tr>
+  </table>
+
+	  </td>
+	</tr>
+    </table>
+    <hr>
+    <img align="right" src="http://www.sealiesoftware.com/sealie.gif" alt="seal!" width="114" height="69">
+    Greg Parker<br>
+    <a href="mailto:gparker-www@sealiesoftware.com">gparker-www@sealiesoftware.com</a><br>
+    <a href="http://www.sealiesoftware.com/index.html">Sealie Software</a>
+  </body>
+</html>

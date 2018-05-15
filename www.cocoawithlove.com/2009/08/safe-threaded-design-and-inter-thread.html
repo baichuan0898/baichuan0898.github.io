@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Safe, threaded design and inter-thread communication</title>
+  <meta name="description" content="The Foundation framework provides all the tools you need for inter-thread communication &amp;mdash; without needing to handling locks and synchronization yourself. I&#39;ll show you Cocoa&#39;s tools for inter-thread communication, notifications and easy synchronization &amp;mdash; including far simpler code for posting NSNotifications on the main thread than the Cocoa documentation suggests." />
+
+  <meta name="twitter:title" content="Safe, threaded design and inter-thread communication"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/08/safe-threaded-design-and-inter-thread.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="The Foundation framework provides all the tools you need for inter-thread communication &amp;mdash; without needing to handling locks and synchronization yourself. I&#39;ll show you Cocoa&#39;s tools for inter-thread communication, notifications and easy synchronization &amp;mdash; including far simpler code for posting NSNotifications on the main thread than the Cocoa documentation suggests."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="safe-threaded-design-and-inter-thread.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Safe, threaded design and inter-thread communication</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-08-09">August 9, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/foundation.html">Foundation</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>The Foundation framework provides all the tools you need for inter-thread communication &mdash; without needing to handling locks and synchronization yourself. I'll show you Cocoa's tools for inter-thread communication, notifications and easy synchronization &mdash; including far simpler code for posting NSNotifications on the main thread than the Cocoa documentation suggests.</p></span>
+
+<span class="fullpost">
+<h2>Introduction</h2>
+<p>Multi-threaded code has a reputation for being difficult to write and prone to deadlocks, race conditions and unpredictable behaviors.</p>
+
+<p>While this remains true if you are forced to handle locking yourself, Foundation provides all the tools you require to manage typical multi-threaded situations so that you can avoid the risks of locks entirely.</p>
+
+<p>This post comes from my shock at Apple's suggestion (in their <a href="http://developer.apple.com/documentation/Cocoa/Conceptual/Notifications/Articles/Threading.html">Delivering Notifications To Particular Threads</a>) that something as simple as sending an <code>NSNotification</code> from one thread to another should take dozens of lines of code and a dedicated class for the purpose.</p>
+
+<p>It isn't that difficult. Sending data between threads (including notifications) is a one line job.</p>
+
+<h2>Rules for safe simple threading</h2>
+
+<p>Simple thread safety in Cocoa requires just two rules:</p>
+
+<ol>
+<li>Every variable or object must nominally belong to a thread (although may be completely handed over to a different thread) and must not be used in multiple threads without handover (unless it is on the <a href="http://developer.apple.com/documentation/Cocoa/Conceptual/Multithreading/ThreadSafetySummary/ThreadSafetySummary.html">list of explicity thread-safe classes</a>).</li>
+<li>All communication between threads (after thread startup) should use <code>performSelector:onThread:withObject:waitUntilDone:</code> and both the receiver and the "object" should belong (or be handed over) to the target thread.</li>
+</ol>
+
+<p>The only limitation with this approach is that any thread that <em>receives</em> communication must be running an <code>NSRunLoop</code>. Since communication after construction is normally one-way (from worker thread back to the main thread) this is rarely a significant limitation. Other threads can invoke the <code>[NSRunLoop currentRunLoop]</code>'s <code>runMode:beforeDate</code> to process the run loop and receive messages.</p>
+
+<p>A lot of multi-threaded code does not follow these rules. A lot of multi-threaded code uses a careful system of locks, synchronized sections, volatile variables and atomic operations to allow single objects to be accessed simultaneously from multiple threads. This does work but generally speaking: you don't want to design code this way. It's tricky, confusing and prone to errors. To illustrate, you can have a look at how many changes I had to make to my AudioStreamer code between the <a href="../../2008/09/streaming-and-playing-live-mp3-stream.html">first</a> and <a href="../06/revisiting-old-post-streaming-and.html">second</a> versions &mdash; rock-solid, manually-locked code is annoying and difficult to write.</p>
+
+<p>Instead, as much as possible, you should write your code to keep all objects compartmentalized to individual threads and to restrict communication between threads to method invocations using <code>performSelector:onThread:withObject:waitUntilDone:</code>. To explain how this works, I'll show a simple example of something running in a separate thread and show how it can perform all its inter-thread communication using existing Foundation methods to automatically handle all thread safety issues.</p>
+
+<h2>Scenario: writing to a network NSFileHandle in a worker thread</h2>
+
+<p>One of the simplest situations where you may want multithreading is writing to a network socket's <code>NSFileHandle</code>. This is a synchronous operation (blocks until complete) so it is a good idea to perform this in a worker thread so that the main thread of your program can remain responsive.</p>
+
+<p>The following class is an <code>NSOperation</code> subclass. If you don't know about <code>NSOperation</code>, it's an object that you can add to an <code>NSOperationQueue</code> to have the object's <code>main</code> method run in a separate thread (see <a href="http://developer.apple.com/documentation/Cocoa/Conceptual/Multithreading/OperationObjects/OperationObjects.html">Apple's Threading Programming Guide</a>). While <code>NSThread</code>'s <code>detachNewThreadSelector:toTarget:withObject:</code> is the best way to launch a single worker thread, <code>NSOperation</code>s are the best way to run a series threaded tasks (or has been since <a href="http://www.mikeash.com/?page=pyblog/use-nsoperationqueue.html">serious bugs in it were fixed in 10.5.7</a>).</p>
+
+<p>This class' init method takes an <code>NSFileHandle</code> and an <code>NSData</code> object on construction and writes the data to the file handle in its <code>main</code> method.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@interface</span> <span class="nc">FileWriteOperation</span> : <span class="nc">NSOperation</span>
+<span class="p">{</span>
+    <span class="n">NSFileHandle</span> <span class="o">*</span><span class="n">fileHandle</span><span class="p">;</span>
+    <span class="n">NSData</span> <span class="o">*</span><span class="n">data</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="k">@end</span>
+
+<span class="k">@implementation</span> <span class="nc">FileWriteOperation</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nf">initWithFileHandle:</span><span class="p">(</span><span class="n">NSFileHandle</span> <span class="o">*</span><span class="p">)</span><span class="nv">aFileHandle</span> <span class="nf">data:</span><span class="p">(</span><span class="n">NSData</span> <span class="o">*</span><span class="p">)</span><span class="nv">aData</span>
+<span class="p">{</span>
+    <span class="nb">self</span> <span class="o">=</span> <span class="p">[</span><span class="nb">super</span> <span class="n">init</span><span class="p">];</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nb">self</span> <span class="o">!=</span> <span class="nb">nil</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">fileHandle</span> <span class="o">=</span> <span class="p">[</span><span class="n">aFileHandle</span> <span class="k">retain</span><span class="p">];</span>
+        <span class="n">data</span> <span class="o">=</span> <span class="p">[</span><span class="n">aData</span> <span class="k">retain</span><span class="p">];</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="nb">self</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">main</span>
+<span class="p">{</span>
+    <span class="n">NSAutoreleasePool</span> <span class="o">*</span><span class="n">pool</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSAutoreleasePool</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">];</span>
+    <span class="k">@try</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="n">fileHandle</span> <span class="nl">writeData</span><span class="p">:</span><span class="n">data</span><span class="p">];</span>
+        <span class="c1">// At this point, the write has succeeded
+</span><span class="c1"></span>    <span class="p">}</span>
+    <span class="k">@catch</span> <span class="p">(</span><span class="n">NSException</span> <span class="o">*</span><span class="n">e</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="c1">// At this point, the write has failed
+</span><span class="c1"></span>    <span class="p">}</span>
+    <span class="k">@finally</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="n">pool</span> <span class="n">drain</span><span class="p">];</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">dealloc</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="n">fileHandle</span> <span class="n">closeFile</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">fileHandle</span> <span class="k">release</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">data</span> <span class="k">release</span><span class="p">];</span>
+    <span class="p">[</span><span class="nb">super</span> <span class="n">dealloc</span><span class="p">];</span>
+<span class="p">}</span>
+
+<span class="k">@end</span></code></pre></div>
+
+<p>The <code>NSOperation</code> is created and its thread is launched as follows:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="c1">// Assume the operationQueue, fileHandle and fileData already exist
+</span><span class="c1"></span><span class="p">[</span><span class="n">operationQueue</span>
+    <span class="nl">addOperation</span><span class="p">:</span>
+        <span class="p">[[[</span><span class="n">FileWriteOperation</span> <span class="n">alloc</span><span class="p">]</span>
+            <span class="nl">initWithFileHandle</span><span class="p">:</span><span class="n">fileHandle</span>
+            <span class="nl">data</span><span class="p">:</span><span class="n">fileData</span><span class="p">]</span>
+        <span class="n">autorelease</span><span class="p">]];</span></code></pre></div>
+
+
+<p>To follow the first rule of thread-safety, after the <code>FileWriteOperation</code> is constructed, the <code>fileHandle</code> value passed into its <code>initWithFileHandle:data:</code> method cannot be used again outside the <code>NSOperationQueue</code>'s worker thread.</p>
+
+<h2>Communicating success or failure</h2>
+
+<p>The above class works but doesn't have any way of communicating the result. What would be good is if we could send a <code>writeFinishedWithSuccess:YES</code> at the "<code>write has succeeded</code>" line and a <code>writeFinishedWithSuccess:NO</code> at the "<code>write has failed</code>" line.</p>
+
+<p>The unsafe way of doing this is to invoke a method on another object sending the result:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc">    <span class="p">[</span><span class="n">responseHandler</span> <span class="nl">writeFinishedWithSuccess</span><span class="p">:</span><span class="nb">YES</span><span class="p">];</span> <span class="o">//</span> <span class="n">BAD</span><span class="o">!!</span></code></pre></div>
+
+<p>If <code>responseHandle</code> belongs to another thread, then this method could cause any number of race conditions and other multi-threading issues.</p>
+
+<p>The solution though is exceptionally simple:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc">    <span class="p">[</span><span class="n">responseHandler</span>
+        <span class="nl">performSelectorOnMainThread</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="nl">writeFinishedWithSuccess</span><span class="p">:)</span>
+        <span class="nl">withObject</span><span class="p">:[</span><span class="n">NSNumber</span> <span class="nl">numberWithBool</span><span class="p">:</span><span class="nb">YES</span><span class="p">]</span>
+        <span class="nl">waitUntilDone</span><span class="p">:</span><span class="nb">NO</span><span class="p">];</span></code></pre></div>
+
+<p>This assumes that <code>responseHandler</code> is a nominally "main thread" object. You can use the <code>performSelector:onThread:withObject:waitUntilDone:</code> method and specify a different thread if you need to send the response elsewhere.</p>
+
+<p>You'll notice that the parameter has to be an object in this case (<code>[NSNumber numberWithBool:YES]</code> instead of simply <code>YES</code>) and any parameter that you pass to another thread should not be used again in the current thread.</p>
+
+<h2>Delivering Notifications To Particular Threads</h2>
+
+<p>Of course, the <code>FileWriteOperation</code> class shown above doesn't have a <code>responseHandle</code> object that it can notify when it is done, so I'd rather use an <code>NSNotification</code> sent to the <code>NSNotificationCenter</code> and if any object wants to receive the notification, it can.</p>
+
+<p>The <code>NSNotificationCenter</code> itself is thread-safe but it delivers the notifications on the thread in which you invoke <code>postNotification:</code> so if you expect the observers of that notification to belong to a different thread, you've just broken those objects' thread safety.</p>
+
+<p>Normally it is a good idea to deliver all notifications on the main thread. We can do this as follows:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="c1">// Line of code in some method of some class...
+</span><span class="c1"></span><span class="p">[[</span><span class="nb">self</span> <span class="k">class</span><span class="p">]</span>
+    <span class="nl">performSelectorOnMainThread</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="nl">postNotification</span><span class="p">:)</span>
+    <span class="nl">withObject</span><span class="p">:</span>
+        <span class="p">[</span><span class="n">NSNotification</span>
+            <span class="nl">notificationWithName</span><span class="p">:</span><span class="s">@&#34;FileWriteOperationSucceeded&#34;</span>
+            <span class="nl">object</span><span class="p">:</span><span class="nb">self</span><span class="p">]];</span>
+
+<span class="p">+</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">postNotification:</span><span class="p">(</span><span class="n">NSNotification</span> <span class="o">*</span><span class="p">)</span><span class="nv">aNotification</span>
+<span class="p">{</span>
+    <span class="p">[[</span><span class="n">NSNotificationCenter</span> <span class="n">defaultCenter</span><span class="p">]</span> <span class="nl">postNofication</span><span class="p">:</span><span class="n">aNotification</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Notice that we don't call <code>+[NSNotificationCenter defaultCenter]</code> until we're on the main thread. If we call it on the other thread, it will return the notification center for that other thread.</p>
+
+<p>Some classes follow a different behavior of delivering notifications to the thread on which they were constructed (not necessarily the main thread). To follow this behavior, simply save the <code>[NSThread currentThread]</code> on construction and perform the <code>postNotification:</code> selector on that thread.</p>
+
+<p>You may have noticed that the notification is passing "<code>self</code>" from one thread to another &mdash; breaking the thread ownership of "<code>self</code>". This is only really safe in one of the following cases:</p>
+
+<ul><li><strong>Handover</strong> &mdash; the parameter will never be used on this thread again.<br/>In this case, if "<code>self</code>" is complete on the worker thread (for example at the bottom of the <code>main</code> method shown above). In this case, the object is passing itself back to the other thread.</li>
+<li><strong>Thread-safe</strong> &mdash; if the class or specific methods are guaranteed to be thread-safe.<br/>In this case, if the only methods invoked on <code>self</code> are <code>retain</code>, <code>release</code> and the default pointer comparison <code>isEqual:</code> method (these are the methods invoked when removing from an <code>NSMutableArray</code>). These are guaranteed thread-safe methods.</li></ul>
+
+<p>If neither of these are true then you can't pass <code>self</code> (or any other parameter) safely between threads.</p>
+
+<h2>Conclusion</h2>
+
+<p>The purpose of this article is to communicate two ideas:</p>
+
+<ul><li>Carefully locking and synchronizing makes programming hard but if you design your objects to be used on only one thread at a time, then they are thread-safe without the need for locks or synchronzation (if needed, split your objects into components for separate threads).</li>
+<li>Use inter-thread communication to keep objects in separate threads up-to-date with each other. In Cocoa, this is very simple but you do need to ensure that all parameters you pass are either thread-safe objects or handover objects.</li></ul>
+
+<p>Apple's <a href="http://developer.apple.com/documentation/Cocoa/Conceptual/Notifications/Articles/Threading.html">Delivering Notifications To Particular Threads</a> code is woefully out of date. I would be happy to see it completely changed &mdash; you should never need to implement something so complex just to deliver notifications to another thread.</p>
+
+<p>Of couse, there are always situations where you can't run an <code>NSRunLoop</code> to process <code>performSelector:onThread:withObject:waitUntilDone:</code> messages. There are also situations where you feel that one of your object
+s must be multi-threaded (rather than single thread exclusive). Either of these cases requires will require a synchronized or locked solution but my recommendation is to try to find an <code>NSRunLoop</code> and thread exclusive solution first as these are significantly easier to manage and prone to fewer potential problems.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="control-and-configuration-of.html">Control and configuration of applications through Info.plist</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="animating-window-to-fullscreen-on-mac.html">Animating a window to fullscreen on the Mac</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

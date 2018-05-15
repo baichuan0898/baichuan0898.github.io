@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Square Root: Numerical fun with NSDecimalNumber</title>
+  <meta name="description" content="NSDecimalNumber is a powerful Foundation class that holds high precision base 10 numbers. The default class only provides basic arithmetic operators, leaving you to write any advanced operations that you need. This is an example that implements a square root using NSDecimalNumber." />
+
+  <meta name="twitter:title" content="Square Root: Numerical fun with NSDecimalNumber"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2008/05/square-root-numerical-fun-with.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="NSDecimalNumber is a powerful Foundation class that holds high precision base 10 numbers. The default class only provides basic arithmetic operators, leaving you to write any advanced operations that you need. This is an example that implements a square root using NSDecimalNumber."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="square-root-numerical-fun-with.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Square Root: Numerical fun with NSDecimalNumber</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2008-05-09">May 9, 2008</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/numerical-methods.html">numerical methods</a>, <a href="../../categories/foundation.html">Foundation</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>NSDecimalNumber is a powerful Foundation class that holds high precision base 10 numbers. The default class only provides basic arithmetic operators, leaving you to write any advanced operations that you need. This is an example that implements a square root using NSDecimalNumber.</p></span>
+
+<span class="fullpost">
+
+<h2>Casus belli: I want to expand my territory</h2>
+
+<p>Do you ever find yourself wishing for greater than the 15 decimal place precision of a 64-bit IEEE 754 floating point number? Of course you do. Your lab equipment is accurate to supernatural levels and your finances regularly deal with tens of trillions of dollars/euros accurately to the cent.</p>
+
+<p>Or perhaps you're more like me &mdash; your lab equipment gives answers in "warmer/colder" and your finances are mostly organised around the barter system &mdash; but you really like long numbers.</p>
+
+<p>Cocoa proudly offers the Foundation class NSDecimalNumber to satisfy this desire. NSDecimalNumber is a class which will give slightly better than twice the precision of a double (as much as 38 digits) and should never give the weird binary to decimal conversion quirks that binary doubles give (like 0.1 becoming 0.10000000000000000555 without warning).</p>
+
+<p>Sadly, NSDecimalNumber does not appear to be written for the mathematically or scientifically inclined. Its operators are mostly limited to basic arithmetic: add, subtract, multiply and divide. It does provide the ability to raise to a power but only to whole number exponents.</p>
+
+<p>So if we want anything more, we must write it ourselves. No problem?</p>
+
+<h2>How do other people implement a square root?</h2>
+
+<p>You can't get very far in scientific or statistical calculations without a square root, so it's a good "higher level" function to implement first. So, how is it done?</p>
+
+<p>The short answer is normally "an optimised Newton's method iteration". <a href="http://en.wikipedia.org/wiki/Newton%27s_method">Newton's method</a> goes like this:</p>
+
+<ul><li>Take a first guess at the square root (it will be somewhere between the operand and 1)</li>
+<li>Use the slope of the line at the guess point (d/dx of sqrt(x) is 0.5x) to choose a next guess</li>
+<li>Repeat until you're close enough</li></ul>
+
+<p>Within this fairly simple set of steps is a huge range of possible implementation approaches. Most center on choosing a best first guess, avoiding accumulated error, avoiding floating point division and handling convergence quirks around x=1. Professor W. Kahan (who helped invent the IEEE 754 standard) and K.C. Ng wrote a <a href="http://www.netlib.org/fdlibm/e_sqrt.c">1986 paper on a range of these different approaches</a>.</p>
+
+<p>Beyond these, there are some very strange alternate implementations of square root, including the <a href="http://www.codemaestro.com/reviews/9">"Quake III" square root</a> which contains the utterly baffling line:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">i</span>  <span class="o">=</span> <span class="mh">0x5f3759df</span> <span class="o">-</span> <span class="p">(</span> <span class="n">i</span> <span class="o">&gt;&gt;</span> <span class="mi">1</span> <span class="p">);</span></code></pre></div>
+
+<p>which exploits the specific binary representation of a 32-bit float to choose an exceptionally good first guess.</p>
+
+<h2>How will I implement a square root?</h2>
+
+<p>I'm going to implement a square root in NSDecimalNumber, without peeking illegally at the internals of the number format (I'm guessing it's just a binary coded decimal). I'm not going to try anything fancy so this implementation will be:</p>
+<ul><li>a little slow (maybe a hundred microseconds per calculation)</li>
+<li>may suffer from convergence and rounding errors near x=1 (last 1-3 digits of transcendental results will occasionally be wrong)</li></ul>
+<p>At least the code will be simple.</p>
+
+<h2>Basic solution</h2>
+
+<p>Taking the easiest first guess (an average of the operand and 1) applying Newton's method to solve for the square root looks like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">NSDecimalNumber</span> <span class="o">*</span><span class="p">)</span><span class="nf">sqrt</span>
+<span class="p">{</span>
+    <span class="n">NSDecimalNumber</span> <span class="o">*</span><span class="n">half</span> <span class="o">=</span>
+        <span class="p">[</span><span class="n">NSDecimalNumber</span> <span class="nl">decimalNumberWithMantissa</span><span class="p">:</span><span class="mi">5</span> <span class="nl">exponent</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span> <span class="nl">isNegative</span><span class="p">:</span><span class="nb">NO</span><span class="p">];</span>
+    <span class="n">NSDecimalNumber</span> <span class="o">*</span><span class="n">guess</span> <span class="o">=</span>
+        <span class="p">[[</span><span class="nb">self</span> <span class="nl">decimalNumberByAdding</span><span class="p">:[</span><span class="n">NSDecimalNumber</span> <span class="n">one</span><span class="p">]]</span>
+            <span class="nl">decimalNumberByMultiplyingBy</span><span class="p">:</span><span class="n">half</span><span class="p">];</span>
+    
+    <span class="n">NSCompareResult</span> <span class="n">compare</span><span class="p">;</span>
+    <span class="k">do</span>
+    <span class="p">{</span>
+        <span class="n">NSDecimalNumber</span> <span class="o">*</span><span class="n">previousGuess</span> <span class="o">=</span> <span class="p">[[</span><span class="n">guess</span> <span class="k">copy</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span>
+        <span class="n">guess</span> <span class="o">=</span> <span class="p">[</span><span class="nb">self</span> <span class="nl">decimalNumberByDividingBy</span><span class="p">:</span><span class="n">previousGuess</span><span class="p">];</span>
+        <span class="n">guess</span> <span class="o">=</span> <span class="p">[</span><span class="n">guess</span> <span class="nl">decimalNumberByAdding</span><span class="p">:</span><span class="n">previousGuess</span><span class="p">];</span>
+        <span class="n">guess</span> <span class="o">=</span> <span class="p">[</span><span class="n">guess</span> <span class="nl">decimalNumberByDividingBy</span><span class="p">:</span><span class="n">two</span><span class="p">];</span>
+        
+        <span class="n">compare</span> <span class="o">=</span> <span class="p">[</span><span class="n">guess</span> <span class="nl">compare</span><span class="p">:</span><span class="n">previousGuess</span><span class="p">];</span>
+    <span class="p">}</span>
+    <span class="k">while</span> <span class="p">(</span><span class="n">guess</span> <span class="o">!=</span> <span class="n">NSOrderedSame</span><span class="p">);</span>
+    
+    <span class="k">return</span> <span class="n">guess</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Make this a category method of NSDecimalNumber and you'll immediately be able to calculate the square root of 2.</p>
+
+<p>But you'll get weird failures and infinite loops if you try to calculate the square root of 1.01, 0 or anything negative.</p>
+
+<h2>A few special cases</h2>
+
+<p>Since we're not going to handle imaginary numbers, all attempts to take the square root of a negative number should return [NSDecimalNumber notANumber].</p>
+
+<p>Then we have the quirks associated with taking the square root of zero. Two problems are occurring: if "previousGuess" is zero, then we are creating a divide by zero exception. Secondly, we are deliberately trying to converge on zero as the solution which means that we are deliberately creating an "underflow" (which is another kind of exception in NSDecimalNumber).</p>
+
+<p>To address these problems, we'll simply put a blanket "try/catch" block around the do/while loop. When an exception occurs, we'll simply return the current guess which we can safely assume to be correct in both these cases.</p>
+
+<p>Then we are left with one final problem: the listed method iterates until it converges on a solution (the guess has the same value for two iterations in a row). Unfortunately, there are many cases where this will never occur &mdash; especially for values close to 1. Instead, we'll replace the do/while with a fixed number of iterations. Experimentally, 4 iterations seems to handle most situations, 5 is sometimes needed. I've gone with 6 to be safe.</p>
+
+<h2>Unanswered question</h2>
+
+<p>This solution will give square root answers with a worst case accuracy of 34 decimal places for values near 1 (according to my few experiments). I was expecting a worst case of at least 36 decimal places so I'm a little confused.</p>
+
+<p>This error does not appear to be due to accumulated error or convergence problems. It appears to be because NSDecimalNumber is rounding numbers like (1 + 1e-35)  to the nearest integer &mdash; even when I use an NSDecimalNumberBehaviors object that returns NSDecimalNoScale. This would appear to be unnecessary, given the 38 digit length of the mantissa. I'm not quite certain why it would do this but it appears to be reducing accuracy by approximately 2 decimal places.</p>
+
+<p>If you know why this may be happening, please leave a comment and let me know.</p>
+
+<h2>Final solution</h2>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">NSDecimalNumber</span> <span class="o">*</span><span class="p">)</span><span class="nf">sqrt</span>
+<span class="p">{</span>
+    <span class="k">if</span> <span class="p">([</span><span class="nb">self</span> <span class="nl">compare</span><span class="p">:[</span><span class="n">NSDecimalNumber</span> <span class="n">zero</span><span class="p">]]</span> <span class="o">==</span> <span class="n">NSOrderedAscending</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="p">[</span><span class="n">NSDecimalNumber</span> <span class="n">notANumber</span><span class="p">];</span>
+    <span class="p">}</span>
+    
+    <span class="n">NSDecimalNumber</span> <span class="o">*</span><span class="n">half</span> <span class="o">=</span>
+        <span class="p">[</span><span class="n">NSDecimalNumber</span> <span class="nl">decimalNumberWithMantissa</span><span class="p">:</span><span class="mi">5</span> <span class="nl">exponent</span><span class="p">:</span><span class="o">-</span><span class="mi">1</span> <span class="nl">isNegative</span><span class="p">:</span><span class="nb">NO</span><span class="p">];</span>
+    <span class="n">NSDecimalNumber</span> <span class="o">*</span><span class="n">guess</span> <span class="o">=</span>
+        <span class="p">[[</span><span class="nb">self</span> <span class="nl">decimalNumberByAdding</span><span class="p">:[</span><span class="n">NSDecimalNumber</span> <span class="n">one</span><span class="p">]]</span>
+            <span class="nl">decimalNumberByMultiplyingBy</span><span class="p">:</span><span class="n">half</span><span class="p">];</span>
+    
+    <span class="k">@try</span>
+    <span class="p">{</span>
+        <span class="k">const</span> <span class="kt">int</span> <span class="n">NUM_ITERATIONS_TO_CONVERGENCE</span> <span class="o">=</span> <span class="mi">6</span><span class="p">;</span>
+        <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">NUM_ITERATIONS_TO_CONVERGENCE</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="n">guess</span> <span class="o">=</span>
+                <span class="p">[[[</span><span class="nb">self</span> <span class="nl">decimalNumberByDividingBy</span><span class="p">:</span><span class="n">guess</span><span class="p">]</span>
+                    <span class="nl">decimalNumberByAdding</span><span class="p">:</span><span class="n">guess</span><span class="p">]</span>
+                        <span class="nl">decimalNumberByMultiplyingBy</span><span class="p">:</span><span class="n">half</span><span class="p">];</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+    <span class="k">@catch</span> <span class="p">(</span><span class="n">NSException</span> <span class="o">*</span><span class="n">exception</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="c1">// deliberately ignore exception and assume the last guess is good enough
+</span><span class="c1"></span>    <span class="p">}</span>
+    
+    <span class="k">return</span> <span class="n">guess</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="open-previous-document-on-application.html">Open the previous document on application startup</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="fast-enumeration-clarifications.html">Objective-C 2.0: Fast enumeration clarifications</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

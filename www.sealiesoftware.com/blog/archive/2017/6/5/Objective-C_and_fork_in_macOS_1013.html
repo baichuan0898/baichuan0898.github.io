@@ -1,0 +1,133 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<!--
+Local Variables:
+sgml-default-dtd-file: "~/html-loose.ced"
+End:
+-->
+<html>
+  <head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+
+    <title>Hamster Emporium: Objective-C and fork() in macOS 10.13</title>
+    <link title="RSS 2.0" href="../../../../rss.xml.rss" type="application/rss+xml" rel="alternate">
+  </head>
+  <body bgcolor="#ffffff">
+    <table cellpadding="0" cellspacing="0">
+      <tr>
+	  <td valign="top" align="left">
+	    <a href="../../../../index.html"><img src="http://www.sealiesoftware.com/hamster.jpg" alt="" width="108" height="160"></a><br><br>
+	    <b>blog</b><br>
+	    <a href="../../../../index.html">recent</a><br>
+	    <a href="../../../index.html">archive</a><br>
+	    <a href="http://twitter.com/gparker">twitter</a><br>
+	    <br>
+	    <b>projects</b><br>
+	    <a href="http://www.apple.com/macosx/">Mac OS X</a><br>
+	    <a href="http://www.sealiesoftware.com/keyboard/index.html">Keyboard</a><br>
+	     &nbsp; <a href="http://www.sealiesoftware.com/keyboard/index.html">backlight</a><br>
+	    <a href="http://www.sealiesoftware.com/cscmenu/index.html">CSC Menu</a><br>
+	    <a href="http://www.sealiesoftware.com/valgrind/index.html">Valgrind</a><br>
+	    <a href="http://www.sealiesoftware.com/fringe/index.html">Fringe Player</a><br>
+	    <a href="http://www.sealiesoftware.com/pssh/index.html">pssh</a><br>
+	    <a href="http://www.sealiesoftware.com/peal/index.html">Peal</a><br>
+	    <a href="http://www.sealiesoftware.com/frankenmouse/index.html">Frankenmouse</a><br>
+	    <br>
+	  </td>
+	  <td>
+	    &nbsp; &nbsp;
+	  </td>
+	  <td valign="top">
+	      <h2>Hamster Emporium archive</h2>
+  <p>
+     
+    <a href="../../../index.html">archive</a>
+     &nbsp; | &nbsp; <a href="../../../2013/09/24/objc_explain_Non-pointer_isa.html">[objc explain]: Non-pointer isa</a> &nbsp; &gt;&gt; 
+  </p>
+  <table cellpadding="0" cellspacing="3">
+      <tr>
+	<td>
+	  <a href="Objective-C_and_fork_in_macOS_1013.html"><img src="http://www.sealiesoftware.com/link.gif" width="14" height="16" border="0" alt="(link)"></a>
+	</td>
+	<td>
+	  <b><font size="+1">Objective-C and fork() in macOS 10.13</font></b> &nbsp; 
+	  <font size="-1">(<a href="Objective-C_and_fork_in_macOS_1013.html">2017-6-5 12:05 PM</a>)</font>
+	</td>
+      </tr>
+      <tr>
+	<td>
+	  &nbsp;
+	</td>
+	<td>
+	      <p>
+      The rules for using Objective-C between <code>fork()</code> and <code>exec()</code> have 
+      changed in macOS 10.13. Incorrect code that happened to work most 
+      of the time in the past may now fail. Some workarounds are available.
+<h4><code>fork()</code> and Objective-C</h4>
+    <p>
+      Before macOS 10.13, the Objective-C runtime did not support use 
+      between <code>fork()</code> and <code>exec()</code> in the child process of a multithreaded 
+      parent process. Calling any Objective-C method in that interval 
+      was not allowed. Most of the time it might work. Sometimes it would fail: for example, if a 
+      thread in the parent process happened to be holding one of 
+      the Objective-C runtime's locks when the <code>fork()</code> occurred, 
+      the child process would deadlock when it tried to take that lock.
+    <p>
+      As of macOS 10.13, the Objective-C runtime now supports use between
+      <code>fork()</code>
+      and <code>exec()</code> in applications built with the 10.13 SDK. There are
+      restrictions involving <code>+initialize</code> methods. Previously incorrect code may
+      now be correct, or it may fail consistently due to <code>+initialize</code> behavior.
+    <p>
+      Note that the Objective-C classes defined by the OS frameworks remain <code>fork</code>-unsafe. As a first approximation it is still incorrect to do anything between <code>fork()</code> and <code>exec()</code>.
+
+      <h4><code>fork()</code> and <code>+initialize</code></h4>
+    <p>
+      <code>+initialize</code> methods still have restrictions around <code>fork()</code>. The problem is that the thread-safety guarantees of <code>+initialize</code> implicitly introduce locks around state that the Objective-C runtime does not control. There is no good way to make <code>+initialize</code> both thread-safe and <code>fork</code>-safe. Instead the Objective-C runtime simply halts the process instead of running any <code>+initialize</code> override in the child process: 
+<p>
+<code>&nbsp; &nbsp; &nbsp; +[SomeClass initialize] may have been in progress in another thread when <code>fork()</code> was called. We cannot safely call it or ignore it in the <code>fork()</code> child process. Crashing instead.
+</code>
+<p>
+If you have a class that needs to be <code>fork</code>-safe and also overrides <code>+initialize</code>, you can use the "prepare" side of <code>pthread_atfork()</code> to force <code>+initialize</code> to run. Then the child process will see a consistent state without a <code>+initialize</code> deadlock threat.
+
+<h4>Workarounds for compatibility</h4>
+    <p>
+      There are three ways to get the old behavior back for source- or binary-compatibility.
+      <ul>
+      <li>Build your app with an SDK older than macOS 10.13.
+<li>Define environment variable <code>OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES</code>.
+<li>Add a <code>__DATA,__objc_fork_ok</code> section to your executable.
+</ul>
+<p>
+Be warned that incorrect code is more likely to deadlock on macOS 10.13 than before, even with one of these workarounds in place.
+
+<h4>Scripting languages</h4>
+<p>
+  Some scripting languages use <code>fork()</code> without <code>exec()</code> as a substitute for threads. Python's <code>multiprocessing</code> module is one example. The <code>OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES</code> environment variable described above may temporarily get your scripts running again.
+
+<h4>Summary of fixes</h4>
+<p>
+Possible fixes for <code>fork</code>-safety problems, from best to worst:
+<ol>
+<li>Use <code>NSTask</code> or <code>posix_spawn()</code> instead of <code>fork()</code> and <code>exec()</code>.
+<li>Do nothing between <code>fork()</code> and <code>exec()</code>.
+<li>Use only async-signal-safe operations between <code>fork()</code> and <code>exec()</code>.
+<li>Use ObjC classes with no <code>+initialize</code> overrides between <code>fork()</code> and <code>exec()</code>.
+<li>Use <code>pthread_atfork()</code> to force your <code>+initialize</code> methods to run before <code>fork()</code>.
+<li>Define environment variable <code>OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES</code>, or add a <code>__DATA,__objc_fork_ok</code> section, or build using an SDK older than macOS 10.13. Then cross your fingers.
+</ol>
+    </p>
+
+	  </td>
+      </tr>
+  </table>
+
+	  </td>
+	</tr>
+    </table>
+    <hr>
+    <img align="right" src="http://www.sealiesoftware.com/sealie.gif" alt="seal!" width="114" height="69">
+    Greg Parker<br>
+    <a href="mailto:gparker-www@sealiesoftware.com">gparker-www@sealiesoftware.com</a><br>
+    <a href="http://www.sealiesoftware.com/index.html">Sealie Software</a>
+  </body>
+</html>

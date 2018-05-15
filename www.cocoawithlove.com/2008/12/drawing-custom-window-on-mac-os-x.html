@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Drawing a custom window on Mac OS X</title>
+  <meta name="description" content="Occasionally, you may want a window to look completely different to the standard window styles provided by Apple. This post will show you how to draw a custom window and implement close, resize and drag functionality." />
+
+  <meta name="twitter:title" content="Drawing a custom window on Mac OS X"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2008/12/drawing-custom-window-on-mac-os-x.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Occasionally, you may want a window to look completely different to the standard window styles provided by Apple. This post will show you how to draw a custom window and implement close, resize and drag functionality."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="drawing-custom-window-on-mac-os-x.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Drawing a custom window on Mac OS X</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2008-12-12">December 12, 2008</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/appkit.html">AppKit</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>Occasionally, you may want a window to look completely different to the standard window styles provided by Apple. This post will show you how to draw a custom window and implement close, resize and drag functionality.</p></span>
+
+<span class="fullpost">
+<h2>Introduction</h2>
+<p>In this post, I will present a custom window and frame class that will draw the following window:</p>
+<img src="../../assets/objc-era/roundwindow.png" width="430" height="320" />
+
+<p>Clicking and dragging in any part of the frame of this window will drag the window, except the gray square (which operates as a resize thumb) and the close box (which operates in a standard manner).</p>
+
+<p>You can <a href="../../assets/objc-era/RoundWindow.zip">download the complete Xcode 3.1 project for RoundWindow</a> (63kB).</p>
+
+<h2>Constructing a transparent window</h2>
+
+<p>Making a custom window starts with a transparent window. I will use a custom <code>NSWindow</code> subclass named <code>RoundWindow</code>. The constructor for this subclass looks like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nf">initWithContentRect:</span><span class="p">(</span><span class="n">NSRect</span><span class="p">)</span><span class="nv">contentRect</span>
+    <span class="nf">styleMask:</span><span class="p">(</span><span class="n">NSUInteger</span><span class="p">)</span><span class="nv">windowStyle</span>
+    <span class="nf">backing:</span><span class="p">(</span><span class="n">NSBackingStoreType</span><span class="p">)</span><span class="nv">bufferingType</span>
+    <span class="nf">defer:</span><span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nv">deferCreation</span>
+<span class="p">{</span>
+    <span class="nb">self</span> <span class="o">=</span> <span class="p">[</span><span class="nb">super</span>
+        <span class="nl">initWithContentRect</span><span class="p">:</span><span class="n">contentRect</span>
+        <span class="nl">styleMask</span><span class="p">:</span><span class="n">NSBorderlessWindowMask</span>
+        <span class="nl">backing</span><span class="p">:</span><span class="n">bufferingType</span>
+        <span class="nl">defer</span><span class="p">:</span><span class="n">deferCreation</span><span class="p">];</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nb">self</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="nb">self</span> <span class="nl">setOpaque</span><span class="p">:</span><span class="nb">NO</span><span class="p">];</span>
+        <span class="p">[</span><span class="nb">self</span> <span class="nl">setBackgroundColor</span><span class="p">:[</span><span class="n">NSColor</span> <span class="n">clearColor</span><span class="p">]];</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="nb">self</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The three changes made to the window by this constructor are fairly obvious:<p>
+<ul><li><code>NSBorderlessWindowMask</code> (a window without standard window framing)</li> <li><code>setOpaque:NO</code> (so that any part of the window can be transparent)</li>
+<li><code>setBackgroundColor:[NSColor clearColor]</code> (if we do nothing else, this will paint the window transparent)</li></ul>
+
+<p>The result is a transparent, rectangular window. This method can be invoked directly (if creating a window in code). It will also be invoked by the NIB loader when loading the window from a NIB.</p>
+
+<p>Since this window uses the <code>NSBorderlessWindowMask</code> style, we must override the <code>canBecomeKeyWindow</code> and <code>canBecomeMainWindow</code> methods to return YES. These overrides will allow the window to be the keyboard focus and primary application window respectively.</p>
+
+<h2>Space for the window frame</h2>
+
+<p>Now that we have a clean, blank slate, we need to draw the frame of the window. The first requirement is some space around the content of the window to draw the frame.</p>
+
+<p>To create this space, we override the content to frame conversion methods:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">NSRect</span><span class="p">)</span><span class="nf">contentRectForFrameRect:</span><span class="p">(</span><span class="n">NSRect</span><span class="p">)</span><span class="nv">windowFrame</span>
+<span class="p">{</span>
+    <span class="n">windowFrame</span><span class="p">.</span><span class="n">origin</span> <span class="o">=</span> <span class="n">NSZeroPoint</span><span class="p">;</span>
+    <span class="k">return</span> <span class="n">NSInsetRect</span><span class="p">(</span>
+        <span class="n">windowFrame</span><span class="p">,</span> <span class="n">WINDOW_FRAME_PADDING</span><span class="p">,</span> <span class="n">WINDOW_FRAME_PADDING</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="p">+</span> <span class="p">(</span><span class="n">NSRect</span><span class="p">)</span><span class="nf">frameRectForContentRect:</span><span class="p">(</span><span class="n">NSRect</span><span class="p">)</span><span class="nv">windowContentRect</span>
+    <span class="nf">styleMask:</span><span class="p">(</span><span class="n">NSUInteger</span><span class="p">)</span><span class="nv">windowStyle</span>
+<span class="p">{</span>
+    <span class="k">return</span> <span class="n">NSInsetRect</span><span class="p">(</span>
+        <span class="n">windowContentRect</span><span class="p">,</span> <span class="o">-</span><span class="n">WINDOW_FRAME_PADDING</span><span class="p">,</span> <span class="o">-</span><span class="n">WINDOW_FRAME_PADDING</span><span class="p">);</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This will add <code>WINDOW_FRAME_PADDING</code> (75) pixels border around the content rectangle. Actually, since this is a borderless window, the content view itself will be expanded by 75 pixels on each side. The next part will compensate for this, so the content view will be the expected, non-expanded size.</p>
+
+<h2>Creating the window frame</h2>
+
+<p>The normal structure of a window on Mac OS X is:</p>
+
+<ul><li><code>NSWindow</code></li>
+    <ul><li><code>NSThemeFrame</code> (draws the standard window frame)</li>
+        <ul>
+        <li><code>NSView</code> (the window's <code>contentView</code>)</li></ul>
+    </ul>
+</ul>
+
+<p>My first thought was to try replacing the existing theme frame view. However, this quickly proved to be too difficult. This private subclass of <code>NSView</code> handles many quirks associated with view hierarchy, layout and window drawing that I didn't want to implement myself.</p>
+
+<p>Instead, I chose to override the <code>setContentView:</code> and <code>contentView:</code> accessors on the window so that my frame view is always inserted between the theme frame and the <code>contentView</code>:
+
+<ul><li><code>NSWindow</code></li>
+    <ul><li><code>NSNextStepFrame</code> (the theme frame for a borderless window)</li>
+        <ul><li><code>RoundWindowFrameView</code> (the <code>contentView</code> as seen by the <code>NSWindow</code>)</li>
+            <ul><li><code>NSView</code> (the <code>contentView</code> as seen by other classes)</li></ul>
+        </ul>
+    </ul>
+</ul>
+
+<p>The <code>setContentView:</code> override on the <code>RoundWindow</code> looks like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setContentView:</span><span class="p">(</span><span class="n">NSView</span> <span class="o">*</span><span class="p">)</span><span class="nv">aView</span>
+<span class="p">{</span>
+    <span class="k">if</span> <span class="p">([</span><span class="n">childContentView</span> <span class="nl">isEqualTo</span><span class="p">:</span><span class="n">aView</span><span class="p">])</span>
+    <span class="p">{</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="n">NSRect</span> <span class="n">bounds</span> <span class="o">=</span> <span class="p">[</span><span class="nb">self</span> <span class="n">frame</span><span class="p">];</span>
+    <span class="n">bounds</span><span class="p">.</span><span class="n">origin</span> <span class="o">=</span> <span class="n">NSZeroPoint</span><span class="p">;</span>
+
+    <span class="n">RoundWindowFrameView</span> <span class="o">*</span><span class="n">frameView</span> <span class="o">=</span> <span class="p">[</span><span class="nb">super</span> <span class="n">contentView</span><span class="p">];</span>
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">frameView</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">frameView</span> <span class="o">=</span>
+            <span class="p">[[[</span><span class="n">RoundWindowFrameView</span> <span class="n">alloc</span><span class="p">]</span>
+                <span class="nl">initWithFrame</span><span class="p">:</span><span class="n">bounds</span><span class="p">]</span>
+            <span class="n">autorelease</span><span class="p">];</span>
+        
+        <span class="p">[</span><span class="nb">super</span> <span class="nl">setContentView</span><span class="p">:</span><span class="n">frameView</span><span class="p">];</span>
+    <span class="p">}</span>
+    
+    <span class="k">if</span> <span class="p">(</span><span class="n">childContentView</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="n">childContentView</span> <span class="n">removeFromSuperview</span><span class="p">];</span>
+    <span class="p">}</span>
+    <span class="n">childContentView</span> <span class="o">=</span> <span class="n">aView</span><span class="p">;</span>
+    <span class="p">[</span><span class="n">childContentView</span> <span class="nl">setFrame</span><span class="p">:[</span><span class="nb">self</span> <span class="nl">contentRectForFrameRect</span><span class="p">:</span><span class="n">bounds</span><span class="p">]];</span>
+    <span class="p">[</span><span class="n">childContentView</span>
+        <span class="nl">setAutoresizingMask</span><span class="p">:</span><span class="n">NSViewWidthSizable</span> <span class="o">|</span> <span class="n">NSViewHeightSizable</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">frameView</span> <span class="nl">addSubview</span><span class="p">:</span><span class="n">childContentView</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>So this method inserts the <code>RoundWindowFrameView</code> in between the content view and the <code>NSNextStepFrame</code>. The <code>childContentView</code> is an instance variable on our <code>RoundWindow</code> class, used to find this view again later (if we are asked to fetch, replace or resize it).</p>
+
+<p>Creating this disparity between the internal content view (our <code>RoundWindowFrameView</code>) and the external content view (the <code>childContentView</code>) creates some issues. Other <code>NSWindow</code> methods like <code>setContentSize:</code> will also need to be overridden if they are to behave as expected. These overrides should be relatively straightforward and simple, compared to the work that would have been required to replace the <code>NSNextStepView</code> with our <code>RoundWindowFrameView</code>.</p>
+
+<h2>Drawing the frame</h2>
+
+<p>We can draw the window frame however we want: it's just a custom <code>NSView</code>. We draw the background of the view with <code>[NSColor clearColor]</code> again. The shadow behind the window is drawn automatically for whatever shape we draw. Any part of the window that is left completely clear will not receive mouse clicks (they will fall through the window).</p>
+
+<p>For my custom window, I add a standard close box. The standard close control can be created using the method:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">closeButton</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSWindow</span>
+    <span class="nl">standardWindowButton</span><span class="p">:</span><span class="n">NSWindowCloseButton</span> <span class="nl">forStyleMask</span><span class="p">:</span><span class="n">NSTitledWindowMask</span><span class="p">];</span></code></pre></div>
+
+<p>There are two quirks. First: it doesn't update itself when the window becomes/resigns <code>mainWindow</code> status (so we must detect this and tell it to redisplay). Second: the mouse "rollover" effect doesn't seem to work (I was unable to address this problem).</p>
+
+<h2>Handling window controls</h2>
+
+<p>The close button will close the window without us doing anything else. Drag and resize behavior will require work on our part.</p>
+
+<p>Both dragging and resizing the window involve changing its frame. So they can both be done by calling:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">[</span><span class="n">window</span> <span class="nl">setFrame</span><span class="p">:</span><span class="n">newFrame</span> <span class="nl">display</span><span class="p">:</span><span class="nb">YES</span> <span class="nl">animate</span><span class="p">:</span><span class="nb">NO</span><span class="p">];</span></code></pre></div>
+
+<p>If we continuously call this method in a focus locked event loop that tracks <code>NSLeftMouseDraggedMask</code> operations, then the updates will happen smoothly as the mouse is dragged.</p>
+
+<p>This event loop looks like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">while</span> <span class="p">(</span><span class="nb">YES</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">NSEvent</span> <span class="o">*</span><span class="n">newEvent</span> <span class="o">=</span> <span class="p">[</span><span class="n">window</span>
+        <span class="nl">nextEventMatchingMask</span><span class="p">:(</span><span class="n">NSLeftMouseDraggedMask</span> <span class="o">|</span> <span class="n">NSLeftMouseUpMask</span><span class="p">)];</span>
+    
+    <span class="k">if</span> <span class="p">([</span><span class="n">newEvent</span> <span class="n">type</span><span class="p">]</span> <span class="o">==</span> <span class="n">NSLeftMouseUp</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">break</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="c1">// Determine the frame changes for the mouse operation and apply...
+</span><span class="c1"></span>
+<span class="p">}</span></code></pre></div>
+
+<p>The code for determining the frame changes, while straightforward, is a little long to include here but you can look at the <code>mouseDown:</code> method in the <code>RoundWindowFrameView</code> to see how it's done.</p>
+
+<h2>Conclusion</h2>
+
+<p>You can <a href="../../assets/objc-era/RoundWindow.zip">download the complete Xcode 3.1 project for RoundWindow</a> (63kB).</p>
+
+<p>Drawing a custom window with no behavior is simple but as with other types of custom controls, numerous little behavioral additions may be needed to make it feel truly polished.</p>
+
+<p>As a resizable circular window, the <code>RoundWindow</code> suffers from its fixed 75 by 75 pixel frame width. This is too big for small windows and not enough for large windows to properly enclose the content view in a circle. To properly enclose a rectangular content view in a circular frame, the frame would need a variable width (something I didn't want to set up for this simple post).</p>
+
+<p>A custom window may also want to handle truncation of the title when it gets too long. Other window controls like the toolbar button, toolbar, minimize and zoom buttons and the "unsaved changes" status on the close button are all responsibilities of the window frame that have not been investigated here.</p>
+
+<blockquote><a href="http://parmanoir.com/Custom_NSThemeFrame">Paramanoir has posted an article that draws a custom window in a different way</a>: by swizzling a new <code>drawRect:</code> method into the default <code>NSThemeFrame</code> class at runtime. This has a few advantages (<code>NSThemeFrame</code> continues to handle the window controls) so you may want to consider that approach as an alternative.</blockquote>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="instance-variable-to-synthesized.html">Instance variable to synthesized property (an Xcode user script)</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="ordereddictionary-subclassing-cocoa.html">OrderedDictionary: Subclassing a Cocoa class cluster</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

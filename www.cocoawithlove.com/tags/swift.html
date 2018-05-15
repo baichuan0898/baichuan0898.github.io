@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Swift</title>
+  <meta name="description" content="" />
+
+  <meta name="twitter:title" content="Swift"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/tags/swift.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content=""/>
+
+  <link rel="icon" href="../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../css/main.css" />
+  <link rel="canonical" href="swift.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../index.html"><img class="heartandcup" src="../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../about/index.html">about</a>
+        <a class="page-link" href="../archive/index.html">archive</a>
+        <a class="page-link" href="../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+		<h1 class="list-title">Articles tagged "Swift"</h1>
+
+<ul class="post-list">
+	
+      <li>
+    <h2><a class="post-link" href="../blog/a-view-construction-syntax.html">A view construction syntax</a></h2>
+    <p class="post-meta">Dec 15, 2017</p>
+    <div class="content">In this article, I look at constructing Cocoa views in code using a unique syntax that offers dynamic and constant options with no syntactic overhead, support for parameters inherited through the class hierarchy, support for large numbers of optional parameters without needing to push unused parameters onto the stack, avoidance of parentheses, and avoiding the need to specify types – all while remaining completely typesafe.</div>
+    <div class="read-more"><a href="../blog/a-view-construction-syntax.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../blog/resources-releases-reentrancy.html">Reference counted releases in Swift</a></h2>
+    <p class="post-meta">Dec 27, 2016</p>
+    <div class="content">A discussion about reference counted lifetimes in Swift; how the lifetime of scope variables differs from C++ and Objective-C, how releases are reordered by the Swift compiler and the conventional use of <code>withExtendedLifetime</code> versus my unconventional usage.</div>
+    <div class="read-more"><a href="../blog/resources-releases-reentrancy.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../blog/2016/09/22/deque.html">Optimizing a copy-on-write double-ended queue in Swift</a></h2>
+    <p class="post-meta">Sep 22, 2016</p>
+    <div class="content">I present an implementation of a a double-ended queue type (deque) in Swift and look at what is required to implement copy-on-write in an optimized way so that this double-ended queue is faster than Array when used as a first-in-first-out (FIFO) queue.</div>
+    <div class="read-more"><a href="../blog/2016/09/22/deque.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../blog/2016/09/14/updating-cocoawithlove.html">Updating Cocoa with Love for Swift 3</a></h2>
+    <p class="post-meta">Sep 14, 2016</p>
+    <div class="content">This is a quick look at the changes I needed to make to bring Cocoa with Love up to date for Swift 3 and the latest iOS 10 and macOS Sierra.</div>
+    <div class="read-more"><a href="../blog/2016/09/14/updating-cocoawithlove.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../blog/2016/08/23/result-types-part-two.html">Values and errors, part 2: eight languages compared</a></h2>
+    <p class="post-meta">Aug 23, 2016</p>
+    <div class="content">A concrete look at the languages studied by the Swift developers when designing Swift's approach to error handling. By comparing these to Swift, I'll try to better understand what balance the Swift developers sought on the topics of feature complexity, syntactic efficiency, abstraction, information signalling and safety.</div>
+    <div class="read-more"><a href="../blog/2016/08/23/result-types-part-two.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../blog/2016/08/21/result-types-part-one.html">Values and errors, part 1: &#39;Result&#39; in Swift</a></h2>
+    <p class="post-meta">Aug 21, 2016</p>
+    <div class="content">In this article, I'll discuss the `Result` type in Swift as well as common variations in implementation and approach used for this data type. I'll also look at *why* the type was rejected for inclusion in the standard library and what effect that rejection is likely to have.</div>
+    <div class="read-more"><a href="../blog/2016/08/21/result-types-part-one.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../blog/2016/07/12/type-checker-issues.html">Exponential time complexity in the Swift type checker</a></h2>
+    <p class="post-meta">Jul 12, 2016</p>
+    <div class="content">One of the most annoying problems in Swift is when the compiler gives an 'Expression was too complex to be solved in a reasonable time' error. I look at why this error occurs, how to avoid it and talk about how this should be solved in a future compiler update.</div>
+    <div class="read-more"><a href="../blog/2016/07/12/type-checker-issues.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../blog/2016/06/25/policing-whitespace.html">Parsing whitespace in an Xcode extension</a></h2>
+    <p class="post-meta">Jun 25, 2016</p>
+    <div class="content">Fun with a pushdown automaton (implemented as a single mighty switch statement) for parsing whitespace in Swift source files. The result is an Xcode 8 Source Editor Command extension for detecting and correcting whitespace issues in Swift files.</div>
+    <div class="read-more"><a href="../blog/2016/06/25/policing-whitespace.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../blog/2016/06/02/threads-and-mutexes.html">Mutexes and closure capture in Swift</a></h2>
+    <p class="post-meta">Jun 2, 2016</p>
+    <div class="content">I'm going to talk about the absence of any threading or thread synchronization language features in Swift and the concurrency proposal for Swift's future. I'll also try to get a wrapper around different mutex machinery to perform optimally.</div>
+    <div class="read-more"><a href="../blog/2016/06/02/threads-and-mutexes.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../blog/2016/05/19/random-numbers.html">Random number generators in Swift</a></h2>
+    <p class="post-meta">May 19, 2016</p>
+    <div class="content">I present a few random number generators in Swift and investigate their quality versus performance. I also look at performance implementations and see if I can make a C algorithm run as fast as Swift.</div>
+    <div class="read-more"><a href="../blog/2016/05/19/random-numbers.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../blog/2016/05/01/swift-name-demangling.html">Comparing Swift to C&#43;&#43; for parsing</a></h2>
+    <p class="post-meta">May 1, 2016</p>
+    <div class="content">I present an implementation of Swift's Demangle.cpp, rewritten in Swift and use the two versions (the original C++ and my Swift version) to compare the C++ and Swift for writing parsers.</div>
+    <div class="read-more"><a href="../blog/2016/05/01/swift-name-demangling.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../blog/2016/03/27/on-delete.html">Breaking Swift with reference counted structs</a></h2>
+    <p class="post-meta">Mar 27, 2016</p>
+    <div class="content">Struct types are not usually heap allocated, reference counted or able to perform work on deallocation. You can coerce them into having these properties but careful if you do: it can be a source of memory leaks, errant behavior and compiler crashes.</div>
+    <div class="read-more"><a href="../blog/2016/03/27/on-delete.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../blog/2016/03/08/swift-wrapper-for-sysctl.html">Gathering system information in Swift with sysctl</a></h2>
+    <p class="post-meta">Mar 8, 2016</p>
+    <div class="content">Another debug analysis post, this time looking at gathering basic system information for attaching to diagnostic reports and other forms of reporting.</div>
+    <div class="read-more"><a href="../blog/2016/03/08/swift-wrapper-for-sysctl.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../blog/2016/02/28/stack-traces-in-swift.html">Tracking tasks with stack traces in Swift</a></h2>
+    <p class="post-meta">Feb 28, 2016</p>
+    <div class="content">In this tongue-twister titled article, I discuss capturing control flow information with stack traces during ongoing tasks to aid debugging. Also included: a reimplementation of NSThread.callStackReturnAddresses in Swift for faster and more flexible stack traces.</div>
+    <div class="read-more"><a href="../blog/2016/02/28/stack-traces-in-swift.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../blog/2016/02/16/use_it_or_lose_it_why_safe_c_is_sometimes_unsafe_swift.html">Use it or lose it: why safe C is sometimes unsafe Swift</a></h2>
+    <p class="post-meta">Feb 16, 2016</p>
+    <div class="content">Swift and C have different memory layouts. This means that using Swift to call C functions in a manner that would be valid in C can cause memory safety problems. I'll show how this can occur with a subtle Release build bug inspired by issues that occurred while writing the previous article.</div>
+    <div class="read-more"><a href="../blog/2016/02/16/use_it_or_lose_it_why_safe_c_is_sometimes_unsafe_swift.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+</ul>
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../feed.json">JSON</a>, <a href="../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

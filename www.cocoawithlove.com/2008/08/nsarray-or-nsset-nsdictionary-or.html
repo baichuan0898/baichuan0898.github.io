@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>NSArray or NSSet, NSDictionary or NSMapTable</title>
+  <meta name="description" content="Some types of data can be held in more than one kind of collection. Unordered objects that are already guaranteed unique can be sensibly held in an NSArray or an NSSet. Anything an NSDictionary can hold can be held in an NSMapTable. In this post, I measure the performance of creating and using these different options to help you choose which one is right for you." />
+
+  <meta name="twitter:title" content="NSArray or NSSet, NSDictionary or NSMapTable"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2008/08/nsarray-or-nsset-nsdictionary-or.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Some types of data can be held in more than one kind of collection. Unordered objects that are already guaranteed unique can be sensibly held in an NSArray or an NSSet. Anything an NSDictionary can hold can be held in an NSMapTable. In this post, I measure the performance of creating and using these different options to help you choose which one is right for you."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="nsarray-or-nsset-nsdictionary-or.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="118px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">NSArray or NSSet, NSDictionary or NSMapTable</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2008-08-09">August 9, 2008</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/foundation.html">Foundation</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>Some types of data can be held in more than one kind of collection. Unordered objects that are already guaranteed unique can be sensibly held in an NSArray or an NSSet. Anything an NSDictionary can hold can be held in an NSMapTable. In this post, I measure the performance of creating and using these different options to help you choose which one is right for you.</p></span>
+
+<span class="fullpost">
+
+<h2>Disambiguation</h2>
+
+<p>A few weeks ago, I wrote about how <a href="../07/nsmaptable-more-than-nsdictionary-for.html"><span class="monospace">NSMapTable</span> and <span class="monospace">NSDictionary</span></a> can hold different types of data in different ways. Someone immediately asked: "Which is faster when holding the <em>same</em> data?" I could guess but I didn't really know.</p>
+
+<p>Then I starting thinking about other collections choices which may be ambiguous. I realised that I was writing code that holds a collection of guaranteed unique, unordered objects &mdash; just so that I could iterate over them. I used an <span class="monospace">NSSet</span> for the purpose (since that class defines "unique and unordered") but since the objects were already guaranteed unique before I created the set, I wondered: how much more efficient would my code be if I used an <span class="monospace">NSArray</span> instead?</p>
+
+<p>So there are two situations to test for performance:</p>
+<ul>
+<li><span class="monospace">NSArray</span> versus <span class="monospace">NSSet</span></li>
+<li><span class="monospace">NSDictionary</span> versus <span class="monospace">NSMapTable</span></li>
+</ul>
+<p>Remember that these tests will only apply to situations where either collection is technically capable of holding the same data.</p>
+
+<h2>Methodology</h2>
+
+<p>You can <a href="../../assets/objc-era/MapTablePerformanceTest.m.zip">download the code I used for the tests</a>.<p>
+
+<p>To summarise, I create two arrays of data:</p>
+<ul><li>the "keys" &mdash; an array of <span class="monospace">NSString</span> where each string is a 10 digit string containing being a string representation of its index.</li>
+<li>the "objects" &mdash; an array of <span class="monospace">NSNumbers</span> where each number is an integer set to its index.</li></ul>
+
+<p>I tested with one million objects in each of these arrays (n = 1,000,000).</p>
+
+<p>The arrays were in turn used to provide the data for the collections that I would test. The one column collections (<span class="monospace">NSArray</span> and <span class="monospace">NSSet</span>) are created and tested with objects from the "objects" source array only. The two column collections (<span class="monospace">NSMapTable</span> and <span class="monospace">NSDictionary</span>) created and tested with objects from the "keys" and objects" source arrays.</p>
+
+<p>My test machine was a PPC G5 2x2Ghz. Long live dying platforms!</p>
+
+<h2>Results</h2>
+
+<h3>NSArray versus NSSet</h3>
+
+<table>
+<thead><tr><td>Test</td><td>Time taken for NSArray</td><td>Time taken for NSSet</td></tr></thead>
+<tr><td>Creating incrementally (capacity not set)</td><td>0.582256 seconds</td><td>2.67101 seconds</td></tr>
+<tr><td>Creating incrementally (capacity set correctly)</td><td>0.572139 seconds</td><td>0.930725 seconds</td></tr>
+<tr><td>Iterating contents</td><td>0.004713 seconds</td><td>0.025864 seconds</td></tr>
+</table>
+
+<p>Incidentally, constructing an <span class="monospace">NSSet</span> using <span class="monospace">setWithArray:</span> takes the same time as the "capacity not set", so if you know the objects in the array are unique, it would be best to set the capacity and copy the data yourself.</p>
+
+<h3>Lookup in NSArray versus NSSet</h3>
+
+<p><em>Note</em>: these results were generated with n = 10,000
+
+<table>
+<thead><tr><td>Test</td><td>Time taken for NSArray</td><td>Time taken for NSSet</td></tr></thead>
+<tr><td>Searching for all objects</td><td>29.2667&nbsp;seconds&nbsp;(<span class="monospace">indexOfObject:</span>)<br/>0.185051&nbsp;seconds&nbsp;(<span class="monospace">indexOfObjectIdenticalTo:</span>)</td><td>0.00833601&nbsp;seconds</td></tr>
+</table>
+
+<p>These results should not be surprising. This test is included for completeness because both collections are capable of inclusion testing.</p>
+
+<p>Searching an array for an objects works well for n &lt; 100. As you can see, by n = 10,000 the O(n^2) behavior of the <span class="monospace">NSArray</span> tests (an O(n) lookup times n lookups) makes it a bad choice compared to the O(n) of the <span class="monospace">NSSet</span> tests (constant time lookup times n lookups). I wasn't going to wait for this test with n = 1,000,000 but I assure you, both <span class="monospace">NSArray</span> approaches would take an amount of time in the minutes or maybe hours.</p>
+
+<h3>NSDictionary versus NSMapTable</h3>
+
+<table>
+<thead><tr><td>Test</td><td>Time taken for NSDictionary</td><td>Time taken for NSMapTable</td></tr></thead>
+<tr><td>Construction</td><td>3.45922 seconds</td><td>2.32607 seconds</td></tr>
+<tr><td>Iterating keys and querying each object</td><td>0.60859 seconds</td><td>0.770289 seconds</td></tr>
+</table>
+
+&nbsp;
+
+<h2>Conclusions</h2>
+
+<p>Yes, <span class="monospace">NSArray</span> is faster than <span class="monospace">NSSet</span> for simply holding and iterating. As little as 50% faster for constructing and as much as 500% faster for iterating. Lesson: if you only need to iterate contents, don't use an <span class="monospace">NSSet</span>.</p>
+
+<p>Of course, if you need to test for inclusion, work hard to avoid <span class="monospace">NSArray</span>. Even if you need both iteration <em>and</em> inclusion testing, you should probably still choose an <span class="monospace">NSSet</span>. If you need to keep your collection ordered and also test for inclusion, then you should consider keeping two collections (an <span class="monospace">NSArray</span> and an <span class="monospace">NSSet</span>), each containing the same objects.</p>
+
+<p><span class="monospace">NSDictionary</span> is slower to construct than <span class="monospace">NSMapTable</span> &mdash; since it needs to copy the key data. It makes up for this by being faster to lookup. Of course, the two have different capabilities so most of the time, this determination should be made on other factors.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="string-philosophies-char-arrays.html">String philosophies: char arrays, std::string and NSString</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="in-defense-of-objective-c-20-properties.html">In defense of Objective-C 2.0 Properties</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

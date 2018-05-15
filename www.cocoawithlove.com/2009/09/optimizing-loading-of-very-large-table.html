@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Optimizing the loading of a very large table on the iPhone</title>
+  <meta name="description" content="In this post, I look at a &lt;code&gt;UITableView&lt;/code&gt; on the iPhone which loads its data from a server and look at how its performance scales from single rows to tens of thousands of rows. I&#39;ll examine which aspects of the iPhone scale well and which become a burden as a displayed dataset moves from trivially sized to large sizes." />
+
+  <meta name="twitter:title" content="Optimizing the loading of a very large table on the iPhone"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/09/optimizing-loading-of-very-large-table.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="In this post, I look at a &lt;code&gt;UITableView&lt;/code&gt; on the iPhone which loads its data from a server and look at how its performance scales from single rows to tens of thousands of rows. I&#39;ll examine which aspects of the iPhone scale well and which become a burden as a displayed dataset moves from trivially sized to large sizes."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="optimizing-loading-of-very-large-table.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Optimizing the loading of a very large table on the iPhone</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-09-28">September 28, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/foundation.html">Foundation</a>, <a href="../../categories/cocoa-touch.html">Cocoa Touch</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>In this post, I look at a <code>UITableView</code> on the iPhone which loads its data from a server and look at how its performance scales from single rows to tens of thousands of rows. I'll examine which aspects of the iPhone scale well and which become a burden as a displayed dataset moves from trivially sized to large sizes.</p></span>
+
+<span class="fullpost">
+<h2>Introduction</h2>
+<p>Last week, I received an email asking if <a href="http://zqueue.com/streamtome/index.html">StreamToMe</a>  would be able to handle 20,000 files in a media collection. This person probably meant "20,000 files categorized into subfolders" but the performance geek in me immediately thought that 20,000 files in a single directory was a far more interesting question.</p>
+
+<p>It's easy to find programs on the iPhone that become slower and less responsive when dealing with tables that only contain a few hundred rows. In my own experience, I've rarely tested with more than a couple hundred items in a <code>UITableView</code>. I had no idea what a <code>UITableView</code> would do with 20,000 items.</p>
+
+<p>Purely looking at data sizes, it seems like it should work: the 128MB versions of the iPhone (all devices prior to the 3Gs) allow applications to use between 24MB and 64MB of RAM before they are killed for excess memory use. This should allow for between 1-3kB per row within available memory &mdash; far more than I need.</p>
+
+<p>Of course, this won't be a synthetic test with efficient but trivial rows: this is a program with real data, transferred from a server, parsed, constructed and displayed, which must remain capable of media playback after everything else is loaded into memory.</p>
+
+<h2>Generating test data</h2>
+
+<p>I wanted real test data so I decided to replicate a small MP3 file on the server. I used a 1 kilobyte file containing a single tone that plays for 4 seconds. I used UUID strings appended with ".mp3" for filenames so that file sorting algorithms would still have some real work to do.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">for</span> <span class="p">(</span><span class="n">NSInteger</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">MAX_FILES</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">NSAutoreleasePool</span> <span class="o">*</span><span class="n">pool</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSAutoreleasePool</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">];</span>
+    
+    <span class="n">CFUUIDRef</span> <span class="n">uuid</span> <span class="o">=</span> <span class="n">CFUUIDCreate</span><span class="p">(</span><span class="nb">NULL</span><span class="p">);</span>
+    <span class="n">NSString</span> <span class="o">*</span><span class="n">uuidString</span> <span class="o">=</span> <span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="n">CFUUIDCreateString</span><span class="p">(</span><span class="nb">NULL</span><span class="p">,</span> <span class="n">uuid</span><span class="p">);</span>
+    <span class="n">CFRelease</span><span class="p">(</span><span class="n">uuid</span><span class="p">);</span>
+    <span class="p">[</span><span class="n">uuidString</span> <span class="n">autorelease</span><span class="p">];</span>
+
+    <span class="n">NSString</span> <span class="o">*</span><span class="n">filePath</span> <span class="o">=</span>
+        <span class="p">[</span><span class="n">directoryPath</span> <span class="nl">stringByAppendingPathComponent</span><span class="p">:</span>
+            <span class="p">[</span><span class="n">NSString</span> <span class="nl">stringWithFormat</span><span class="p">:</span><span class="s">@&#34;%@.mp3&#34;</span><span class="p">,</span> <span class="n">uuidString</span><span class="p">]];</span>
+    <span class="p">[[</span><span class="n">NSFileManager</span> <span class="n">defaultManager</span><span class="p">]</span>
+        <span class="nl">createFileAtPath</span><span class="p">:</span><span class="n">filePath</span>
+        <span class="nl">contents</span><span class="p">:</span><span class="n">mp3Data</span>
+        <span class="nl">attributes</span><span class="p">:</span><span class="nb">nil</span><span class="p">];</span>
+    
+    <span class="k">if</span> <span class="p">((</span><span class="n">i</span> <span class="o">%</span> <span class="mi">1000</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">NSLog</span><span class="p">(</span><span class="s">@&#34;%ld files remaining.&#34;</span><span class="p">,</span> <span class="n">MAX_FILES</span> <span class="o">-</span> <span class="n">i</span><span class="p">);</span>
+    <span class="p">}</span>
+    
+    <span class="p">[</span><span class="n">pool</span> <span class="n">drain</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Using this code, I created directories with 1, 10, 100, 1000, 10,000, 20,000, 100,000 and 1,000,000 files to see how far I would get with the application.</p>
+
+<p>A few interesting points came out of this work, unrelated to the iPhone itself:</p>
+
+<ul><li>Yes, you can now create more than 65536 files in a directory. I remember when Macs couldn't create more than 65536 files on the entire disk.</li>
+<li>Curiously, when you select files and use the "Copy" menu item in the Finder, the maximum number of items is still 65536.</li>
+<li>Don't try to drag 10,000 (or more) items from one window to another &mdash; I gave up watching the beachball on this action and hard-booted.</li>
+<li><code>-[NSFileManager createFileAtPath:contents:attributes:]</code> is a little slower than other approaches because it creates the file in a temporary location and moves it to the target location (a single create at the target location would have been faster).</li>
+<li>if you try to create a million MP3s on your computer, be prepared to wait 3 hours while it churns away and then have the Spotlight metadata indexer slow your computer down for a further few hours.</li></ul>
+
+<h2>Initial results</h2>
+
+<p>Which data sets will load and how long will they take? With no preparation of StreamToMe in anticipation of this test, I immediately pointed it at the test directories.</p>
+
+<table>
+<thead><tr><td>Number of files</td><td>Total time from touch event to display of directory</td></tr></thead>
+<tr><td>1</td><td>131ms</td></tr>
+<tr><td>10</td><td>128ms</td></tr>
+<tr><td>100</td><td>424ms</td></tr>
+<tr><td>1,000</td><td>3,108ms</td></tr>
+<tr><td>10,000</td><td>30,587ms</td></tr>
+<tr><td>20,000</td><td>64,191ms<strong>*</strong></td></tr>
+<tr><td>100,000</td><td>N/A</td></tr>
+<tr><td>1,000,000</td><td>N/A</td></tr>
+</table>
+
+<p><em>The asterisk here indicates that the 20,000 row run was not able to reliably play the audio files after loading (it would sometimes quit due to low memory). The one hundred thousand and million row tests both failed to load at all.</em></p>
+
+<blockquote>All tests performed on an iPhone 3G connected via 802.11g to a Mac Pro Quad 2.66Ghz (the iPhone was also connected to the Mac Pro via USB for logging purposes). Times are taken from a single cold run.</blockquote>
+
+<h2>Initial analysis</h2>
+
+<h3>Scaling</h3>
+
+<p>Looking first at the way the results scale, this table shows the expected behavior with the iPhone's memory arrangement:</p>
+
+<ol><li>The iPhone has a 16k data cache so tests that operate within this limit (fewer than a couple hundred rows) are more bound by the network latency and fixed-duration setup costs than any row-specific work performed. This leads to better than linear (less than O(n)) scaling for the 1, 10 and 100 tests.</li>
+<li>Tests that exceed the 16k data limit (one thousand through twenty thousand) scale almost perfectly linearly as they push a consistent amount of data through main memory.</li>
+<li>There is no virtual memory on the iPhone, so you don't see a greater than linear increase in time as memory runs out (thrashing) &mdash; instead, there's an abrupt point at which things simply fail. More memory will not make a iPhone faster in the same way that it will make a memory constrained Mac faster.</li></ol>
+
+<h3>Speed</h3>
+
+<p>Looking at performance, it's a little disappointing &mdash; no one would want to wait over a minute for their file list to load. Where is that time taken? Looking at timing results for the 20,000 row test:</p>
+
+<ul><li>6,563ms on the server, loading the directory listing and formatting the response.</li>
+<li>3,111ms transferring data.</li>
+<li>12,771ms on the client parsing the response from the server.</li>
+<li>32,098ms on the client converting the parsed response into row-ready classes</li>
+<li>9,453ms in autorelease pool cleanup</li></ul>
+
+<h3>Memory use</h3>
+
+<p>The memory footprint with 20,000 files loaded is around 6.8MB with peak memory use of 38.2MB. This leads to two questions:</p>
+
+<ol><li>With final memory so low, why is the program behaving as though its memory is constrained?</li>
+<li>What is causing the peak memory to be so high? If it were much lower, 100,000 rows might be possible.</li></ol>
+
+<h2>Code changes and improvements</h2>
+
+<h3>stat is the biggest constraint on filesystem lookups</h3>
+
+<p>The first change I made was on the server. 6.5 seconds to load 20,000 files is too slow. The key constraining factor here is reading the basic metadata for tens of thousands of small files. The low level file function <code>stat</code> (or in this case, <code>lstat</code>) is the limiting factor.</p>
+
+<p>Technically, I wasn't using <code>lstat</code> but <code>-[NSFileManager contentsOfDirectoryAtPath:error:]</code> was invoking it for every file and then <code>-[NSFileManager fileExistsAtPath:isDirectory:]</code> was invoking it again to see if each file was a directory.</p>
+
+<p>In 10.6, you can replace <code>-[NSFileManager contentsOfDirectoryAtPath:error:]</code> with <code>-[NSFileManager contentsOfDirectoryAtURL:includingPropertiesForKeys:options:error:]</code> so that these two commands can be rolled into one (halving the number of calls to <code>lstat</code>). I want to keep 10.5 compatibility, so instead, I wrote my own traversal using <code>readdir</code> and <code>lstat</code> directly.</p>
+
+<p>This change doubled the directory reading speed of the server.</p>
+
+<h3>Lowering memory footprint</h3>
+
+<p>In Cocoa, peak memory is often caused by autoreleased memory that accumulates during loops. You can address this by inserting <code>NSAutoreleasePool</code> allocations and drains into your loops but this is slow. The best approach is to eliminate autoreleased memory in memory constrained areas. I did this throughout the parsing and conversion code on the iPhone.</p>
+
+<p>There was also some unnecessary copying of memory (from the network data buffer to an NSString and back to a UTF8 string) that I removed (by passing the network data buffer directly as the UTF8 string).</p>
+
+<p>More than simply lowering the memory footprint, these changed almost doubled the speed of parsing on the iPhone.</p>
+
+<h3>Memory fragmentation</h3>
+
+<p>Even after lowering peak memory usage, I still encountered out of memory errors when trying to allocate larger objects, even though my memory usage was only 16MB.</p>
+
+<p>After some investigation, I realized that my parser was fragmenting memory by allocating smaller and larger string fragments in a leapfrogging effect so that consecutive strings in the final data structure were not actually adjacent in memory. Even though memory usage was only around 50%, there was not a single, contiguous 2MB space within this for media loading and playback due to the scattered pattern of string, array and dictionary allocations following parsing.</p>
+
+<p>The simplest solution (one that didn't involve rewriting the parser) was to copy the parsed data every few rows into properly contiguous locations, releasing the old non-contiguous locations. After this, memory allocation issues went away.</p>
+
+<p>Of course, this did result in a minor increase in parsing time but the improved memory performance was worth the minor performance cost.</p>
+
+<h3>Moving work out of critical loops</h3>
+
+<p>Finally, I looked at the conversion of parsed data into classes representing each row. This work was primarily assigning strings to properties of an object and couldn't be easily avoided.</p>
+
+<blockquote>Of course, in an ideal case, parsing and object construction would be an integrated process but since the parser is generic and wasn't written for this program, it doesn't produce data in the best format, requiring this extra "converting" pass through the data. For development time constraints, I didn't consider integrating these two components although this is certainly a point where further speed improvements could be gained.</blockquote>
+
+<p>During this process, I also created an <code>NSInvocation</code> for each object to handle its user-interface action when tapped in the table (media rows play the file, folder rows open the folder) and assigned a named <code>UIImage</code> (either the file or the folder icon) to the object.</p>
+
+<p>Since there are only two images and two possible actions, these objects could be created outside the loop and either minimally modified for each row (with different parameters in the case of the <code>NSInvocation</code>) or assigned as-is (in the case of the <code>UIImage</code>).</p>
+
+<p>These seemingly tiny changes (in addition to the memory changes mentioned above) resulted in a better than tenfold performance increase for the converting stage (which had been the most time consuming stage).</p>
+
+<h2>Results revisited</h2>
+
+<p>With these changes, the results became.</p>
+
+<table>
+<thead><tr><td>Number of files</td><td>New time taken</td><td>Old time taken</td></tr></thead>
+<tr><td>1</td><td>135ms</td><td>131ms</td></tr>
+<tr><td>10</td><td>137ms</td><td>128ms</td></tr>
+<tr><td>100</td><td>250ms</td><td>424ms</td></tr>
+<tr><td>1,000</td><td>845ms</td><td>3,108ms</td></tr>
+<tr><td>10,000</td><td>7,998ms</td><td>30,587ms</td></tr>
+<tr><td>20,000</td><td>14,606ms</td><td>64,191ms<strong>*</strong></td></tr>
+<tr><td>100,000</td><td>84,594ms</td><td>N/A</td></tr>
+<tr><td>1,000,000</td><td>N/A</td><td>N/A</td></tr>
+</table>
+
+<p>The 20,000 row test case now runs more than 4 times faster and the 100,000 test case completes successfully and can play the audio files once loaded.</p>
+
+<h2>Running one million rows in the simulator</h2>
+
+<p>The million row test set involved 121MB of data sent over the network &mdash; it was never going to work on a 128MB iPhone.</p>
+
+<p>Without the memory constraints of the iPhone, I ran a million rows in the simulator. It took 7.5 minutes to load (almost entirely bound by <code>lstat</code>).</p>
+
+<p>After around 800,000 rows (40 pixels high each), <code>UITableView</code> can no longer address each pixel accurately with single precision <code>CGFloat</code>s used on the iPhone, so every second row was misplaced by 16 pixels or so making the result almost unreadable beyond that point. In short: <code>UITableView</code> isn't really meant to handle a million rows.</p>
+
+<h2>Conclusion</h2>
+
+<p>The iPhone <em>can</em> handle tables with 100,000 rows &mdash; and it continues to scroll as smoothly as though it were only 100 rows.</p>
+
+<p>Optimization doesn't mean writing assembly code and bleeding from your fingernails. A couple hours work resulted in a 4 times performance increase and dramatically better memory usage from very simple code rearrangement.</p>
+
+<p>The biggest improvements to the performance came from three points:</p>
+
+<ul>
+<li>replacing autoreleased objects with tight alloc and release pairs in just two loops (in some cases removing the allocation entirely)</li>
+<li>removing the <code>NSInvocation</code> generation and <code>UIImage</code> lookup work from the key construction loop</li>
+<li>reducing the calls to lstat on the server (although this wasn't part of iPhone <code>UITableView</code> optimization per se)</li>
+</ul>
+
+<p>And increasing available productive memory actually involved performing <em>more</em> allocations &mdash; reallocating discontiguous collections of objects to contiguous memory locations. There was also the typical elimination of unnecessary copying.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="streamtome-version-11-available.html">StreamToMe Version 1.1 available</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../10/ugly-side-of-blocks-explicit.html">The ugly side of blocks: explicit declarations and casting.</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

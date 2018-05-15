@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>The value of immutable values</title>
+  <meta name="description" content="This is an explanation of why Cocoa contains immutable value classes and why the value classes you create in your own program should be immutable too." />
+
+  <meta name="twitter:title" content="The value of immutable values"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2008/04/value-of-immutable-values.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="This is an explanation of why Cocoa contains immutable value classes and why the value classes you create in your own program should be immutable too."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="value-of-immutable-values.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="118px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">The value of immutable values</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2008-04-06">April 6, 2008</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/object-oriented-design.html">object-oriented design</a>, <a href="../../categories/self-promotion.html">self promotion</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>This is an explanation of why Cocoa contains immutable value classes and why the value classes you create in your own program should be immutable too..</p></span>
+
+<span class="fullpost"><h2>Mea culpa</h2>
+<p>In 2002, I wrote the BigFloat class that would end up being the floating-point number class in my calculator, Magic Number Machine.
+
+<p>When I wrote this class, I was new to Cocoa programming and didn't really understand some of its design philosophies. Specifically, I didn't understand why Cocoa chooses to store its values in immutable classes.</p>
+
+<p>Without this understanding as I wrote the BigFloat class, I designed the operator methods (<span class="monospace">add:</span>, <span class="monospace">subtract:</span>, <span class="monospace">multiplyBy:</span>, <span class="monospace">divideBy:</span>) to store their result in the receiving object, thereby changing or "mutating" the receiving object.</p>
+
+<p>For example, in Magic Number Machine's BigFloat class, <span class="monospace">[a add:b]</span> adds "b" to "a" and stores the result in "a".</p>
+
+<p>Storing the result in the same location as one of the operands is common in assembly language and lots of classes have methods that change the underlying object. But this is the wrong approach for an Objective-C value class.</p>
+
+<p>So let's look at why value objects in Cocoa should be immutable where possible.</p>
+
+<h2>Immutable objects in Cocoa</h2>
+
+<p>It may be useful to clarify what is meant by "immutable":</p>
+
+<blockquote><strong><em>Immutable object</em></strong><br/>In object-oriented and functional programming, an immutable object is an object whose state cannot be modified after it is created. This is in contrast to a mutable object, which can be modified after it is created.<br/><span style="display:block; text-align:right;">From <a href="http://en.wikipedia.org/wiki/Immutable_object">http://en.wikipedia.org/wiki/Immutable_object</a></span></blockquote>
+
+<p>It may sound like immutable classes are worse than mutable classes since they contain less functionality. It may then be surprising how many Cocoa classes are immutable. Immutable classes in Cocoa include:</p>
+
+<ul><li>NSValue</li>
+<li>NSNumber</li>
+<li>NSURL</li>
+<li>NSDate</li>
+<li>NSString</li>
+<li>NSArray</li>
+<li>NSColor</li>
+<li>NSEvent</li>
+<li>NSFont</li></ul>
+
+<p>The reality is that these classes don't necessarily do <em>less</em> than their mutable equivalent but they do always return changes in a newly allocated object instead of changing themselves.</p>
+
+<p>A further trait in common is that all of these classes can be considered "value" classes. They store an indivisible piece of data which is intended to be read and used in its entirety.</p>
+
+<h2>The problem with mutable value objects</h2>
+
+<h3>Objective-C shared references</h3>
+
+<p>In Objective-C, it is common to retain objects returned from other classes. "Get" accessor methods often return objects owned by another object that you are free to retain as though it is your own.</p>
+
+<p>The result is that multiple parent objects often maintain references to the same child object. Even if you're using Garbage Collection and you don't explicitly type "<span class="monospace">retain</span>", it doesn't matter, the effect is the same: multiple objects have a pointer to the same object.</p>
+
+<p>This leads to the biggest problem with mutable values: if one of the sharing objects changes the value object, then both sharing objects see a changed value. This is fine if the value object is supposed to be a shared state object between the sharing objects but is very bad in all other cases.</p>
+
+<p>To prevent external objects changing your internal state without permission, all internal state should be returned immutable. If no immutable class exists, you will need to copy the internal object first and return the copy.</p>
+
+<h3>Threading concerns</h3>
+
+<p>Multiple objects sharing references to the same data can also create race conditions in threaded code.</p>
+
+<p>Immutable objects largely avoid race conditions because one value can be swapped for another atomically.</p>
+
+<h3>Consecutive Use</h3>
+
+<p>Another problem with mutable values, is that the original value is lost if you don't make a copy before applying an operator.</p>
+
+<p>This causes problems depending on usage pattern. If value objects are ever used in a situation where more than one operator needs to be applied to the original object you must remember to copy the original object before applying an operator.</p>
+
+<p>For example, if you have value X, it is common to want to calculate X + Y and X + Z. In a mutable object world, if calculating X + Y destroys X, then you must pre-copy X so that it still exists when you want to calculate X + Z.</p>
+
+<h3>Aesthetic reasons</h3>
+
+<p>A final reason to make your value classes immutable is aesthetic.</p>
+
+<p>When writing a description of an operation using mathematical syntax, we write:</p>
+
+<div class="highlight"><pre><code class="language-objc" data-lang="objc"><span></span><span class="n">result</span> <span class="o">=</span> <span class="n">function</span><span class="p">(</span><span class="n">operand1</span><span class="p">,</span> <span class="n">operand2</span><span class="p">)</span>
+</code></pre></div>
+
+
+<p>or</p>
+
+<div class="highlight"><pre><code class="language-objc" data-lang="objc"><span></span><span class="n">result</span> <span class="o">=</span> <span class="n">operand1</span> <span class="n">operator</span> <span class="n">operand2</span> 
+</code></pre></div>
+
+
+<p>In both cases, the mathematical notation is modelling a case where "operand1" and "operand2" are immutable and a new value "result" is created. To closely reflect this model, "function" and "operator" must act on the operands in an immutable fashion.</p>
+
+<h2>When to avoid immutable objects</h2>
+
+<p>Any of the following traits can rule out the use of immutable design:</p>
+
+<ul>
+<li>Very large data size - since any change to an immutable object requires copying</li>
+<li>Lazily or progressively constructed data - since immutable objects require all data at construction</li>
+<li>Classes containing structured data, especially where child elements of the structure are exchanged or manipulated</li>
+<li>Where a class is intended as a container for shared state</li>
+</ul>
+
+<p>This normally rules out most classes which can't be described as values. For example, you'll never see an immutable application control, view or document state class, like Windows or Views or Documents.</p>
+
+<p>Compound objects like collections (NSArray, NSSet, NSDictionary, etc) regularly exist in both mutable and immutable forms. They are normally mutable when they are progressively constructed, contain large data sets or are used for maintaining shared structural state. But they are often immutable to take advantage of immutable traits (read-only internal access and thread-safe).</p>
+
+<p>Some value objects with large data or structural values (large blocks of text for example) can create gray area where the choice can be hard to make. In the case of text, Cocoa includes the immutable NSString and NSAttributedString as well as the mutable NSMutableString and NSTextStorage to cover different sizes and usage patterns for text.</p>
+
+<p>
+
+<h2>Conclusion</h2>
+
+<p>As a word, "immutable" may sound like it is removing potential functionality from a class. In reality, using it where appropriate can make your interfaces between classes cleaner and easier to control. It also allows you to create code which closely reflects the aspects of values.</p>
+
+<p>I have spent most of this post talking about immutable "value" classes. This is because classes which model entities that can be described as "values" are the canonical case for immutable classes.</p>
+
+<p>Values are a good match for "immutable" design because an operator which acts on a value usually creates a completely new value. Values are also typically small objects (a few bytes to a few kilobytes).</p>
+
+<p>Magic Number Machine's BigFloat class is still mutable since I never took the time to rewrite it. It didn't prevent the program working, it just required lots of careful copying and careful passing between classes. It also made the code for invoking operators less aesthetically pleasing.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../03/supersequent-implementation.html">Supersequent implementation</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="using-pointers-to-recast-in-c-is-bad.html">Type punning isn&#39;t funny: Using pointers to recast in C is bad.</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

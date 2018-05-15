@@ -1,0 +1,154 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<!--
+Local Variables:
+sgml-default-dtd-file: "~/html-loose.ced"
+End:
+-->
+<html>
+  <head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+
+    <title>Hamster Emporium: Space is time: how your CS theory class lied to you</title>
+    <link title="RSS 2.0" href="../../../../rss.xml.rss" type="application/rss+xml" rel="alternate">
+  </head>
+  <body bgcolor="#ffffff">
+    <table cellpadding="0" cellspacing="0">
+      <tr>
+	  <td valign="top" align="left">
+	    <a href="../../../../index.html"><img src="http://www.sealiesoftware.com/hamster.jpg" alt="" width="108" height="160"></a><br><br>
+	    <b>blog</b><br>
+	    <a href="../../../../index.html">recent</a><br>
+	    <a href="../../../index.html">archive</a><br>
+	    <a href="http://twitter.com/gparker">twitter</a><br>
+	    <br>
+	    <b>projects</b><br>
+	    <a href="http://www.apple.com/macosx/">Mac OS X</a><br>
+	    <a href="http://www.sealiesoftware.com/keyboard/index.html">Keyboard</a><br>
+	     &nbsp; <a href="http://www.sealiesoftware.com/keyboard/index.html">backlight</a><br>
+	    <a href="http://www.sealiesoftware.com/cscmenu/index.html">CSC Menu</a><br>
+	    <a href="http://www.sealiesoftware.com/valgrind/index.html">Valgrind</a><br>
+	    <a href="http://www.sealiesoftware.com/fringe/index.html">Fringe Player</a><br>
+	    <a href="http://www.sealiesoftware.com/pssh/index.html">pssh</a><br>
+	    <a href="http://www.sealiesoftware.com/peal/index.html">Peal</a><br>
+	    <a href="http://www.sealiesoftware.com/frankenmouse/index.html">Frankenmouse</a><br>
+	    <br>
+	  </td>
+	  <td>
+	    &nbsp; &nbsp;
+	  </td>
+	  <td valign="top">
+	      <h2>Hamster Emporium archive</h2>
+  <p>
+     &lt;&lt; &nbsp; <a href="../27/updated_Valgrind_for_Mac_OS_X.html">updated: Valgrind for Mac OS X</a> &nbsp; | &nbsp;  
+    <a href="../../../index.html">archive</a>
+     &nbsp; | &nbsp; <a href="../01/updated_Valgrind_for_Mac_OS_X.html">updated: Valgrind for Mac OS X</a> &nbsp; &gt;&gt; 
+  </p>
+  <table cellpadding="0" cellspacing="3">
+      <tr>
+	<td>
+	  <a href="Space_is_time_how_your_CS_theory_class_lied_to_you.html"><img src="http://www.sealiesoftware.com/link.gif" width="14" height="16" border="0" alt="(link)"></a>
+	</td>
+	<td>
+	  <b><font size="+1">Space is time: how your CS theory class lied to you</font></b> &nbsp; 
+	  <font size="-1">(<a href="Space_is_time_how_your_CS_theory_class_lied_to_you.html">2008-10-14 1:04 AM</a>)</font>
+	</td>
+      </tr>
+      <tr>
+	<td>
+	  &nbsp;
+	</td>
+	<td>
+	        <p>
+	In your computer science algorithms course, you learned about
+	space-time tradeoffs. An algorithm that requires lots of time can
+	often be changed to take less time but more space. A wide range of
+	performance optimizations work this way, from caching to 
+	memoization to loop unrolling.
+      </p>
+      <p>
+	But the "tradeoff" is a lie. Space <i>is</i> time. 
+      </p>
+      <p>
+	Every use of space incurs a time cost. In
+	your theory class, the time cost of space is swept under the big-O
+	rug. On 
+	your big-iron machine running a single computational workload or
+	CPU benchmark, the time cost of space is small compared to the
+	other time costs involved. But in the real world of consumer-grade
+	devices, with limited memory and power, the time cost of space is
+	tremendous. A performance optimization that tries to trade less
+	time for more space often ends up requiring more time and more
+	space. 
+      </p>
+      <p>
+	The <code>gcc</code> compiler uses a garbage collector to manage
+	its memory. To save time, <code>gcc</code> does not even start to
+	collect any garbage until its memory size is quite large. 
+	"That's fine", you might say, "my new 
+	machine has gigabytes of memory". But the kernel needs a
+	big chunk of memory just to keep track of the rest of the
+	memory. And you're running a web browser, and an email client, and
+	an IDE, and music and chat and clock and search and sync and backup 
+	and everything else you didn't have a decade or two ago. 
+	And your build system runs multiple 
+	<code>gcc</code> commands in parallel because your machine has
+	multiple cores. Now your memory capacity isn't so big after all,
+	the system starts paging to disk, and your compiler performance
+	falls off a cliff and the web browser is sluggish 
+	too. In this memory-constrained environment, trying to use less
+	time (skipping GC) and more space (accumulating garbage) has
+	backfired badly. 
+      </p>
+      <p>
+	Space <i>is</i> time. An optimization that is faster on a
+	well-endowed device may be much slower everywhere else. Assume
+	your customer's machines have less memory than yours, and design
+	and test accordingly.
+      </p>
+      <p>
+	At one modern extreme, the iPhone has only 128 MB of
+	memory. Ever seen iPhone Safari "forget" a web page and
+	re-download it after you switched tabs or apps? The system ran out
+	of memory and Safari had to throw the page away. On the iPhone,
+	your favorite space-time tradeoff in your own program may
+	sacrifice the user's web page, requiring a repeat download across
+	a slow network. Good for your program, perhaps, but bad for the
+	user. 
+      </p>
+      <p>
+	Space <i>is</i> time. An
+	optimization that makes <i>your program</i> faster may
+	make <i>the user's system</i> slower overall. Play well with others. 
+      </p>
+      <p>
+	Most of Mac OS X is compiled with <code>-Os</code> instead of
+	<code>-O3</code>, to reduce code size. Mac OS X's memory allocator
+	is slower than other allocators under some workloads, because it
+	tries to avoid hoarding unused memory where other processes can't
+	use it. Mac OS X uses dynamic shared libraries exclusively, then
+	combines multiple shared libraries into a single shared cache,
+	then carefully re-processes that shared cache, all to save space
+	across multiple processes. 
+	Many ideas for faster cross-library calls or accelerated 
+	Objective-C method dispatch or JIT-based optimization have been
+	abandoned because they need too much space and do not save enough time.
+      </p>
+      <p>
+	CPU-focused optimization can be just as evil as the infamous
+	premature optimization. Space <i>is</i> time. 
+      </p>
+
+	  </td>
+      </tr>
+  </table>
+
+	  </td>
+	</tr>
+    </table>
+    <hr>
+    <img align="right" src="http://www.sealiesoftware.com/sealie.gif" alt="seal!" width="114" height="69">
+    Greg Parker<br>
+    <a href="mailto:gparker-www@sealiesoftware.com">gparker-www@sealiesoftware.com</a><br>
+    <a href="http://www.sealiesoftware.com/index.html">Sealie Software</a>
+  </body>
+</html>

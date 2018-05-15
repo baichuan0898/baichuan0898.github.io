@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>A look at how malloc works on the Mac</title>
+  <meta name="description" content="In this post, I&#39;ll take a high-level look at how malloc is implemented on the Mac. I&#39;ll look at how memory is allocated for &#34;tiny&#34;, &#34;small&#34; and &#34;large&#34; allocation scales, the multi-core performance improvements introduced in Snow Leopard and some inbuilt debugging features you can trigger for finding memory problems including buffer overruns." />
+
+  <meta name="twitter:title" content="A look at how malloc works on the Mac"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2010/05/look-at-how-malloc-works-on-mac.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="In this post, I&#39;ll take a high-level look at how malloc is implemented on the Mac. I&#39;ll look at how memory is allocated for &#34;tiny&#34;, &#34;small&#34; and &#34;large&#34; allocation scales, the multi-core performance improvements introduced in Snow Leopard and some inbuilt debugging features you can trigger for finding memory problems including buffer overruns."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="look-at-how-malloc-works-on-mac.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="118px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">A look at how malloc works on the Mac</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2010-05-12">May 12, 2010</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/objective-c.html">Objective-C</a>, <a href="../../categories/standard-c.html">Standard C</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>In this post, I'll take a high-level look at how malloc is implemented on the Mac. I'll look at how memory is allocated for "tiny", "small" and "large" allocation scales, the multi-core performance improvements introduced in Snow Leopard and some inbuilt debugging features you can trigger for finding memory problems including buffer overruns.</p></span>
+
+<span class="fullpost">
+
+<h2>Introduction</h2>
+
+<p>All memory in Mac OS X is allocated to applications by the kernel. The kernel allocates memory to applications by mapping virtual memory pages (which are 4 kilobytes in size) into the application's memory space.</p>
+
+<p>You can allocate memory in your application this way (using the <code>mmap</code> function) to get your memory 4 kilobytes at a time. Alternately, you can simply use memory on the stack (which is 64 kilobytes big by default) and is mapped automatically for every thread.</p>
+
+<p>But most of the time when people talk about allocating memory, they are referring to allocations using <code>malloc</code>.</p>
+
+<p>Compared to requesting pages of virtual memory directly, <code>malloc</code> is finer grained (you can request much smaller sizes than 4 kilobytes) and considerably faster (since it doesn't require an <code>mmap</code> every time).</p>
+
+<p>Of course, internally, <code>malloc</code> does receive its memory from the kernel by mapping virtual memory pages. Malloc gains its advantage by dividing those pages (or clusters of pages) into smaller regions and returning pointers to addresses within those regions when smaller allocations are requested.</p>
+
+<blockquote>I'm using the term "<code>malloc</code>" but this article applies to Objective-C's <code>alloc</code> and <code>allocWithZone:</code>, all CoreFoundation allocations and all related C functions like <code>calloc</code>, <code>realloc</code>, <code>valloc</code>, <code>malloc_zone_malloc</code>, <code>malloc_zone_calloc</code>, <code>malloc_zone_valloc</code>, <code>malloc_zone_realloc</code> and <code>malloc_zone_batch_malloc</code> since all these functions go through the same internal implementation on the Mac.</blockquote>
+
+<h2>A generic malloc implementation</h2>
+
+<p>Malloc implementations work by requesting a handful of virtual memory pages from the kernel and returning pointers to free areas within those pages when memory is requested. To know which areas within the pages are free at any given time, a malloc implementation must maintain metadata about the size and location of each allocated block in use and any free space between blocks.</p>
+
+<blockquote>The pages of memory managed by malloc are collectively called "the heap" but it should be noted that malloc generally does not use a <a href="http://en.wikipedia.org/wiki/Heap_(data_structure)">heap data structure</a> (which is a form of sorted tree) to track blocks; the two uses of the term "heap" are unrelated.</blockquote>
+
+<p>As the program requires more memory, the malloc implementation requests more virtual memory pages, increasing the application's memory footprint. Every reasonable effort should to be made to allocate new blocks in the spaces left by previously free blocks to keep the memory footprint low.</p>
+
+<p>The main difficulty for a memory allocator is to keep the amount of metadata and the amount of processing time low. This can be very difficult to do when memory becomes a mottled pattern of allocated blocks and freed space.</p>
+
+<p>If the memory allocator kept an array of every single allocation, its location and size, the metadata could easily take as much memory as the allocations themselves. To increase efficiency, most allocators do not track every single byte in memory. Most use a resolution of 16 bytes or more. This allows reduced metadata to track allocated and freed runs.</p>
+
+<p>Further, most allocators use free lists; instead of traversing memory on each allocation looking for an empty space of the appropriate size, the allocator keeps lists of freed areas categorized by their approximate sizes. As a further optimization, these free lists do not always track all free areas in a block (the free lists normally track a finite number of free areas).</p>
+
+<h2>The Mac's implementation of malloc</h2>
+
+<p>Despite the fact that all C standard library implementations offer a function named <code>malloc</code>, they all have very different internal implementations.</p>
+
+<p>The Mac's implementation of malloc is open source and is composed of two key implementation files:</p>
+
+<ul>
+<li><a href="http://www.opensource.apple.com/source/Libc/Libc-594.1.4/gen/malloc.c">malloc.c</a></li>
+<li><a href="http://www.opensource.apple.com/source/Libc/Libc-594.1.4/gen/magazine_malloc.c">magazine_malloc.c</a></li>
+</ul>
+
+<p>The <em>malloc.c</em> file is mostly a wrapper around the internal implementation in <em>magazine_malloc.c</em>. This external wrapper routes regular <code>malloc</code> invocations through the <code>malloc_zone_malloc</code> function using the default malloc zone &mdash; so all malloc allocations on the Mac are actually zoned allocations sharing the same implementation that's used by Objective-C's <code>+[NSObject allocWithZone:]</code>.</p>
+
+<p>Up until Snow Leopard, the internal implementation was named <a href="http://www.opensource.apple.com/source/Libc/Libc-594.1.4/gen/scalable_malloc.c">scalable_malloc.c</a>. It is scalable because it contains different code paths for allocations based on their size. The newer version magazine_malloc.c retains much of the code from scalable_malloc.c but adds multithreaded improvements for smaller allocations and removes the old "huge" scale (instead using the same allocation approach for "large" and "huge" scale allocations).</p>
+
+<h2>The Mac's malloc regions</h2>
+
+<p>The malloc allocation on the Mac has different code paths for the following allocation sizes:</p>
+
+<table>
+<thead>
+<tr><td width="44%">Allocation Size</td><td width="11%">Code path name</td><td width="27%">Quantum size (Allocation resolution)</td><td>Region size</td></tr>
+</thead>
+<tr><td>32-bit: 1 byte to 496 bytes<br/>64-bit: 1 byte to 992 bytes</td><td>Tiny</td><td>16 bytes</td><td>32-bit: 1MB<br/>64-bit: 2MB</td></tr>
+
+<tr><td>32-bit: 497 bytes to "Large" threshold<br/>64-bit: 993 bytes to "Large" threshold</td><td>Small</td><td>512 bytes</td><td>32-bit: 8MB<br/>64-bit: 16MB</td></tr>
+
+<tr><td>&lt; 1GB RAM: 15kB or greater<br/>&gt;= 1GB RAM: 127kB or greater</td><td>Large</td><td>4kB</td><td>N/A</td></tr>
+</table>
+
+<p>The key point to note about the Mac's scalable malloc implementation is that it doesn't just divide up virtual memory pages to return smaller blocks but it allocates "tiny" and "small" allocations from their own separate regions ("large" allocations are simply allocated as virtual memory pages).</p>
+
+<p>Allocating a "tiny" amount results in memory being returned from within a 2MB block (1MB in 32-bit programs). Allocations are always rounded up to the nearest 16 byte boundary since the tiny regions only track allocations at a resolution of 16 bytes. This has the additional advantage that it ensures all memory allocations are 16-byte aligned (helpful for SSE/Altivec instructions).</p>
+
+<p>Of course, the 1 or 2 MB regions used for tiny allocations are only big enough to hold around 64,000 allocations at the smallest size &mdash; less for larger allocations. More regions are created as needed.</p>
+
+<p>Beyond 15kB (127kB on systems with more than 1GB RAM) the Mac's malloc allocates memory purely as virtual memory pages &mdash; no additional tracking or metadata is maintained (although the kernel does maintain tracking for these pages).</p>
+
+<p>To summarize the levels of hierarchy then:</p>
+
+<ul>
+<li>Malloc zones allocate "tiny" and "small" regions or "large" blocks directly</li>
+<li>Regions return blocks from their contents as results for "tiny" and "small" malloc operations</li>
+</ul>
+
+<h2>The importance of regions</h2>
+
+<p>The reason for separate regions for tiny and small allocations is that it allows the region's metadata to be more efficiently tuned to tracking the size of object it contains. For "tiny" allocations, tracking memory down to 16 byte units is worthwhile (it allows freed space to be reclaimed better and doesn't waste large amounts of memory around allocated objects). For "small" sized objects though, tracking at this resolution would be a poor tradeoff between CPU time (traversing through lists of freed or allocated blocks) and memory efficiency &mdash; the coarser 512 byte resolution is more efficient.</p>
+
+<p>The tiny regions also have the advantage of reducing the impact of memory fragmentation. By keeping small and large allocations separate, the pattern of small allocations in the midst of otherwise large, free areas that is a cause of memory fragmentation is avoided. Of course, it doesn't eliminate fragmentation but helps.</p>
+
+<p>The existence of the "tiny" region is of great important to Objective-C. Since Objective-C allocates all objects within malloc zones and almost all Objective-C objects fall within the "tiny" size bounds, it is of great benefit to have an optimized code path for such allocations.</p>
+
+<h2>Threading improvements in Mac OS X 10.6</h2>
+
+<p>In Snow Leopard, Apple replaced the old <a href="http://www.opensource.apple.com/source/Libc/Libc-594.1.4/gen/scalable_malloc.c">scalable_malloc.c</a> with the newer <a href="http://www.opensource.apple.com/source/Libc/Libc-594.1.4/gen/magazine_malloc.c">magazine_malloc.c</a>. This new implementation introduces a new approach of creating special "tiny" memory allocation regions for each thread.</p>
+
+<p>This approach is "inspired" by the <a href="http://www.cs.umass.edu/~emery/pubs/berger-asplos2000.pdf">Hoard memory allocator</a> with the thread-specific clusters and "superblocks" of that approach implemented as the magazine and regions in the Mac malloc implementation. Most of the allocation metadata that was previously kept in the "zone" structures moves into the new "magazine" level of the hierarchy so that it can be kept thread-specific. This includes all data that needs to be updated per allocation, like the number of allocated regions, the free lists and available memory counts.</p>
+
+<p>Each "tiny" region is itself allocated by the top level allocator but is then assigned to a specific thread. Since the region is then thread-specific, the top-level, shared, allocator does not need to be locked and the chance of any thread contention is very low.</p>
+
+<p>To summarize the levels of hierarchy for "tiny" allocations with these additions:</p>
+
+<ul>
+<li>Malloc zones allocate magazines for "tiny" regions (1 per thread) and allocated the regions themselves when requested by the magazines.</li>
+<li>Magazines manage the regions for a thread</li>
+<li>Regions return blocks from their contents</li>
+</ul>
+
+<p>Of course, locks are still used internally when allocating or freeing from a region (since a malloc from one thread can still be freed in a different thread) but the chance of two threads contesting a lock is significantly reduced. The likelihood  of cache lines shared unnecessarily between CPUs is also reduced since threads don't allocate memory in the same regions.</p>
+
+<p>Then end result is that the majority of memory allocations in Objective-C (which are typically allocated in a thread and released by the autorelease pool on that thread) will have near perfect thread independence.</p>
+
+<h2>A pair of minor notes</h2>
+
+<p>When you free memory, your application footprint will not immediately go down. Freeing region allocated memory adds the space to the free list for the region but will not cause the region to be released unless it was the last block in the region. Your application's footprint will only go down if an entire region is freed and the zone can unmap the virtual memory pages.</p>
+
+<p><code>calloc</code> takes two parameters: a size and a number of elements. <code>malloc</code> only takes a size but is often calculated by multiplying a <code>sizeof(SomeType)</code> by a number of elements. The end result is identical: internally, calloc just multiplies its two parameters together &mdash; other than some overflow checking on the multiplication, the size of the returned block from <code>calloc(a, b)</code> is identical to the block returned by <code>malloc(a * b)</code>.</p>
+
+<h2>Debugging information</h2>
+
+<p>One important point to note from reading the malloc.c file is that the Mac memory allocator can be configured at runtime to generate logging information. The following environment variables can be set to have the memory allocator perform debug behaviors:</p>
+
+<ul><li><b>MallocLogFile</b> &lt;f&gt; to create/append messages to file &lt;f&gt; instead of stderr
+</li><li><b>MallocGuardEdges</b> to add 2 guard pages for each large block
+</li><li><b>MallocDoNotProtectPrelude</b> to disable protection (when previous flag set)
+</li><li><b>MallocDoNotProtectPostlude</b> to disable protection (when previous flag set)
+</li><li><b>MallocStackLogging</b> to record all stacks.  Tools like leaks can then be applied
+</li><li><b>MallocStackLoggingNoCompact</b> to record all stacks.  Needed for malloc_history
+</li><li><b>MallocStackLoggingDirectory</b> to set location of stack logs, which can grow large; default is /tmp
+</li><li><b>MallocScribble</b> to detect writing on free blocks and missing initializers:
+  0x55 is written upon free and 0xaa is written on allocation
+</li><li><b>MallocCheckHeapStart</b> &lt;n&gt; to start checking the heap after &lt;n&gt; operations
+</li><li><b>MallocCheckHeapEach</b> &lt;s&gt; to repeat the checking of the heap after &lt;s&gt; operations
+</li><li><b>MallocCheckHeapSleep</b> &lt;t&gt; to sleep &lt;t&gt; seconds on heap corruption
+</li><li><b>MallocCheckHeapAbort</b> &lt;b&gt; to abort on heap corruption if &lt;b&gt; is non-zero
+</li><li><b>MallocCorruptionAbort</b> to abort on malloc errors, but not on out of memory for 32-bit processes
+  MallocCorruptionAbort is always set on 64-bit processes
+</li><li><b>MallocErrorAbort</b> to abort on any malloc error, including out of memory
+</li><li><b>MallocHelp</b> - this help!</li></ul>
+
+<p>Unfortunately, the normal build of magazine_malloc.c in Mac OS X has the limitation that it won't apply guard pages to "small" or "tiny" allocations. To apply guard pages to all data, you'll need to use the libgmalloc library. Do this by setting the following environment variable:</p>
+
+<div class="highlight"><pre><code class="language-objc" data-lang="objc"><span></span><span class="n">export</span> <span class="n">DYLD_INSERT_LIBRARIES</span><span class="o">=/</span><span class="n">usr</span><span class="o">/</span><span class="n">lib</span><span class="o">/</span><span class="n">libgmalloc</span><span class="p">.</span><span class="n">dylib</span>
+</code></pre></div>
+
+
+<p>For more information, see the <a href="http://developer.apple.com/mac/library/documentation/Darwin/Reference/ManPages/man3/libgmalloc.3.html">libgmalloc Manual Page</a>.</p>
+
+<p>You can also set environment variables in Xcode by right-clicking on the executable in the Tree view, selecting "Get Info" and going to the "Arguments" tab.</p>
+
+<h2>Conclusion</h2>
+
+<p>I'm not sure there are a huge number of lessons to be directly taken from this article and immediately used in a program. The debug options are useful to know should the need arise but this article is mostly an exercise in investigating one of more heavily used library functions on the Mac.</p>
+
+<p>The memory allocator on the Mac has lots of different OS-specific behaviors related to alignment, granularity and thread performance. Depending on the size of the allocation, and even the amount of installed memory, some of these behaviors will change from allocation to allocation.</p>
+
+<p>One reassuring point to take from this is to know that the many thousands of tiny Objective-C object allocations in a typical Cocoa program do have a heavily optimized path on the Mac.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="finding-or-creating-application-support.html">Finding or creating the application support directory</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="5-ways-to-draw-2d-shape-with-hole-in.html">5 ways to draw a 2D shape with a hole in CoreGraphics</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

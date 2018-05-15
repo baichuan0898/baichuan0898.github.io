@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Custom build rules, generated tables and faster floating point</title>
+  <meta name="description" content="As fast as computers are, heavy use of floating point functions can still slow them down. One way around this, is to use a lookup table instead of calculating floating point values at runtime. But keeping a generated table up-to-date is annoying work. In this post, I&#39;ll show you how to create a lookup table automatically using a custom build rule, making an OpenGL animation 5 times faster in the process." />
+
+  <meta name="twitter:title" content="Custom build rules, generated tables and faster floating point"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2010/02/custom-build-rules-generated-tables-and.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="As fast as computers are, heavy use of floating point functions can still slow them down. One way around this, is to use a lookup table instead of calculating floating point values at runtime. But keeping a generated table up-to-date is annoying work. In this post, I&#39;ll show you how to create a lookup table automatically using a custom build rule, making an OpenGL animation 5 times faster in the process."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="custom-build-rules-generated-tables-and.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Custom build rules, generated tables and faster floating point</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2010-02-08">February 8, 2010</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/performance-tests.html">performance tests</a>, <a href="../../categories/xcode.html">Xcode</a>, <a href="../../categories/cocoa-touch.html">Cocoa Touch</a>, <a href="../../categories/standard-c.html">Standard C</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>As fast as computers are, heavy use of floating point functions can still slow them down. One way around this, is to use a lookup table instead of calculating floating point values at runtime. But keeping a generated table up-to-date is annoying work. In this post, I'll show you how to create a lookup table automatically using a custom build rule, making an OpenGL animation 5 times faster in the process.</p></span>
+
+<span class="fullpost">
+
+<h2>Introduction</h2>
+<p>In this post, I'm going to work with a modified version of Apple's default OpenGL ES 1.0 program. In this program, a colored square will spin in the center of the window:</p>
+
+<img src="../../assets/objc-era/spinner.png" width="156" height="300" />
+
+<blockquote><a href="../../assets/objc-era/Spinner.zip">Download the complete project for this post: Spinner.zip</a> (25kb).</blockquote>
+
+<p>To artificially create a situation where this simple program is bound by CPU performance, I will calculate the location of the square thousands of times for every frame.</p>
+
+<h2>Initial code and performance</h2>
+
+<p>The initial code for updating the model matrix before drawing is:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">static</span> <span class="kt">float</span> <span class="n">transX</span> <span class="o">=</span> <span class="mf">3.14159265f</span> <span class="o">*</span> <span class="mf">0.5</span><span class="p">;</span>
+<span class="k">static</span> <span class="kt">float</span> <span class="n">transY</span> <span class="o">=</span> <span class="mf">0.0f</span><span class="p">;</span>
+<span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mf">2e5</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">translateX</span> <span class="o">=</span> <span class="n">sinf</span><span class="p">(</span><span class="n">transX</span><span class="p">)</span><span class="o">/</span><span class="mf">2.0f</span><span class="p">;</span>
+    <span class="n">translateY</span> <span class="o">=</span> <span class="n">sinf</span><span class="p">(</span><span class="n">transY</span><span class="p">)</span><span class="o">/</span><span class="mf">2.0f</span><span class="p">;</span>
+    <span class="n">doNothingff</span><span class="p">(</span><span class="o">&amp;</span><span class="n">translateX</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">transX</span><span class="p">);</span>
+    <span class="n">doNothingff</span><span class="p">(</span><span class="o">&amp;</span><span class="n">translateY</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">transY</span><span class="p">);</span>
+<span class="p">}</span>
+<span class="n">transX</span> <span class="o">+=</span> <span class="mf">0.075f</span><span class="p">;</span>
+<span class="n">transY</span> <span class="o">+=</span> <span class="mf">0.075f</span><span class="p">;</span>
+
+<span class="n">glTranslatef</span><span class="p">((</span><span class="n">GLfloat</span><span class="p">)(</span><span class="n">translateX</span><span class="p">),</span> <span class="p">(</span><span class="n">GLfloat</span><span class="p">)(</span><span class="n">translateY</span><span class="p">),</span> <span class="mf">0.0f</span><span class="p">);</span></code></pre></div>
+
+<p>This is a very simple calculation: it translates out to the edge of the unit circle and progresses around the circle by 0.075 radians per frame.</p>
+
+<p>The code loops 2e5 (i.e. 20,000) times and passes its variables by reference into a dummy function (to prevent the compiler optimizing the loop away).</p>
+
+<p>On my iPhone 3G, this runs between 5 and 6 frames per second.</p>
+
+<h2>Faster with tables</h2>
+
+<p>The reason this code is slow, is the <code>sinf()</code> function &mdash; the iPhone simply isn't meant for heavy floating point arithmetic.</p>
+
+<p>However, this code only uses 84 steps to get around the circle. We can precalculate all of those points, store them in a table and use the table instead.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">static</span> <span class="kt">int</span> <span class="n">tableIndexX</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+<span class="k">static</span> <span class="kt">int</span> <span class="n">tableIndexY</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+<span class="k">if</span> <span class="p">(</span><span class="n">tableIndexX</span> <span class="o">==</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">tableIndexX</span> <span class="o">=</span> <span class="n">SinTableSize</span> <span class="o">/</span> <span class="mi">4</span><span class="p">;</span>
+
+<span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="mf">2e5</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">translateX</span> <span class="o">=</span> <span class="n">SinTable</span><span class="p">[</span><span class="n">tableIndexX</span><span class="p">];</span>
+    <span class="n">translateY</span> <span class="o">=</span> <span class="n">SinTable</span><span class="p">[</span><span class="n">tableIndexY</span><span class="p">];</span>
+    <span class="n">doNothingif</span><span class="p">(</span><span class="o">&amp;</span><span class="n">tableIndexX</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">translateX</span><span class="p">);</span>
+    <span class="n">doNothingif</span><span class="p">(</span><span class="o">&amp;</span><span class="n">tableIndexY</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">translateY</span><span class="p">);</span>
+<span class="p">}</span>
+<span class="n">tableIndexX</span> <span class="o">=</span> <span class="p">(</span><span class="n">tableIndexX</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="n">SinTableSize</span><span class="p">;</span>
+<span class="n">tableIndexY</span> <span class="o">=</span> <span class="p">(</span><span class="n">tableIndexY</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="n">SinTableSize</span><span class="p">;</span>
+
+<span class="n">glTranslatef</span><span class="p">((</span><span class="n">GLfloat</span><span class="p">)(</span><span class="n">translateX</span><span class="p">),</span> <span class="p">(</span><span class="n">GLfloat</span><span class="p">)(</span><span class="n">translateY</span><span class="p">),</span> <span class="mf">0.0f</span><span class="p">);</span></code></pre></div>
+
+<p>This code is the same as the previous code except instead of calculating each point, it simply steps through an array of values.</p>
+
+<p>The <code>SinTable</code> just looks like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">const</span> <span class="kt">float</span> <span class="n">SinTable</span><span class="p">[</span><span class="mi">84</span><span class="p">]</span> <span class="o">=</span> 
+<span class="p">{</span>
+    <span class="mf">0.000000f</span><span class="p">,</span>
+    <span class="mf">0.037365f</span><span class="p">,</span>
+    <span class="mf">0.074521f</span><span class="p">,</span>
+    <span class="mf">0.111260f</span><span class="p">,</span>
+    <span class="c1">//... 80 more entries ...
+</span><span class="c1"></span><span class="p">};</span></code></pre></div>
+
+
+<p>With the change to a lookup table, the code now runs at 26-28 frames per second. A 5 times speed increase.</p>
+
+<h2>Using code to generate code with a build rule</h2>
+
+<p>If you've ever used lookup tables, you'll know that they can be annoying to maintain. If you want to change them, you need to regenerate them and then reintegrate them into your project.</p>
+
+<p>With a custom build rule, the regeneration and reintegration can be done automatically.</p>
+
+<p>The code that generates the <code>SinTable</code> looks like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">enum</span>
+<span class="p">{</span>
+    <span class="n">ProcessName</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+    <span class="n">OutputFile</span><span class="p">,</span>
+    <span class="n">TableSteps</span><span class="p">,</span>
+    <span class="n">ArgumentCount</span>
+<span class="p">};</span>
+
+<span class="kt">int</span> <span class="nf">main</span> <span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span> <span class="n">argv</span><span class="p">[])</span>
+<span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">argc</span> <span class="o">!=</span> <span class="n">ArgumentCount</span><span class="p">)</span>
+        <span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+    
+    <span class="n">FILE</span> <span class="o">*</span><span class="n">outputFile</span> <span class="o">=</span> <span class="n">fopen</span><span class="p">(</span><span class="n">argv</span><span class="p">[</span><span class="n">OutputFile</span><span class="p">],</span> <span class="sa"></span><span class="s">&#34;w&#34;</span><span class="p">);</span>
+    <span class="kt">long</span> <span class="n">tableSteps</span> <span class="o">=</span> <span class="n">strtol</span><span class="p">(</span><span class="n">argv</span><span class="p">[</span><span class="n">TableSteps</span><span class="p">],</span> <span class="nb">NULL</span><span class="p">,</span> <span class="mi">10</span><span class="p">);</span>
+    
+    <span class="n">fprintf</span><span class="p">(</span><span class="n">outputFile</span><span class="p">,</span> <span class="sa"></span><span class="s">&#34;const float SinTable[%ld] = </span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span> <span class="n">tableSteps</span><span class="p">);</span>
+    <span class="n">fprintf</span><span class="p">(</span><span class="n">outputFile</span><span class="p">,</span> <span class="sa"></span><span class="s">&#34;{</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">);</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kt">long</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">tableSteps</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">fprintf</span><span class="p">(</span><span class="n">outputFile</span><span class="p">,</span> <span class="sa"></span><span class="s">&#34;    %ff,</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">,</span> <span class="mf">0.5f</span> <span class="o">*</span> <span class="n">sinf</span><span class="p">(</span><span class="n">i</span> <span class="o">*</span> <span class="mf">2.0f</span> <span class="o">*</span> <span class="mf">3.14159265f</span> <span class="o">/</span> <span class="n">tableSteps</span><span class="p">));</span>
+    <span class="p">}</span>
+    <span class="n">fprintf</span><span class="p">(</span><span class="n">outputFile</span><span class="p">,</span> <span class="sa"></span><span class="s">&#34;</span><span class="se">\n</span><span class="s">};</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">);</span>
+    <span class="n">fprintf</span><span class="p">(</span><span class="n">outputFile</span><span class="p">,</span> <span class="sa"></span><span class="s">&#34;const long SinTableSize = %ld;&#34;</span><span class="p">,</span> <span class="n">tableSteps</span><span class="p">);</span>
+    
+    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>I put it in a file named SinTable.gen.c then I added a custom build rule to the target (Project&rarr;Edit Active Target&rarr;Rules).</p>
+
+<p>The custom build rule looks like this:</p>
+
+<img src="../../assets/objc-era/buildrule.png" width="499" height="326" />
+
+<p>What this does is:</p>
+
+<ol><li>Takes any file that ends in .gen.c</li>
+<li>Compiles it to a .gen file in the Derived files directory</li>
+<li>Executes the .gen program to generate a gen.result.c file in the same directory</li>
+<li>Tells Xcode that it produces the gen.result.c file and Xcode will then build it according to Xcode's standard C compilation rules, integrating it with the rest of the program.</li></ol>
+
+<h2>Custom Build Rules versus Custom Build Phases</h2>
+
+<p>Many people are familiar with Custom Build Phases for running scripts during their builds. It is important to understand the differences between the two:</p>
+
+<table>
+<thead>
+<tr><td><strong>Custom Build Rule</strong></td><td><strong>Run Script Custom Build Phase</strong></td></tr>
+</thead>
+<tr><td>Is an arbitrary /bin/sh script</td><td>Is an arbitrary /bin/sh script</td></tr>
+<tr><td>Runs once for input of a given type</td><td>Runs exactly once per build</td></tr>
+<tr><td>Only runs when an input of the relevant type changes</td><td>Runs on either every build (no inputs/outputs specified) or when specifically nominated "input" files are newer than nominated "output" files.</td></tr>
+<tr><td>Outputs can be automatically picked up by Xcode for further processing by other build rules</td><td>Xcode doesn't touch outputs &mdash; you must handle all processing yourself</td></tr>
+<tr><td>Only visible in the Target's Settings window</td><td>Visible in the Group Tree by expanding the Target</td></tr>
+</table>
+
+<p>Custom Build Rules are ideal for generating files that will be picked up by another build rule (for example, generating source code or .o files). Custom Build Phases are a better option for applying build numbers or handling the final built product.</p>
+
+<h2>Conclusion</h2>
+
+<blockquote><a href="../../assets/objc-era/Spinner.zip">Download the complete project for this post: Spinner.zip</a> (25kb).</blockquote>
+
+<p>5 times faster, easy to implement and maintain.</p>
+
+<p>Of course, lookup tables have a major limitation: they use memory. This table was only 84 entries long, so there's no real problem but if you need thousands of entries, you'll need to test to make sure you're actually gaining performance. Also, if the table is never in cache (because you're using huge amounts of memory between lookups), you're unlikely to save much time.</p>
+
+<p>The point of this post though was to demonstrate build rules. This build rule keeps the lookup table up-to-date on every build and won't run unless the .gen.c file changes, so it won't recompile unnecessarily. The key strength of the build rule is that it will automatically run on all ".gen.c" files we happen to add to this target and the outputs are automatically picked up by Xcode and compiled and linked with the rest of the target.</p>
+
+<p>These two points are the key advantages of Build Rules in Xcode: running on every file of a given type and integration into the build pipeline. If you only need your script to run once per build (instead of once per file) and you don't need Xcode to further handle the outputs, you can use Run Script Custom Build Phases instead.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="finding-cause-of-simple-performance.html">Finding the cause of performance issues in your programs</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="differences-between-core-data-and.html">The differences between Core Data and a Database</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

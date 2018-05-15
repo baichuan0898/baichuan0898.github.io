@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Break into Debugger</title>
+  <meta name="description" content="For your debugging pleasure: a DebugBreak() macro to programmatically stop the debugger at a line of code (not inside a child function). Some of this code can be found elsewhere but I present it here, PPC and Intel capable and ready to run." />
+
+  <meta name="twitter:title" content="Break into Debugger"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2008/03/break-into-debugger.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="For your debugging pleasure: a DebugBreak() macro to programmatically stop the debugger at a line of code (not inside a child function). Some of this code can be found elsewhere but I present it here, PPC and Intel capable and ready to run."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="break-into-debugger.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Break into Debugger</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2008-03-09">March 9, 2008</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/fun-hacks.html">fun hacks</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>For your debugging pleasure: a <span class="monospace">DebugBreak()</span> macro to programmatically stop the debugger at a line of code (not inside a child function). Some of this code can be found elsewhere but I present it here, PPC and Intel capable and ready to run.</p></span>
+
+<span class="fullpost">
+
+<blockquote><strong>Updated July 31, 2008:</strong> Fixed assembler statements so that they work again.</blockquote>
+
+<h2>Why programmatically stop the debugger?</h2>
+<p>If you're debugging and you have consistency checks in your code, sometimes you can just log any errors to the console. But there are other times when you want to enter the debugger and explore the memory yourself. Maybe you want to explore the state of your variables to find why things have gone wrong. Maybe any debug information would get lost in your console output.</p>
+
+<p>To allow this, you need a command which will stop GDB at the current line of code. Microsoft's Visual Studio has a handy <span class="monospace">DebugBreak()</span> command to do just this. On Mac OS X, we get <span class="monospace">Debugger()</span> and <span class="monospace">DebugStr()</span> but these don't stop the debugger at the line which invokes them, they instead break the debugger deep inside their own contents.</p>
+
+<h2>How do you stop GDB anyway?</h2>
+<p>GDB will stop if it encounters a SIGINT (an interrupt signal). There are all kinds of ways to send a SIGINT &mdash; <span class="monospace">pthread_kill()</span> is a good example &mdash; however performing this inside a function call has a disadvantage: the debugger will be inside the function which sends the SIGINT when it breaks, not at the line of your code where you called it.</p>
+
+<h2>Inline assembly</h2>
+<p>The way around this stack issue is to invoke the <span class="monospace">sys_kill</span> system call or <span class="monospace">int</span> machine instruction (depending on your CPU) directly inline in your code using inline assembler. That way, the stack doesn't increase and your function is still on the top when you enter the debugger.</p>
+
+<h2>The code</h2>
+<blockquote><strong>Language note:</strong><br/>Most code in this blog is Objective-C only but the following code should compile in any of C, Objective-C or C++ under GCC.</blockquote>
+
+<p>Here's the code to do it. Put it in a header somewhere. Maybe even include the header in your .pch (precompiled header) file.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="cp">#ifdef DEBUG
+</span><span class="cp"></span>    <span class="cp">#if __ppc64__ || __ppc__
+</span><span class="cp"></span>        <span class="cp">#define DebugBreak() \
+</span><span class="cp"></span>            <span class="k">if</span><span class="p">(</span><span class="n">AmIBeingDebugged</span><span class="p">())</span> \
+            <span class="p">{</span> \
+                <span class="n">__asm__</span><span class="p">(</span><span class="sa"></span><span class="s">&#34;li r0, 20</span><span class="se">\n</span><span class="s">sc</span><span class="se">\n</span><span class="s">nop</span><span class="se">\n</span><span class="s">li r0, 37</span><span class="se">\n</span><span class="s">li r4, 2</span><span class="se">\n</span><span class="s">sc</span><span class="se">\n</span><span class="s">nop</span><span class="se">\n</span><span class="s">&#34;</span> \
+                    <span class="o">:</span> <span class="o">:</span> <span class="o">:</span> <span class="sa"></span><span class="s">&#34;memory&#34;</span><span class="p">,</span><span class="sa"></span><span class="s">&#34;r0&#34;</span><span class="p">,</span><span class="sa"></span><span class="s">&#34;r3&#34;</span><span class="p">,</span><span class="sa"></span><span class="s">&#34;r4&#34;</span> <span class="p">);</span> \
+            <span class="p">}</span>
+    <span class="cp">#else
+</span><span class="cp"></span>        <span class="cp">#define DebugBreak() if(AmIBeingDebugged()) {__asm__(&#34;int $3\n&#34; : : );}
+</span><span class="cp"></span>    <span class="cp">#endif
+</span><span class="cp"></span>
+    <span class="kt">bool</span> <span class="n">AmIBeingDebugged</span><span class="p">(</span><span class="kt">void</span><span class="p">);</span>
+<span class="cp">#else
+</span><span class="cp"></span>    <span class="cp">#define DebugBreak()
+</span><span class="cp">#endif</span></code></pre></div>
+
+<p>You'll also need to copy <span class="monospace">AmIBeingDebugged()</span> from <a href="http://developer.apple.com/qa/qa2004/qa1361.html">Apple's Technical Q&amp;A QA1361 Detecting the Debugger</a> and put it in a source file (not a header) somewhere. It's a good idea to put <span class="monospace">#ifdef DEBUG</span> and <span class="monospace">#endif</span> around that code too.</p>
+
+<p>If you don't have a DEBUG preprocessor macro defined (you really should) you'll also need to set it up.</p>
+
+<ol><li>Right-click on your target (normally same name as your project or executable but it's under the "Targets" heading in the tree view in XCode).</li>
+<li>Select "Get Info" from the context menu that pops up.</li>
+<li>Go to the "Build" tab.</li>
+<li>Make sure the "Configuration" is set to "Debug".</li>
+<li>Type DEBUG into the field next to "Preprocessor Macros" under "GCC 4.0 - Preprocessing".</li>
+</ol>
+
+<h2>What does the code do?</h2>
+<p>First: it does nothing outside of DEBUG, that's important. Then it invokes <span class="monospace">AmIBeingDebugged()</span> to check if GDB is actually running (just because you have the Debug build, doesn't mean GDB is running). Then comes the assembly.</p>
+<p>On Intel machines, it's easy: "int $3" (send a SIGINT interrupt to the current process).</p>
+
+<p>On PPC platforms, there's more to do (RISC is more wordy than CISC). Relevant PPC assembler information:</p>
+<ul><li>"li" - load integer, puts the second argument into the location specified by the first</li>
+<li>"sc" - system call, invokes the UNIX system call indicated by the integer in register zero with other arguments starting at register 3.</li>
+<li>"nop" - No operation. Required to wait for some operations to complete.</li></ul>
+<p>So here's what the PPC assembly code does:</p>
+<ol><li>loads 20 into register 0</li>
+<li>makes a system call, which will be call "20" (<span class="monospace">sys_getpid</span>) which returns the process ID of the current process into register 3.</li>
+<li>wait for "sc" to complete</li>
+<li>loads 37 into register 0</li>
+<li>loads 2 into register 4</li>
+<li>makes a system call, which will be call "37" (<span class="monospace">sys_kill</span>) which sends the signal identified by the integer in register 4 (2 = SIGINT) to the process with ID specified by register 3 (our own PID as returned from the last system call).</li>
+</ol>
+<p>If you're wondering what the <span class="monospace">: : : "memory","r0","r3","r4"</span> stuff is all about, it's just telling the compiler that the assembly block may alter the contents of "memory" and registers 0, 3 and 4.</p>
+</span>
+
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="core-data-one-line-fetch.html">Core Data: one line fetch</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="cocoa-application-startup.html">Cocoa Application Startup</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

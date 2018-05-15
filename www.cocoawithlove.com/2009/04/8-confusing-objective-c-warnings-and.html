@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>8 Confusing Objective-C Warnings and Errors</title>
+  <meta name="description" content="Objective-C&#39;s unique syntax results in unique ways of making mistakes. In this post, I look at the compiler warnings and errors GCC outputs when you make mistakes or potential mistakes in your Objective-C syntax and show you how to fix them." />
+
+  <meta name="twitter:title" content="8 Confusing Objective-C Warnings and Errors"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/04/8-confusing-objective-c-warnings-and.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Objective-C&#39;s unique syntax results in unique ways of making mistakes. In this post, I look at the compiler warnings and errors GCC outputs when you make mistakes or potential mistakes in your Objective-C syntax and show you how to fix them."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="8-confusing-objective-c-warnings-and.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">8 Confusing Objective-C Warnings and Errors</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-04-05">April 5, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/objective-c.html">Objective-C</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>Objective-C's unique syntax results in unique ways of making mistakes. In this post, I look at the compiler warnings and errors GCC outputs when you make mistakes or potential mistakes in your Objective-C syntax and show you how to fix them.</p></span>
+
+<span class="fullpost">
+<h2>Every warning <em>is</em> an error</h2>
+
+<p>Objective-C lets a lot of potentially fatal problems related to method invocations go through as warnings. This is because the method lookup system is dynamic and from the compiler's perspective you <em>could</em> provide a resolution at runtime.</p>
+
+<p>To make this overly permissive situation in Objective-C safer, you should treat every warning as a potentially fatal error. This means that you should turn on <code>GCC_TREAT_WARNINGS_AS_ERRORS</code> (<code>-Werror</code>) in your build settings so you can catch these problems and fix them instead of letting your program run until it crashes at runtime.</p>
+
+<p>Every warning has an approach to eliminate the warning. These warning-less approaches invariably represent better design. I'll let you know how to fix each of the warnings/errors listed here.</p>
+
+<h2>1. Improperly nested method brackets</h2>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">file</span><span class="p">.</span><span class="nl">m</span><span class="p">:</span><span class="mi">15</span><span class="o">:</span> <span class="nl">error</span><span class="p">:</span> <span class="n">syntax</span> <span class="n">error</span> <span class="n">before</span> <span class="err">&#39;</span><span class="n">autorelease</span><span class="err">&#39;</span></code></pre></div>
+
+<p>(where <code>autorelease</code> could be the first word in any method) or</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">file</span><span class="p">.</span><span class="nl">m</span><span class="p">:</span><span class="mi">15</span><span class="o">:</span> <span class="nl">error</span><span class="p">:</span> <span class="n">syntax</span> <span class="n">error</span> <span class="n">before</span> <span class="sa"></span><span class="sc">&#39;;&#39;</span> <span class="n">token</span></code></pre></div>
+
+<p>These are the only syntax errors I'm going to include in this list &mdash; my reason for including them is that, despite the obvious nature of the problem and its high occurrence rate, GCC presents the errors in a non-descript way that doesn't reveal the underlying problem.</p>
+
+<p>The first error is "you are missing an opening bracket somewhere before this". The second error is "you are missing a closing bracket immediately before the semi-colon".</p>
+
+<p>It would be great if GCC gave an error like "unmatched bracket" and pointed to the unmatched bracket. Apple <a href="http://clang.llvm.org/diagnostics.html">are hinting</a> that future clang-based compilers may do this but for now, you get one of these terse errors.</p>
+
+<h2>2. Trying to use a forward class</h2>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">file</span><span class="p">.</span><span class="nl">m</span><span class="p">:</span><span class="mi">22</span><span class="o">:</span> <span class="nl">warning</span><span class="p">:</span> <span class="n">receiver</span> <span class="err">&#39;</span><span class="n">Test</span><span class="err">&#39;</span> <span class="n">is</span> <span class="n">a</span> <span class="n">forward</span> <span class="k">class</span> <span class="n">and</span> <span class="n">corresponding</span> <span class="k">@interface</span> <span class="nc">may</span> <span class="n">not</span> <span class="n">exist</span></code></pre></div>
+
+<p>This is a simple error but many people (especially those accustomed to other languages that don't have separate declaration and implementation) find it confusing because they may not be certain what a "forward class" is.</p>
+
+<p>I'd like to take this opportunity to tell you: if you don't know what a <a href="http://en.wikipedia.org/wiki/Forward_declaration">forward declaration</a> is, or you've never used <code>@class</code> before, you need to <a href="http://developer.apple.com/DOCUMENTATION/Cocoa/Conceptual/ObjectiveC/Articles/ocDefiningClasses.html">read about it</a>. In brief: a <code>@class</code> forward declaration tells the compiler that a given name is a class but avoids the need to import the whole declaration (which would create an undesirable cross-dependency in the header file).</p>
+
+<blockquote><strong>Basic rule:</strong> in <em>header</em> files, never <code>#import</code> another class from the same framework/application except the super class &mdash; always use an <code>@class</code> forward definition instead. The <code>#import</code> for a class should always be in the <em>implementation</em> (.m) file. Using <code>#import</code> for other frameworks (like <code>#import &lt;Cocoa/Cocoa.h&gt;</code>) is okay.</blockquote>
+
+<p>The cause of this warning is failure to follow the second part of this basic rule: you need to <code>#import</code> the actual definition in your implementation file.</p>
+
+<p>Older versions of GCC (prior to 4.0) didn't always give this warning. The result was that you could accidentally use classes that didn't exist (resulting in runtime crashes). This warning is a big improvement.</p>
+
+<h2>3. Recursive headers</h2>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">file</span><span class="p">.</span><span class="nl">h</span><span class="p">:</span><span class="mi">13</span><span class="o">:</span> <span class="nl">warning</span><span class="p">:</span> <span class="n">duplicate</span> <span class="n">interface</span> <span class="n">declaration</span> <span class="k">for</span> <span class="k">class</span> <span class="err">&#39;</span><span class="n">Test</span><span class="err">&#39;</span>
+<span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">file</span><span class="p">.</span><span class="nl">h</span><span class="p">:</span><span class="mi">15</span><span class="o">:</span> <span class="nl">error</span><span class="p">:</span> <span class="n">redefinition</span> <span class="n">of</span> <span class="err">&#39;</span><span class="k">struct</span> <span class="n">Test</span><span class="err">&#39;</span></code></pre></div>
+
+<p>There are two ways to get this error. The first is mundane: you have declared two classes with the same name &mdash; not an Objective-C specific problem.</p>
+
+<p>The second is that you have used <code>#include</code> to import the header declaration instead of <code>#import</code>. This is especially recognizable when you see the error dozens (or hundreds) of times in a row, especially if it is further accompanied by:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">file</span><span class="p">.</span><span class="nl">h</span><span class="p">:</span><span class="mi">9</span><span class="o">:</span><span class="mi">35</span><span class="o">:</span> <span class="nl">error</span><span class="p">:</span> <span class="cp">#include</span> <span class="cpf">nested too deeply</span></code></pre></div>
+
+<p>Objective-C expects that all header files are imported using <code>#import</code> which prevents recursive inclusion, so files don't guard against repeat inclusion as they normally do in standard C.</p>
+
+<p>Solution: always use <code>#import</code> to import header declarations (and don't listen to Richard Stallman's rants against the <code>#import</code> keyword &mdash; he is... different).</p>
+
+<h2>4. Interface not imported</h2>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">file</span><span class="p">.</span><span class="nl">m</span><span class="p">:</span><span class="mi">26</span><span class="o">:</span> <span class="nl">warning</span><span class="p">:</span> <span class="n">no</span> <span class="err">&#39;</span><span class="o">-</span><span class="n">blah</span><span class="err">&#39;</span> <span class="n">method</span> <span class="n">found</span>
+<span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">file</span><span class="p">.</span><span class="nl">m</span><span class="p">:</span><span class="mi">26</span><span class="o">:</span> <span class="nl">warning</span><span class="p">:</span> <span class="p">(</span><span class="n">Messages</span> <span class="n">without</span> <span class="n">a</span> <span class="n">matching</span> <span class="n">method</span> <span class="n">signature</span>
+<span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">file</span><span class="p">.</span><span class="nl">m</span><span class="p">:</span><span class="mi">26</span><span class="o">:</span> <span class="nl">warning</span><span class="p">:</span> <span class="n">will</span> <span class="n">be</span> <span class="n">assumed</span> <span class="n">to</span> <span class="k">return</span> <span class="err">&#39;</span><span class="kt">id</span><span class="err">&#39;</span> <span class="n">and</span> <span class="n">accept</span>
+<span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">file</span><span class="p">.</span><span class="nl">m</span><span class="p">:</span><span class="mi">26</span><span class="o">:</span> <span class="nl">warning</span><span class="p">:</span> <span class="err">&#39;</span><span class="p">...</span><span class="err">&#39;</span> <span class="n">as</span> <span class="n">arguments</span><span class="p">.)</span></code></pre></div>
+
+<p>The mundane explanation is that there is no <code>blah</code> method (you've simply mistyped it).</p>
+
+<p>However, Objective-C provides a few ways to get this error, even when the method <em>does</em> exist.</p>
+
+<ul>
+<li>The class where <code>-blah</code> is defined may not be in the set of imported classes. This can happen when the object you tried to invoke <code>-blah</code> on is declared as an <code>id</code> or the class is only forward declared.</li>
+<li>You have imported the base class but the method is declared on a <code>@category</code>, which is not imported.</li>
+</ul>
+
+<p>In either case, the solution is to find the header that defines the method and <code>#import</code> it.</p>
+
+<p>There is one further situation where this error can occur: when there is no implementation of the method at compile-time at all. This can further be broken into two cases:</p>
+
+<ul>
+<li>Runtime handled methods with clear association with a particular class. For example: accessor methods for the attributes of a Core Data <code>NSManagedObject</code>s. For methods like this, you should declare the method in a category (even though there will be no implementation at compile-time) and import this category.</li>
+<li>Runtime handled methods with no clear class association. To highlight the runtime and unusual situation involved in this situation you should use <code>[object performSelector:@selector(weirdRuntimeMethod)]</code> instead of writing <code>[object weirdRuntimeMethod]</code> and causing compiler warnings.</li>
+</ul>
+
+<h2>5. Multiple, incompatible methods</h2>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">file</span><span class="p">.</span><span class="nl">m</span><span class="p">:</span><span class="mi">24</span><span class="o">:</span> <span class="nl">warning</span><span class="p">:</span> <span class="n">multiple</span> <span class="n">methods</span> <span class="n">named</span> <span class="err">&#39;</span><span class="o">-</span><span class="nl">setStringValue</span><span class="p">:</span><span class="err">&#39;</span> <span class="n">found</span></code></pre></div>
+
+<p>Normally, Objective-C won't complain if there are multiple methods matching a given name (it assumes runtime lookup will work it out) so this warning may be surprising when it occurs.</p>
+
+<p>This type of problem occurs when you have multiple declarations with the same method name but the arguments to the method are different sizes (e.g. one declaration expects a 32-bit long parameter and one declaration expects a 64-bit long parameter). This is important because parameter sizes are fixed at compile-time (runtime lookup can't change it).</p>
+
+<p>The solution is to tell the compiler which method is the correct method by casting your object to the exact class involved. For example:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">[(</span><span class="n">NSXMLNode</span> <span class="o">*</span><span class="p">)</span><span class="n">myObject</span> <span class="nl">setStringValue</span><span class="p">:</span><span class="s">@&#34;value&#34;</span><span class="p">];</span></code></pre></div>
+
+<p>or</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSXMLNode</span> <span class="o">*</span><span class="n">myXMLNodeObject</span> <span class="o">=</span> <span class="n">myObject</span><span class="p">;</span>
+<span class="p">[</span><span class="n">myXMLNodeObject</span> <span class="nl">setStringValue</span><span class="p">:</span><span class="s">@&#34;value&#34;</span><span class="p">];</span></code></pre></div>
+
+<p>Both of these solutions produce the same compiled output.</p>
+
+<h2>6. Accessing a property on the wrong type</h2>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">file</span><span class="p">.</span><span class="nl">m</span><span class="p">:</span><span class="mi">23</span><span class="o">:</span> <span class="nl">error</span><span class="p">:</span> <span class="n">request</span> <span class="k">for</span> <span class="n">member</span> <span class="err">&#39;</span><span class="n">value</span><span class="err">&#39;</span> <span class="k">in</span> <span class="n">something</span> <span class="n">not</span> <span class="n">a</span> <span class="n">structure</span> <span class="n">or</span> <span class="k">union</span></code></pre></div>
+
+<p>This error can occur in standard C code when using <code>struct</code> or <code>union</code> as the error reports.</p>
+
+<p>In Objective-C 2.0, it also occurs when accessing an Objective-C 2.0 property on a class and the compiler can't find the property.</p>
+
+<p>If this error occurs and you have typed the name correctly, you probably need to cast the object to the correct class. i.e. if <code>value</code> is a property of <code>MyClass</code>:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">id</span> <span class="n">value</span> <span class="o">=</span> <span class="p">((</span><span class="n">MyClass</span> <span class="o">*</span><span class="p">)</span><span class="n">object</span><span class="p">).</span><span class="n">value</span><span class="p">;</span></code></pre></div>
+
+<p>or</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">MyClass</span> <span class="o">*</span><span class="n">myClassObject</span> <span class="o">=</span> <span class="n">object</span><span class="p">;</span>
+<span class="kt">id</span> <span class="n">value</span> <span class="o">=</span> <span class="n">myClassObject</span><span class="p">.</span><span class="n">value</span><span class="p">;</span></code></pre></div>
+
+<p>These solutions are, as before, both equivalent.</p>
+
+<p>The other potential cause of this error is that <code>MyClass</code> is not imported correctly, so be certain to check this as well.</p>
+
+<h2>7. Implicit downcasting on assignment</h2>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">file</span><span class="p">.</span><span class="nl">m</span><span class="p">:</span><span class="mi">22</span><span class="o">:</span> <span class="nl">warning</span><span class="p">:</span> <span class="n">initialization</span> <span class="n">from</span> <span class="n">distinct</span> <span class="n">Objective</span><span class="o">-</span><span class="n">C</span> <span class="n">type</span></code></pre></div>
+
+<p>The mundane cause of this error is that you've tried to assign the return value of a method to an unrelated object type. That's just an error and you need to fix it.</p>
+
+<p>The trickier case is an implicit downcast. By this I mean: the method has returned a super class (like <code>NSObject</code>) but you know it is actually a child class (like <code>MyClass</code>).</p>
+
+<p>In this situation you must explicitly cast:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">MyClass</span> <span class="o">*</span><span class="n">myClassObject</span> <span class="o">=</span> <span class="p">(</span><span class="n">MyClass</span> <span class="o">*</span><span class="p">)[</span><span class="n">someObject</span> <span class="n">getObject</span><span class="p">];</span></code></pre></div>
+
+<p>C++ has the <code>dynamic_cast</code> operator for this type of action, which verifies that <code>myClassObject</code> is correctly a <code>MyClass</code> object. In Objective-C if you're concerned about runtime type, you should use:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSAssert</span><span class="p">([</span><span class="n">myClassObject</span> <span class="nl">isKindOfClass</span><span class="p">:[</span><span class="n">MyClass</span> <span class="k">class</span><span class="p">]],</span>
+    <span class="s">@&#34;Return value is not of type MyClass as expected.&#34;</span><span class="p">);</span></code></pre></div>
+
+<p>You can use your own <code>AssertCast</code> macro to make this operation easier if you do it a lot.</p>
+
+<p>There are two cases where implict casts are allowed:</p>
+
+<ul><li>upcasts (i.e. <code>NSObject *myObject = myClassObject;</code> is okay)</li>
+<li>implicit conversions from <code>id</code> to anything (<code>id</code> is the universal object and can be implicitly cast or used as anything)</li></ul>
+
+<p>This error can also occur in the case where the assignment is actually an upcast but the source class has only a forward declaration &mdash; so you may also need to import the declaration if it is not imported.</p>
+
+<h2>8. Implicit downcasting of parameters</h2>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">file</span><span class="p">.</span><span class="nl">m</span><span class="p">:</span><span class="mi">24</span><span class="o">:</span> <span class="nl">warning</span><span class="p">:</span> <span class="n">passing</span> <span class="n">argument</span> <span class="mi">1</span> <span class="n">of</span> <span class="err">&#39;</span><span class="nl">test</span><span class="p">:</span><span class="err">&#39;</span> <span class="n">from</span> <span class="n">distinct</span> <span class="n">Objective</span><span class="o">-</span><span class="n">C</span> <span class="n">type</span></code></pre></div>
+
+<p>The causes and solutions for this are identical to downcasting on assignment. Cast correctly and import declarations as appropriate.</p>
+
+<p>I know, this warning seems like a duplicate of number 7 but it's a programming blog: I had to have 8 things. In my head, I've stored them all in an array indexed from 0 to 7.</p>
+
+<h2>Conclusion</h2>
+
+<p>Never be content with warnings in your code. Always work to understand why GCC is issuing the warning and fix your code. Your code will be easier to understand and be safer at runtime.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../03/using-nskeyedarchiver-to-archive-c.html">Using NSKeyedArchiver to archive a C linked-list</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="showing-message-over-iphone-keyboard.html">Showing a &#34;Loading...&#34; message over the iPhone  keyboard</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

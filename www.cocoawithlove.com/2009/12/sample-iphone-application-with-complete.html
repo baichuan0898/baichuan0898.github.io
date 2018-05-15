@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>A sample iPhone application with complete unit tests</title>
+  <meta name="description" content="In this post, I present a complete Cocoa Touch iPhone application implemented with unit tests for all created code. I&#39;ll look at setting up build and debug targets and executables for both Application and Logic tests, and show you some of the differences between Application and Logic tests. The code for this post is an iPhone version of the Mac post I presented last week." />
+
+  <meta name="twitter:title" content="A sample iPhone application with complete unit tests"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/12/sample-iphone-application-with-complete.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="In this post, I present a complete Cocoa Touch iPhone application implemented with unit tests for all created code. I&#39;ll look at setting up build and debug targets and executables for both Application and Logic tests, and show you some of the differences between Application and Logic tests. The code for this post is an iPhone version of the Mac post I presented last week."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="sample-iphone-application-with-complete.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">A sample iPhone application with complete unit tests</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-12-27">December 27, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/testing.html">testing</a>, <a href="../../categories/object-oriented-design.html">object-oriented design</a>, <a href="../../categories/uikit.html">UIKit</a>, <a href="../../categories/xcode.html">Xcode</a>, <a href="../../categories/cocoa-touch.html">Cocoa Touch</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>In this post, I present a complete Cocoa Touch iPhone application implemented with unit tests for all created code. I'll look at setting up build and debug targets and executables for both Application and Logic tests, and show you some of the differences between Application and Logic tests.</p>
+
+<p>The code for this post is an iPhone version of the <a href="sample-mac-application-with-complete.html">Mac post I presented last week</a>.</p></span>
+
+<span class="fullpost">
+
+<h2>Xcode unit testing targets for the iPhone</h2>
+
+<p>Like Mac unit testing, unit testing targets on the iPhone are generally divided into two types:</p>
+
+<ul><li><strong>Logic tests</strong> &mdash; these are run in a executable that is separate from your application. The separate build can be easier to manage, faster to build and is easier to run objects in isolation since it avoids the application setup. However, you cannot test components which rely on the application (which is most user interface components). Generally, this type of test target is intended for libraries, frameworks and testing the back-end (model components of model-view-controller) of your application.<p>Logic tests are easily run at build-time or from the command-line, which is helpful for continuous integration or automated test processes.</p></li>
+
+<li><strong>Application tests</strong> &mdash; these tests let the application load first and are subsequently loaded into the existing application. This means that the full application environment is available to your tests. In many cases, controller tests and view tests need to be run as application tests since they are reliant on the full environment.<p>Application tests allow your application to be tested in a more realistic environment, reducing the chance that environment or integration level issues will be missed. They are normally run as a separate step (not as part of the build) and therefore may be less convenient for tests that need to be run every time.</p></li></ul>
+
+<p>In last week's post on Mac development, I covered the Application Tests exclusively. For the iPhone, I will cover both. The reason for this is:</p>
+
+<blockquote><strong>iPhone Application Tests will only run on the device</strong>.</blockquote>
+
+<p>This is annoying. It means that you must have a device connected to your test machine via USB to run Application Tests and endure the slow copy-to-device and slow <em>gdb</em> interaction speeds. Apple could have allowed the simulator to perform the same bundle injection but they have not.</p>
+
+<p>There are alternatives to this approach. You could probably run a regular iPhone application in the simulator and invoke SenTestingKit manually after your application starts. There's also Google's Toolbox for Mac has an <a href="http://code.google.com/p/google-toolbox-for-mac/wiki/iPhoneUnitTesting">iPhone Unit Testing approach</a> that runs in the simulator.</p>
+
+<p>But I'm going to keep to the default OCUnit approaches used in Xcode, so I'll show you how to configure both Application Tests and Logic Tests and I'll show you the sorts of tests that will run in both and which will require the full Application Test to run.</p>
+
+<p>To be clear: if you want to run Logic Tests for your <em>Mac</em> applications, you can follow almost exactly the same approach that I present here. For Mac applications though, since you can invoke the ApplicationTests from the command line (as a post-build step or integration step) I would not normally consider the hassle of maintaining an extra build target and executable worth the effort.</p>
+
+<h2>iPhone project configuration</h2>
+
+<h3>Unit testing targets</h3>
+
+<p>After you've created a blank project, use the "Project&rarr;New Target..." menu item to add two  new "Cocoa Touch&rarr;Unit Testing Bundle" Targets to the project. These will be the <em>ApplicationTests</em> and <em>LogicTests</em> bundles.</p>
+
+<blockquote><strong>Be wary of target memberships:</strong> When you add bundle resources and sources-to-compile to the original project, also add these to the <em>LogicTests</em> target but do not add them to the <em>ApplicationTests</em> target. Testing-specific files should be added to the <em>LogicTests</em> target and the <em>ApplicationTests</em> target but not to the original project.</blockquote>
+
+<p>As with the Mac project configuration, that's sadly not enough to make it work.</p>
+
+<p>First, drag your original application's target onto the <em>ApplicationTests</em> and <em>LogicTests</em> targets to create a dependency (force the application to build before the unit tests).</p>
+
+<p>Then delete the Run Script phase of the <em>ApplicationTests</em> testing target. It's only for logic tests and won't work for application tests.</p>
+
+<p>Then edit the <em>ApplicationTests</em> target's settings (Right click&rarr;Get Info) and set the "Build&rarr;Linking&rarr;Bundle Loader" for all configurations to:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="err">$</span><span class="p">(</span><span class="n">CONFIGURATION_BUILD_DIR</span><span class="p">)</span><span class="o">/</span><span class="n">WhereIsMyPhone</span><span class="p">.</span><span class="n">app</span><span class="o">/</span><span class="n">WhereIsMyPhone</span></code></pre></div>
+
+<p>where "WhereIsMyPhone" is the name of the application you're unit testing. As with the Mac setup, this step lets the testing target link against the application (the <em>ApplicationTests</em> target doesn't include the original source files and we don't want linker errors when compiling). Unlike the Mac setup, we don't need to set the "Unit Testing&rarr;Test Host" (since we can't run using the build-time step).</p>
+
+<p>On the build configuration, also add <code>APPLICATION_TESTS</code> to the "GCC 4.2 - Preprocessing&rarr;Preprocessor Macros". This will let us flag certain tests for running in the <em>ApplicationTests</em> bundle but not the <em>LogicTests</em>.</p>
+
+<p>It'd be nice to use the OCMock framework but the iPhone doesn't allow dynamic linking. Instead we need to take the OCMock source code from, <a href="http://github.com/mmangino/OCMock">OCMock on GitHub</a>, take the non-test-related files and add them directly to both unit testing targets' "Compile Sources" phases. To get it to compile for the iPhone you'll need to replace <code>isEqualTo:</code> in <code>OCMConstraint.m</code> with <code>isEqual:</code>, the import of <code>&lt;objc/objc-runtime.h&gt;</code> in <code>OCPartialMockObject.m</code> with <code>&lt;objc/runtime.h&gt;</code> and the <code>typeof</code> in <code>OCMArg.h</code> with <code>__typeof</code>.</p>
+
+<p>To ensure that the compiler will find the OCMock headers you will also need to add <code>$SRCROOT</code> (non-recursive) to the Project Settings ("Project&rarr;Edit Project Settings") under "Build&rarr;Search Paths&rarr;Header Search Paths" (for all Configurations).</p>
+
+<h3>Debugging setup for the ApplicationTests target</h3>
+
+<p>To run the application tests, we need to make a copy of the original iPhone application's target (Right Click&rarr;Duplicate) &mdash; give it a name like "WhereIsMyPhoneTesting" to distinguish from the original "WhereIsMyPhone" target.</p>
+
+<blockquote><strong>Separate targets again:</strong> You will need to keep the duplicate in sync with the original. This means that all source files and resources added to the application should also be added to the testing target.<br/><br/>With all these separate targets, it's worth noting that you don't need to add to each target separately &mdash; when you're adding a new file to the project, you are normally given the list of targets and you select the checkboxes for the appropriate targets all at once. Don't add test files to the application and don't add application files to the <em>ApplicationTests</em> target and everything will work.</blockquote>
+
+<p>Drag the <em>ApplicationTests</em> target onto this duplicate (to make the duplicate dependent on the application testing bundle). Also drag the application testing bundle (in the Group Tree under Products named <em>ApplicationTests.octest</em>) to the new "WhereIsMyPhoneTesting" target's "Copy Bundle Resources" phase.</p>
+
+<p>Finally, in the settings for the "WhereIsMyPhoneTesting" target, for all Configurations set the "Build&rarr;Packaging&rarr;Product Name" to something distinct from the original target (e.g. change "WhereIsMyPhone" to "WhereIsMyPhoneTesting").</p>
+
+<blockquote><strong>iPhone application tests only work on the device.</strong><br/>To run the iPhone's application unit tests, you must build and install onto a device. They will not load in the simulator. Yes, this is annoying. Please request simulator support for Application Tests in future iPhone SDK releases if this bothers you.</blockquote>
+
+<p>To set breakpoints and interactively debug, you'll need to build the <em>WhereIsMyPhoneTesting</em> target before running the <em>WhereIsMyPhoneTesting</em> executable on your device. If the project contains the custom executable (from the <em>LogicTests</em> setup below) you may need to set the project's Executable (from the "Project&rarr;Set Active Exectuable..." menu) to <em>WhereIsMyPhoneTesting</em> manually.</p>
+
+<h3>Debugging setup for the LogicTests target</h3>
+
+<p>For the logic tests, we don't create another target but we do need to create a custom executable ("Project&rarr;New Custom Executable...") named "<em>DebugLogicTests</em>" or similar with a path relative to the Current SDK of:
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">Developer</span><span class="o">/</span><span class="n">usr</span><span class="o">/</span><span class="n">bin</span><span class="o">/</span><span class="n">otest</span></code></pre></div>
+
+<p>This is Apple's test harness and will handle the work of running the <em>LogicTests</em> bundle headlessly in the iPhone Simulator.</p>
+
+<p>You also need to set the Arguments and Environment for this executable to work. Double click the <em>DebugLogicTests</em> item in the Executables section of the Group Tree and edit the Arguments tab to look like this:</p>
+
+<img src="../../assets/objc-era/debuglogictests.png" width="589" height="387" />
+
+<blockquote><strong>Warning:</strong> order of arguments is important (the "-SenTest Self" must be first).<br/><br/><strong>Note:</strong> If you're in a hurry, the <code>DLYD_ROOT_PATH</code> and <code>DYLD_FORCE_FLAT_NAMESPACE</code> are normally enough to get it running. The rest relate to minor configuration points that you may want or need eventually but which aren't critical &mdash; however, they may cause unexpected runtime behavior if missing.</blockquote>
+
+<p>To set breakpoints and interactively debug, you'll need to build the <em>LogicTests</em> target before running the <em>DebugLogicTests</em> executable in the simulator. Since the project contains a custom executable you may need to set the project's Executable (from the "Project&rarr;Set Active Exectuable..." menu) to <em>DebugLogicTests</em> first.</p>
+
+<img src="../../assets/objc-era/projectconfig.png" width="501" height="173" />
+
+<p style="text-align:center;"><em>The project on the left is configured to run Application tests.<br/>The project on the right is configured to run Logic tests.<br/>Set Target and Executable to "WhereIsMyPhone" to run the application as normal.</em></p>
+
+<p>If you have tests running at build-time that fail but the actual compile has succeeded, you can Debug without rebuilding by pressing Command-Option-Return ("Run&rarr;Debug").</p>
+
+<h2>The sample iPhone application</h2>
+
+<p>As with last week, the sample application is a recreation of my earlier post, <a href="../09/whereismymac-snow-leopard-corelocation.html">WhereIsMyMac</a>, this time written for the iPhone using a test-first approach to development.</p>
+
+<p>With so much discussion about how to set up the Xcode project, I might keep the discussion of the tests themselves quite brief. If you want to know more about the implementation of the tests, they are <a href="sample-mac-application-with-complete.html">almost identical to last week's</a> &mdash; I deliberately chose this application because the implementation is very similar on the Mac and iPhone &mdash; so I encourage you to read through the writing of the tests from that post.</p>
+
+<p>The only significant differences between the iPhone and Mac applications are that the Window Controller from last week is a View Controller in the iPhone version, <code>NSTextField</code>s are now <code>UILabel</code>s and the <code>UIWebView</code> that the iPhone version contains is simpler than the <code>WebView</code> on the Mac, so the <code>mainFrame</code> access never occurs on the iPhone.</p>
+
+<h3>There is no application for the LogicTests</h3>
+
+<p>What I'll focus on this time, are the differences between the Mac and iPhone tests and implementations. Here's an example:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="cp">#ifdef APPLICATION_TESTS
+</span><span class="cp"></span>
+<span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">testAppDelegate</span>
+<span class="p">{</span>
+   <span class="kt">id</span> <span class="n">appDelegate</span> <span class="o">=</span> <span class="p">[[</span><span class="n">UIApplication</span> <span class="n">sharedApplication</span><span class="p">]</span> <span class="n">delegate</span><span class="p">];</span>
+   <span class="n">STAssertNotNil</span><span class="p">(</span><span class="n">appDelegate</span><span class="p">,</span> <span class="s">@&#34;Cannot find the application delegate.&#34;</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="cp">#endif</span></code></pre></div>
+
+<p>On the Mac, this code was almost the same (<code>NSApplication</code> instead of <code>UIApplication</code>). The big difference is that I've wrapped the entire test in <code>#ifdef APPLICATION_TESTS</code> since the application delegate does not exist in the logic tests, we must ensure this test is only run for application tests (we added the <code>APPLICATION_TESTS</code> preprocessor macro to the <em>ApplicationTests</em> target only).</p>
+
+<h3>LogicTests are a different bundle   </h3>
+
+<p>The next big difference is that the actual application code, which runs out of the <code>mainBundle</code> in the regular application, runs out of the <em>LogicTests.octest</em> bundle that <em>otest</em> loads in the <em>LogicTests</em> target. To make code that accesses the bundle work the same, independent of where it is running, all <code>NSBundle</code> access is handled by class.</p>
+
+<p>For example, the code in <em>WhereIsMyPhoneViewController.m</em> that generates the HTML to send to the <code>UIWebView</code> fetches the structure of the HTML from a file with:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">[[</span><span class="n">NSBundle</span> <span class="nl">bundleForClass</span><span class="p">:[</span><span class="nb">self</span> <span class="k">class</span><span class="p">]]</span>
+    <span class="nl">pathForResource</span><span class="p">:</span><span class="s">@&#34;HTMLFormatString&#34;</span>
+    <span class="nl">ofType</span><span class="p">:</span><span class="s">@&#34;html&#34;</span><span class="p">]</span></code></pre></div>
+
+<p>Previously, I would have used <code>[NSBundle mainBundle]</code> here but that code failed when run in the <code>LogicTests</code>. The <code>[NSBundle bundleForClass:[self class]]</code> will find the bundle that contains the class whether it is the main bundle or the <em>LogicTests.octest</em> bundle loaded by <em>otest</em>.</p>
+
+<h3>Many UIKit classes won't work without the UIApplication</h3>
+
+<p>Trying to add code to pass the tests in this project revealed that other tests would have to be conditionally excluded from <em>LogicTests</em> as well:</p>
+
+<ul><li>The default <code>loadView</code> method will fail &mdash; so the <code>testLoadView</code> method is <code>#ifdef</code>'d out.</li>
+<li>Any attempt to <code>alloc</code>/<code>init</code> a <code>UILabel</code> will fail. I don't know why but because of this, all tests on the labels must be <code>#ifdef</code>'d.</li></ul>
+
+<p>Generally, don't expect anything from the <em>UIKit</em> framework to work in your Logic tests. Other frameworks will almost always work (in this application, the <em>CoreLocation</em> and <em>Foundation</em> frameworks work without issue).</p>
+
+<p>Within UIKit, some elements will work &mdash; for example, <code>UIWebView</code> didn't have any issues in my testing. Exactly which user-interface objects will fail in the <em>LogicTests</em> bundle (without an actual running application) is never really clear until you try but these failures are why you still need to run the Application Tests to verify against &mdash; the Application Tests are a more authoritative result for anything in <code>UIKit</code>.</p>
+
+<h2>Conclusion</h2>
+
+<blockquote>Download the complete <a href="../../assets/objc-era/WhereIsMyPhone-WithUnitTests.zip">WhereIsMyPhone-WithUnitTests.zip</a> (85kb).
+<br/><br/>
+
+<strong>Warning:</strong> custom executables (like the <em>DebugLogicTests</em> executable) are <em>user</em> data in the project file. If you make changes that you want to share with someone else, you will need to rename the <em>(your username).pbxuser</em> file in the .xcodeproj bundle to <em>default.pbxuser</em> (so that it applies to all users).<br/><br/>
+
+This project includes code from the <a href="http://www.mulle-kybernetik.com/software/OCMock/">OCMock framework</a>, which is Copyright (c) 2004-2009 by Mulle Kybernetik. OCMock is covered by its own license (contained in the <em>OCUnit/License.txt</em> file in the download).</blockquote>
+
+<p>The code for this post is largely been a repeat of last week's post for the benefit of iPhone programmers. You can have a look at the differences for yourself but I deliberately chose this project because the iPhone and Mac implentations are so similar.</p>
+
+<p>I have taken the time though to show you how you can maintain a <code>LogicTests</code> target (in addition to the application-wide <em>ApplicationTests</em> target) that can test most of your project outside the application environment &mdash; including most of the user-interface controller code. The purpose is to sidestep the "device-only" limitations of the current <code>OCUnit</code> testing for the iPhone but also to show how you could set up build-time unit tests for <em>part</em> of your application, without necessarily applying this approach to your entire project.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="sample-mac-application-with-complete.html">A sample Mac application with complete unit tests</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../../2010/01/high-quality-in-software-development.html">Quality control in application development without unit testing</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Presenting unanticipated errors to users</title>
+  <meta name="description" content="In my first truly &#39;Cocoa&#39; article since restarting Cocoa with Love, I&#39;ll talk about presenting errors to the user. In particular, ensuring that errors we didn&#39;t expect or plan for are presented in a manner that allows error reporting by users and easier bug fixing." />
+
+  <meta name="twitter:title" content="Presenting unanticipated errors to users"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/blog/2016/04/14/error-recovery-attempter.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="In my first truly &#39;Cocoa&#39; article since restarting Cocoa with Love, I&#39;ll talk about presenting errors to the user. In particular, ensuring that errors we didn&#39;t expect or plan for are presented in a manner that allows error reporting by users and easier bug fixing."/>
+
+  <link rel="icon" href="../../../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../../../css/main.css" />
+  <link rel="canonical" href="error-recovery-attempter.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../../../index.html"><img class="heartandcup" src="../../../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../../../about/index.html">about</a>
+        <a class="page-link" href="../../../../archive/index.html">archive</a>
+        <a class="page-link" href="../../../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Presenting unanticipated errors to users</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2016-04-14">April 14, 2016</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../../../tags/error-handling.html">error handling</a>, <a href="../../../../tags/cocoa.html">Cocoa</a>
+		 
+	</div>
+</header>
+
+
+<main role="main">
+	<article itemscope itemtype="http://schema.org/BlogPosting">
+		<div class="post-content" itemprop="articleBody">
+			
+
+<p>The best approach for presenting error conditions to the user is to integrate feedback into the user interface about the condition that the error indicates. This could be changing an icon, colors, adding status text or otherwise changing the state of a user interface element.</p>
+
+<p>This &ldquo;best approach&rdquo; requires that we understand the error condition and plan for it in advance.</p>
+
+<p>What if we&rsquo;re still implementing the app and haven&rsquo;t had time to exhaustively discover possible error conditions and plan for them? What about technically possible error conditions that we cannot trigger in our own testing making planning impractical? What about error conditions that should never occur if everything is well behaved but are still semantically possible?</p>
+
+<p>We need a base level tier of error handling and reporting to the user. This base level must be very low overhead (so we can add it use it without much thought during development) and while it must report an error to the user, it is primarily intended to gather diagnostic information so the source of the error condition can be understood and facilitate fixes and other maintenance.</p>
+
+<nav id="TableOfContents"><span class="toc-heading">Contents</span>
+<ul>
+<li>
+<ul>
+<li><a href="#introduction">Introduction</a></li>
+<li><a href="#mediocre-error-handling-and-reporting">Mediocre error handling and reporting</a>
+<ul>
+<li><a href="#non-unique-error-information">Non-unique error information</a></li>
+<li><a href="#always-propagate-errors">Always propagate errors</a></li>
+</ul></li>
+<li><a href="#what-do-we-want">What do we want?</a>
+<ul>
+<li><a href="#error-propagation-improvements">Error propagation improvements</a></li>
+<li><a href="#diagnostic-improvements">Diagnostic improvements</a></li>
+</ul></li>
+<li><a href="#how-is-it-done">How is it done?</a></li>
+<li><a href="#usage">Usage</a></li>
+<li><a href="#conclusion">Conclusion</a></li>
+</ul></li>
+</ul>
+</nav>
+
+<h2 id="introduction">Introduction</h2>
+
+<p>First, some quick terminology:</p>
+
+<ol>
+<li>an <strong>error condition</strong> is a failed conditional check that results in a function skipping its usual functionality and instead returning an nominated error value.</li>
+<li>an <strong>error</strong> is a value used to report that an error condition occurred and normal functionality was skipped</li>
+<li><strong>error handling</strong> is code that looks for errors and performs different actions based on the presence of those errors</li>
+<li><strong>error reporting</strong> communicates an error result from a user task to the user</li>
+</ol>
+
+<p>In my previous article, <a href="../../03/17/non-pure-errors.html">&ldquo;Errors: unexpected, composite, non-pure, external&rdquo;</a> I focussed on the first two points and discussed how, from the perspective of the function that <em>creates</em> the error, the error always represents an &ldquo;unexpected&rdquo; condition.</p>
+
+<p>In this article, I&rsquo;m focussing on the latter two points. It&rsquo;s important to realize that, from the perspective of handling and reporting code, errors might not be entirely unexpected.</p>
+
+<p>Certainly in some cases, an &ldquo;error&rdquo; result from one function may represent the <em>preferred</em> result for the receiver (an <strong>expected error</strong>). In other cases, error handling may deal with errors by choosing a different path that satisfies requirements another way, so the error is never communicated to the user (<strong>error recovery</strong>). In most other scenarios, even if the error is not &ldquo;preferred&rdquo;, then at least we know how to handle the error (an <strong>anticipated error</strong>) and specialized feedback is presented to the user in a way that is aesthetically appropriate.</p>
+
+<p>In most programs of reasonable complexity, there are likely to be paths through the program – even if they are rare or theoretical – where an error receives no custom handling. This means: no custom text, no custom code paths based on the error type, just bulk acknowledgement of an unanticipated error and an abort of the task in progress.</p>
+
+<p>Reliable, maintainable programming requires that we always have an approach for errors, even these unanticipated errors, so that the error is routed through our error handling and reported to the user. Given that this type of error potentially represents programmer oversight, it&rsquo;s important that this error include helpful diagnostic information so fixes or other maintenance can occur if required.</p>
+
+<h2 id="mediocre-error-handling-and-reporting">Mediocre error handling and reporting</h2>
+
+<p>Let&rsquo;s look at a basic user task. In this case, an <code>@IBAction</code> method on a view controller (as triggered by a button press). The user action then starts a processing task which may trigger an error condition.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="c1">// An action on a view controller, triggered by a button press</span>
+<span class="kr">@IBAction</span> <span class="kd">func</span> <span class="nf">someUserAction1</span><span class="p">(</span><span class="kc">_</span> <span class="n">sender</span><span class="p">:</span> <span class="nb">AnyObject</span><span class="p">)</span> <span class="p">{</span>
+   <span class="n">someProcessingTask1</span><span class="p">(</span><span class="s">&#34;/invalid/path&#34;</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="c1">// A processing task in the data model</span>
+<span class="kd">func</span> <span class="nf">someProcessingTask1</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">String</span><span class="p">)</span> <span class="p">{</span>
+   <span class="k">do</span> <span class="p">{</span>
+      <span class="kd">let</span> <span class="nv">data</span> <span class="p">=</span> <span class="k">try</span> <span class="n">NSData</span><span class="p">(</span><span class="n">contentsOfFile</span><span class="p">:</span> <span class="n">path</span><span class="p">,</span> <span class="n">options</span><span class="p">:</span> <span class="p">.</span><span class="n">mappedIfSafe</span><span class="p">)</span>
+      <span class="n">process</span><span class="p">(</span><span class="n">data</span><span class="p">:</span> <span class="n">data</span><span class="p">)</span>
+   <span class="p">}</span> <span class="k">catch</span> <span class="kd">let</span> <span class="nv">error</span> <span class="k">as</span> <span class="n">NSError</span> <span class="p">{</span>
+      <span class="n">showAlert</span><span class="p">(</span><span class="n">error</span><span class="p">:</span> <span class="n">error</span><span class="p">)</span>
+   <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1">// A utility function (part of neither data model nor user interface)</span>
+<span class="kd">func</span> <span class="nf">showAlert</span><span class="p">(</span><span class="n">error</span><span class="p">:</span> <span class="n">NSError</span><span class="p">)</span> <span class="p">{</span>
+   <span class="cp">#if</span> <span class="cp">os</span><span class="p">(</span><span class="cp">OSX</span><span class="p">)</span>
+      <span class="n">NSAlert</span><span class="p">(</span><span class="n">error</span><span class="p">:</span> <span class="n">error</span><span class="p">).</span><span class="n">runModal</span><span class="p">()</span>
+   <span class="cp">#else</span>
+      <span class="kd">let</span> <span class="nv">alert</span> <span class="p">=</span> <span class="n">UIAlertController</span><span class="p">(</span><span class="n">title</span><span class="p">:</span> <span class="n">error</span><span class="p">.</span><span class="n">localizedDescription</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span>
+         <span class="n">error</span><span class="p">.</span><span class="n">localizedFailureReason</span><span class="p">,</span> <span class="n">preferredStyle</span><span class="p">:</span> <span class="n">UIAlertControllerStyle</span><span class="p">.</span><span class="n">alert</span><span class="p">)</span>
+      <span class="n">alert</span><span class="p">.</span><span class="n">addAction</span><span class="p">(</span><span class="n">UIAlertAction</span><span class="p">(</span><span class="n">title</span><span class="p">:</span> <span class="n">NSLocalizedString</span><span class="p">(</span><span class="s">&#34;OK&#34;</span><span class="p">,</span> <span class="n">comment</span><span class="p">:</span> <span class="s">&#34;&#34;</span><span class="p">),</span> <span class="n">style</span><span class="p">:</span>
+         <span class="n">UIAlertActionStyle</span><span class="p">.</span><span class="k">default</span><span class="p">,</span> <span class="n">handler</span><span class="p">:</span> <span class="kc">nil</span><span class="p">))</span>
+      <span class="n">UIApplication</span><span class="p">.</span><span class="n">shared</span><span class="p">.</span><span class="n">windows</span><span class="p">[</span><span class="mi">0</span><span class="p">].</span><span class="n">rootViewController</span><span class="o">!</span><span class="p">.</span><span class="n">present</span><span class="p">(</span><span class="n">alert</span><span class="p">,</span> <span class="n">animated</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span>
+         <span class="n">completion</span><span class="p">:</span> <span class="kc">nil</span><span class="p">)</span>
+ <span class="cp">#endif</span>
+<span class="p">}</span></code></pre></div>
+
+<div class="aside">I'm ignoring situations where you have a clear understanding of the error conditions and the risks and can argue that a <code>try!</code> or a deliberate "no-op" <code>catch</code> is valid. This article is about handling situations where there is a degree of uncertainty so both of these options are excluded.</div>
+
+<p>If you look about, you&rsquo;ll see roughly this pattern repeated in many projects. It&rsquo;s the result of not wanting to think about error handling but feeling obliged to put <em>something</em> into the <code>catch</code> block.</p>
+
+<p>At least this approach does something in the event of an error. That makes this approach a step up from the typical Objective-C error handling (pass <code>nil</code> for the <code>NSError **</code> parameter and ignore the problem entirely) or an empty <code>catch</code> block (which is the equivalent in Swift).</p>
+
+<p>But despite appearing to handle the error, this approach can have some potentially serious problems.</p>
+
+<h3 id="non-unique-error-information">Non-unique error information</h3>
+
+<p>On its own, the error dialog produced by the previous code may be helpful or it may be useless.</p>
+
+<p><img src="../../../../assets/blog/error_dialog1.png" alt="site triggered error dialog" /></p>
+
+<p>If a user reports that they&rsquo;re seeing this error dialog in your program, do you have enough information to work out what&rsquo;s happening and potentially fix the problem?</p>
+
+<p>This error message tells us a given file couldn&rsquo;t be found but it doesn&rsquo;t tell us why we&rsquo;re trying to open a non-existent file. Did we process the path incorrectly? Have we missed a step before getting here? How did the program get to this point? What has gone wrong to trigger this event?</p>
+
+<p>If the only information we have is the error message it&rsquo;s difficult to properly diagnose many situations. We have a problem that needs to be fixed but we either need to rely on intuition to find the problem or we need to reproduce the problem again in the debugger. The information we are given in this error message alone is insufficient.</p>
+
+<p>For a &ldquo;file not found&rdquo; error like this, the default error message is more helpful than usual since the exact missing file is named (although the full path is omitted). Other errors typically have far more opaque default error messages that might be used generically across a range of different circumstances. Errors like &ldquo;The file could not be played.&rdquo;, &ldquo;The operation couldn&rsquo;t be completed.&rdquo; are so broad as to be useless. And if you&rsquo;re unlucky enough to get a POSIX error code, it could have been generated by lots of different functions for lots of different reasons – they are not unique.</p>
+
+<h3 id="always-propagate-errors">Always propagate errors</h3>
+
+<p>But the amount of information reported isn&rsquo;t the biggest problem. The biggest problem is presenting the error at the site where it occurs, rather than the site that triggered the overarching task. We need to propagate the error back to its origin in the <code>someUserAction1</code> function, rather than trying to handling it in the middle of the task.</p>
+
+<p>Without error propagation:</p>
+
+<ul>
+<li>the user-interface may get stuck in a mid-task state</li>
+<li>earlier stages in the task can&rsquo;t attempt a retry or recover</li>
+<li>we&rsquo;re forcing the task&rsquo;s presentation of the error, rather than giving the user interface controller that triggered the action a the chance to present errors in a more integrated way</li>
+</ul>
+
+<p>In Objective-C, propagating errors was <em>really</em> annoying (layer, after layer passing <code>NSError**</code> parameters). I personally avoided this where possible – storing the error in a state structure somewhere and instead propagating <code>BOOL</code> through the stack. This approach had numerous problems (shared state is a maintenance headache) but Objective-C&rsquo;s idiomatic error handling was just miserable.</p>
+
+<p>Swift&rsquo;s <code>throws</code> keyword is one of the best features of the language. You may need to paint a <em>lot</em> of functions with the <code>throws</code> attribute (especially if you need to <code>throw</code> from deep inside a hierarchy) but it makes your interfaces honest.</p>
+
+<h2 id="what-do-we-want">What do we want?</h2>
+
+<p>Let&rsquo;s look at a better approach&hellip;</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="c1">// An action on a view controller, triggered by a button press</span>
+<span class="kr">@IBAction</span> <span class="kd">func</span> <span class="nf">someUserAction2</span><span class="p">(</span><span class="kc">_</span> <span class="n">sender</span><span class="p">:</span> <span class="nb">AnyObject</span><span class="p">)</span> <span class="p">{</span>
+   <span class="k">do</span> <span class="p">{</span>
+      <span class="k">try</span> <span class="n">someProcessingTask2</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="s">&#34;/invalid/path&#34;</span><span class="p">)</span>
+   <span class="p">}</span> <span class="k">catch</span> <span class="kd">let</span> <span class="nv">e</span> <span class="k">as</span> <span class="n">NSError</span> <span class="p">{</span>
+      <span class="kc">self</span><span class="p">.</span><span class="n">presentError</span><span class="p">(</span><span class="n">error</span> <span class="k">as</span> <span class="n">NSError</span><span class="p">)</span>
+   <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1">// A processing task in the data model</span>
+<span class="kd">func</span> <span class="nf">someProcessingTask2</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">String</span><span class="p">)</span> <span class="kr">throws</span> <span class="p">{</span>
+   <span class="k">try</span> <span class="n">rethrowUnanticipated</span> <span class="p">{</span>
+      <span class="kd">let</span> <span class="nv">data</span> <span class="p">=</span> <span class="k">try</span> <span class="n">NSData</span><span class="p">(</span><span class="n">contentsOfFile</span><span class="p">:</span> <span class="n">path</span><span class="p">,</span> <span class="n">options</span><span class="p">:</span> <span class="p">.</span><span class="n">DataReadingMappedIfSafe</span><span class="p">)</span>
+      <span class="n">processData</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Why is this better?</p>
+
+<h3 id="error-propagation-improvements">Error propagation improvements</h3>
+
+<p>The most significant difference is that the function responsible for starting the user action – <code>someUserAction2</code> – is now the function responsible for presenting feedback. The highest priority in a user interface is to give feedback to the user&rsquo;s actions; this control flow lets the user action that triggers the task be responsible for the display of the result.</p>
+
+<p>Moving the presentation to the view controller in this way removes all view code from the model. In the first example, the data model was performing a view action (presenting user-interface feedback). This is a theoretical win for separation of concerns.</p>
+
+<p>The function <code>presentError</code> part of Cocoa on Mac OS X but isn&rsquo;t usually part of iOS. I&rsquo;ve provided an implementation on <code>UIViewController</code> to make this work. Even if you don&rsquo;t choose to use <code>presentError</code>, it remains a good idea to pass your errors through a relevant controller associated with your view hierarchy. This gives you the ability to use custom presentation for errors at a later time by overriding the presentation method.</p>
+
+<h3 id="diagnostic-improvements">Diagnostic improvements</h3>
+
+<p>Now, I haven&rsquo;t just let the error thrown by <code>NSData</code> propagate directly. That would be possible and it would work but the error dialog would be the same &ldquo;default&rdquo; error I showed in the &ldquo;mediocre&rdquo; example, above. In a situation where you know the cause of the error and you know that the <code>localizedDescription</code> for this error fully describes it to the user, then this type of simple error reporting may be sufficient, however, this article focusses on errors that we haven&rsquo;t anticipated and we don&rsquo;t know if the <code>localizedDescription</code> will be helpful at all.</p>
+
+<p>We want more information to ensure easy problem diagnosis. The <code>rethrowUnanticipated</code> wrapper function adds an <code>UnanticipatedErrorRecoveryAttempter</code> to the <code>userInfo</code> dictionary of the error and the dialog becomes:</p>
+
+<p><img src="../../../../assets/blog/error_dialog2.png" alt="presentError with unexpected error recovery handler" /></p>
+
+<p>and clicking the &ldquo;Copy details&rdquo; button places the following text on the clipboard:</p>
+
+<pre><code>CwlUtils_OSXHarness/1, x86_64/MacPro4,1, Version 10.11.4 (Build 15E65), en, fr
+
+The file “path” couldn’t be opened because there is no such file.
+The error occurred at line 61 of the CwlUtils_OSXHarness/AppDelegate.swift file in the program's code.
+
+NSCocoaErrorDomain: 260. [NSFilePath: /invalid/path, NSLocalizedDescription: The file “path” couldn’t be opened because there is no such file., NSUnderlyingError: Error Domain=NSPOSIXErrorDomain Code=2 &quot;No such file or directory&quot;]
+
+1   CwlUtils_OSXHarness             0x000000010000241c _TFC19CwlUtils_OSXHarness11AppDelegate19someProcessingTask2fzSST_ + 412
+2   CwlUtils_OSXHarness             0x00000001000025c2 _TFC19CwlUtils_OSXHarness11AppDelegate15someUserAction2fPs9AnyObject_T_ + 114
+3   CwlUtils_OSXHarness             0x0000000100002716 _TToFC19CwlUtils_OSXHarness11AppDelegate15someUserAction2fPs9AnyObject_T_ + 54
+4   libsystem_trace.dylib            0x00007fff9caa107a _os_activity_initiate + 75
+5   AppKit                       0x00007fff8c9ace89 -[NSApplication sendAction:to:from:] + 460
+6   AppKit                       0x00007fff8c9befde -[NSControl sendAction:to:] + 86
+7   AppKit                       0x00007fff8c9bef08 __26-[NSCell _sendActionFrom:]_block_invoke + 131
+8   libsystem_trace.dylib            0x00007fff9caa107a _os_activity_initiate + 75
+9   AppKit                       0x00007fff8c9bee65 -[NSCell _sendActionFrom:] + 144
+10  libsystem_trace.dylib            0x00007fff9caa107a _os_activity_initiate + 75
+11  AppKit                       0x00007fff8c9bd48a -[NSCell trackMouse:inRect:ofView:untilMouseUp:] + 2693
+12  AppKit                       0x00007fff8ca05fd0 -[NSButtonCell trackMouse:inRect:ofView:untilMouseUp:] + 744
+13  AppKit                       0x00007fff8c9bbbb4 -[NSControl mouseDown:] + 669
+14  AppKit                       0x00007fff8cf10469 -[NSWindow _handleMouseDownEvent:isDelayedEvent:] + 6322
+15  AppKit                       0x00007fff8cf1144d -[NSWindow _reallySendEvent:isDelayedEvent:] + 212
+16  AppKit                       0x00007fff8c95063d -[NSWindow sendEvent:] + 517
+17  AppKit                       0x00007fff8c8d0b3c -[NSApplication sendEvent:] + 2540
+18  AppKit                       0x00007fff8c737ef6 -[NSApplication run] + 796
+19  AppKit                       0x00007fff8c70146c NSApplicationMain + 1176
+20  CwlUtils_OSXHarness             0x0000000100002984 main + 84
+21  libdyld.dylib                  0x00007fff982a45ad start + 1
+22  ???                         0x0000000000000003 0x0 + 3
+</code></pre>
+
+<h2 id="how-is-it-done">How is it done?</h2>
+
+<p>No significant work happens in the <code>rethrowUnanticipated</code> function. It&rsquo;s just a convenience wrapper that looks like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">public</span> <span class="kd">func</span> <span class="nf">rethrowUnanticipated</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">(</span><span class="n">file</span> <span class="n">file</span><span class="p">:</span> <span class="nb">String</span> <span class="p">=</span> <span class="kc">#file</span><span class="p">,</span> <span class="n">line</span><span class="p">:</span> <span class="nb">Int</span> <span class="p">=</span> <span class="kc">#line</span><span class="p">,</span> <span class="n">execute</span><span class="p">:</span> <span class="p">()</span> <span class="kr">throws</span> <span class="p">-&gt;</span> <span class="n">T</span><span class="p">)</span> <span class="kr">throws</span> <span class="p">-&gt;</span> <span class="n">T</span> <span class="p">{</span>
+   <span class="k">do</span> <span class="p">{</span>
+      <span class="k">return</span> <span class="k">try</span> <span class="n">execute</span><span class="p">()</span>
+   <span class="p">}</span> <span class="k">catch</span> <span class="p">{</span>
+      <span class="k">throw</span> <span class="n">error</span><span class="p">.</span><span class="n">withUnanticipatedErrorRecoveryAttempter</span><span class="p">(</span><span class="n">file</span><span class="p">:</span> <span class="n">file</span><span class="p">,</span> <span class="n">line</span><span class="p">:</span> <span class="n">line</span><span class="p">)</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>In situations where you want to selectively handle different error types or create your own errors, you would call <code>withUnanticipatedErrorRecoveryAttempter</code> on your error directly instead of using this convenience wrapper.</p>
+
+<p>In any case, it&rsquo;s <code>withUnanticipatedErrorRecoveryAttempter</code> that&rsquo;s important. It converts the <code>ErrorType</code> to an <code>NSError</code> (if it wasn&rsquo;t one already) and adds keys to the <code>userInfo</code> dictionary so that the error can participate in Cocoa&rsquo;s error recovery system.</p>
+
+<p>The mechanics of <code>presentError</code> and <code>NSRecoveryAttempterErrorKey</code> are fairly straightforward and you can read about them in <a href="https://developer.apple.com/library/mac/documentation/Cocoa/Conceptual/ErrorHandlingCocoa/RecoverFromErrors/RecoverFromErrors.html">Apple&rsquo;s &lsquo;Recover From Errors&rsquo; documentation</a>. Obviously, in this case, we&rsquo;re not strictly &ldquo;recovering&rdquo; from an error, we&rsquo;re just attaching diagnostic information.</p>
+
+<p>Let&rsquo;s look then at how we attach all this information.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">public</span> <span class="kd">extension</span> <span class="nc">Error</span> <span class="p">{</span>
+   <span class="c1">/// Return an NSError with the same properties as this error but with an `UnanticipatedErrorRecoveryAttempter` attached.</span>
+   <span class="kd">public</span> <span class="kd">func</span> <span class="nf">withUnanticipatedErrorRecoveryAttempter</span><span class="p">(</span><span class="n">file</span><span class="p">:</span> <span class="nb">String</span> <span class="p">=</span> <span class="kc">#file</span><span class="p">,</span> <span class="n">line</span><span class="p">:</span> <span class="nb">Int</span> <span class="p">=</span> <span class="kc">#line</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="n">NSError</span> <span class="p">{</span>
+      <span class="c1">// We want to preserve the &#34;userInfo&#34; dictionary, so we avoid &#34;self as NSError&#34;</span>
+      <span class="c1">// if we can (since it creates a new NSError that doesn&#39;t preserve the userInfo).</span>
+      <span class="c1">// Instead, we cast *via* NSObject.</span>
+      <span class="kd">let</span> <span class="nv">e</span> <span class="p">=</span> <span class="kc">self</span> <span class="k">as</span> <span class="n">NSError</span>
+      <span class="kd">var</span> <span class="nv">userInfo</span><span class="p">:</span> <span class="p">[</span><span class="n">AnyHashable</span><span class="p">:</span> <span class="nb">Any</span><span class="p">]</span> <span class="p">=</span> <span class="n">e</span><span class="p">.</span><span class="n">userInfo</span>
+      
+      <span class="c1">// Move any existing NSLocalizedRecoverySuggestionErrorKey to a new key (we want</span>
+      <span class="c1">// to replace it but don&#39;t want to lose potentially useful information)</span>
+      <span class="k">if</span> <span class="kd">let</span> <span class="nv">previousSuggestion</span> <span class="p">=</span> <span class="n">userInfo</span><span class="p">[</span><span class="n">NSLocalizedRecoverySuggestionErrorKey</span><span class="p">]</span> <span class="p">{</span>
+         <span class="n">userInfo</span><span class="p">[</span><span class="n">UnanticipatedErrorRecoveryAttempter</span><span class="p">.</span><span class="n">PreviousRecoverySuggestionKey</span><span class="p">]</span> <span class="p">=</span> <span class="n">previousSuggestion</span>
+      <span class="p">}</span>
+      
+      <span class="c1">// Attach a new NSLocalizedRecoverySuggestionErrorKey and our recovery attempter</span>
+      <span class="c1">// and options</span>
+      <span class="kd">let</span> <span class="nv">directory</span> <span class="p">=</span> <span class="p">((</span><span class="n">file</span> <span class="k">as</span> <span class="n">NSString</span><span class="p">).</span><span class="n">deletingLastPathComponent</span> <span class="k">as</span> <span class="n">NSString</span><span class="p">).</span><span class="n">lastPathComponent</span>
+      <span class="kd">let</span> <span class="nv">filename</span> <span class="p">=</span> <span class="p">(</span><span class="n">file</span> <span class="k">as</span> <span class="n">NSString</span><span class="p">).</span><span class="n">lastPathComponent</span>
+      <span class="kd">let</span> <span class="nv">suggestion</span> <span class="p">=</span> <span class="nb">String</span><span class="p">(</span><span class="n">format</span><span class="p">:</span> <span class="n">NSLocalizedString</span><span class="p">(</span><span class="s">&#34;The error occurred at line %ld of the %@/%@ file in the program&#39;s code.&#34;</span><span class="p">,</span>  <span class="n">comment</span><span class="p">:</span> <span class="s">&#34;&#34;</span><span class="p">),</span> <span class="n">line</span><span class="p">,</span> <span class="n">directory</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+      <span class="n">userInfo</span><span class="p">[</span><span class="n">NSLocalizedRecoverySuggestionErrorKey</span><span class="p">]</span> <span class="p">=</span> <span class="n">suggestion</span>
+      <span class="n">userInfo</span><span class="p">[</span><span class="n">NSLocalizedRecoveryOptionsErrorKey</span><span class="p">]</span> <span class="p">=</span> <span class="n">UnanticipatedErrorRecoveryAttempter</span><span class="p">.</span><span class="n">localizedRecoveryOptions</span><span class="p">()</span>
+      <span class="n">userInfo</span><span class="p">[</span><span class="n">NSRecoveryAttempterErrorKey</span><span class="p">]</span> <span class="p">=</span> <span class="n">UnanticipatedErrorRecoveryAttempter</span><span class="p">()</span>
+
+      <span class="c1">// Attach the call stack</span>
+      <span class="n">userInfo</span><span class="p">[</span><span class="n">UnanticipatedErrorRecoveryAttempter</span><span class="p">.</span><span class="n">ReturnAddressesKey</span><span class="p">]</span> <span class="p">=</span> <span class="n">callStackReturnAddresses</span><span class="p">()</span>
+
+      <span class="k">return</span> <span class="n">NSError</span><span class="p">(</span><span class="n">domain</span><span class="p">:</span> <span class="n">e</span><span class="p">.</span><span class="n">domain</span><span class="p">,</span> <span class="n">code</span><span class="p">:</span> <span class="n">e</span><span class="p">.</span><span class="n">code</span><span class="p">,</span> <span class="n">userInfo</span><span class="p">:</span> <span class="n">userInfo</span><span class="p">)</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Getting a little mileage out of my own code, this uses <code>callStackReturnAddresses</code> and <code>symbolsForCallStackAddresses</code> from <a href="../../02/28/stack-traces-in-swift.html">Tracing tasks with stack traces in Swift</a>.</p>
+
+<p>When the error this function returns is passed to <code>presentError</code> it will use the <code>NSRecoveryAttempterErrorKey</code> added to the <code>userInfo</code> dictionary.</p>
+
+<p>This <code>UnanticipatedErrorRecoveryAttempter</code> provides implementations for the <code>NSErrorRecoveryAttempting</code> methods and uses them to put an <code>OK</code> and <code>Copy details</code> button in the <code>presentError</code> dialog and when the <code>Copy details</code> button is pressed, generates a string to put on the <code>generalPasteboard</code> using the following function:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">private</span> <span class="kd">func</span> <span class="nf">extendedErrorInformation</span><span class="p">(</span><span class="kc">_</span> <span class="n">error</span><span class="p">:</span> <span class="n">NSError</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">String</span> <span class="p">{</span>
+   <span class="kd">var</span> <span class="nv">userInfo</span> <span class="p">=</span> <span class="n">error</span><span class="p">.</span><span class="n">userInfo</span>
+   
+   <span class="c1">// Fetch and format diagnostic information for display</span>
+   <span class="kd">let</span> <span class="nv">callStackSymbols</span> <span class="p">=</span> <span class="p">(</span><span class="n">userInfo</span><span class="p">[</span><span class="n">UnanticipatedErrorRecoveryAttempter</span><span class="p">.</span><span class="n">ReturnAddressesKey</span><span class="p">]</span> <span class="k">as</span><span class="p">?</span> <span class="p">[</span><span class="nb">UInt</span><span class="p">]).</span><span class="bp">map</span> <span class="p">{</span> <span class="n">symbolsForCallStack</span><span class="p">(</span><span class="n">addresses</span><span class="p">:</span> <span class="nv">$0</span><span class="p">).</span><span class="n">joined</span><span class="p">(</span><span class="n">separator</span><span class="p">:</span> <span class="s">&#34;</span><span class="se">\n</span><span class="s">&#34;</span><span class="p">)</span> <span class="p">}</span> <span class="p">??</span> <span class="n">NSLocalizedString</span><span class="p">(</span><span class="s">&#34;(Call stack unavailable)&#34;</span><span class="p">,</span>  <span class="n">comment</span><span class="p">:</span> <span class="s">&#34;&#34;</span><span class="p">)</span>
+   <span class="kd">let</span> <span class="nv">localizedDescription</span> <span class="p">=</span> <span class="n">error</span><span class="p">.</span><span class="n">localizedDescription</span>
+   <span class="kd">let</span> <span class="nv">localizedRecoverySuggestion</span> <span class="p">=</span> <span class="n">error</span><span class="p">.</span><span class="n">localizedRecoverySuggestion</span> <span class="p">??</span> <span class="s">&#34;&#34;</span>
+   <span class="kd">let</span> <span class="nv">applicationName</span> <span class="p">=</span> <span class="p">(</span><span class="n">Bundle</span><span class="p">.</span><span class="n">main</span><span class="p">.</span><span class="n">infoDictionary</span><span class="p">?[</span><span class="n">kCFBundleNameKey</span> <span class="k">as</span> <span class="nb">String</span><span class="p">]</span> <span class="k">as</span><span class="p">?</span> <span class="nb">String</span><span class="p">)</span> <span class="p">??</span> <span class="n">ProcessInfo</span><span class="p">.</span><span class="n">processInfo</span><span class="p">.</span><span class="n">processName</span>
+   <span class="kd">let</span> <span class="nv">applicationVersion</span> <span class="p">=</span> <span class="p">(</span><span class="n">Bundle</span><span class="p">.</span><span class="n">main</span><span class="p">.</span><span class="n">infoDictionary</span><span class="p">?[</span><span class="n">kCFBundleVersionKey</span> <span class="k">as</span> <span class="nb">String</span><span class="p">]</span> <span class="k">as</span><span class="p">?</span> <span class="nb">String</span><span class="p">)</span> <span class="p">??</span> <span class="n">NSLocalizedString</span><span class="p">(</span><span class="s">&#34;(App version unavailable)&#34;</span><span class="p">,</span>  <span class="n">comment</span><span class="p">:</span> <span class="s">&#34;&#34;</span><span class="p">)</span>
+   <span class="kd">let</span> <span class="nv">locales</span> <span class="p">=</span> <span class="n">Locale</span><span class="p">.</span><span class="n">preferredLanguages</span><span class="p">.</span><span class="n">joined</span><span class="p">(</span><span class="n">separator</span><span class="p">:</span> <span class="s">&#34;, &#34;</span><span class="p">)</span>
+   <span class="kd">let</span> <span class="nv">machineInfo</span> <span class="p">=</span> <span class="s">&#34;</span><span class="si">\(</span><span class="n">Sysctl</span><span class="p">.</span><span class="n">machine</span><span class="si">)</span><span class="s">/</span><span class="si">\(</span><span class="n">Sysctl</span><span class="p">.</span><span class="n">model</span><span class="si">)</span><span class="s">, </span><span class="si">\(</span><span class="n">ProcessInfo</span><span class="p">.</span><span class="n">processInfo</span><span class="p">.</span><span class="n">operatingSystemVersionString</span><span class="si">)</span><span class="s">&#34;</span>
+   
+   <span class="c1">// Remove already handled keys from the userInfo. Anything not yet handled will be output as part of the diagnostic information.</span>
+   <span class="n">userInfo</span><span class="p">.</span><span class="n">removeValue</span><span class="p">(</span><span class="n">forKey</span><span class="p">:</span> <span class="n">NSLocalizedRecoverySuggestionErrorKey</span><span class="p">)</span>
+   <span class="n">userInfo</span><span class="p">.</span><span class="n">removeValue</span><span class="p">(</span><span class="n">forKey</span><span class="p">:</span> <span class="n">NSLocalizedRecoveryOptionsErrorKey</span><span class="p">)</span>
+   <span class="n">userInfo</span><span class="p">.</span><span class="n">removeValue</span><span class="p">(</span><span class="n">forKey</span><span class="p">:</span> <span class="n">NSRecoveryAttempterErrorKey</span><span class="p">)</span>
+   <span class="n">userInfo</span><span class="p">.</span><span class="n">removeValue</span><span class="p">(</span><span class="n">forKey</span><span class="p">:</span> <span class="n">UnanticipatedErrorRecoveryAttempter</span><span class="p">.</span><span class="n">PreviousRecoverySuggestionKey</span><span class="p">)</span>
+   <span class="n">userInfo</span><span class="p">.</span><span class="n">removeValue</span><span class="p">(</span><span class="n">forKey</span><span class="p">:</span> <span class="n">UnanticipatedErrorRecoveryAttempter</span><span class="p">.</span><span class="n">ReturnAddressesKey</span><span class="p">)</span>
+   
+   <span class="k">return</span> <span class="s">&#34;</span><span class="si">\(</span><span class="n">applicationName</span><span class="si">)</span><span class="s">/</span><span class="si">\(</span><span class="n">applicationVersion</span><span class="si">)</span><span class="s">, </span><span class="si">\(</span><span class="n">machineInfo</span><span class="si">)</span><span class="s">, </span><span class="si">\(</span><span class="n">locales</span><span class="si">)</span><span class="se">\n\n</span><span class="si">\(</span><span class="n">localizedDescription</span><span class="si">)</span><span class="se">\n</span><span class="si">\(</span><span class="n">localizedRecoverySuggestion</span><span class="si">)</span><span class="se">\n\n</span><span class="si">\(</span><span class="n">error</span><span class="p">.</span><span class="n">domain</span><span class="si">)</span><span class="s">: </span><span class="si">\(</span><span class="n">error</span><span class="p">.</span><span class="n">code</span><span class="si">)</span><span class="s">. </span><span class="si">\(</span><span class="n">userInfo</span><span class="si">)</span><span class="se">\n\n</span><span class="si">\(</span><span class="n">callStackSymbols</span><span class="si">)</span><span class="s">&#34;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This includes &ldquo;machine&rdquo; and &ldquo;model&rdquo; information, generated as described in my earlier article <a href="../../03/08/swift-wrapper-for-sysctl.html">Gathering system information in Swift with sysctl</a>.</p>
+
+<h2 id="usage">Usage</h2>
+
+<blockquote>
+<p>The code presented in this article is part of the <a href="https://github.com/mattgallagher/CwlUtils/blob/master/Sources/CwlUtils/CwlUnanticipatedError.swift?ts=3">CwlUnanticipatedError.swift file</a> in my <a href="https://github.com/mattgallagher/CwlUtils">CwlUtils project on Github</a>.</p>
+</blockquote>
+
+<p>The <a href="https://github.com/mattgallagher/CwlUtils/blob/master/README.md">ReadMe.md file for the project</a> contains detailed information on cloning the whole repository and adding the framework it produces to your own projects.</p>
+
+<p>If you want to play with the example error handling code used in this article, it is part of the &ldquo;CwlUtils_OSXHarness&rdquo; and &ldquo;CwlUtils_iOSHarness&rdquo; targets which each produce a basic app with some buttons to trigger errors.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>This article discussed two key points:</p>
+
+<ol>
+<li>The importance of propagating errors all the way back to their origin</li>
+<li>Using an error that embeds an <code>NSErrorRecoveryAttempting</code> implementation for diagnostic purposes</li>
+</ol>
+
+<p>Combined with some wrapper functions, Swift&rsquo;s error handling and Cocoa&rsquo;s error reporting capabilities, these two techniques provide a solid base level of error management that you can start to use, even at a hastily implemented prototype stage, and iteratively replace with better error handling and reporting as needed.</p>
+
+<p>In a fully-tested program, this type of error reporting is not what the user should see. The presence of line numbers and mention of the &ldquo;program&rsquo;s code&rdquo; is a cue to any mildy savvy user that this dialog is diagnostic tool, not a deliberate feature. While the user may be able to use the information contained to resolve the problem on their own, they are hinted to provide the information under the &ldquo;Copy details&rdquo; button through appropriate support channels if the problem persists.</p>
+
+		</div>
+	</article>
+</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../01/neither-tabs-nor-spaces.html">Indent with tabs or spaces? I wish I didn&#39;t need to know.</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../../05/01/swift-name-demangling.html">Comparing Swift to C&#43;&#43; for parsing</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../../../feed.json">JSON</a>, <a href="../../../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Core Data</title>
+  <meta name="description" content="" />
+
+  <meta name="twitter:title" content="Core Data"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/categories/core-data.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content=""/>
+
+  <link rel="icon" href="../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../css/main.css" />
+  <link rel="canonical" href="core-data.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../index.html"><img class="heartandcup" src="../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../about/index.html">about</a>
+        <a class="page-link" href="../archive/index.html">archive</a>
+        <a class="page-link" href="../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../assets/site/banner.svg" width="720px" height="118px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+		<h1 class="list-title">Articles tagged "Core Data"</h1>
+
+<ul class="post-list">
+	
+      <li>
+    <h2><a class="post-link" href="../2010/02/differences-between-core-data-and.html">The differences between Core Data and a Database</a></h2>
+    <p class="post-meta">Feb 16, 2010 (an Objective-C era article)</p>
+    <div class="content">The Core Data Programming Guide clearly states that Core Data is not a database but since both Core Data and a database are ways of providing searchable, persistent storage, exactly how and why they are different may not be clear. In this post, I'll look at the way Core Data works and the reasons why its features and capabilities are different to those of common SQL databases &mdash; even though an SQL database may be used as the backing store.</div>
+    <div class="read-more"><a href="../2010/02/differences-between-core-data-and.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2009/11/writing-parser-using-nsscanner-csv.html">Writing a parser using NSScanner (a CSV parsing example)</a></h2>
+    <p class="post-meta">Nov 30, 2009 (an Objective-C era article)</p>
+    <div class="content">Comma-separated value (CSV) files are one of the most commonly used data formats for exchanging rows of simple data. There are many implementations of CSV parsing for Cocoa strings but the purpose of this post is to use the example of an RFC4180 compliant CSV parser implementation to show you the basics of writing a recursive descent parser for importing data into your Cocoa applications.</div>
+    <div class="read-more"><a href="../2009/11/writing-parser-using-nsscanner-csv.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2009/11/performance-tests-replacing-core-data.html">Performance tests: Replacing Core Data Key Paths</a></h2>
+    <p class="post-meta">Nov 21, 2009 (an Objective-C era article)</p>
+    <div class="content">In Mac OS X 10.5, Core Data switched from using <code>valueForKey:</code> as the recommended way to access Core Data attributes and relationships to auto-generated accessor methods. This new approach is faster for fetching values but lacks <code>NSKeyValueCoding</code>'s ability to coalesce the values extracted from every object in a "to-many" relationship in a single statement. In this post, I'll look at replacing the <code>NSSet</code> traversal and <code>NSSet</code> coalescing abilities offered by <code>NSKeyValueCoding</code> with an approach that invokes accessor methods directly to see if I can bring some of the performance improvement of auto-generated accessor methods to situations involving <code>NSSet</code> traversals.</div>
+    <div class="read-more"><a href="../2009/11/performance-tests-replacing-core-data.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2009/01/serving-nsmanagedobjectcontext-over.html">Serving an NSManagedObjectContext over an NSConnection</a></h2>
+    <p class="post-meta">Jan 5, 2009 (an Objective-C era article)</p>
+    <div class="content">In this post, I'll show you how you can serve a Core Data document over a network using NSConnection. This arrangement will never be as efficient or safe as writing your own code to communicate the data over the network but the promise of transparent and automatic networking seemed too tempting to pass up.</div>
+    <div class="read-more"><a href="../2009/01/serving-nsmanagedobjectcontext-over.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2008/08/safely-fetching-nsmanagedobject-by-uri.html">Safely fetching an NSManagedObject by URI</a></h2>
+    <p class="post-meta">Aug 24, 2008 (an Objective-C era article)</p>
+    <div class="content">If you need to store a reference to an NSManagedObject outside of an NSManagedObjectContext, then you'll need to convert NSManagedObjects to URIs and back again. At first glance it looks like a simple method will do all the work for you but in reality you must be careful when getting the object back. I'll show you the way to convert an object to a URI and get it back safely.</div>
+    <div class="read-more"><a href="../2008/08/safely-fetching-nsmanagedobject-by-uri.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2008/06/speed-test-nsmanagedobject-objc-20.html">Speed test: NSManagedObject ObjC-2.0 accessors</a></h2>
+    <p class="post-meta">Jun 13, 2008 (an Objective-C era article)</p>
+    <div class="content">A quick, relative-performance test of the 3 ways of accessing NSManagedObject properties in Leopard.</div>
+    <div class="read-more"><a href="../2008/06/speed-test-nsmanagedobject-objc-20.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2008/06/five-approaches-to-listening-observing.html">Five approaches to listening, observing and notifying in Cocoa.</a></h2>
+    <p class="post-meta">Jun 7, 2008 (an Objective-C era article)</p>
+    <div class="content">Here are five different ways to implement the Observer design pattern (sometimes called Broadcaster/Listener, Publish/Subscribe or Notifications) in Objective-C and some reasons why each approach can be valuable.</div>
+    <div class="read-more"><a href="../2008/06/five-approaches-to-listening-observing.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2008/04/propagate-deletes-immediately-in-core.html">Propagate deletes immediately in Core Data</a></h2>
+    <p class="post-meta">Apr 25, 2008 (an Objective-C era article)</p>
+    <div class="content">Learn some limitations associated with cascading deletes in Core Data and find out how to immediately propagate deletes in Core Data, overcoming these potential problems.</div>
+    <div class="read-more"><a href="../2008/04/propagate-deletes-immediately-in-core.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2008/03/testing-core-data-with-very-big.html">Testing Core Data with very big hierarchical data sets</a></h2>
+    <p class="post-meta">Mar 28, 2008 (an Objective-C era article)</p>
+    <div class="content">I test Core Data's performance with a one million object data set stored in a basic three-tiered hierarchy. I look at the performance when building, loading, fetching and traversing.</div>
+    <div class="read-more"><a href="../2008/03/testing-core-data-with-very-big.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+      <li>
+    <h2><a class="post-link" href="../2008/03/core-data-one-line-fetch.html">Core Data: one line fetch</a></h2>
+    <p class="post-meta">Mar 7, 2008 (an Objective-C era article)</p>
+    <div class="content">It's a lot easier to get your data out of Core Data than the documentation will tell you. This simple 1-line fetch will work just as well as Apple's suggested 10-line approach for most uses.</div>
+    <div class="read-more"><a href="../2008/03/core-data-one-line-fetch.html" rel="full-article">Read more...</a></div>
+ </li>
+
+    
+</ul>
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../feed.json">JSON</a>, <a href="../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>An RSS-feed and location-based iOS application</title>
+  <meta name="description" content="The purpose of this post is so that I will have a link to give people when they ask: how do I write an iOS application that pulls data from an RSS feed, displays it pretty and can put things on a map. I&#39;ll show you all of that and more as I rewrite my oldest iOS application from scratch: FuelView." />
+
+  <meta name="twitter:title" content="An RSS-feed and location-based iOS application"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2011/06/process-of-writing-ios-application.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="The purpose of this post is so that I will have a link to give people when they ask: how do I write an iOS application that pulls data from an RSS feed, displays it pretty and can put things on a map. I&#39;ll show you all of that and more as I rewrite my oldest iOS application from scratch: FuelView."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="process-of-writing-ios-application.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="118px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">An RSS-feed and location-based iOS application</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2011-06-19">June 19, 2011</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/object-oriented-design.html">object-oriented design</a>, <a href="../../categories/uikit.html">UIKit</a>, <a href="../../categories/graphics.html">graphics</a>, <a href="../../categories/coregraphics.html">CoreGraphics</a>, <a href="../../categories/cocoa-touch.html">Cocoa Touch</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>The purpose of this post is so that I will have a link to give people when they ask: how do I write an iOS application that pulls data from an RSS feed, displays it pretty and can put things on a map. I'll show you all of that and more as I rewrite my oldest iOS application from scratch: FuelView.</p></span><span class="fullpost"><blockquote>The app presented in this post, <a href="http://itunes.apple.com/au/app/fuelview/id290932924?mt=8">FuelView, is freely available on the Australian App Store</a>.</blockquote><h2>Introduction</h2><p>I am commonly asked to write a post where I show a basic "pull data from the network and display" application.</p><p>But I think "basic" is boring and I try to avoid it in my blog posts. Instead, I decided to rewrite an application that <em>looks</em> simple but actually has a deceptively large amount of work to perform. It's a far better example of a real-world iOS application since there should always be enough work done transparently by your application that it leaves the user with a "Wow!"</p><p>The actual application is only 3 screens. While a truly simple three screen application might take about 2-3 hours per screen to implement (even if you're just stumbling your way through), this program actually took me about twice that time to implement (around 15 hours or two full days of programming) and I definitely knew what I was doing, since I've written the entire program before.</p><p>If you're curious though, in its first incarnation, this program took me 2 weeks to fully implement &mdash; way back in July 2008. It was the first program I ever tried to write for iPhone OS 2.0 and I did a lot of things the wrong way. Having a vague idea what you're trying to do really does make a 5 to 10 times difference to implementation time and unfortunately, the only way to learn is to stumble headlong into things and run the risk of getting everything wrong the first time.</p><p>There's a reason why this version is a rewrite from scratch.</p><h2>Useful code in this post</h2><p>While the application in this post is only directly useful to people living in Western Australia, I think this is a <em>really</em> interesting project as it contains a lot of very useful snippets of code (some of which I've written posts on before) including:</p><ul><li><strong>An iOS version of my Gloss Gradient drawing code</strong> (you can see the Mac version in <a href="../../2008/09/drawing-gloss-gradients-in-coregraphics.html">Drawing gloss gradients in CoreGraphics</a>)</li><li><strong>Two persistent stores with one <code>NSPersistentStoreCoordinator</code></strong>. It seems like a strange scenario that would only be needed in strange situations but the use case turns out to be really common.</li><li><strong>A full set of "single line Core Data fetch" methods</strong> (something I've previously written about in <a href="../../2008/03/core-data-one-line-fetch.html">Core Data: one line fetch</a>)</li><li><strong>Getting the GPS location</strong> (which you can also see in my earlier posts: <a href="../../2009/09/whereismymac-snow-leopard-corelocation.html">WhereIsMyMac, a Snow Leopard CoreLocation project</a> and <a href="../../2009/12/sample-iphone-application-with-complete.html">A sample iPhone application with complete unit tests</a>)</li><li><strong>Pulling data from an RSS feed</strong> (using my <code>XMLFetcher</code> class from <a href="../05/classes-for-fetching-and-parsing-xml-or.html">Classes for fetching and parsing XML or JSON via HTTP</a>)</li><li><strong>Caching data in the Application Support directory</strong> (using a <code>DirectoryLocations</code> category from <a href="../../2010/05/finding-or-creating-application-support.html">Finding or creating the application support directory</a>)</li><li><strong>Function to create a two point <code>CGGradientRef</code> from two <code>UIColors</code></strong> (another in a long list of convenience functions that I'm surprised aren't part of Cocoa)</li><li><strong>An example of using a category as an Adapter interface</strong> (something I discussed in <a href="../../2008/05/adapter-interfaces-in-objective-c-using.html">Adapter interfaces in Objective-C, using categories</a> without giving any concrete examples)</li><li><strong>Scrolling a text field that isn't in a table</strong> (a similar idea but different implementation to my earlier post <a href="../../2008/10/sliding-uitextfields-around-to-avoid.html">Sliding <code>UITextFields</code> around to avoid the keyboard</a>)</li><li><strong>A Core Data Postcode database</strong> (originally created from a CSV file as shown in <a href="../../2009/11/writing-parser-using-nsscanner-csv.html">Writing a parser using <code>NSScanner</code></a>)</li><li><strong>A flexible, reusable controller/table/cell structure</strong> (as I discussed in <a href="../../2010/12/uitableview-construction-drawing-and.html"><code>UITableView</code> construction, drawing and management</a>)</li><li><strong>A <code>CheckmarkCell</code> that self-manages radio button style selection</strong> (without the <code>UITableViewController</code> needing to do anything when the cell is selected, the cells in the section will automatically ensure only one is selected at a time)</li><li><strong>Forward geocoding using Google's Maps API</strong> (<code>MKReverseGeocoder</code> goes the other way but a non-Cocoa approach is needed to go from an address to longitude/latitude)</li></ul><p>Plus a whole lot more. It really is a densely packed little program.</p><blockquote><strong>So where is all the "useful code"?</strong> If you skip forward to the second last section, I reveal where in the program you can find all of these code samples.</blockquote><h2>About FuelView</h2><p>FuelView is an application for getting fuel (petrol/gasoline, diesel, etc) prices in Western Australia. It pulls its information from an RSS feed provided by the <a href="http://www.fuelwatch.wa.gov.au/">Western Australian government's "Fuel Watch" scheme</a> that provides fuel prices for all stations in that state.</p><p>(No, I don't live in Western Australia &mdash; I'm on the opposite coast of Australia &mdash; but it seemed like a good idea for an iPhone app at the time.)</p><p>The application looks like this:</p><img src="../../assets/objc-era/fuelviewscreenshots.png" width="552" height="358" /><blockquote><strong>Download the complete project associated with this post: <a href="../../assets/objc-era/FuelView.zip">FuelView.zip</a> (330kb).</strong><br/><br/><strong>Note:</strong> the code is all freely available under a zlib-style license but this license does <em>not</em> extend to the other assets. You may not use the icons or application name in your own programs.<br/><br/>
+The previous version of FuelView (1.1.10 is available for free from the iTunes App Store in Australia. I'll be resubmitting this version (probably 1.2) in a week or two.</blockquote><h2>Deceptive complexity</h2><p>It all looks very simple; you get the location from the GPS, you pull the correct RSS feed for the location, stick pins in a map for the result.</p><p>If that were the actual number of steps involved, it would be great. However, it's not so simple. Let's take a quick look at the issues that will cause the most trouble for this program.</p><h3>User location issues</h3><p>The GPS gives latitude/longitude but the getting the RSS requires a Western Australian suburb name. In order to make this work, you need to be able to look up all the Western Australian suburbs and find the nearest one for your longitude/latitude. This requires a database of suburb names and their longitude/latitude and some code to search this.</p><p>Additionally, I want to be able to let the user specify a postcode for their location instead of using the GPS. Again, I need to be able to look up the suburb name for the postcode. Additionally, any code that requires the user's location must be able to tolerate the location being a postcode, not a raw longitude latitude.</p><p>A further complication arises because the FuelWatch RSS feed only exists for "larger" suburbs. Names of smaller suburbs can't be used, so the list of suburbs must be filtered to match the list that the FuelWatch website recognizes.</p><h3>Station location issues</h3><p>The RSS feed gives the fuel station locations as street addresses but I need longitude and latitudes for them so I can stick pins in the map or calculate the distance between the user and the station.</p><p>While this is a similar problem to resolving the user's location, it is actually trickier since new stations appear all the time, so this database must be dynamic (unlike the static postcode database).</p><p>I need to actually perform geocoding of fuel stations but there's a problem: Google's APIs are highly restrictive about how often you can make requests. The only way to avoid problems is to pre-populate the database and then have users only perform forward geocoding requests when an unknown fuel station appears and immediately add the new station to the database.</p><h3>Custom drawing</h3><p>Then I have the more straightforward complexity of custom drawing. I want to have most of the interface follow a custom aesthetic (because plain is boring) and that takes time and effort. I also need to ensure that drawing and layout function properly on an iPad and an iPhone.</p><h2>The real design of the program</h2><img src="../../assets/objc-era/locationsavailable.png" width="200" height="300" /><blockquote><strong>Maps Key Note</strong>: I have removed my Google Maps API key from the code. If you want to use this code, you'll need to apply for your own Google Maps API key and set it the <code>MapsKey</code> at the top of the LocationsController.m file.</blockquote><h2>Fifth implementation iteration</h2><p>Implementing the <code>SettingsViewController</code> to switch fuel types and the <code>MapsViewController</code> to show the current array of results on a map turns out to be very simple. There's not a significant amount of complexity in either of these views.</p><h2>Design Mistake #2</h2><p>One point to notice in the implementation of the <code>MapViewController</code> is that I needed to implement an "Adapter category" on <code>NSDictionary</code> to allow the <code>NSDictionary</code> to respond to the <code>MKAnnotion</code> protocol so I could use the dictionaries to display the pins in the map.</p><p>How is this a design mistake?</p><p>Needing to put categories on generic classes like this is an indication that you probably should have used a dedicated class to contain your data. The results in the program should not be generic <code>NSDictionary</code> objects.</p><p>Until this point, the "generic"-ness of the main data type in the program has been ignored. The reality though is that the construction of <code>NSDictionary</code> results from <code>XPathResultNodes</code> and the resolving of station location for each result has been handled by the <code>ResultsViewController</code> &mdash; this is all work that a <code>Result</code> class should be performing for itself instead of using a generic <code>NSDictionary</code> class and making the <code>ResultViewController</code> handle all the work.</p><p>But ad hoc trickery like adding categories to generic container classes is a big flag that you've forgotten to use a custom class for objects that genuinely need their own behaviors. If you find yourself needing something like this: replace the generic container with a proper custom class.</p><p>I'm <em>not</em> saying that adapter categories are a bad idea. Sometimes you can't or shouldn't change the underlying class &mdash; in this case and adapter is a <em>good</em> thing. But here in FuelView I can change the 
+underlying class and should, in order to reduce the code burden on our controllers.
+
+<h2>So where is all the "useful code"?</h2><strong>An iOS version of my Gloss Gradient drawing code</strong><p>The GlossGradients.m code is in the project. It's very similar to the original code except that there aren't HSV conversion methods on <code>UIColor</code> like there is on <code>NSColor</code>, so I've had to write these methods myself. It is used in the <code>ResultsView</code> drawing code.</p><strong>Two persistent stores with one <code>NSPersistentStoreCoordinator</code></strong><p>The <code>LocationsController</code> uses two different persistent stores: a read-only store inside the application bundle that is shipped with the application contains the pre-supplied results for station lookups. But the application bundle can't be changed, so I create a read-write store in the Application Support directory. The <code>NSPersistentStoreCoordinator</code> is smart enough to save the store to the correct location automatically.</p><strong>A full set of "single line Core Data fetch" methods</strong><p>The NSManagedObjectContext+FetchAdditions.m file contains a range of different fetch request creation methods and single line fetching implementations (for set, array and single object results). It is used in the <code>LocationsController</code> and the <code>PostcodesController</code> to perform the actual queries on the Core Data context.</p><strong>Getting the GPS location</strong><p>The <code>ResultsViewController</code> operates as a <code>CLLocationManagerDelegate</code>. The location receiving code is pretty simple but I think the error handling code in locationFailedWithCode: is more interesting.</p><strong>Pulling data from an RSS feed</strong><p>Of course, an RSS feed is just XML. We're after the &lt;item&gt; nodes in the result so I use an <code>XMLFetcher</code> to with an XPath query of "//item". You can see this in the <code>setLocation:</code> method and the response is handled in the <code>responseReceived:</code> method (the <code>XPathQueryNodes</code> are turned into an <code>NSDictionary</code>).</p><strong>Caching data in the Application Support directory</strong><p>The application support directory is accessed/created in the <code>persistentStoreCoordinator</code> method of the <code>LocationsController</code>. As I said above, this is for writing extra Locations to the Locations Core Data context.</p><strong>Function to create a two point CGGradientRef from two UIColors</strong><p>The function <code>TwoPointGradient</code> is pretty simple; it just creates a <code>CGGradientRef</code> taking two <code>UIColors</code> to use as the endpoints of the gradient. However, it's 23 lines of code that don't need to be retyped in the <code>ResultCellBackground</code>, <code>ResultView</code> and the <code>PageCellBackground</code>.</p><strong>An example of using a category as an Adapter interface</strong><p>Putting an adapter on a generic container class is a bad idea if you can easily change the class to something of your own implementation. But this is still an example of adapting a class' interface to suit your own needs &mdash; something that is very useful when you don't have control over the underlying class.</p><strong>Scrolling a text field that isn't in a table</strong><p>The manually entered postcode is in a text field on a <code>UIToolbar</code> and when the keyboard appears, the entire <code>UIToolbar</code> scrolls up with the keyboard. This behavior is handled by the <code>PageViewController</code> (everything below the "Handle the sliding/scrolling of the view when the keyboard appears" pragma except the dealloc method). The <code>PageViewController</code> needs to be set as the delegate of the <code>UITextField</code> for this to work.</p><strong>A Core Data Postcode database</strong><p>The <code>PostcodesController</code> shows how to implement a static data store using Core Data. I think I could probably write a base-class for this type of singleton that would dramatically reduce the common code between the <code>PostcodesController</code> and the <code>LocationsController</code>.</p><strong>A flexible, reusable controller/table/cell structure</strong><p>The <code>PageViewController</code>, <code>PageCell</code>, all the view controllers and all the table cells are directly based on the code I presented in <a href="../../2010/12/uitableview-construction-drawing-and.html">UITableView construction, drawing and management</a>.</p><strong>A <code>CheckmarkCell</code> that self-manages radio button style selection</strong><p>It's strongly reliant on the <code>PageViewController</code> and <code>PageCell</code> classes but the <code>CheckmarkCell</code> shows an easy way (easy for the rest of the program) to manage a section in a table where only one row can be selected.</p><strong>Forward geocoding using Google's Maps API</strong><p>The <code>locationForAddress:receiver:</code> method in <code>LocationsController</code> performs an XML request on Googles Maps API to forward geocode addresses into longitude and latitude (the response is handled in <code>mapsResponseReceived:</code>). Again: you'll need your own Maps API Key to make this work.</p><h2>Conclusion</h2><blockquote><strong>Download the complete project associated with this post: <a href="../../assets/objc-era/FuelView.zip">FuelView.zip</a> (330kb).</strong><br/><br/><strong>Note:</strong> the code is all freely available under a zlib-style license but this license does <em>not</em> extend to the other assets. You may not use the icons or application name in your own programs.<br/><br/>
+The app presented in this post, <a href="http://itunes.apple.com/au/app/fuelview/id290932924?mt=8">FuelView, is freely available on the Australian App Store</a>.</blockquote><p>I did this rewrite of FuelView for three reasons:</p><ul><li>I hadn't written any code at work for a week or two &mdash; I needed to scratch my codemonkey itch with a few hours of actual programming instead of meetings and documentation.</li><li>Preparing code like this for my blog motivates me to review my reusable classes and make them more presentable.</li><li>I'm often asked to show an iOS program that pulls data from an RSS feed.</li></ul><p>The first two points are entirely for my own purposes and went fine, thanks.</p><p>On the third point &mdash; this is definitely code that pulls from an RSS feed. I hope the scale of the program doesn't make it hard to see how the basics work. In addition to RSS feed handling though, there's lot of other code here so I hope there's something here for programmers at a range of different skill levels.</p></span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../05/classes-for-fetching-and-parsing-xml-or.html">Classes for fetching and parsing XML or JSON via HTTP</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="big-weakness-of-objective-c-weak-typing.html">A big weakness in Objective-C&#39;s weak typing</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

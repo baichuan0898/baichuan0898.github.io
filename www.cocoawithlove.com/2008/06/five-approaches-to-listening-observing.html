@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Five approaches to listening, observing and notifying in Cocoa.</title>
+  <meta name="description" content="Here are five different ways to implement the Observer design pattern (sometimes called Broadcaster/Listener, Publish/Subscribe or Notifications) in Objective-C and some reasons why each approach can be valuable." />
+
+  <meta name="twitter:title" content="Five approaches to listening, observing and notifying in Cocoa."/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2008/06/five-approaches-to-listening-observing.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Here are five different ways to implement the Observer design pattern (sometimes called Broadcaster/Listener, Publish/Subscribe or Notifications) in Objective-C and some reasons why each approach can be valuable."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="five-approaches-to-listening-observing.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Five approaches to listening, observing and notifying in Cocoa.</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2008-06-07">June 7, 2008</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/core-data.html">Core Data</a>, <a href="../../categories/object-oriented-design.html">object-oriented design</a>, <a href="../../categories/appkit.html">AppKit</a>, <a href="../../categories/foundation.html">Foundation</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>Here are five different ways to implement the Observer design pattern (sometimes called Broadcaster/Listener, Publish/Subscribe or Notifications) in Objective-C and some reasons why each approach can be valuable.</p></span>
+
+<span class="fullpost">
+<p>This post will cover:</p>
+<ul>
+<li>Manual broadcaster and listeners</li>
+<li>Key Value Observing </li>
+<li>Notification centers </li>
+<li>Context notifications</li>
+<li>Delegates used for observing</li></ul>
+
+<h2>About Observer</h2>
+
+<p>The <a href="http://en.wikipedia.org/wiki/Observer_pattern">observer design pattern</a> is one of the most powerful ways of maintaining abstraction between two modules. The observer design pattern involves one module that declares an event that has occurred and any number of other modules which then choose to respond to this event. It differs from the first module directly invoking the methods of a second module because the first module doesn't need to care about how many observers it has, allowing more complete abstraction between the observee and its observers.</p>
+
+<h2>Manual broadcaster and listeners</h2>
+<p>The manual approach is where the broadcaster maintains an <span class="monospace">NSArray</span> or <span class="monospace">NSSet</span> of listeners. When it is appropriate to notify the listeners of an event, the broadcaster invokes the relevant method directly on each listener.</p>
+
+<p>You will need an <span class="monospace">NSMutableArray</span>, <span class="monospace">NSSet</span> or maybe an <span class="monospace">NSMutableDictionary</span> on the broadcaster class. The latter is good if you want to "key" each of your listeners by some type of event identifier. You'll also need methods on the broadcaster so that listeners can register and unregister themselves.</p>
+
+<p>Sending a message to every object in an <span class="monospace">NSArray</span> or <span class="monospace">NSSet</span> is as simple as:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">[</span><span class="n">listenersCollection</span>
+    <span class="nl">makeObjectsPerformSelector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="n">methodSupportedByEveryListener</span><span class="p">)];</span></code></pre></div>
+
+<p>See <a href="http://developer.apple.com/documentation/Cocoa/Conceptual/Collections/Collections.html">Collections Programming Topics for Cocoa</a> for more.</p>
+
+<p><strong>Advantages</strong>: the broadcaster has complete control over its list of listeners. <strong>Disadvantages</strong>: manual work to add and remove listeners from the collection (especially if it is not already maintained for a different reason). More manual work if different types of message need to be broadcast.</p>
+
+<h2>Key Value Observing</h2>
+
+<p>The <span class="monospace">NSKeyValueObserving</span> protocol goes a long way towards making the above process significantly automatic. In many cases, the broadcaster doesn't need to do anything.</p>
+
+<p>Every object in Cocoa automatically handles <span class="monospace">addObserver:forKeyPath:options:context:</span> which allows any object to be a broadcaster. If the "setter" methods on the broadcaster follow certain rules, the "setter" method will automatically trigger the <span class="monospace">observeValueForKeyPath:ofObject:change:context:</span> method on any listener. For example:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">[</span><span class="n">source</span>
+    <span class="nl">addObserver</span><span class="p">:</span><span class="n">destination</span>
+    <span class="nl">forKeyPath</span><span class="p">:</span><span class="s">@&#34;myValue&#34;</span>
+    <span class="nl">options</span><span class="p">:</span><span class="n">NSKeyValueChangeNewKey</span>
+    <span class="nl">context</span><span class="p">:</span><span class="nb">nil</span><span class="p">];</span></code></pre></div>
+
+<p>will add an observer to the "<span class="monospace">source</span>" object so that it will send an <span class="monospace">observeValueForKeyPath:ofObject:change:context:</span> message to <span class="monospace">destination</span> every time the <span class="monospace">setMyValue:</span> method is invoked.</p>
+
+<p>All you need to do is have every listener register themselves with the observee and have the listeners implement <span class="monospace">observeValueForKeyPath:ofObject:change:context:</span>.</p>
+
+<p>See <a href="http://developer.apple.com/documentation/Cocoa/Reference/Foundation/Protocols/NSKeyValueObserving_Protocol/Reference/Reference.html">NSKeyValueObserving Protocol Reference</a> for more.</p>
+
+<p><strong>Advantages</strong>: built in and automatic. Observation can be of any key path. Supports dependent notifications. <strong>Disadvantages</strong>: not possible for the broadcaster to know who is listening. Methods must follow naming convention for automatic observation messages to work. Listeners must be removed as observers before they are deleted, otherwise subsequent notifications will result in crashing and failure &mdash; but this is true of all approaches listed in this post.</p>
+
+<h2>Notification centers</h2>
+
+<p><span class="monospace">NSNotificationCenter</span> provides an approach which is further decoupled. The typical approach used with <span class="monospace">NSNotificationCenter</span> is that any object can send a notification to the center. At the same time, any object could be listening for notifications on that center.</p>
+
+<p>Sending a notification looks like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">[[</span><span class="n">NSNotificationCenter</span> <span class="n">defaultCenter</span><span class="p">]</span>
+    <span class="nl">postNotificationName</span><span class="p">:</span><span class="s">@&#34;myNotificationName&#34;</span>
+    <span class="nl">object</span><span class="p">:</span><span class="n">broadcasterObject</span><span class="p">];</span></code></pre></div>
+
+<p>and registering for receiving looks like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">[[</span><span class="n">NSNotificationCenter</span> <span class="n">defaultCenter</span><span class="p">]</span>
+    <span class="nl">addObserver</span><span class="p">:</span><span class="n">listenerObject</span>
+    <span class="nl">selector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="nl">receivingMethodOnListener</span><span class="p">:)</span>
+    <span class="nl">name</span><span class="p">:</span><span class="s">@&#34;myNotificationName&#34;</span>
+    <span class="nl">object</span><span class="p">:</span><span class="nb">nil</span><span class="p">];</span></code></pre></div>
+
+<p>when registering for a notification, you can specify a specific broadcaster object but you don't have to do so. You may notice the <span class="monospace">defaultCenter</span>. In reality, this is the only center you'll use. Notifications are intended to be open to the whole application, so there is only one center.</p>
+
+<p>There is also an <span class="monospace">NSDistributedNotificationCenter</span>. This is for communicating between applications. There is only one of these on the whole computer.</p>
+
+<p>See <a href="http://developer.apple.com/documentation/Cocoa/Conceptual/Notifications/Introduction/introNotifications.html">Notification Programming Topics for Cocoa</a> for more.</p>
+
+<p><strong>Advantages</strong>: neither the sender nor receiver of notifications needs to know about the other. Can specify the exact method to receive the notification. Notification name can be any string value. <strong>Disadvantages</strong>: slightly more code than Key Value Observing. You still need to remove listeners before they are deleted.</p>
+
+<h2>Context notifications</h2>
+
+<p>In the case where the property being observed is a declared property of an <span class="monospace">NSManagedObject</span>, it is possible to listen to <span class="monospace"> NSManagedObjectContextObjectsDidChangeNotification</span>. Technically, this is still using the <span class="monospace">NSNotification</span> approach but it is a slightly different approach because the <span class="monospace">NSManagedObject</span> does not manually send the notifications.</p>
+
+<p>Registering for this approach looks like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">[[</span><span class="n">NSNotificationCenter</span> <span class="n">defaultCenter</span><span class="p">]</span>
+    <span class="nl">addObserver</span><span class="p">:</span><span class="n">listenerObejct</span>
+    <span class="nl">selector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="nl">receivingMethodOnListener</span><span class="p">:)</span>
+    <span class="nl">name</span><span class="p">:</span><span class="n">NSManagedObjectContextObjectsDidChangeNotification</span>
+    <span class="nl">object</span><span class="p">:</span><span class="n">observedManagedObjectContext</span><span class="p">];</span></code></pre></div>
+
+<p>And then in <span class="monospace">receivingMethodOnListener:</span>, the <span class="monospace">NSInsertedObjectsKey</span>, <span class="monospace">NSUpdatedObjectsKey</span> and <span class="monospace">NSDeletedObjectsKey</span> keys in the notification's <span class="monospace">userInfo</span> will give the sets of objects which have changed.</p>
+
+<p>See <a href="http://developer.apple.com/documentation/Cocoa/Reference/CoreDataFramework/Classes/NSManagedObjectContext_Class/Reference/Reference.html">NSManagedObjectContext Class Reference</a> for more.</p>
+
+<p><strong>Advantages</strong>: easiest way to track changes across an entire NSManagedObjectContext. <strong>Disadvantages</strong>: only works for Core Data and does not provide information more specific than the affected object.</p>
+
+<h2>Delegates used for observing</h2>
+
+<p>The final observer pattern Cocoa makes easy are delegates. In a broad sense delegates are intended to handle more than simply "observations" but they don't always need to do more.</p>
+
+<p>For example, all of the notifications that <span class="monospace">NSApplication</span> and <span class="monospace">NSWindow</span> are also sent to their delegate and could be handled there instead. Some classes send notification-like message to their delegates that are never sent as notifications. For example NSMenu, sends <span class="monospace">menuWillOpen:</span> to its delegate but does not send an equivalent <span class="monospace">NSNotification</span>.</p>
+
+<p>To connect a delegate, just invoke:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">[</span><span class="n">object</span> <span class="nl">setDelegate</span><span class="p">:</span><span class="n">delegateObject</span><span class="p">];</span></code></pre></div>
+
+<p>on an <span class="monospace">object</span> which supports a delegate. The <span class="monospace">delegateObject</span> can then receive any of the delegate messages it wants.</p>
+
+<p>See <a href="http://developer.apple.com/documentation/Cocoa/Conceptual/CocoaFundamentals/CommunicatingWithObjects/chapter_6_section_4.html">Cocoa Fundamentals Guide: Delegates and Data Sources</a> for more.</p>
+
+<p><strong>Advantages</strong>: detailed and specific information from classes which support it. <strong>Disadvantages</strong>: the class must support a delegate. Only one delegate may be connected to an object at a time.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../05/adapter-interfaces-in-objective-c-using.html">Adapter interfaces in Objective-C, using categories.</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="speed-test-nsmanagedobject-objc-20.html">Speed test: NSManagedObject ObjC-2.0 accessors</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

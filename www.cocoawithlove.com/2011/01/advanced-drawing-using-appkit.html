@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Advanced drawing using AppKit</title>
+  <meta name="description" content="In this post, I&#39;ll look at drawing a detailed image in code by combining multiple visual elements. Unlike previous posts I&#39;ve done on drawing in Cocoa, this will focus on the AppKit classes. The code will use &lt;code&gt;NSGraphicsContext&lt;/code&gt;, &lt;code&gt;NSBezierPath&lt;/code&gt;, &lt;code&gt;NSAffineTransform&lt;/code&gt;, &lt;code&gt;NSGradient&lt;/code&gt;, &lt;code&gt;NSGlyph&lt;/code&gt; and show you some simple ways to export the contents of an &lt;code&gt;NSView&lt;/code&gt; to a file." />
+
+  <meta name="twitter:title" content="Advanced drawing using AppKit"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2011/01/advanced-drawing-using-appkit.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="In this post, I&#39;ll look at drawing a detailed image in code by combining multiple visual elements. Unlike previous posts I&#39;ve done on drawing in Cocoa, this will focus on the AppKit classes. The code will use &lt;code&gt;NSGraphicsContext&lt;/code&gt;, &lt;code&gt;NSBezierPath&lt;/code&gt;, &lt;code&gt;NSAffineTransform&lt;/code&gt;, &lt;code&gt;NSGradient&lt;/code&gt;, &lt;code&gt;NSGlyph&lt;/code&gt; and show you some simple ways to export the contents of an &lt;code&gt;NSView&lt;/code&gt; to a file."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="advanced-drawing-using-appkit.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Advanced drawing using AppKit</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2011-01-31">January 31, 2011</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/graphics.html">graphics</a>, <a href="../../categories/appkit.html">AppKit</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>In this post, I'll look at drawing a detailed image in code by combining multiple visual elements. Unlike previous posts I've done on drawing in Cocoa, this will focus on the AppKit classes. The code will use <code>NSGraphicsContext</code>, <code>NSBezierPath</code>, <code>NSAffineTransform</code>, <code>NSGradient</code>, <code>NSGlyph</code> and show you some simple ways to export the contents of an <code>NSView</code> to a file.</p></span><span class="fullpost"><h2>Introduction</h2><p>I was reading an article on the Mac App Store and instead of paying attention to the article or working (which is what I was supposed to be doing at the time) I found myself staring at the accompanying image (a large version of the Mac App Store icon). Being the Cocoa programmer that I am, I found myself mentally deconstructing the icon and wondering how you'd draw something similar in Cocoa.</p><p>Only after I'd written the code and decided to write a post on it did I pay attention to the fact that I've already written a <a href="../../2009/11/creating-iphone-and-mac-icons-using.html">series of posts on creating icons</a>. I'm not trying to be repetitive (this post is about Cocoa drawing techniques; it is <em>not</em> a suggested way to create application icons as the previous post was) but now that it's too late to change, I wish I had chosen a more novel visual subject for this post.</p><blockquote><strong>Update 2011-05-28</strong>: this post is a Mac application. If you'd like to see the same design drawn using iOS CoreGraphics code, <a href="http://redartisan.com/2011/05/13/porting-iconapp-core-graphics">check out this blog post by Marcus Crafter</a>.</blockquote><h2>The sample app</h2><img src="../../assets/objc-era/iconapp.png" width="318" height="251"/><blockquote>You can download the complete sample project used in this post here <a href="../../assets/objc-era/IconApp.zip"> IconApp.zip </a> (96kB)</blockquote><p>The application has a single window into which it draws an icon. You can resize the window and the icon always scales to fit. You can export the icon to a PDF or PNG file.</p><p>Obviously, while inspired by the Mac App Store icon, this design is not trying to accurately replicate it. The real purpose is to show how to achieve the multiple, layered gradients, curve drawing, path-based clipping, shadowing and scaling you're likely to need if you want to create a non-trivial design in code.</p><h2>Scale-to-fit (respecting aspect ratio) and center</h2><p>Even before we start drawing, we need to ensure that the image will always be scaled to fit the window. The first step is to find a scale that will fit the square icon into the view regardless of view size or aspect ratio:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSSize</span> <span class="n">nativeSize</span> <span class="o">=</span> <span class="p">[</span><span class="nb">self</span> <span class="n">nativeRect</span><span class="p">].</span><span class="n">size</span><span class="p">;</span>
+<span class="n">NSSize</span> <span class="n">boundsSize</span> <span class="o">=</span> <span class="nb">self</span><span class="p">.</span><span class="n">bounds</span><span class="p">.</span><span class="n">size</span><span class="p">;</span>
+<span class="n">CGFloat</span> <span class="n">nativeAspect</span> <span class="o">=</span> <span class="n">nativeSize</span><span class="p">.</span><span class="n">width</span> <span class="o">/</span> <span class="n">nativeSize</span><span class="p">.</span><span class="n">height</span><span class="p">;</span>
+<span class="n">CGFloat</span> <span class="n">boundsAspect</span> <span class="o">=</span> <span class="n">boundsSize</span><span class="p">.</span><span class="n">width</span> <span class="o">/</span> <span class="n">boundsSize</span><span class="p">.</span><span class="n">height</span><span class="p">;</span>
+<span class="n">CGFloat</span> <span class="n">scale</span> <span class="o">=</span> <span class="n">nativeAspect</span> <span class="o">&gt;</span> <span class="n">boundsAspect</span> <span class="o">?</span>
+    <span class="n">boundsSize</span><span class="p">.</span><span class="n">width</span> <span class="o">/</span> <span class="n">nativeSize</span><span class="p">.</span><span class="nl">width</span> <span class="p">:</span>
+    <span class="n">boundsSize</span><span class="p">.</span><span class="n">height</span> <span class="o">/</span> <span class="n">nativeSize</span><span class="p">.</span><span class="n">height</span><span class="p">;</span></code></pre></div>
+
+<p>In this case, the <code>nativeRect</code> of the view is defined as <code>NSMakeRect(0, 0, 512, 512);</code></p><p>Once we have the desired scale factor, we resize the current drawing context and center it:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSAffineTransform</span> <span class="o">*</span><span class="n">transform</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSAffineTransform</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">];</span>
+<span class="p">[</span><span class="n">transform</span>
+    <span class="nl">translateXBy</span><span class="p">:</span><span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">boundsSize</span><span class="p">.</span><span class="n">width</span> <span class="o">-</span> <span class="n">scale</span> <span class="o">*</span> <span class="n">nativeSize</span><span class="p">.</span><span class="n">width</span><span class="p">)</span>
+    <span class="nl">yBy</span><span class="p">:</span><span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">boundsSize</span><span class="p">.</span><span class="n">height</span> <span class="o">-</span> <span class="n">scale</span> <span class="o">*</span> <span class="n">nativeSize</span><span class="p">.</span><span class="n">height</span><span class="p">)];</span>
+<span class="p">[</span><span class="n">transform</span> <span class="nl">scaleBy</span><span class="p">:</span><span class="n">scale</span><span class="p">];</span>
+<span class="p">[</span><span class="n">transform</span> <span class="n">set</span><span class="p">];</span></code></pre></div>
+
+<p>Once we've applied this affine transform, we can draw as though our canvas is the <code>nativeRect</code> size but it will perform an aspect fit for any view size.</p><p>I haven't shown it here but if you change the current transform (or the current clipping path as I also do later) you should remember to place a call to <code>[[NSGraphicsContext currentContext] saveGraphicsState]</code> before your changes and follow your drawing by a call to <code>[[NSGraphicsContext currentContext] restoreGraphicsState]</code> to put everything back again.</p><h2>Draw the background and shadow</h2><img src="../../assets/objc-era/iconapp-boundary.png" width="318" height="249" /><p>We draw the background circle initially using a flat color, with an <code>NSShadow</code> enabled.</p><p>We use a flat color while drawing the shadow (instead of the gradient that we want in the final output) because the gradient drawing method we're going to use actually clips to the gradient's boundary, so the shadow wouldn't be drawn (because the shadow would be outside the clipping boundary).</p><p>Also, gradients don't anti-alias their edges. Drawing the shape with a flat color that is approximately the average color of the gradient will give us a nice, anti-aliased edge.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">[</span><span class="n">NSShadow</span> <span class="nl">setShadowWithOffset</span><span class="p">:</span><span class="n">NSMakeSize</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mi">8</span> <span class="o">*</span> <span class="n">scale</span><span class="p">)</span> <span class="nl">blurRadius</span><span class="p">:</span><span class="mi">12</span> <span class="o">*</span> <span class="n">scale</span>
+    <span class="nl">color</span><span class="p">:[</span><span class="n">NSColor</span> <span class="nl">colorWithCalibratedWhite</span><span class="p">:</span><span class="mi">0</span> <span class="nl">alpha</span><span class="p">:</span><span class="mf">0.75</span><span class="p">]];</span>
+<span class="p">[[</span><span class="n">NSColor</span> <span class="nl">colorWithCalibratedWhite</span><span class="p">:</span><span class="mf">0.9</span> <span class="nl">alpha</span><span class="p">:</span><span class="mf">1.0</span><span class="p">]</span> <span class="n">set</span><span class="p">];</span>
+<span class="p">[[</span><span class="n">NSBezierPath</span> <span class="nl">bezierPathWithOvalInRect</span><span class="p">:</span><span class="n">ellipseRect</span><span class="p">]</span> <span class="n">fill</span><span class="p">];</span>
+<span class="p">[</span><span class="n">NSShadow</span> <span class="n">clearShadow</span><span class="p">];</span></code></pre></div>
+
+<blockquote><strong>Coding practice aside:</strong> If you're a good coder, you should avoid "<a href="http://en.wikipedia.org/wiki/Magic_number_(programming)#Unnamed_numerical_constants">magic numbers</a>". Magic numbers are unnamed numbers used without explanation in the code. They are considered bad practice (instead, you should assign values to a constant that names the value and explains any derivation, then you may use it).<br/><br/>
+However, I normally make an exception for drawing code (as I have in this case). If a number is chosen purely for aesthetic purposes and has no real relationship to any other value, I leave it magic on the assumption that its aesthetic purpose (with derivation or geometric relationship) is obvious.<br/><br/>
+You do need to keep a tight reign on permissive number usage though. You'll notice lower down in this post (in the "Gloss Gradient" code), where there's a blend of calculated, derived and relationship-related values as well as purely aesthetic values, I've bothered to use named constants instead, to clarify what is derived, what is proportionate and which arc is which.</blockquote><p>The shadow methods in the previous code block are convenience methods from a category implemented as follows:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@implementation</span> <span class="nc">NSShadow</span> <span class="nl">(SingleLineShadows)</span>
+
+<span class="p">+</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setShadowWithOffset:</span><span class="p">(</span><span class="n">NSSize</span><span class="p">)</span><span class="nv">offset</span> <span class="nf">blurRadius:</span><span class="p">(</span><span class="n">CGFloat</span><span class="p">)</span><span class="nv">radius</span>
+    <span class="nf">color:</span><span class="p">(</span><span class="n">NSColor</span> <span class="o">*</span><span class="p">)</span><span class="nv">shadowColor</span>
+<span class="p">{</span>
+    <span class="n">NSShadow</span> <span class="o">*</span><span class="n">aShadow</span> <span class="o">=</span> <span class="p">[[[</span><span class="nb">self</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">aShadow</span> <span class="nl">setShadowOffset</span><span class="p">:</span><span class="n">offset</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">aShadow</span> <span class="nl">setShadowBlurRadius</span><span class="p">:</span><span class="n">radius</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">aShadow</span> <span class="nl">setShadowColor</span><span class="p">:</span><span class="n">shadowColor</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">aShadow</span> <span class="n">set</span><span class="p">];</span>
+<span class="p">}</span>
+
+<span class="p">+</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">clearShadow</span>
+<span class="p">{</span>
+    <span class="n">NSShadow</span> <span class="o">*</span><span class="n">aShadow</span> <span class="o">=</span> <span class="p">[[[</span><span class="nb">self</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">aShadow</span> <span class="n">set</span><span class="p">];</span>
+<span class="p">}</span>
+
+<span class="k">@end</span></code></pre></div>
+
+<p>We then draw the gradient over the top:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSBezierPath</span> <span class="o">*</span><span class="n">ellipse</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSBezierPath</span> <span class="nl">bezierPathWithOvalInRect</span><span class="p">:</span><span class="n">ellipseRect</span><span class="p">];</span>
+<span class="n">NSGradient</span> <span class="o">*</span><span class="n">borderGradient</span> <span class="o">=</span>
+    <span class="p">[[[</span><span class="n">NSGradient</span> <span class="n">alloc</span><span class="p">]</span>
+        <span class="nl">initWithStartingColor</span><span class="p">:[</span><span class="n">NSColor</span> <span class="nl">colorWithCalibratedWhite</span><span class="p">:</span><span class="mf">1.0</span> <span class="nl">alpha</span><span class="p">:</span><span class="mf">1.0</span><span class="p">]</span>
+        <span class="nl">endingColor</span><span class="p">:[</span><span class="n">NSColor</span> <span class="nl">colorWithCalibratedWhite</span><span class="p">:</span><span class="mf">0.82</span> <span class="nl">alpha</span><span class="p">:</span><span class="mf">1.0</span><span class="p">]]</span>
+    <span class="n">autorelease</span><span class="p">];</span>
+<span class="p">[</span><span class="n">borderGradient</span> <span class="nl">drawInBezierPath</span><span class="p">:</span><span class="n">ellipse</span> <span class="nl">angle</span><span class="p">:</span><span class="o">-</span><span class="mi">90</span><span class="p">];</span></code></pre></div>
+
+<h2>Layered gradients to form the background</h2><p>Single, simple gradients tend to look bland and artificial. Our eyes expect much more complex lighting than a single gradient normally provides.</p><p>For this gradient, I wanted a pear shape as though a circular gradient had been smudged upwards. <code>NSGradient</code> does have methods that allow the gradient to be drawn as a circle along a path but the aesthetic is harsher than the soft, blurry look I wanted.</p><p>The easiest way to get a natural, soft-lighting style gradient effect is simply to lay a few gradients on top of each other. By getting the alpha transparency of each gradient right, the gradients will all appear to be part of the same effect. Of course, this is also slow, particularly at high resolutions, so it is an approach to use sparingly.</p><img src="../../assets/objc-era/iconapp-gradients.png" width="426" height="421" /><p>The final result in the bottom right corner of this image is achieved by drawing a black background, then drawing the top-left, top-right and bottom-left gradients over the top of the black background.</p><p>Here's the code to paint the center of the circle black. We then set the clipping path of the context so that all further drawing will be clipped to inside the border of the circle.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSRect</span> <span class="n">ellipseCenterRect</span> <span class="o">=</span> <span class="n">NSInsetRect</span><span class="p">(</span><span class="n">ellipseRect</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">16</span><span class="p">);</span>
+<span class="p">[[</span><span class="n">NSColor</span> <span class="n">blackColor</span><span class="p">]</span> <span class="n">set</span><span class="p">];</span>
+<span class="n">NSBezierPath</span> <span class="o">*</span><span class="n">ellipseCenter</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSBezierPath</span> <span class="nl">bezierPathWithOvalInRect</span><span class="p">:</span><span class="n">ellipseCenterRect</span><span class="p">];</span>
+<span class="p">[</span><span class="n">ellipseCenter</span> <span class="n">fill</span><span class="p">];</span>
+
+<span class="p">[</span><span class="n">ellipseCenter</span> <span class="n">setClip</span><span class="p">];</span></code></pre></div>
+
+<p>Now that the code is complete, I realize that I didn't need to clip here. I could have used the <code>-[NSBezierPath drawInBezierPath:relativeCenterPosition:] method for the gradients to automatically draw them clipped to the <code>ellipseCenter</code> path and they would have clipped themselves (nothing else would have needed clipping). Performance-wise, it doesn't really matter though (either I apply the clip or the method does).</code>.</p><p>Once the background is drawn, we begin layering the gradients. This is the code that draws the top-left of the gradients shown above:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSGradient</span> <span class="o">*</span><span class="n">bottomGlowGradient</span> <span class="o">=</span>
+    <span class="p">[[[</span><span class="n">NSGradient</span> <span class="n">alloc</span><span class="p">]</span>
+        <span class="nl">initWithColorsAndLocations</span><span class="p">:</span>
+            <span class="p">[</span><span class="n">NSColor</span> <span class="nl">colorWithCalibratedRed</span><span class="p">:</span><span class="mi">0</span> <span class="nl">green</span><span class="p">:</span><span class="mf">0.94</span> <span class="nl">blue</span><span class="p">:</span><span class="mf">0.82</span> <span class="nl">alpha</span><span class="p">:</span><span class="mf">1.0</span><span class="p">],</span> <span class="mf">0.0</span><span class="p">,</span>
+            <span class="p">[</span><span class="n">NSColor</span> <span class="nl">colorWithCalibratedRed</span><span class="p">:</span><span class="mi">0</span> <span class="nl">green</span><span class="p">:</span><span class="mf">0.62</span> <span class="nl">blue</span><span class="p">:</span><span class="mf">0.56</span> <span class="nl">alpha</span><span class="p">:</span><span class="mf">1.0</span><span class="p">],</span> <span class="mf">0.35</span><span class="p">,</span>
+            <span class="p">[</span><span class="n">NSColor</span> <span class="nl">colorWithCalibratedRed</span><span class="p">:</span><span class="mi">0</span> <span class="nl">green</span><span class="p">:</span><span class="mf">0.05</span> <span class="nl">blue</span><span class="p">:</span><span class="mf">0.35</span> <span class="nl">alpha</span><span class="p">:</span><span class="mf">1.0</span><span class="p">],</span> <span class="mf">0.6</span><span class="p">,</span>
+            <span class="p">[</span><span class="n">NSColor</span> <span class="nl">colorWithCalibratedRed</span><span class="p">:</span><span class="mi">0</span> <span class="nl">green</span><span class="p">:</span><span class="mf">0.0</span> <span class="nl">blue</span><span class="p">:</span><span class="mf">0.0</span> <span class="nl">alpha</span><span class="p">:</span><span class="mf">1.0</span><span class="p">],</span> <span class="mf">0.7</span><span class="p">,</span>
+        <span class="nb">nil</span><span class="p">]</span>
+    <span class="n">autorelease</span><span class="p">];</span>
+<span class="p">[</span><span class="n">bottomGlowGradient</span>
+    <span class="nl">drawInRect</span><span class="p">:</span><span class="n">ellipseCenterRect</span> <span class="nl">relativeCenterPosition</span><span class="p">:</span><span class="n">NSMakePoint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="o">-</span><span class="mf">0.2</span><span class="p">)];</span></code></pre></div>
+
+<h2>The floral heart adornment</h2><img src="../../assets/objc-era/iconapp-floralheart.png" width="318" height="249" /><p>The floral heart is a character from the Arial Unicode MS font. Getting the bezier path of a font character is a little cumbersome, since you need to use <code>NSLayoutManager</code> to get the glyph for you before you can ask <code>NSBezierPath</code> to create a path from the glyph.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSString</span> <span class="o">*</span><span class="n">floralHeart</span> <span class="o">=</span> <span class="s">@&#34;</span><span class="se">\u2766</span><span class="s">&#34;</span><span class="p">;</span>
+<span class="n">NSRange</span> <span class="n">stringRange</span> <span class="o">=</span> <span class="n">NSMakeRange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="p">[</span><span class="n">floralHeart</span> <span class="n">length</span><span class="p">]);</span>
+<span class="n">NSFont</span> <span class="o">*</span><span class="n">arialUnicode</span> <span class="o">=</span>
+    <span class="p">[[</span><span class="n">NSFontManager</span> <span class="n">sharedFontManager</span><span class="p">]</span>
+        <span class="nl">fontWithFamily</span><span class="p">:</span><span class="s">@&#34;Arial Unicode MS&#34;</span>
+        <span class="nl">traits</span><span class="p">:</span><span class="mi">0</span>
+        <span class="nl">weight</span><span class="p">:</span><span class="mi">5</span>
+        <span class="nl">size</span><span class="p">:</span><span class="mi">345</span><span class="p">];</span>
+<span class="n">NSLayoutManager</span> <span class="o">*</span><span class="n">layoutManager</span> <span class="o">=</span> <span class="p">[[[</span><span class="n">NSLayoutManager</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span>
+<span class="n">NSTextStorage</span> <span class="o">*</span><span class="n">textStorage</span> <span class="o">=</span>
+    <span class="p">[[[</span><span class="n">NSTextStorage</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithString</span><span class="p">:</span><span class="n">floralHeart</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span>
+<span class="p">[</span><span class="n">textStorage</span> <span class="nl">addAttribute</span><span class="p">:</span><span class="n">NSFontAttributeName</span> <span class="nl">value</span><span class="p">:</span><span class="n">arialUnicode</span> <span class="nl">range</span><span class="p">:</span><span class="n">stringRange</span><span class="p">];</span>
+<span class="p">[</span><span class="n">textStorage</span> <span class="nl">fixAttributesInRange</span><span class="p">:</span><span class="n">stringRange</span><span class="p">];</span>
+<span class="p">[</span><span class="n">textStorage</span> <span class="nl">addLayoutManager</span><span class="p">:</span><span class="n">layoutManager</span><span class="p">];</span>
+<span class="n">NSInteger</span> <span class="n">numGlyphs</span> <span class="o">=</span> <span class="p">[</span><span class="n">layoutManager</span> <span class="n">numberOfGlyphs</span><span class="p">];</span>
+<span class="n">NSGlyph</span> <span class="o">*</span><span class="n">glyphs</span> <span class="o">=</span> <span class="p">(</span><span class="n">NSGlyph</span> <span class="o">*</span><span class="p">)</span><span class="n">malloc</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="n">NSGlyph</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">numGlyphs</span> <span class="o">+</span> <span class="mi">1</span><span class="p">));</span> <span class="c1">// includes space for NULL terminator
+</span><span class="c1"></span><span class="p">[</span><span class="n">layoutManager</span> <span class="nl">getGlyphs</span><span class="p">:</span><span class="n">glyphs</span> <span class="nl">range</span><span class="p">:</span><span class="n">NSMakeRange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">numGlyphs</span><span class="p">)];</span>
+<span class="p">[</span><span class="n">textStorage</span> <span class="nl">removeLayoutManager</span><span class="p">:</span><span class="n">layoutManager</span><span class="p">];</span>
+
+<span class="n">NSBezierPath</span> <span class="o">*</span><span class="n">floralHeartPath</span> <span class="o">=</span> <span class="p">[[[</span><span class="n">NSBezierPath</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span>
+<span class="p">[</span><span class="n">floralHeartPath</span> <span class="nl">moveToPoint</span><span class="p">:</span><span class="n">NSMakePoint</span><span class="p">(</span><span class="mi">130</span><span class="p">,</span> <span class="mi">140</span><span class="p">)];</span>
+<span class="p">[</span><span class="n">floralHeartPath</span> <span class="nl">appendBezierPathWithGlyphs</span><span class="p">:</span><span class="n">glyphs</span> <span class="nl">count</span><span class="p">:</span><span class="n">numGlyphs</span> <span class="nl">inFont</span><span class="p">:</span><span class="n">arialUnicode</span><span class="p">];</span>
+<span class="n">free</span><span class="p">(</span><span class="n">glyphs</span><span class="p">);</span></code></pre></div>
+
+<p>If there's an easier way to do this, I'd love to know. It certainly seems like you should just be able to ask for the path for a Unicode character directly.</p><p>The floral heart is then drawn using a gradient and shadow in almost the same way as the frame (we even use the same gradient).</p><p><strong>Update:</strong> As Christopher Lloyd points out in the comments, you can get the <code>NSGlyph</code> more easily using the <code>CTFont</code> function <code>CTFontGetGlyphsForCharacters</code>. It saves 9 lines of code but it breaks my effort to do everything in this post using AppKit instead of the Core APIs:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="c1">// Replaces lines 1, 2, 9-18 of previous code block
+</span><span class="c1"></span><span class="n">NSInteger</span> <span class="n">numGlyphs</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span> <span class="c1">// hard-coded glyph count for floral heart character
+</span><span class="c1"></span><span class="n">NSGlyph</span> <span class="o">*</span><span class="n">glyphs</span> <span class="o">=</span> <span class="p">(</span><span class="n">NSGlyph</span> <span class="o">*</span><span class="p">)</span><span class="n">malloc</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="n">NSGlyph</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">numGlyphs</span> <span class="o">+</span> <span class="mi">1</span><span class="p">));</span> <span class="c1">// includes space for NULL terminator
+</span><span class="c1"></span><span class="n">CTFontGetGlyphsForCharacters</span><span class="p">(</span>
+    <span class="p">(</span><span class="n">CTFontRef</span><span class="p">)</span><span class="n">arialUnicode</span><span class="p">,</span> <span class="p">(</span><span class="k">const</span> <span class="n">UniChar</span> <span class="o">*</span><span class="p">)</span><span class="sa">L</span><span class="s">&#34;</span><span class="se">\u2766</span><span class="s">&#34;</span><span class="p">,</span> <span class="p">(</span><span class="n">CGGlyph</span> <span class="o">*</span><span class="p">)</span><span class="n">glyphs</span><span class="p">,</span> <span class="n">numGlyphs</span><span class="p">);</span></code></pre></div>
+
+<h2>Gloss gradient</h2><img src="../../assets/objc-era/iconapp.png" width="318" height="251"/><p>The icon is finished off with a gloss gradient. The gloss gradient is drawn between two arcs and it is these arcs that are the tricky part.</p><p>The gloss itself is inset from the frame to ensure that between the nearly white color of the frame and the gloss gradient, we still get a dark rim for contrast.</p><p>The left and right edges of the gloss start just above the middle of the circle (I chose 0.02&pi; radians), following the arc of the circle at the top and through the middle of the image it bulges down to approximately the middle of the circle.</p><p>I got the trignometry for the top arc correct but I didn't really bother with the bottom bulging arc (since its exact placement doesn't really matter. Due to the nature of the 3 point arc drawing method I used for this bottom arc, if you get the radius wrong for the three point locations, the arc either straightens out near the left and right endpoints or the arc overshoots these points. I'm sure I could have done this better (a bézier curve might have been a smarter choice since a proper circle was not required for this curve).</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">const</span> <span class="n">CGFloat</span> <span class="n">glossInset</span> <span class="o">=</span> <span class="mi">8</span><span class="p">;</span>
+<span class="n">CGFloat</span> <span class="n">glossRadius</span> <span class="o">=</span> <span class="p">(</span><span class="n">ellipseCenterRect</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">width</span> <span class="o">*</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">-</span> <span class="n">glossInset</span><span class="p">;</span>
+<span class="n">NSPoint</span> <span class="n">center</span> <span class="o">=</span> <span class="n">NSMakePoint</span><span class="p">(</span><span class="n">NSMidX</span><span class="p">(</span><span class="n">ellipseRect</span><span class="p">),</span> <span class="n">NSMidY</span><span class="p">(</span><span class="n">ellipseRect</span><span class="p">));</span>
+
+<span class="kt">double</span> <span class="n">arcFraction</span> <span class="o">=</span> <span class="mf">0.02</span><span class="p">;</span>
+<span class="n">NSPoint</span> <span class="n">arcStartPoint</span> <span class="o">=</span> <span class="n">NSMakePoint</span><span class="p">(</span>
+    <span class="n">center</span><span class="p">.</span><span class="n">x</span> <span class="o">-</span> <span class="n">glossRadius</span> <span class="o">*</span> <span class="n">cos</span><span class="p">(</span><span class="n">arcFraction</span> <span class="o">*</span> <span class="n">M_PI</span><span class="p">),</span>
+    <span class="n">center</span><span class="p">.</span><span class="n">y</span> <span class="o">+</span> <span class="n">glossRadius</span> <span class="o">*</span> <span class="n">sin</span><span class="p">(</span><span class="n">arcFraction</span> <span class="o">*</span> <span class="n">M_PI</span><span class="p">));</span>
+<span class="n">NSPoint</span> <span class="n">arcEndPoint</span> <span class="o">=</span> <span class="n">NSMakePoint</span><span class="p">(</span>
+    <span class="n">center</span><span class="p">.</span><span class="n">x</span> <span class="o">+</span> <span class="n">glossRadius</span> <span class="o">*</span> <span class="n">cos</span><span class="p">(</span><span class="n">arcFraction</span> <span class="o">*</span> <span class="n">M_PI</span><span class="p">),</span>
+    <span class="n">center</span><span class="p">.</span><span class="n">y</span> <span class="o">+</span> <span class="n">glossRadius</span> <span class="o">*</span> <span class="n">sin</span><span class="p">(</span><span class="n">arcFraction</span> <span class="o">*</span> <span class="n">M_PI</span><span class="p">));</span>
+
+<span class="n">NSBezierPath</span> <span class="o">*</span><span class="n">glossPath</span> <span class="o">=</span> <span class="p">[[[</span><span class="n">NSBezierPath</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span>
+<span class="p">[</span><span class="n">glossPath</span> <span class="nl">moveToPoint</span><span class="p">:</span><span class="n">arcStartPoint</span><span class="p">];</span>
+<span class="p">[</span><span class="n">glossPath</span>
+    <span class="nl">appendBezierPathWithArcWithCenter</span><span class="p">:</span><span class="n">center</span>
+    <span class="nl">radius</span><span class="p">:</span><span class="n">glossRadius</span>
+    <span class="nl">startAngle</span><span class="p">:</span><span class="n">arcFraction</span> <span class="o">*</span> <span class="mi">180</span>
+    <span class="nl">endAngle</span><span class="p">:(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">arcFraction</span><span class="p">)</span> <span class="o">*</span> <span class="mi">180</span><span class="p">];</span>
+
+<span class="k">const</span> <span class="n">CGFloat</span> <span class="n">bottomArcBulgeDistance</span> <span class="o">=</span> <span class="mi">70</span><span class="p">;</span>
+<span class="k">const</span> <span class="n">CGFloat</span> <span class="n">bottomArcRadius</span> <span class="o">=</span> <span class="mf">2.6</span><span class="p">;</span>
+<span class="p">[</span><span class="n">glossPath</span> <span class="nl">moveToPoint</span><span class="p">:</span><span class="n">arcEndPoint</span><span class="p">];</span>
+<span class="p">[</span><span class="n">glossPath</span>
+    <span class="nl">appendBezierPathWithArcFromPoint</span><span class="p">:</span>
+        <span class="n">NSMakePoint</span><span class="p">(</span><span class="n">center</span><span class="p">.</span><span class="n">x</span><span class="p">,</span> <span class="n">center</span><span class="p">.</span><span class="n">y</span> <span class="o">-</span> <span class="n">bottomArcBulgeDistance</span><span class="p">)</span>
+    <span class="nl">toPoint</span><span class="p">:</span><span class="n">arcStartPoint</span>
+    <span class="nl">radius</span><span class="p">:</span><span class="n">glossRadius</span> <span class="o">*</span> <span class="n">bottomArcRadius</span><span class="p">];</span>
+<span class="p">[</span><span class="n">glossPath</span> <span class="nl">lineToPoint</span><span class="p">:</span><span class="n">arcStartPoint</span><span class="p">];</span></code></pre></div>
+
+<h2>Exporting</h2><p>Exporting a view to a PDF file is extremely simple in Cocoa:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">[[</span><span class="n">iconView</span> <span class="nl">dataWithPDFInsideRect</span><span class="p">:[</span><span class="n">iconView</span> <span class="n">nativeRect</span><span class="p">]]</span>
+    <span class="nl">writeToURL</span><span class="p">:[</span><span class="n">savePanel</span> <span class="n">URL</span><span class="p">]</span>
+    <span class="nl">atomically</span><span class="p">:</span><span class="nb">YES</span><span class="p">];</span></code></pre></div>
+
+<p>However, you'll quickly see that gradients with transparency don't output correctly in Mac OS X (everything else, including the shadows, work fine). The internets claim it's a limitation of PDF 1.4 (the PDF standard used in Mac OS X).</p><p>Instead we need to export to PNG if we want to keep the transparency. There's a few different ways to do this but the quickest and easiest is:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSRect</span> <span class="n">iconViewFrame</span> <span class="o">=</span> <span class="n">iconView</span><span class="p">.</span><span class="n">frame</span><span class="p">;</span>
+<span class="p">[</span><span class="n">iconView</span> <span class="nl">setFrame</span><span class="p">:[</span><span class="n">iconView</span> <span class="n">nativeRect</span><span class="p">]];</span>
+
+<span class="n">NSBitmapImageRep</span> <span class="o">*</span><span class="n">bitmapImageRep</span> <span class="o">=</span>
+    <span class="p">[</span><span class="n">iconView</span> <span class="nl">bitmapImageRepForCachingDisplayInRect</span><span class="p">:[</span><span class="n">iconView</span> <span class="n">frame</span><span class="p">]];</span>
+<span class="p">[</span><span class="n">iconView</span>
+    <span class="nl">cacheDisplayInRect</span><span class="p">:[</span><span class="n">iconView</span> <span class="n">bounds</span><span class="p">]</span>
+    <span class="nl">toBitmapImageRep</span><span class="p">:</span><span class="n">bitmapImageRep</span><span class="p">];</span>
+<span class="p">[[</span><span class="n">bitmapImageRep</span> <span class="nl">representationUsingType</span><span class="p">:</span><span class="n">NSPNGFileType</span> <span class="nl">properties</span><span class="p">:</span><span class="nb">nil</span><span class="p">]</span>
+    <span class="nl">writeToURL</span><span class="p">:[</span><span class="n">savePanel</span> <span class="n">URL</span><span class="p">]</span>
+    <span class="nl">atomically</span><span class="p">:</span><span class="nb">YES</span><span class="p">];</span>
+
+<span class="p">[</span><span class="n">iconView</span> <span class="nl">setFrame</span><span class="p">:</span><span class="n">iconViewFrame</span><span class="p">];</span></code></pre></div>
+
+<p>This approach contains a few potential problems:</p><ul><li>we need to resize the view to render at the desired "native" resolution</li><li>it caches the screen render so it may contain screen-related oddities (like your screen's color profile)</li></ul><p>Ultimately, creating your own <code>NSBitmapImageRep</code>, setting the <code>NSGraphicsContext</code> using <code>graphicsContextWithBitmapImageRep:</code>, locking focus yourself and invoking <code>drawRect:</code> directly will avoid these issues and is more flexible. But it would have been more work so I didn't bother for this sample project (I mostly put this export code into the app so I could create the app's icon).</p><h2>Conclusion</h2><blockquote>You can download the complete sample project used in this post here <a href="../../assets/objc-era/IconApp.zip"> IconApp.zip </a> (96kB)</blockquote><p>Ultimately, it's uncommon to construct this many visual elements in code; these things are invariably easier in a drawing program and a prerendered bitmap would be faster (this is quite slow at large sizes).</p><p>However there are many situations where drawing in code can offer advantages &mdash; particularly if your designs need to reshape or adapt to fit content. Buttons and other controls containing text are a an example, particularly if your design cannot simply be stretched.</p><p>Even if the most complicated thing you need to do is anti-alias a path filled by a gradient, there are a few tricks contained in this post that I hope will help.</p></span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="submitting-functionality-for-future.html">Submitting functionality for a future version of iOS</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../03/history-of-ios-media-apis-iphone-os-20.html">A history of iOS media APIs (iPhone OS 2.0 to iOS 4.3)</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

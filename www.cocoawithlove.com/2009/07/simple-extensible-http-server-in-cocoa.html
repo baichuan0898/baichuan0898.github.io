@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>A simple, extensible HTTP server in Cocoa</title>
+  <meta name="description" content="HTTP is one of the simpler protocols to implement for communication between computers. On the iPhone, since there are no APIs for data synchronization or file sharing, embedding an HTTP server is one of the best ways to transfer data from your iPhone application to a computer. In this post I&#39;ll show you how to write your own simple but extensible HTTP server. The server classes will also work on Mac OS X (Cocoa un-Touched)." />
+
+  <meta name="twitter:title" content="A simple, extensible HTTP server in Cocoa"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/07/simple-extensible-http-server-in-cocoa.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="HTTP is one of the simpler protocols to implement for communication between computers. On the iPhone, since there are no APIs for data synchronization or file sharing, embedding an HTTP server is one of the best ways to transfer data from your iPhone application to a computer. In this post I&#39;ll show you how to write your own simple but extensible HTTP server. The server classes will also work on Mac OS X (Cocoa un-Touched)."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="simple-extensible-http-server-in-cocoa.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">A simple, extensible HTTP server in Cocoa</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-07-13">July 13, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/foundation.html">Foundation</a>, <a href="../../categories/cocoa-touch.html">Cocoa Touch</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>HTTP is one of the simpler protocols to implement for communication between computers. On the iPhone, since there are no APIs for data synchronization or file sharing, embedding an HTTP server is one of the best ways to transfer data from your iPhone application to a computer. In this post I'll show you how to write your own simple but extensible HTTP server. The server classes will also work on Mac OS X (Cocoa un-Touched).</p></span>
+
+<span class="fullpost">
+<h2>Introduction</h2>
+<p>In this post I will present the following sample application:</p>
+
+<img src="../../assets/objc-era/httpserver.png" width="520" height="306" />
+
+<p>The application is very simple: you can edit text and save it to a file (it is always saved to the same file).</p>
+
+<p>While the application is running, it also runs an HTTP server on port 8080. If the path "/" is requested, it will return the content of the saved file. All other requests return a 501 error.</p>
+
+<p>To transfer the text file from the iPhone application, just enter the IP address of the phone followed by ":8080" in any web browser.</p>
+
+<h2>HTTPServer and HTTPResponseHandler classes</h2>
+
+<p>The approach I use for an HTTP server involves two classes: the server (which listens for connections and reads data up to the end of the HTTP header) and the response handler (which sends the response and may choose to read from the connection past the header).</p>
+
+<p>The key design choice for me was simplicity of each new response implementation: the server and response classes are designed so that a new response implementation need only implement three methods:</p>
+
+<ul><li><code>canHandleRequest:method:url:headerFields:</code> &mdash; to decide if the implementation can handle a specific request</li>
+<li><code>startResponse</code> &mdash; to begin writing (or completely write) the response</li>
+<li><code>load</code> &mdash; all subclasses should implement the standard <code>+[NSObject load]</code> method to register themselves with the base class</li>
+</ul>
+
+<p>It is just a tiny HTTP server but the approach should allow you to quickly integrate HTTP communications into any application.</p>
+
+<h2>Opening a socket for listening</h2>
+
+<p>Most server communications, HTTP included, begin by creating a socket for listening.</p>
+
+<p>Sockets in Cocoa can be created and configured entirely using the BSD sockets code but it's often marginally easier to use the CoreFoundation <code>CFSocket</code> API where possible. Unfortunately, that only makes it marginally easier &mdash; we still have a large block of boilerplate code to throw down just to open a socket.</p>
+
+<p>From the <code>-[HTTPServer start]</code> method:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">socket</span> <span class="o">=</span> <span class="n">CFSocketCreate</span><span class="p">(</span><span class="n">kCFAllocatorDefault</span><span class="p">,</span> <span class="n">PF_INET</span><span class="p">,</span> <span class="n">SOCK_STREAM</span><span class="p">,</span>
+    <span class="n">IPPROTO_TCP</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+<span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">socket</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="nb">self</span> <span class="nl">errorWithName</span><span class="p">:</span><span class="s">@&#34;Unable to create socket.&#34;</span><span class="p">];</span>
+    <span class="k">return</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="kt">int</span> <span class="n">reuse</span> <span class="o">=</span> <span class="nb">true</span><span class="p">;</span>
+<span class="kt">int</span> <span class="n">fileDescriptor</span> <span class="o">=</span> <span class="n">CFSocketGetNative</span><span class="p">(</span><span class="n">socket</span><span class="p">);</span>
+<span class="k">if</span> <span class="p">(</span><span class="n">setsockopt</span><span class="p">(</span><span class="n">fileDescriptor</span><span class="p">,</span> <span class="n">SOL_SOCKET</span><span class="p">,</span> <span class="n">SO_REUSEADDR</span><span class="p">,</span>
+    <span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">reuse</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">int</span><span class="p">))</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="nb">self</span> <span class="nl">errorWithName</span><span class="p">:</span><span class="s">@&#34;Unable to set socket options.&#34;</span><span class="p">];</span>
+    <span class="k">return</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">struct</span> <span class="n">sockaddr_in</span> <span class="n">address</span><span class="p">;</span>
+<span class="n">memset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">address</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">address</span><span class="p">));</span>
+<span class="n">address</span><span class="p">.</span><span class="n">sin_len</span> <span class="o">=</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">address</span><span class="p">);</span>
+<span class="n">address</span><span class="p">.</span><span class="n">sin_family</span> <span class="o">=</span> <span class="n">AF_INET</span><span class="p">;</span>
+<span class="n">address</span><span class="p">.</span><span class="n">sin_addr</span><span class="p">.</span><span class="n">s_addr</span> <span class="o">=</span> <span class="n">htonl</span><span class="p">(</span><span class="n">INADDR_ANY</span><span class="p">);</span>
+<span class="n">address</span><span class="p">.</span><span class="n">sin_port</span> <span class="o">=</span> <span class="n">htons</span><span class="p">(</span><span class="n">HTTP_SERVER_PORT</span><span class="p">);</span>
+<span class="n">CFDataRef</span> <span class="n">addressData</span> <span class="o">=</span>
+    <span class="n">CFDataCreate</span><span class="p">(</span><span class="nb">NULL</span><span class="p">,</span> <span class="p">(</span><span class="k">const</span> <span class="kt">UInt8</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">address</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">address</span><span class="p">));</span>
+<span class="p">[(</span><span class="kt">id</span><span class="p">)</span><span class="n">addressData</span> <span class="n">autorelease</span><span class="p">];</span>
+
+<span class="k">if</span> <span class="p">(</span><span class="n">CFSocketSetAddress</span><span class="p">(</span><span class="n">socket</span><span class="p">,</span> <span class="n">addressData</span><span class="p">)</span> <span class="o">!=</span> <span class="n">kCFSocketSuccess</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="nb">self</span> <span class="nl">errorWithName</span><span class="p">:</span><span class="s">@&#34;Unable to bind socket to address.&#34;</span><span class="p">];</span>
+    <span class="k">return</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This is a large block of code but it's really only doing one thing: opening a socket to listen for TCP connections on the port specified by <code>HTTP_SERVER_PORT</code> (which is 8080 for this application).</p>
+
+<p>There is some additional work because I like to specify <code>SO_REUSEADDR</code>. This lets us reclaim the port if it is open but idle (a common occurrence if we restart the program immediately after a crash or killing the application).</p>
+
+<h2>Receiving incoming connections</h2>
+
+<p>After the socket is setup, Cocoa handles a little more of the work so things get easier.</p>
+
+<p>We can receive each incoming connection by constructing an <code>NSFileHandle</code> from the <code>fileDescriptor</code> above and listening for connection notifications</p>
+
+<p>From the <code>-[HTTPServer start:]</code> method (immediately below the previous code):</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">listeningHandle</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSFileHandle</span> <span class="n">alloc</span><span class="p">]</span>
+    <span class="nl">initWithFileDescriptor</span><span class="p">:</span><span class="n">fileDescriptor</span>
+    <span class="nl">closeOnDealloc</span><span class="p">:</span><span class="nb">YES</span><span class="p">];</span>
+
+<span class="p">[[</span><span class="n">NSNotificationCenter</span> <span class="n">defaultCenter</span><span class="p">]</span>
+    <span class="nl">addObserver</span><span class="p">:</span><span class="nb">self</span>
+    <span class="nl">selector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="nl">receiveIncomingConnectionNotification</span><span class="p">:)</span>
+    <span class="nl">name</span><span class="p">:</span><span class="n">NSFileHandleConnectionAcceptedNotification</span>
+    <span class="nl">object</span><span class="p">:</span><span class="nb">nil</span><span class="p">];</span>
+<span class="p">[</span><span class="n">listeningHandle</span> <span class="n">acceptConnectionInBackgroundAndNotify</span><span class="p">];</span></code></pre></div>
+
+<p>When <code>receiveIncomingConnectionNotification:</code> is invoked, each new incoming connection will get its own <code>NSFileHandle</code>. If you're keeping track, that was:</p>
+
+<ul><li>1 file handle (<code>listeningHandle</code>) manually created from the socket <code>fileDesriptor</code> to listen on the socket for new connections.</li>
+<li>1 file handle automatically created for <em>each</em> new connection received through <code>listeningHandle</code>. We'll continue to listen to these new handles (the keys in the <code>incomingRequests</code> dictionary) to record the data for each connection.</li></ul>
+
+<p>So, now that we've received a new, automatically created file handle, we create a <code>CFHTTPMessageRef</code> (which will store the incoming data) we receive over the file handle. We store these as the objects in <code>incomingRequests</code> dictionary to allow easy access to the <code>CFHTTPMessageRef</code> for each file handle</p>
+
+<p>The <code>CFHTTPMessageRef</code> is both storage and the parser for the incoming data. We can invoke <code>CFHTTPMessageIsHeaderComplete()</code> every time we add data to check when the HTTP headers are complete and we can spawn a response handler.</p>
+
+<p>The response handler is spawned in the <code>-[HTTPServer receiveIncomingDataNotification:]</code> method:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">if</span><span class="p">(</span><span class="n">CFHTTPMessageIsHeaderComplete</span><span class="p">(</span><span class="n">incomingRequest</span><span class="p">))</span>
+<span class="p">{</span>
+    <span class="n">HTTPResponseHandler</span> <span class="o">*</span><span class="n">handler</span> <span class="o">=</span>
+        <span class="p">[</span><span class="n">HTTPResponseHandler</span>
+            <span class="nl">handlerForRequest</span><span class="p">:</span><span class="n">incomingRequest</span>
+            <span class="nl">fileHandle</span><span class="p">:</span><span class="n">incomingFileHandle</span>
+            <span class="nl">server</span><span class="p">:</span><span class="nb">self</span><span class="p">];</span>
+    
+    <span class="p">[</span><span class="n">responseHandlers</span> <span class="nl">addObject</span><span class="p">:</span><span class="n">handler</span><span class="p">];</span>
+    <span class="p">[</span><span class="nb">self</span> <span class="nl">stopReceivingForFileHandle</span><span class="p">:</span><span class="n">incomingFileHandle</span> <span class="nl">close</span><span class="p">:</span><span class="nb">NO</span><span class="p">];</span>
+
+    <span class="p">[</span><span class="n">handler</span> <span class="n">startResponse</span><span class="p">];</span>
+    <span class="k">return</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The server stops listening to the file handle for the connection at this point but it doesn't close it, since the file handle is passed to the <code>HTTPResponseHandler</code> so that the HTTP response can be sent back over the same file handle.</p>
+
+<h2>Flexible response handling</h2>
+
+<p>Exactly which subclass the <code>+[HTTPResponseHandler handlerForRequest:fileHandle:server:]</code> method chooses to return determines the entire content of the response. It does this by iterating over a priority ordered array of the registered handlers and asking each one if it wants to handle the request.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">+</span> <span class="p">(</span><span class="kt">Class</span><span class="p">)</span><span class="nf">handlerClassForRequest:</span><span class="p">(</span><span class="n">CFHTTPMessageRef</span><span class="p">)</span><span class="nv">aRequest</span>
+    <span class="nf">method:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">requestMethod</span>
+    <span class="nf">url:</span><span class="p">(</span><span class="n">NSURL</span> <span class="o">*</span><span class="p">)</span><span class="nv">requestURL</span>
+    <span class="nf">headerFields:</span><span class="p">(</span><span class="n">NSDictionary</span> <span class="o">*</span><span class="p">)</span><span class="nv">requestHeaderFields</span>
+<span class="p">{</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kt">Class</span> <span class="n">handlerClass</span> <span class="k">in</span> <span class="n">registeredHandlers</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">if</span> <span class="p">([</span><span class="n">handlerClass</span> <span class="nl">canHandleRequest</span><span class="p">:</span><span class="n">aRequest</span>
+            <span class="nl">method</span><span class="p">:</span><span class="n">requestMethod</span>
+            <span class="nl">url</span><span class="p">:</span><span class="n">requestURL</span>
+            <span class="nl">headerFields</span><span class="p">:</span><span class="n">requestHeaderFields</span><span class="p">])</span>
+        <span class="p">{</span>
+            <span class="k">return</span> <span class="n">handlerClass</span><span class="p">;</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+    
+    <span class="k">return</span> <span class="nb">nil</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>For this to work, all <code>HTTPResponseHandler</code>s need to be registered with the base class. The easiest way to do this is to add an implementation of the <code>+[NSObject load]</code> method to every subclass:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">+</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">load</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="n">HTTPResponseHandler</span> <span class="nl">registerHandler</span><span class="p">:</span><span class="nb">self</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>In the sample application, the only response handler other than the default is the <code>AppTextFileResponse</code>. This class chooses to handle the response when the <code>requestURL</code> is equal to "/".</p>
+
+<p>From the <code>AppTextFileResponse</code> class:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">+</span> <span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nf">canHandleRequest:</span><span class="p">(</span><span class="n">CFHTTPMessageRef</span><span class="p">)</span><span class="nv">aRequest</span>
+    <span class="nf">method:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">requestMethod</span>
+    <span class="nf">url:</span><span class="p">(</span><span class="n">NSURL</span> <span class="o">*</span><span class="p">)</span><span class="nv">requestURL</span>
+    <span class="nf">headerFields:</span><span class="p">(</span><span class="n">NSDictionary</span> <span class="o">*</span><span class="p">)</span><span class="nv">requestHeaderFields</span>
+<span class="p">{</span>
+    <span class="k">if</span> <span class="p">([</span><span class="n">requestURL</span><span class="p">.</span><span class="n">path</span> <span class="nl">isEqualToString</span><span class="p">:</span><span class="s">@&#34;/&#34;</span><span class="p">])</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="nb">YES</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="k">return</span> <span class="nb">NO</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p><code>AppTextFileResponse</code> then handles the entire response synchronously (before returning from the <code>startResponse</code> method) by writing the text file saved by the application as the response body.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">startResponse</span>
+<span class="p">{</span>
+    <span class="n">NSData</span> <span class="o">*</span><span class="n">fileData</span> <span class="o">=</span>
+        <span class="p">[</span><span class="n">NSData</span> <span class="nl">dataWithContentsOfFile</span><span class="p">:[</span><span class="n">AppTextFileResponse</span> <span class="n">pathForFile</span><span class="p">]];</span>
+
+    <span class="n">CFHTTPMessageRef</span> <span class="n">response</span> <span class="o">=</span>
+        <span class="n">CFHTTPMessageCreateResponse</span><span class="p">(</span>
+            <span class="n">kCFAllocatorDefault</span><span class="p">,</span> <span class="mi">200</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="n">kCFHTTPVersion1_1</span><span class="p">);</span>
+    <span class="n">CFHTTPMessageSetHeaderFieldValue</span><span class="p">(</span>
+        <span class="n">response</span><span class="p">,</span> <span class="p">(</span><span class="n">CFStringRef</span><span class="p">)</span><span class="s">@&#34;Content-Type&#34;</span><span class="p">,</span> <span class="p">(</span><span class="n">CFStringRef</span><span class="p">)</span><span class="s">@&#34;text/plain&#34;</span><span class="p">);</span>
+    <span class="n">CFHTTPMessageSetHeaderFieldValue</span><span class="p">(</span>
+        <span class="n">response</span><span class="p">,</span> <span class="p">(</span><span class="n">CFStringRef</span><span class="p">)</span><span class="s">@&#34;Connection&#34;</span><span class="p">,</span> <span class="p">(</span><span class="n">CFStringRef</span><span class="p">)</span><span class="s">@&#34;close&#34;</span><span class="p">);</span>
+    <span class="n">CFHTTPMessageSetHeaderFieldValue</span><span class="p">(</span>
+        <span class="n">response</span><span class="p">,</span>
+        <span class="p">(</span><span class="n">CFStringRef</span><span class="p">)</span><span class="s">@&#34;Content-Length&#34;</span><span class="p">,</span>
+        <span class="p">(</span><span class="n">CFStringRef</span><span class="p">)[</span><span class="n">NSString</span> <span class="nl">stringWithFormat</span><span class="p">:</span><span class="s">@&#34;%ld&#34;</span><span class="p">,</span> <span class="p">[</span><span class="n">fileData</span> <span class="n">length</span><span class="p">]]);</span>
+    <span class="n">CFDataRef</span> <span class="n">headerData</span> <span class="o">=</span> <span class="n">CFHTTPMessageCopySerializedMessage</span><span class="p">(</span><span class="n">response</span><span class="p">);</span>
+
+    <span class="k">@try</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="n">fileHandle</span> <span class="nl">writeData</span><span class="p">:(</span><span class="n">NSData</span> <span class="o">*</span><span class="p">)</span><span class="n">headerData</span><span class="p">];</span>
+        <span class="p">[</span><span class="n">fileHandle</span> <span class="nl">writeData</span><span class="p">:</span><span class="n">fileData</span><span class="p">];</span>
+    <span class="p">}</span>
+    <span class="k">@catch</span> <span class="p">(</span><span class="n">NSException</span> <span class="o">*</span><span class="n">exception</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="c1">// Ignore the exception, it normally just means the client
+</span><span class="c1"></span>        <span class="c1">// closed the connection from the other end.
+</span><span class="c1"></span>    <span class="p">}</span>
+    <span class="k">@finally</span>
+    <span class="p">{</span>
+        <span class="n">CFRelease</span><span class="p">(</span><span class="n">headerData</span><span class="p">);</span>
+        <span class="p">[</span><span class="n">server</span> <span class="nl">closeHandler</span><span class="p">:</span><span class="nb">self</span><span class="p">];</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The <code>[server closeHandler:self];</code> invocation tells the server to remove this <code>HTTPResponseHandler</code> from the set of active handlers. The server will invoke <code>endReponse</code> when it removes this handler (which is where we close the connection &mdash; since this handler does not support <code>keep-alive</code>).</p>
+
+<h2>Work not implemented</h2>
+
+<p>The biggest task not handled in this implementation is parsing the HTTP request body.</p>
+
+<p>The reason for this is that a general HTTP body solution is very complicated. The body's size may be specified by the <code>Content-Length</code> header but it need not be &mdash; so knowing where the body ends can be difficult. The body may also be encoded in one of about a dozen different <code>Transfer-Encoding</code>s, including <code>chunk</code>, <code>quoted-printable</code>, <code>base64</code>, <code>gzip</code> &mdash; each of which require different processing.</p>
+
+<p>However, I have never needed to implement a generic solution. It is normally easiest to determine what is needed for your specific needs and handle the HTTP body in accordance with those needs. You can handle the request body by overriding <code>-[HTTPRequestHandler receiveIncomingDataNotification:]</code>. The default implementation ignores all data it receives after the HTTP request headers.</p>
+
+<blockquote><strong>Data handling note</strong>: the first time the <code>-[HTTPRequestHandler receiveIncomingDataNotification:]</code> method is called, the initial bytes of the HTTP body will already have been read from the <code>fileHandle</code> and appended to the <code>request</code> instance variable. If you need to read the body, either continue reading into the <code>request</code> object, or remember to include this initial data.</blockquote>
+
+<p>Another task not handled are Keep-Alive connections. These also need to be handled in <code>-[HTTPRequestHandler receiveIncomingDataNotification:]</code> and I've left a big comment on the method about what would be involved. The reality is that it's probably easier to set the <code>Connection</code> header field to <code>close</code> for every response to tell the client that you're not going to handle Keep-Alive (see the <code>startResponse</code> code sample above for an example).</p>
+
+<p>The <code>HTTPReseponseHandler</code> priority does not take the requested <code>Content-Type</code> into account. If this is an important consideration for you, you might want to change how <code>+[HTTPResponseHandler handlerClassForRequest:method:url:headerFields:]</code> selects its handler.</p>
+
+<p>Finally, this server does not handle SSL/TLS. It is intended for local network transfers where the network itself is relatively secure. If you are transferring over the open internet and want a secure connection, there's a lot to change and manage at the socket level. You could try it yourself but if security is really important, you probably shouldn't risk writing your own server &mdash; if you can arrange it, use a mature, TLS-enabled HTTP server and only handle the client-side in your application. Client-side security in Cocoa is very easy &mdash; it is automatic and transparent in <code>CFReadStream</code> and <code>NSURLConnection</code>.</p>
+
+<h2>Conclusion</h2>
+
+<blockquote><a href="../../assets/objc-era/TextTransfer.zip">Download the sample app TextTransfer.zip</a> (45kB) which includes the <code>HTTPServer</code> and <code>HTTPResponseHandler</code> classes.</blockquote>
+
+<p>Just because mainstream HTTP servers are large, complex pieces of software, doesn't mean an HTTP server is necessarily large and complex &mdash; the core implementation here is only two classes, yet is flexible and configurable.</p>
+
+<p>Of course, the end result is not intended for use as a complete web server solution, however it should work well as a small communications portal into your custom iPhone or Mac applications.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="hashvalue-object-for-holding-md5-and.html">HashValue: an object for holding MD5 and SHA hashes</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="temporary-files-and-folders-in-cocoa.html">Temporary files and folders in Cocoa</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

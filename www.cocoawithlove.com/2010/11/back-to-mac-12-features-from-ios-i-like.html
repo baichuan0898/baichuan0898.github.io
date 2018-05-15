@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Back to the Mac? 12 features from iOS I&#39;d like to see in Lion</title>
+  <meta name="description" content="A few user-features of Mac OS X Lion have been announced but no Cocoa API changes have been publicly announced. However, I think there are dozens of non-user areas where the Cocoa Mac APIs could be improved by integrating approaches from Cocoa Touch APIs. What follows are a dozen areas where I&#39;d like to see a more iOS approach in Mac OS X Lion." />
+
+  <meta name="twitter:title" content="Back to the Mac? 12 features from iOS I&#39;d like to see in Lion"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2010/11/back-to-mac-12-features-from-ios-i-like.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="A few user-features of Mac OS X Lion have been announced but no Cocoa API changes have been publicly announced. However, I think there are dozens of non-user areas where the Cocoa Mac APIs could be improved by integrating approaches from Cocoa Touch APIs. What follows are a dozen areas where I&#39;d like to see a more iOS approach in Mac OS X Lion."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="back-to-mac-12-features-from-ios-i-like.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Back to the Mac? 12 features from iOS I&#39;d like to see in Lion</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2010-11-20">November 20, 2010</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/uikit.html">UIKit</a>, <a href="../../categories/graphics.html">graphics</a>, <a href="../../categories/appkit.html">AppKit</a>, <a href="../../categories/lion.html">Lion</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>A few user-features of Mac OS X Lion have been announced but no Cocoa API changes have been publicly announced. However, I think there are dozens of non-user areas where the Cocoa Mac APIs could be improved by integrating approaches from Cocoa Touch APIs. What follows are a dozen areas where I'd like to see a more iOS approach in Mac OS X Lion.</p></span>
+
+<span class="fullpost">
+
+<h2>Introduction</h2>
+
+<p>The changes I'm going to discuss fall four basic categories:</p>
+
+<ul>
+<li>simplifying common tasks</li>
+<li>making important classes simpler to customize</li>
+<li>updating APIs on the Mac that seem to have been ignored since iOS appeared</li>
+<li>making CoreAnimation good enough to be used for all views on the Mac</li>
+</ul>
+
+<h2>1. Converting NSColor to CGColor</h2>
+
+<p>This first point is a minor simplification of a common task but I think it illustrates the fact that iOS integrates CoreGraphics and other forms of drawing well, where this integration seems to be lacking on the Mac.</p>
+
+<p>On iOS, converting a UIColor to a Core Graphics CGColor is a basic property accessor:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">CGColor</span> <span class="n">myCGColor</span> <span class="o">=</span> <span class="n">myUIColor</span><span class="p">.</span><span class="n">cgColor</span><span class="p">;</span></code></pre></div>
+
+<p>It's as simple as can be. On the Mac, it's as convoluted as I could have imagined:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="c1">// Ensure that the color is in the &#34;generic&#34; RGB space so we can safely get the components
+</span><span class="c1"></span><span class="n">NSColor</span> <span class="o">*</span><span class="n">rgbColor</span> <span class="o">=</span> <span class="p">[</span><span class="nb">self</span> <span class="nl">colorUsingColorSpaceName</span><span class="p">:</span><span class="n">NSCalibratedRGBColorSpace</span><span class="p">];</span>
+
+<span class="c1">// Get the r, g, b, a components
+</span><span class="c1"></span><span class="n">CGFloat</span> <span class="n">colorComponents</span><span class="p">[</span><span class="mi">4</span><span class="p">];</span>
+<span class="p">[</span><span class="n">rgbColor</span> <span class="nl">getComponents</span><span class="p">:</span><span class="n">colorComponents</span><span class="p">];</span>
+
+<span class="c1">// Create the CGColor
+</span><span class="c1"></span><span class="n">CGColorRef</span> <span class="n">myCGColor</span> <span class="o">=</span>
+    <span class="p">(</span><span class="n">CGColorRef</span><span class="p">)[(</span><span class="kt">id</span><span class="p">)</span><span class="n">CGColorCreateGenericRGB</span><span class="p">(</span>
+        <span class="n">colorComponents</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+        <span class="n">colorComponents</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+        <span class="n">colorComponents</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>
+        <span class="n">colorComponents</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span>
+    <span class="n">autorelease</span><span class="p">];</span></code></pre></div>
+
+<p>While I'm on the topic of colors, I don't think the documentation for NSColor is clear enough about the choice between "Device" colors or "Calibrated" colors in an application user-interface. On iOS, there are only device colors &mdash; so there's no question &mdash; but on the Mac, you can create a white NSColor as either:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSColor</span> <span class="o">*</span><span class="n">calibratedColor</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSColor</span> <span class="nl">colorWithCalibratedWhite</span><span class="p">:</span><span class="mf">1.0</span> <span class="nl">alpha</span><span class="p">:</span><span class="mf">1.0</span><span class="p">];</span></code></pre></div>
+
+<p>or</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSColor</span> <span class="o">*</span><span class="n">deviceColor</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSColor</span> <span class="nl">colorWithDeviceWhite</span><span class="p">:</span><span class="mf">1.0</span> <span class="nl">alpha</span><span class="p">:</span><span class="mf">1.0</span><span class="p">];</span></code></pre></div>
+
+<p>The User Interface Guidelines, NSColorSpace and the NSColor documentation offer no information about which should be the default choice in an arbitrary application. It'd be nice to have a clearer statement about when each is appropriate.</p>
+
+<p><strong>Edit</strong>: as pointed out in the comments, Apple do have a line in the Color Programming Topics documentation that suggests that you use <em>calibrated</em> color spaces where possible.</p>
+
+<h2>2. A constructor for NSTextField that constructs it as a static label</h2>
+
+<p>Another simplification of a common task that I'd like to see is the ability to create a static text label in a single statement. On iOS, we have the UILabel subclass of NSView for non-editable text display.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">UILabel</span> <span class="o">*</span><span class="n">label</span> <span class="o">=</span> <span class="p">[[</span><span class="n">UILabel</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithFrame</span><span class="p">:</span><span class="n">labelFrame</span><span class="p">];</span></code></pre></div>
+
+<p>On the Mac, the editable NSTextField can be configured to handle non-editable display. Unfortunately, while there is an efficient way to construct NSTextField as a static text label in Interface Builder, there is no similarly efficient way in code:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSTextView</span> <span class="o">*</span><span class="n">label</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSTextField</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithFrame</span><span class="p">:</span><span class="n">labelFrame</span><span class="p">];</span>
+<span class="p">[</span><span class="n">label</span> <span class="nl">setEditable</span><span class="p">:</span><span class="nb">NO</span><span class="p">];</span>
+<span class="p">[</span><span class="n">label</span> <span class="nl">setBezeled</span><span class="p">:</span><span class="nb">NO</span><span class="p">];</span></code></pre></div>
+
+<p>Not a huge gripe but if you're constructing a view in code, the two extra lines for every label can become tiresome. An -initStaticLabelWithFrame: or +staticLabelWithFrame: method would be nice.</p>
+
+<h2>3. Simplified methods for common actions, e.g. -[UIImage drawInRect:]</h2>
+
+<p>A final type of common task I'd like to see simplified is offering simpler methods for common cases.</p>
+
+<p>One of the most prominent examples of simpler methods that I'd like to see is for drawing an image. To draw a UIImage in iOS we use a simple method:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">[</span><span class="n">myImage</span> <span class="nl">drawInRect</span><span class="p">:</span><span class="n">someRect</span><span class="p">];</span></code></pre></div>
+
+<p>On the Mac:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">[</span><span class="n">myImage</span>
+    <span class="nl">drawInRect</span><span class="p">:</span><span class="n">someRect</span>
+    <span class="nl">fromRect</span><span class="p">:</span><span class="n">NSZeroRect</span>
+    <span class="nl">operation</span><span class="p">:</span><span class="n">NSCompositeSourceOver</span>
+    <span class="nl">fraction</span><span class="p">:</span><span class="mf">1.0</span>
+    <span class="nl">respectFlipped</span><span class="p">:</span><span class="nb">YES</span>
+    <span class="nl">hints</span><span class="p">:</span><span class="nb">nil</span><span class="p">];</span></code></pre></div>
+
+<p>I realize that in both cases it's only one method. I also realize that the Mac example is significantly more capable. However, the functionality of the iOS method is overwhelming the common case and I think that this option should be added to the Mac as well, to recognize that this is the common path.</p>
+
+<h2>4. Resizable NSImage</h2>
+
+<p>Another NSImage/UIImage point &mdash; but now in the topic area of making important classes easier to customize &mdash; it would be really good to see the method:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">UIImage</span> <span class="o">*</span><span class="p">)</span><span class="nf">stretchableImageWithLeftCapWidth:</span><span class="p">(</span><span class="n">NSInteger</span><span class="p">)</span><span class="nv">leftCapWidth</span>
+    <span class="nf">topCapHeight:</span><span class="p">(</span><span class="n">NSInteger</span><span class="p">)</span><span class="nv">topCapHeight</span></code></pre></div>
+
+<p>brought from iOS to the Mac. If you've never used this method before, it allows you to take a square image &mdash; like a button image &mdash; and label and specify the boundary of the image (the left and top "caps") so that when the image is stretched to fit a new size, the cap areas are preserved and only the middle of the image is stretched.</p>
+
+<p>On the Mac, you can use the function NSDrawNinePartImage() but while this function is significantly more configurable, it lacks the ability to be used anywhere you use an NSImage &mdash; so you can't use it as the background to an NSButton, you must subclass NSButtonCell and handle the drawing manually.</p>
+
+<h2>5. Setting the text color on an NSButton</h2>
+
+<p>The second "making important classes easier to customize" point is setting text color on a button. For UIButton it looks like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">button</span><span class="p">.</span><span class="n">titleLabel</span><span class="p">.</span><span class="n">textColor</span> <span class="o">=</span> <span class="p">[</span><span class="n">UIColor</span> <span class="n">whiteColor</span><span class="p">];</span></code></pre></div>
+
+<p>On the Mac there are no standard methods and you have to change the attributed string for the NSButton's title:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSMutableAttributedString</span> <span class="o">*</span><span class="n">title</span> <span class="o">=</span>
+    <span class="p">[[[</span><span class="n">NSMutableAttributedString</span> <span class="n">alloc</span><span class="p">]</span> 
+        <span class="nl">initWithAttributedString</span><span class="p">:[</span><span class="n">button</span> <span class="n">attributedTitle</span><span class="p">]]</span>
+    <span class="n">autorelease</span><span class="p">];</span>
+<span class="p">[</span><span class="n">title</span>
+    <span class="nl">addAttribute</span><span class="p">:</span><span class="n">NSForegroundColorAttributeName</span> 
+    <span class="nl">value</span><span class="p">:[</span><span class="n">NSColor</span> <span class="n">whiteColor</span><span class="p">]</span>
+    <span class="nl">range</span><span class="p">:</span><span class="n">NSMakeRange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="p">[</span><span class="n">title</span> <span class="n">length</span><span class="p">])];</span>
+<span class="p">[</span><span class="n">title</span> <span class="nl">fixAttributesInRange</span><span class="p">:</span><span class="n">range</span><span class="p">];</span>
+<span class="p">[</span><span class="n">button</span> <span class="nl">setAttributedTitle</span><span class="p">:</span><span class="n">title</span><span class="p">];</span></code></pre></div>
+
+<p>Not only is this ugly, but you may have to redo it if the title changes.</p>
+
+<h2>6. Support for white on black in other controls</h2>
+
+<p>It should be much easier is changing the color of other standard controls too. Specifically, I think it should be possible to place any control on a black background and make it visible.</p>
+
+<p>Do you want a white "spinner" (indeterminate progress indicator) to go on a black background? On iOS, all you need is:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">UIActivityIndicatorView</span> <span class="o">*</span><span class="n">indicator</span> <span class="o">=</span>
+    <span class="p">[[[</span><span class="n">UIActivityIndicatorView</span> <span class="n">alloc</span><span class="p">]</span>
+        <span class="nl">initWithActivityIndicatorStyle</span><span class="p">:</span><span class="n">UIActivityIndicatorViewStyleWhite</span><span class="p">]</span>
+    <span class="n">autorelease</span><span class="p">];</span></code></pre></div>
+
+<p>If you want to make the <code>NSProgressIndicator</code> on the make white... you can't. You need to draw the entire control yourself.</p>
+
+<h2>7. An NSTableView equivalent that uses NSView for rows</h2>
+
+<p>The final "making important classes easier to customize" point is about NSTableView: we need an NSTableView like class on the Mac that handles the same column and row operations but contains proper NSViews instead of NSCell.</p>
+
+<p>I've <a href="../03/custom-ui-bindings-in-interface-builder.html">spoken about this desire before</a>. The idea is pretty straightforward: UITableView creates a proper UITableViewCell (a subclass of UIView) for every row &mdash; this means that rows in a UITableView can behave like any UIView &mdash; they can be loaded from a NIB by a UIViewController, they can receive touches, contain buttons and be animated.</p>
+
+<p>The iOS UITableView lacks bindings and doesn't have columns at all but in nearly every other respect, it is superior to the options on the Mac.</p>
+
+<p>The NSCell that draws an NSTableView on the Mac is just limited. It can't animate, it can't contain regular views or buttons or receive clicks independent of the NSTableView. While using just one lightweight cell object per column may have made sense in the 1990's, it seems unnecessarily limiting in 2010.</p>
+
+<p>There is certainly NSCollectionView which handles grids of actual NSViews but this class would need some work in terms of efficiency if it is to replace an NSTableView.</p>
+
+<p>What's wrong with NSCollectionView? Simple: it constructs every view, including those that aren't visible. If your NSCollectionView contains 1 million views, this isn't going to work well. Further: NSCollectionView doesn't handle table-like interaction (you can't use column or row operations by default).</p>
+
+<p>The reality is that NSCollectionView is designed to fill a slightly different niche; what we really need is a better NSTableView.</p>
+
+<blockquote>More generally than NSTableView: the entire NSCell concept seems dated. I would not be sad to see Apple deprecate them entirely. In some respects: leaving them out of UIKit is a mild form of deprecation. Now they just need to take the next step and start offering a way to use AppKit without NSCells.</blockquote>
+
+<h2>8. Get rid of NSNib</h2>
+
+<p>Now to the first of the APIs that I think were updated when they were implemented in iOS but these updates never seemed to make it into Mac OS itself.</p>
+
+<p>The first is a fairly mild point: what is the purpose of the NSNib class on the Mac? Technically, the answer is "it loads and instantiates NIB files". It also provides the ability to cache the loaded NIB for faster instantiation. In reality though, iOS does all of this work without needing a new class.</p>
+
+<p>Specifically in this case, I'm looking at loading a NIB file and getting the array of top level objects.</p>
+
+<p>Both iOS and Mac OS X can load a NIB through NSBundle without getting the top level array but on Mac OS X (connecting only to the "owner" object) but getting full access to the created objects requires using NSNib. In iOS though, you can do this directly from NSBundle, making the existence of the NSNib class seem a little pointless.</p>
+
+<p>On iOS:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">contentArray</span> <span class="o">=</span>
+    <span class="p">[[[</span><span class="n">NSBundle</span> <span class="n">mainBundle</span><span class="p">]</span>
+        <span class="nl">loadNibNamed</span><span class="p">:</span><span class="n">nibName</span>
+        <span class="nl">owner</span><span class="p">:</span><span class="nb">self</span>
+        <span class="nl">options</span><span class="p">:</span><span class="nb">nil</span><span class="p">]</span>
+    <span class="k">retain</span><span class="p">];</span></code></pre></div>
+
+<p>On the Mac:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSNib</span> <span class="o">*</span><span class="n">nib</span> <span class="o">=</span>
+    <span class="p">[[[</span><span class="n">NSNib</span> <span class="n">alloc</span><span class="p">]</span>
+        <span class="nl">initWithNibNamed</span><span class="p">:</span><span class="n">nibName</span>
+        <span class="nl">bundle</span><span class="p">:[</span><span class="n">NSBundle</span> <span class="n">mainBundle</span><span class="p">]]</span>
+    <span class="n">autorelease</span><span class="p">];</span>
+<span class="p">[</span><span class="n">nib</span> <span class="nl">instantiateNibWithOwner</span><span class="p">:</span><span class="nb">self</span>
+    <span class="nl">topLevelObjects</span><span class="p">:</span><span class="o">&amp;</span><span class="n">contentArray</span><span class="p">];</span>
+<span class="p">[</span><span class="n">contentArray</span> <span class="k">retain</span><span class="p">];</span></code></pre></div>
+
+<p>You could probably argue that the Mac implementation lets you cache the NSNib and reinstantiate again later. The reality is: the iOS version <a href="../03/load-from-nib-or-construct-views-in.html">seems to handle this cacheing behind the scenes, automatically</a>. Less code, more powerful; it's better. We can get rid of NSNib on the Mac.</p>
+
+<p><strong>Edit</strong>: it appears I overlooked the fact that iOS introduced UINib in 4.0 &mdash; so Apple are bringing the Mac approach to iOS instead of the other way around. So I guess this is a point where I simply disagree; I think that the cacheing should be done automatically in NSBundle (so that the simplest approach is also the best). This could be combined with optional cache/don't cache flags passed into the "options" parameter if you need finer control.</p>
+
+<h2>9. Language Rotor for Text-To-Speech</h2>
+
+<p>This is probably the most "user" feature of the points in this post but iOS has had dramatic improvements in text-to-speech relative to the Mac.</p>
+
+<p>On iOS devices that support VoiceOver, the voice in Australia (where I live and work) has an Australian accent. This is due to the "Language Rotor" settings on iOS.</p>
+
+<p>Now, I realize that I'm not blind and the only time I ever need to turn on VoiceOver is when I'm testing the UIAccessibility/NSAccessibility protocol implementations in my applications but whenever I do this on the Mac the voice doesn't sound right.</p>
+
+<h2>10. Update OpenGL!</h2>
+
+<p>Do I need to explain this one?</p>
+
+<p>In iOS, you have access to OpenGL ES 2.0 &mdash; the current version of the OpenGL ES standard.</p>
+
+<p>I realize that OpenGL on the Mac is not the OpenGL ES version. I also realize that it's version number is OpenGL 2.1 which is 0.1 higher than the iOS version. Obviously, I'm not suggesting that the Mac adopt exactly the same version of OpenGL that iOS uses.</p>
+
+<p>What I mean is that iOS is using the up-to-date, relevant version of OpenGL whereas the OpenGL 2.1 standard on the Mac was superceeded 2 and a half years ago but Apple have not updated to support it. It is a complete embarrassment to the Mac as a platform. The current version of OpenGL for computers, OpenGL 4.1, was released in July this year. There are already cards available for the Mac that support OpenGL 4.1 on other operating systems but can't due so on the Mac because the OS does not support it.</p>
+
+<h2>11. Integration between CoreAnimation and standard views</h2>
+
+<p>The last two features from iOS I'd like to see both relate to making CALayer-backed views useable by default on the Mac.</p>
+
+<p>Major views should offer animated changes for common actions. If you want to animate a new row into a UITableView on iOS, you only need one line:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">[</span><span class="n">myTableView</span>
+    <span class="nl">insertRowsAtIndexPaths</span><span class="p">:</span><span class="n">someIndexPath</span>
+    <span class="nl">withRowAnimation</span><span class="p">:</span><span class="n">UITableViewRowAnimationLeft</span><span class="p">];</span></code></pre></div>
+
+<p>On the Mac &mdash; there certainly isn't a single line option. In fact, there's no easy solution at all, since rows are drawn by NSCell and don't generally have CALayers of their own (even when CoreAnimation is enabled for the NSTableView).</p>
+
+<h2>12. Fix the horrible text rendering when CoreAnimation is enabled</h2>
+
+<p>The following image shows Helvetica Bold 18pt, rendered on the Mac in two different ways.</p>
+
+<p>Both are an NSTextField over a custom drawn gradient but where the top row uses a regular, non-CALayer-backed view, the bottom row uses CALayer-backed views for the entire window.</p>
+
+<img src="../../assets/objc-era/CoreAnimationText.png" width="145" height="138" />
+
+<p>At first glance, the second row may simply look less fat but if you look closely, you'll see that it is more irregular, less proportionate, badly kerned and far less smooth.</p>
+
+<p>This horrible text rendering affects all text in CALayer-backed views.</p>
+
+<p>On iOS, which always uses CoreAnimation, the text rendering looks very similar to the top example (except that iOS doesn't use sub-pixel antialiasing). Clearly, there is a way to improve the situation with CALayers.</p>
+
+<p>This text quality problem with CoreAnimation has been a burden since CoreAnimation first appeared in Mac OS X 10.5 and it remains the biggest disincentive towards using it on the Mac. It really needs to be addressed.</p>
+
+<h2>Conclusion</h2>
+
+<p>These points illustrate my feeling that the Mac Cocoa APIs, AppKit in particular, need some general tidying up (and in some cases, a major refresh) if they are to feel anything other than dated with respect to their iOS equivalents.</p>
+
+<p>While some of these features would be major changes, many simply reflect the fact that AppKit could do with a well-applied coat of paint in many areas. These minor changes can already be addressed by each programmer (a category or a little extra code) but if these sorts of additions are considered commonplace, I think it's an indication that they should be rolled into the default API.</p>
+
+<p>Some of these features might require deprecating major classes in favor of more modern implementations &mdash; possibly NSTableView and all NSCells. I wouldn't be sad to see them replaced by something that feels more up-to-date.</p>
+
+</span>
+
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="cocoa-application-for-running-scripts.html">A Cocoa application for running scripts</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../12/version-control-for-solo-mac-developers.html">Version control for solo Mac developers</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Testing if an arbitrary pointer is a valid object pointer</title>
+  <meta name="description" content="In this post, I look at an approach for testing if an arbitrary pointer is a pointer to a valid Objective-C object. The result from the test is not absolutely accurate and can interfere with gdb debugging if the pointer isn&#39;t a valid memory location, so this is not something you&#39;d want to do often (and certainly not in production code). But it can be a handy debugging tool for when you&#39;re staring blindly at memory you didn&#39;t allocate." />
+
+  <meta name="twitter:title" content="Testing if an arbitrary pointer is a valid object pointer"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2010/10/testing-if-arbitrary-pointer-is-valid.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="In this post, I look at an approach for testing if an arbitrary pointer is a pointer to a valid Objective-C object. The result from the test is not absolutely accurate and can interfere with gdb debugging if the pointer isn&#39;t a valid memory location, so this is not something you&#39;d want to do often (and certainly not in production code). But it can be a handy debugging tool for when you&#39;re staring blindly at memory you didn&#39;t allocate."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="testing-if-arbitrary-pointer-is-valid.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Testing if an arbitrary pointer is a valid object pointer</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2010-10-06">October 6, 2010</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/foundation.html">Foundation</a>, <a href="../../categories/fun-hacks.html">fun hacks</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>In this post, I look at an approach for testing if an arbitrary pointer is a pointer to a valid Objective-C object. The result from the test is not absolutely accurate and can interfere with gdb debugging if the pointer isn't a valid memory location, so this is not something you'd want to do often (and certainly not in production code). But it can be a handy debugging tool for when you're staring blindly at memory you didn't allocate.</p></span><span class="fullpost"><h2>Introduction</h2><p>I originally wrote this code when I was looking through all the notifications from the local <code>CFNotificationCenter</code>, trying to work out where I was making mistakes in some AVFoundation video code (AVFoundation produces a lot of notifications when media playback is happening).</p><p>The callback function for these notifications has the following prototype:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">void</span> <span class="nf">MyNotificationCallBack</span> <span class="p">(</span>
+   <span class="n">CFNotificationCenterRef</span> <span class="n">center</span><span class="p">,</span>
+   <span class="kt">void</span> <span class="o">*</span><span class="n">observer</span><span class="p">,</span>
+   <span class="n">CFStringRef</span> <span class="n">name</span><span class="p">,</span>
+   <span class="k">const</span> <span class="kt">void</span> <span class="o">*</span><span class="n">object</span><span class="p">,</span>
+   <span class="n">CFDictionaryRef</span> <span class="n">userInfo</span>
+<span class="p">);</span></code></pre></div>
+
+<p>The <code>object</code> associated with the notification is passed as a <code>void *</code>. Most of the time, the value in <code>object</code> will be an Objective-C object but for the few times when it isn't, simply passing the result into <code>NSLog</code> can cause your program to crash.</p><h2>What do you need to test?</h2><p>Again, this comes back to the question: what is a valid Objective-C object?</p><p>For the purpose of sending a message to an object, all you need is for the value pointed to by the object pointer (i.e. the <code>isa</code> pointer) to be a registered <code>Class</code> value. This is the most important point to test  &mdash; the chance of an arbitrary memory value being a valid <code>Class</code> by chance is fairly low (although certainly not zero).</p><p>But there is another requirement to be a usable object: the memory space following the <code>isa</code> pointer must be valid. This is not an easy thing to test, but it is possible to test if the object itself was allocated at least as large as the class' instance size.</p><p>However, this allocation test does not need to return positive for any object that wasn't heap allocated. The most common example of non-heap allocated objects in Objective-C are compiler created strings. So while appropriate heap allocation for a block of memory that starts with an isa pointer is a near guarantee that the object is a valid Objective-C object, failure of this test does not eliminate the possibility that it's a valid object.</p><p>Finally, while all of this is happening, there remains the possibility that the pointer you're testing doesn't point to a valid memory location at all. If you're interested in handling this situation, you need to set up a signal handler (or Mach exception handler) to catch <code>SIGBUS</code> and <code>SIGSEGV</code> signals (or <code>EXC_BAD_ACCESS</code> if you go the Mach exceptions route).</p><h2>The code</h2>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="cp">#import &lt;malloc/malloc.h&gt;
+</span><span class="cp">#import &lt;objc/runtime.h&gt;
+</span><span class="cp"></span>
+<span class="k">static</span> <span class="n">sigjmp_buf</span> <span class="n">sigjmp_env</span><span class="p">;</span>
+
+<span class="kt">void</span>
+<span class="nf">PointerReadFailedHandler</span><span class="p">(</span><span class="kt">int</span> <span class="n">signum</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">siglongjmp</span> <span class="p">(</span><span class="n">sigjmp_env</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="kt">BOOL</span> <span class="nf">IsPointerAnObject</span><span class="p">(</span><span class="k">const</span> <span class="kt">void</span> <span class="o">*</span><span class="n">testPointer</span><span class="p">,</span> <span class="kt">BOOL</span> <span class="o">*</span><span class="n">allocatedLargeEnough</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="o">*</span><span class="n">allocatedLargeEnough</span> <span class="o">=</span> <span class="nb">NO</span><span class="p">;</span>
+    
+    <span class="c1">// Set up SIGSEGV and SIGBUS handlers
+</span><span class="c1"></span>    <span class="k">struct</span> <span class="n">sigaction</span> <span class="n">new_segv_action</span><span class="p">,</span> <span class="n">old_segv_action</span><span class="p">;</span>
+    <span class="k">struct</span> <span class="n">sigaction</span> <span class="n">new_bus_action</span><span class="p">,</span> <span class="n">old_bus_action</span><span class="p">;</span>
+    <span class="n">new_segv_action</span><span class="p">.</span><span class="n">sa_handler</span> <span class="o">=</span> <span class="n">PointerReadFailedHandler</span><span class="p">;</span>
+    <span class="n">new_bus_action</span><span class="p">.</span><span class="n">sa_handler</span> <span class="o">=</span> <span class="n">PointerReadFailedHandler</span><span class="p">;</span>
+    <span class="n">sigemptyset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">new_segv_action</span><span class="p">.</span><span class="n">sa_mask</span><span class="p">);</span>
+    <span class="n">sigemptyset</span><span class="p">(</span><span class="o">&amp;</span><span class="n">new_bus_action</span><span class="p">.</span><span class="n">sa_mask</span><span class="p">);</span>
+    <span class="n">new_segv_action</span><span class="p">.</span><span class="n">sa_flags</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">new_bus_action</span><span class="p">.</span><span class="n">sa_flags</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">sigaction</span> <span class="p">(</span><span class="n">SIGSEGV</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">new_segv_action</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">old_segv_action</span><span class="p">);</span>
+    <span class="n">sigaction</span> <span class="p">(</span><span class="n">SIGBUS</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">new_bus_action</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">old_bus_action</span><span class="p">);</span>
+
+    <span class="c1">// The signal handler will return us to here if a signal is raised
+</span><span class="c1"></span>    <span class="k">if</span> <span class="p">(</span><span class="n">sigsetjmp</span><span class="p">(</span><span class="n">sigjmp_env</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+    <span class="p">{</span>
+        <span class="n">sigaction</span> <span class="p">(</span><span class="n">SIGSEGV</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">old_segv_action</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+        <span class="n">sigaction</span> <span class="p">(</span><span class="n">SIGBUS</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">old_bus_action</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+        <span class="k">return</span> <span class="nb">NO</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="kt">Class</span> <span class="n">testPointerClass</span> <span class="o">=</span> <span class="o">*</span><span class="p">((</span><span class="kt">Class</span> <span class="o">*</span><span class="p">)</span><span class="n">testPointer</span><span class="p">);</span>
+
+    <span class="c1">// Get the list of classes and look for testPointerClass
+</span><span class="c1"></span>    <span class="kt">BOOL</span> <span class="n">isClass</span> <span class="o">=</span> <span class="nb">NO</span><span class="p">;</span>
+    <span class="n">NSInteger</span> <span class="n">numClasses</span> <span class="o">=</span> <span class="n">objc_getClassList</span><span class="p">(</span><span class="nb">NULL</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+    <span class="kt">Class</span> <span class="o">*</span><span class="n">classesList</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="kt">Class</span><span class="p">)</span> <span class="o">*</span> <span class="n">numClasses</span><span class="p">);</span>
+    <span class="n">numClasses</span> <span class="o">=</span> <span class="n">objc_getClassList</span><span class="p">(</span><span class="n">classesList</span><span class="p">,</span> <span class="n">numClasses</span><span class="p">);</span>
+    <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">numClasses</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">classesList</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">==</span> <span class="n">testPointerClass</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="n">isClass</span> <span class="o">=</span> <span class="nb">YES</span><span class="p">;</span>
+            <span class="k">break</span><span class="p">;</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+    <span class="n">free</span><span class="p">(</span><span class="n">classesList</span><span class="p">);</span>
+
+    <span class="c1">// We&#39;re done with the signal handlers (install the previous ones)
+</span><span class="c1"></span>    <span class="n">sigaction</span> <span class="p">(</span><span class="n">SIGSEGV</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">old_segv_action</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+    <span class="n">sigaction</span> <span class="p">(</span><span class="n">SIGBUS</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">old_bus_action</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">);</span>
+    
+    <span class="c1">// Pointer does not point to a valid isa pointer
+</span><span class="c1"></span>    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">isClass</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="nb">NO</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="c1">// Check the allocation size
+</span><span class="c1"></span>    <span class="n">size_t</span> <span class="n">allocated_size</span> <span class="o">=</span> <span class="n">malloc_size</span><span class="p">(</span><span class="n">testPointer</span><span class="p">);</span>
+    <span class="n">size_t</span> <span class="n">instance_size</span> <span class="o">=</span> <span class="n">class_getInstanceSize</span><span class="p">(</span><span class="n">testPointerClass</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">allocated_size</span> <span class="o">&gt;</span> <span class="n">instance_size</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="o">*</span><span class="n">allocatedLargeEnough</span> <span class="o">=</span> <span class="nb">YES</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="k">return</span> <span class="nb">YES</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<h2>Results from the function</h2><p>Running this test program:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">void</span> <span class="nf">LogPointerInformation</span><span class="p">(</span><span class="k">const</span> <span class="kt">void</span> <span class="o">*</span><span class="n">somePointer</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kt">BOOL</span> <span class="n">allocatedLargeEnough</span><span class="p">;</span>
+    <span class="kt">BOOL</span> <span class="n">isMessageableObject</span> <span class="o">=</span> <span class="n">IsPointerAnObject</span><span class="p">(</span><span class="n">somePointer</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">allocatedLargeEnough</span><span class="p">);</span>
+    <span class="n">NSLog</span><span class="p">(</span><span class="s">@&#34;The pointer %p is %@ and is %@.&#34;</span><span class="p">,</span>
+        <span class="n">somePointer</span><span class="p">,</span>
+        <span class="n">isMessageableObject</span> <span class="o">?</span>
+            <span class="s">@&#34;a valid object&#34;</span> <span class="o">:</span>
+            <span class="s">@&#34;not a valid object&#34;</span><span class="p">,</span>
+        <span class="n">allocatedLargeEnough</span> <span class="o">?</span>
+            <span class="s">@&#34;allocated at least as large as the required instance size&#34;</span> <span class="o">:</span>
+            <span class="s">@&#34;not a known allocation&#34;</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="kt">int</span> <span class="nf">main</span> <span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span> <span class="n">argv</span><span class="p">[])</span> <span class="p">{</span>
+    <span class="n">NSAutoreleasePool</span> <span class="o">*</span> <span class="n">pool</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSAutoreleasePool</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">];</span>
+
+    <span class="n">LogPointerInformation</span><span class="p">(</span><span class="s">@&#34;&#34;</span><span class="p">);</span>
+    <span class="n">LogPointerInformation</span><span class="p">([[[</span><span class="n">NSObject</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">]);</span>
+    <span class="n">LogPointerInformation</span><span class="p">(</span><span class="n">LogPointerInformation</span><span class="p">);</span>
+    <span class="n">LogPointerInformation</span><span class="p">(</span><span class="mh">0x12345678</span><span class="p">);</span>
+
+    <span class="p">[</span><span class="n">pool</span> <span class="n">drain</span><span class="p">];</span>
+    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Gives the following results (I've chopped off the <code>NSLog</code> times for brevity):</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">The</span> <span class="n">pointer</span> <span class="mh">0x100001130</span> <span class="n">is</span> <span class="n">a</span> <span class="n">valid</span> <span class="n">object</span> <span class="n">and</span> <span class="n">is</span> <span class="n">not</span> <span class="n">a</span> <span class="n">known</span> <span class="n">allocation</span><span class="p">.</span>
+<span class="n">The</span> <span class="n">pointer</span> <span class="mh">0x10011e940</span> <span class="n">is</span> <span class="n">a</span> <span class="n">valid</span> <span class="n">object</span> <span class="n">and</span> <span class="n">is</span> <span class="n">allocated</span> <span class="n">at</span> <span class="n">least</span> <span class="n">as</span> <span class="n">large</span> <span class="n">as</span> <span class="n">the</span> <span class="n">required</span> <span class="n">instance</span> <span class="n">size</span><span class="p">.</span>
+<span class="n">The</span> <span class="n">pointer</span> <span class="mh">0x100000c0d</span> <span class="n">is</span> <span class="n">not</span> <span class="n">a</span> <span class="n">valid</span> <span class="n">object</span> <span class="n">and</span> <span class="n">is</span> <span class="n">not</span> <span class="n">a</span> <span class="n">known</span> <span class="n">allocation</span><span class="p">.</span>
+<span class="n">The</span> <span class="n">pointer</span> <span class="mh">0x12345678</span> <span class="n">is</span> <span class="n">not</span> <span class="n">a</span> <span class="n">valid</span> <span class="n">object</span> <span class="n">and</span> <span class="n">is</span> <span class="n">not</span> <span class="n">a</span> <span class="n">known</span> <span class="n">allocation</span><span class="p">.</span></code></pre></div>
+
+<h2>Limitations of this approach</h2><p>The most serious limitation of this approach is that it can never guarantee anything. For this reason, it is important that you never use this in production code.</p><p>The most obvious situation where the function will fail completely is when testing a <code>malloc</code>'d C array of Objective-C class pointers. This memory block definitely starts with a valid <code>Class</code> value and may even have a <code>malloc_size</code> greater than that class' instance size &mdash; but the block was never truly allocated as an object and if any instance values are important to the class, they are all likely to be invalid.</p><p>Objects that are not heap allocated are difficult to guarantee that their instance memory will be within addressable memory. This means that you could raise SIGSEGV or SIGBUS signals.</p><p>Still on the topic of signals, while I've included signal handling in this code, it's unlikely you'll ever want it to be invoked as it stops gdb dead.</p><p>While ordinarily, you can give gdb a <code>handle signal nostop noprint pass</code> to continue after the signal, that won't work here. There are issues getting the Mac version of gdb to proceed after an EXC_BAD_ACCESS. It is actually easier to let gdb catch the signal, then drag the program execution point in Xcode to the top of the <code>sigsetjmp</code> block manually.</p><p>As a final caveat: the signal handling code that I've written is strictly not thread-safe and non-reentrant.</p><h2>Conclusion</h2><p>The result is more of a heuristic than an absolute verdict.</p><p>However, the approach is a useful tool to give an "acceptable" verification that a value is a valid object for debugging purposes. It is certainly good enough to test before sending values to <code>NSLog</code>.</p><p>The issues with gdb when an invalid memory access signal is raised are annoying. I'd be interested to see if there's a way to avoid this. It certainly provides an added disincentive to using this code on truly arbitrary values.</p></span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../09/zoomingviewcontroller-to-animate-uiview.html">A ZoomingViewController to animate a UIView to fullscreen</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="ios-tone-generator-introduction-to.html">An iOS tone generator (an introduction to AudioUnits)</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

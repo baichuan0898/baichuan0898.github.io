@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Sliding UITextFields around to avoid the keyboard</title>
+  <meta name="description" content="It&#39;s an iPhone post because I finally can. Here&#39;s a good way to slide your view around when editing UITextFields so that they never get trapped under the onscreen keyboard. I&#39;ll be giving a talk at the Brisbane Cocoaheads meeting this Monday evening (Oct 6). Come along and heckle." />
+
+  <meta name="twitter:title" content="Sliding UITextFields around to avoid the keyboard"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2008/10/sliding-uitextfields-around-to-avoid.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="It&#39;s an iPhone post because I finally can. Here&#39;s a good way to slide your view around when editing UITextFields so that they never get trapped under the onscreen keyboard. I&#39;ll be giving a talk at the Brisbane Cocoaheads meeting this Monday evening (Oct 6). Come along and heckle."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="sliding-uitextfields-around-to-avoid.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Sliding UITextFields around to avoid the keyboard</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2008-10-03">October 3, 2008</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/uikit.html">UIKit</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>It's an iPhone post because I finally can. Here's a good way to slide your view around when editing UITextFields so that they never get trapped under the onscreen keyboard.</p>
+<p>I'll be giving a talk at the <a href="http://brisbanecocoaheads.com/">Brisbane Cocoaheads</a> meeting this Monday evening (Oct 6). Come along and heckle.</p></span>
+
+<span class="fullpost">
+<h2>Hidden text fields</h2>
+<p>The iPhone's onscreen keyboard occupies the bottom 216 pixels on screen (162 in landscape mode). That's around half the screen, so if you ever have a text field you want to edit in the bottom half of the screen, it needs to move or it will get covered.</p>
+
+<p>You can just animate the whole window upwards by the height of the keyboard when editing a text field in the bottom half but this doesn't work well for text fields in the middle (they can get moved too far up).</p>
+
+<p>Instead, I'm going to show you a method which divides the window as follows:</p>
+
+<img src="../../assets/objc-era/slidingsections.png" width="213" height="320" />
+
+<p>Everything in the top section will stay still when edited. Everything in the middle section will animate upwards by a fraction of the keyboard's height (proportional to the field's height within the middle section). Everything in the bottom section will animate upwards by the keyboard's full height.</p>
+
+<h2>Implementing the delegate methods</h2>
+
+<blockquote>All of the methods shown here should go into a <em>view controller</em> probably the "main" view controller for the current screen (i.e. the <span class="monospace">visibleViewController</span> of the current <span class="monospace">UINavigationController</span>, your <span class="monospace">RootViewController</span> or other top-level view controller).<br/><br/>You will need to make this view controller the <span class="monospace">delegate</span> (in Interface Builder) for every <span class="monospace">UITextField</span> you want to animate.</blockquote>
+
+<p>Your view controller will need the following instance variable:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">CGFloat</span> <span class="n">animatedDistance</span><span class="p">;</span></code></pre></div>
+
+<p>The following constants should also be declared somewhere (likely the top of the view controller's implementation file):</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">static</span> <span class="k">const</span> <span class="n">CGFloat</span> <span class="n">KEYBOARD_ANIMATION_DURATION</span> <span class="o">=</span> <span class="mf">0.3</span><span class="p">;</span>
+<span class="k">static</span> <span class="k">const</span> <span class="n">CGFloat</span> <span class="n">MINIMUM_SCROLL_FRACTION</span> <span class="o">=</span> <span class="mf">0.2</span><span class="p">;</span>
+<span class="k">static</span> <span class="k">const</span> <span class="n">CGFloat</span> <span class="n">MAXIMUM_SCROLL_FRACTION</span> <span class="o">=</span> <span class="mf">0.8</span><span class="p">;</span>
+<span class="k">static</span> <span class="k">const</span> <span class="n">CGFloat</span> <span class="n">PORTRAIT_KEYBOARD_HEIGHT</span> <span class="o">=</span> <span class="mi">216</span><span class="p">;</span>
+<span class="k">static</span> <span class="k">const</span> <span class="n">CGFloat</span> <span class="n">LANDSCAPE_KEYBOARD_HEIGHT</span> <span class="o">=</span> <span class="mi">162</span><span class="p">;</span></code></pre></div>
+
+<h3>Animate upwards when the text field is selected</h3>
+
+<p> Get the rects of the text field being edited and the view that we're going to scroll. We convert everything to window coordinates, since they're not necessarily in the same coordinate space.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">textFieldDidBeginEditing:</span><span class="p">(</span><span class="n">UITextField</span> <span class="o">*</span><span class="p">)</span><span class="nv">textField</span>
+<span class="p">{</span>
+    <span class="n">CGRect</span> <span class="n">textFieldRect</span> <span class="o">=</span>
+        <span class="p">[</span><span class="nb">self</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">window</span> <span class="nl">convertRect</span><span class="p">:</span><span class="n">textField</span><span class="p">.</span><span class="n">bounds</span> <span class="nl">fromView</span><span class="p">:</span><span class="n">textField</span><span class="p">];</span>
+    <span class="n">CGRect</span> <span class="n">viewRect</span> <span class="o">=</span>
+        <span class="p">[</span><span class="nb">self</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">window</span> <span class="nl">convertRect</span><span class="p">:</span><span class="nb">self</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">bounds</span> <span class="nl">fromView</span><span class="p">:</span><span class="nb">self</span><span class="p">.</span><span class="n">view</span><span class="p">];</span></code></pre></div>
+
+<p>So now we have the bounds, we need to calculate the fraction between the top and bottom of the middle section for the text field's midline:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc">    <span class="n">CGFloat</span> <span class="n">midline</span> <span class="o">=</span> <span class="n">textFieldRect</span><span class="p">.</span><span class="n">origin</span><span class="p">.</span><span class="n">y</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">textFieldRect</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span><span class="p">;</span>
+    <span class="n">CGFloat</span> <span class="n">numerator</span> <span class="o">=</span>
+        <span class="n">midline</span> <span class="o">-</span> <span class="n">viewRect</span><span class="p">.</span><span class="n">origin</span><span class="p">.</span><span class="n">y</span>
+            <span class="o">-</span> <span class="n">MINIMUM_SCROLL_FRACTION</span> <span class="o">*</span> <span class="n">viewRect</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span><span class="p">;</span>
+    <span class="n">CGFloat</span> <span class="n">denominator</span> <span class="o">=</span>
+        <span class="p">(</span><span class="n">MAXIMUM_SCROLL_FRACTION</span> <span class="o">-</span> <span class="n">MINIMUM_SCROLL_FRACTION</span><span class="p">)</span>
+            <span class="o">*</span> <span class="n">viewRect</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span><span class="p">;</span>
+    <span class="n">CGFloat</span> <span class="n">heightFraction</span> <span class="o">=</span> <span class="n">numerator</span> <span class="o">/</span> <span class="n">denominator</span><span class="p">;</span></code></pre></div>
+
+<p>Clamp this fraction so that the top section is all "0.0" and the bottom section is all "1.0".</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc">    <span class="k">if</span> <span class="p">(</span><span class="n">heightFraction</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">heightFraction</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">heightFraction</span> <span class="o">&gt;</span> <span class="mf">1.0</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">heightFraction</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">;</span>
+    <span class="p">}</span></code></pre></div>
+
+<p>Now take this fraction and convert it into an amount to scroll by multiplying by the keyboard height for the current screen orientation. Notice the calls to <span class="monospace">floor</span> so that we only scroll by whole pixel amounts.</p>
+    
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc">    <span class="n">UIInterfaceOrientation</span> <span class="n">orientation</span> <span class="o">=</span>
+        <span class="p">[[</span><span class="n">UIApplication</span> <span class="n">sharedApplication</span><span class="p">]</span> <span class="n">statusBarOrientation</span><span class="p">];</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">orientation</span> <span class="o">==</span> <span class="n">UIInterfaceOrientationPortrait</span> <span class="o">||</span>
+        <span class="n">orientation</span> <span class="o">==</span> <span class="n">UIInterfaceOrientationPortraitUpsideDown</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">animatedDistance</span> <span class="o">=</span> <span class="n">floor</span><span class="p">(</span><span class="n">PORTRAIT_KEYBOARD_HEIGHT</span> <span class="o">*</span> <span class="n">heightFraction</span><span class="p">);</span>
+    <span class="p">}</span>
+    <span class="k">else</span>
+    <span class="p">{</span>
+        <span class="n">animatedDistance</span> <span class="o">=</span> <span class="n">floor</span><span class="p">(</span><span class="n">LANDSCAPE_KEYBOARD_HEIGHT</span> <span class="o">*</span> <span class="n">heightFraction</span><span class="p">);</span>
+    <span class="p">}</span></code></pre></div>
+
+<p>Finally, apply the animation. Note the use of <span class="monospace">setAnimationBeginsFromCurrentState:</span> &mdash; this will allow a smooth transition to new text field if the user taps on another.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc">    <span class="n">CGRect</span> <span class="n">viewFrame</span> <span class="o">=</span> <span class="nb">self</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">frame</span><span class="p">;</span>
+    <span class="n">viewFrame</span><span class="p">.</span><span class="n">origin</span><span class="p">.</span><span class="n">y</span> <span class="o">-=</span> <span class="n">animatedDistance</span><span class="p">;</span>
+    
+    <span class="p">[</span><span class="n">UIView</span> <span class="nl">beginAnimations</span><span class="p">:</span><span class="nb">nil</span> <span class="nl">context</span><span class="p">:</span><span class="nb">NULL</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">UIView</span> <span class="nl">setAnimationBeginsFromCurrentState</span><span class="p">:</span><span class="nb">YES</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">UIView</span> <span class="nl">setAnimationDuration</span><span class="p">:</span><span class="n">KEYBOARD_ANIMATION_DURATION</span><span class="p">];</span>
+    
+    <span class="p">[</span><span class="nb">self</span><span class="p">.</span><span class="n">view</span> <span class="nl">setFrame</span><span class="p">:</span><span class="n">viewFrame</span><span class="p">];</span>
+    
+    <span class="p">[</span><span class="n">UIView</span> <span class="n">commitAnimations</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<h3>Animate back again</h3>
+
+<p>The return animation is far simpler since we've saved the amount to animate.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">textFieldDidEndEditing:</span><span class="p">(</span><span class="n">UITextField</span> <span class="o">*</span><span class="p">)</span><span class="nv">textField</span>
+<span class="p">{</span>
+    <span class="n">CGRect</span> <span class="n">viewFrame</span> <span class="o">=</span> <span class="nb">self</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">frame</span><span class="p">;</span>
+    <span class="n">viewFrame</span><span class="p">.</span><span class="n">origin</span><span class="p">.</span><span class="n">y</span> <span class="o">+=</span> <span class="n">animatedDistance</span><span class="p">;</span>
+    
+    <span class="p">[</span><span class="n">UIView</span> <span class="nl">beginAnimations</span><span class="p">:</span><span class="nb">nil</span> <span class="nl">context</span><span class="p">:</span><span class="nb">NULL</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">UIView</span> <span class="nl">setAnimationBeginsFromCurrentState</span><span class="p">:</span><span class="nb">YES</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">UIView</span> <span class="nl">setAnimationDuration</span><span class="p">:</span><span class="n">KEYBOARD_ANIMATION_DURATION</span><span class="p">];</span>
+    
+    <span class="p">[</span><span class="nb">self</span><span class="p">.</span><span class="n">view</span> <span class="nl">setFrame</span><span class="p">:</span><span class="n">viewFrame</span><span class="p">];</span>
+    
+    <span class="p">[</span><span class="n">UIView</span> <span class="n">commitAnimations</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<h3>Since we're writing the delegate methods...</h3>
+
+<p>This next method has nothing to do with animation but since we're writing the delegate methods for a <span class="monospace">UITextField</span>, this is essential. It dismisses the keyboard when the return/done button is pressed.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nf">textFieldShouldReturn:</span><span class="p">(</span><span class="n">UITextField</span> <span class="o">*</span><span class="p">)</span><span class="nv">textField</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="n">textField</span> <span class="n">resignFirstResponder</span><span class="p">];</span>
+    <span class="k">return</span> <span class="nb">YES</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<h2>Result</h2>
+
+<p>For a window that looks like this:</p>
+
+<img src="../../assets/objc-era/textfieldwindow.png" width="256" height="384" />
+
+<p>Editing text fields in the top, middle and bottom sections will look like the following:</p>
+
+<img src="../../assets/objc-era/slidingpositions.png" width="520" height="256" />
+
+<p>Notice in particular how the middle section remains in the middle of the visible area after the keyboard appears. This is the primary benefit of the presented approach.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../09/streaming-and-playing-live-mp3-stream.html">Streaming and playing an MP3 stream</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="worldtimeconverter-dates-and-timezones.html">WorldTimeConverter: Dates and timezones in Cocoa</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

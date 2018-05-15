@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>CwlSignal, a library for reactive programming</title>
+  <meta name="description" content="In this article, I&#39;m presenting CwlSignal. It is the latest Swift iteration of a library that I&#39;ve been using for reactive programming for the last few years. CwlSignal is simple, fast, threadsafe and full-featured while offering a number of unique abilities." />
+
+  <meta name="twitter:title" content="CwlSignal, a library for reactive programming"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/blog/cwlsignal.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="In this article, I&#39;m presenting CwlSignal. It is the latest Swift iteration of a library that I&#39;ve been using for reactive programming for the last few years. CwlSignal is simple, fast, threadsafe and full-featured while offering a number of unique abilities."/>
+
+  <link rel="icon" href="../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../css/main.css" />
+  <link rel="canonical" href="cwlsignal.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../index.html"><img class="heartandcup" src="../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../about/index.html">about</a>
+        <a class="page-link" href="../archive/index.html">archive</a>
+        <a class="page-link" href="../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">CwlSignal, a library for reactive programming</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2016-11-28">November 28, 2016</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../tags/asynchrony.html">asynchrony</a>
+		 
+	</div>
+</header>
+
+
+<main role="main">
+	<article itemscope itemtype="http://schema.org/BlogPosting">
+		<div class="post-content" itemprop="articleBody">
+			
+
+<p>In this article, I&rsquo;m presenting <a href="https://github.com/mattgallagher/CwlSignal">CwlSignal</a>. It is the latest Swift iteration of a library that I&rsquo;ve been using for reactive programming for the last few years. I consider it the fifth iteration although the first two iterations were in C++ and were quite different.</p>
+
+<p>I don&rsquo;t like releasing code that directly competes with existing solutions but I&rsquo;m doing that here. I believe that the design of CwlSignal offers a number of significant features and advantages that make it worthy of consideration despite the existence of other options.</p>
+
+<p>This article will focus on basic usage of the CwlSignal library itself. <strong>I will not explain what reactive programming is or why you should use it, in this article.</strong> If you&rsquo;re unfamiliar with reactive programming, you might want to start with the next article, <a href="reactive-programming-what-and-why.html">What is reactive programming and why should I use it?</a></p>
+
+<nav id="TableOfContents"><span class="toc-heading">Contents</span>
+<ul>
+<li>
+<ul>
+<li><a href="#a-one-way-communication-channel">A one-way communication channel</a></li>
+<li><a href="#serial-asynchronous-compositions">Serial asynchronous compositions</a></li>
+<li><a href="#parallel-asynchronous-compositions">Parallel asynchronous compositions</a></li>
+<li><a href="#three-tricky-scenarios">Three tricky scenarios</a>
+<ul>
+<li><a href="#instantaneous-values">Instantaneous values</a></li>
+<li><a href="#continuous-or-playback-values">Continuous or playback values</a></li>
+<li><a href="#lazy-generation">Lazy generation</a></li>
+</ul></li>
+<li><a href="#signal-activation">Signal activation</a>
+<ul>
+<li><a href="#other-implementations">Other implementations</a></li>
+<li><a href="#cwlsignal-and-activation">CwlSignal and &ldquo;activation&rdquo;</a></li>
+<li><a href="#closure-state-and-deactivation">Closure state and deactivation</a></li>
+</ul></li>
+<li><a href="#single-output-by-default">Single-output by default</a>
+<ul>
+<li><a href="#usage-implications-of-single-output-by-default">Usage implications of &ldquo;single-output by default&rdquo;</a></li>
+<li><a href="#interface-implications-of-single-output-by-default">Interface implications of &ldquo;single-output by default&rdquo;</a></li>
+</ul></li>
+<li><a href="#other-details-about-cwlsignal">Other details about CwlSignal</a>
+<ul>
+<li><a href="#types">Types</a></li>
+<li><a href="#result-t">Result<T></a></li>
+<li><a href="#lifetime-management">Lifetime management</a></li>
+<li><a href="#retaining-endpoints">Retaining endpoints</a></li>
+<li><a href="#classes-are-just-an-implementation-detail">Classes are just an implementation detail</a></li>
+<li><a href="#support-for-reactivex">Support for ReactiveX</a></li>
+<li><a href="#high-performance">High performance</a></li>
+<li><a href="#thread-safety">Thread safety</a></li>
+</ul></li>
+<li><a href="#limited-out-of-the-box-integration">Limited out-of-the-box integration</a></li>
+<li><a href="#usage">Usage</a></li>
+<li><a href="#conclusion">Conclusion</a>
+<ul>
+<li><a href="#looking-forward">Looking forward&hellip;</a></li>
+</ul></li>
+</ul></li>
+</ul>
+</nav>
+
+<h2 id="a-one-way-communication-channel">A one-way communication channel</h2>
+
+<p>The CwlSignal library is centered around the <code>Signal</code> type; a one-way communication channel:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="c1">// Create an input/output pair</span>
+<span class="kd">let</span> <span class="p">(</span><span class="n">input</span><span class="p">,</span> <span class="n">signal</span><span class="p">)</span> <span class="p">=</span> <span class="n">Signal</span><span class="p">&lt;</span><span class="nb">Int</span><span class="o">&gt;</span><span class="p">.</span><span class="n">create</span><span class="p">()</span>
+
+<span class="c1">// Subscribe to listen to the values output by the channel</span>
+<span class="kc">self</span><span class="p">.</span><span class="n">endpoint</span> <span class="p">=</span> <span class="n">signal</span><span class="p">.</span><span class="n">subscribeValues</span> <span class="p">{</span> <span class="n">value</span> <span class="k">in</span> <span class="bp">print</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="p">}</span>
+
+<span class="c1">// Send values to the input end</span>
+<span class="n">input</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">input</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">input</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="mi">3</span><span class="p">)</span></code></pre></div>
+
+<figcaption>"Basic channel" appears in the <a href="https://github.com/mattgallagher/CwlSignal">CwlSignal.playground</a>.</figcaption>
+
+<p>You can probably guess that this example will print:</p>
+
+<pre><code>1
+2
+3
+</code></pre>
+
+<p>The <code>SignalInput</code>/<code>Signal</code> types returned from <code>create</code> are the two ends of the channel and can be passed around your program to locations where values are emitted or where values are needed.</p>
+
+<p>The <code>subscribeValues</code> function creates a <code>SignalEndpoint</code> which allows us to extract values from the channel. The endpoint maintains the lifetime of the channel – when the endpoint is released, the channel will be closed and all resources cleaned up.</p>
+
+<p>The careful separation of &ldquo;input&rdquo; and &ldquo;output&rdquo; and the modelling of reactive programming as a channel is a distinguishing feature of CwlSignal. Other common implementations treat reactive programming as an implementation of the &ldquo;Observer&rdquo; pattern but this leads them to hide the input end of their channels or confusingly use types that are both input and output, when only an input interface is desired.</p>
+
+<h2 id="serial-asynchronous-compositions">Serial asynchronous compositions</h2>
+
+<p>Any number of <code>Signal</code> instances can be chained in series to form pipelines. This allows value transformations and other &ldquo;stream processing&rdquo; to be applied to values between the sender and the subscriber.</p>
+
+<p>There are lots of different &ldquo;operator&rdquo; functions for chaining <code>Signal</code> instances together (including names like <code>map</code> and <code>flatMap</code> that you might recognize from <code>Sequence</code> and <code>Collection</code> processing in Swift) but most are implemented on top of the <code>transform</code> function which can be used like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">let</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">o</span><span class="p">)</span> <span class="p">=</span> <span class="n">Signal</span><span class="p">&lt;</span><span class="nb">Int</span><span class="o">&gt;</span><span class="p">.</span><span class="n">create</span><span class="p">()</span>
+
+<span class="c1">// Transform into signal that emits a number of &#34;Beep&#34;s equal to the integer received</span>
+<span class="kc">self</span><span class="p">.</span><span class="n">endpoint</span> <span class="p">=</span> <span class="n">o</span><span class="p">.</span><span class="n">transform</span> <span class="p">{</span> <span class="n">result</span><span class="p">:</span> <span class="n">Result</span><span class="p">&lt;</span><span class="nb">Int</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">next</span><span class="p">:</span> <span class="n">SignalNext</span><span class="p">&lt;</span><span class="nb">String</span><span class="o">&gt;</span> <span class="k">in</span>
+   <span class="k">switch</span> <span class="n">result</span> <span class="p">{</span>
+   <span class="k">case</span> <span class="p">.</span><span class="n">success</span><span class="p">(</span><span class="kd">let</span> <span class="nv">intValue</span><span class="p">):</span> <span class="p">(</span><span class="mf">0.</span><span class="p">.&lt;</span><span class="n">intValue</span><span class="p">).</span><span class="n">forEach</span> <span class="p">{</span> <span class="kc">_</span> <span class="k">in</span> <span class="n">next</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="s">&#34;Beep&#34;</span><span class="p">)</span> <span class="p">}</span>
+   <span class="k">case</span> <span class="p">.</span><span class="n">failure</span><span class="p">(</span><span class="kd">let</span> <span class="nv">error</span><span class="p">):</span> <span class="n">next</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">error</span><span class="p">:</span> <span class="n">error</span><span class="p">)</span>
+   <span class="p">}</span>
+<span class="p">}.</span><span class="n">subscribeValues</span> <span class="p">{</span> <span class="n">value</span> <span class="k">in</span>
+   <span class="bp">print</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="n">i</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="mi">3</span><span class="p">)</span></code></pre></div>
+
+<figcaption>"Serial pipelines - transform" appears in the <a href="https://github.com/mattgallagher/CwlSignal">CwlSignal.playground</a>.</figcaption>
+
+<p>Will output:</p>
+
+<pre><code>Beep
+Beep
+Beep
+</code></pre>
+
+<p>Unlike functional programming inspired transformation functions (e.g. <code>map</code>, <code>flatMap</code>), the fundamental <code>transform</code> in CwlSignal does not <em>return</em> its result but <code>send</code>s it into the <code>SignalNext</code> (interface equivalent to <code>SignalInput</code> for sending to the next <code>Signal</code> in the chain). This design allows you to emit any number of values or an error.</p>
+
+<p>There&rsquo;s a hidden parameter here, <code>context</code>, an <code>Exec</code> type (I <a href="specifying-execution-contexts.html">presented and discussed <code>Exec</code></a> in a previous article), which is left to its default <code>.direct</code> value (indicating this processing will be performed directly upon whatever context the value is sent). Providing a value for this parameter allows easy transfer between separate send and subscribe contexts or allowing processing work to occur on a worker thread.</p>
+
+<p>As an example, the following code snippet uses <code>context</code> parameters in conjunction with the <code>map</code> function (a simplified one-to-one value transformer built on top of <code>transform</code>) to demonstrate sending a value in from the current context to the <code>.default</code> priority <code>Dispatch</code> global concurrent queue, before finally returning to the <code>.main</code> thread to report results.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="c1">// Create an input/output pair</span>
+<span class="kd">let</span> <span class="p">(</span><span class="n">input</span><span class="p">,</span> <span class="n">output</span><span class="p">)</span> <span class="p">=</span> <span class="n">Signal</span><span class="p">&lt;</span><span class="nb">Int</span><span class="o">&gt;</span><span class="p">.</span><span class="n">create</span><span class="p">()</span>
+
+<span class="c1">// Create the processor</span>
+<span class="kc">self</span><span class="p">.</span><span class="n">endpoint</span> <span class="p">=</span> <span class="n">output</span><span class="p">.</span><span class="bp">map</span><span class="p">(</span><span class="n">context</span><span class="p">:</span> <span class="p">.</span><span class="k">default</span><span class="p">)</span> <span class="p">{</span> <span class="n">value</span> <span class="k">in</span>
+   <span class="c1">// Perform the background work</span>
+   <span class="k">return</span> <span class="n">sqrt</span><span class="p">(</span><span class="nb">Double</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>
+<span class="p">}.</span><span class="n">subscribeValues</span><span class="p">(</span><span class="n">context</span><span class="p">:</span> <span class="p">.</span><span class="n">main</span><span class="p">)</span> <span class="p">{</span> <span class="n">value</span> <span class="k">in</span>
+   <span class="c1">// Perform the main thread work</span>
+   <span class="bp">print</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+<span class="p">}</span>
+
+<span class="c1">// Send values to the input end</span>
+<span class="n">input</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">input</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="mi">2</span><span class="p">)</span>
+<span class="n">input</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="mi">3</span><span class="p">)</span></code></pre></div>
+
+<figcaption>"Serial pipelines - map" appears in the <a href="https://github.com/mattgallagher/CwlSignal">CwlSignal.playground</a>.</figcaption>
+
+<p>Which will output:</p>
+
+<pre><code>1.0
+1.4142135623731
+1.73205080756888
+</code></pre>
+
+<p>Note that despite transferring via a <em>concurrent</em> global queue, <code>Signal</code> ensures serialized processing of values in the stream.</p>
+
+<h2 id="parallel-asynchronous-compositions">Parallel asynchronous compositions</h2>
+
+<p>CwlSignal combines asynchronous signals as easily as it transforms signals serially. The <code>combine</code> function works in much the same way as the <code>transform</code> function, except that instead of processing a series of <code>Result&lt;T&gt;</code> values, it processes <code>EitherResult...</code> (an <code>enum</code> over two or more <code>Result</code> types, depending on how many input <code>Signal</code>s you are combining).</p>
+
+<p>For example, if you wanted to put a 10 second limit on the total duration of a <code>Signal</code>, you could combine it with a timer <code>Signal</code> as follows:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">let</span> <span class="nv">timer</span> <span class="p">=</span> <span class="n">Signal</span><span class="o">&lt;</span><span class="p">()</span><span class="o">&gt;</span><span class="p">.</span><span class="n">timer</span><span class="p">(</span><span class="n">interval</span><span class="p">:</span> <span class="p">.</span><span class="n">seconds</span><span class="p">(</span><span class="mi">10</span><span class="p">))</span>
+<span class="kd">let</span> <span class="nv">signalWithTimeout</span> <span class="p">=</span> <span class="n">underlyingSignal</span><span class="p">.</span><span class="n">combine</span><span class="p">(</span><span class="n">second</span><span class="p">:</span> <span class="n">timer</span><span class="p">)</span> <span class="p">{</span> <span class="n">eitherResult</span><span class="p">,</span> <span class="n">next</span> <span class="k">in</span>
+   <span class="k">switch</span> <span class="n">eitherResult</span> <span class="p">{</span>
+   <span class="k">case</span> <span class="p">.</span><span class="n">result1</span><span class="p">(</span><span class="kd">let</span> <span class="nv">r</span><span class="p">):</span> <span class="n">next</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">result</span><span class="p">:</span> <span class="n">r</span><span class="p">)</span>
+   <span class="k">case</span> <span class="p">.</span><span class="n">result2</span><span class="p">:</span> <span class="n">next</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">error</span><span class="p">:</span> <span class="n">MyErrors</span><span class="p">.</span><span class="n">timeout</span><span class="p">)</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<figcaption>"Parallel composition - combine" appears in the <a href="https://github.com/mattgallagher/CwlSignal">CwlSignal.playground</a>.</figcaption>
+
+<p>I wanted to show the use of the <code>combine</code> function but you would normally apply a timeout using thebuilt-in function <code>timeout</code>. There are many built-in combining functions like <code>zip</code> and <code>combineLatest</code> that simplify applying <code>combine</code> transformations across multiple <code>Signal</code>s.</p>
+
+<p>For example, combining the latest value of two dependencies for setting the <code>isEnabled</code> status of a button:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kc">self</span><span class="p">.</span><span class="n">endpoints</span> <span class="o">+=</span> <span class="n">loginStatus</span><span class="p">.</span><span class="n">loggedInSignal</span>
+   <span class="p">.</span><span class="n">combineLatest</span><span class="p">(</span><span class="n">second</span><span class="p">:</span> <span class="n">folderView</span><span class="p">.</span><span class="n">selectionSignal</span><span class="p">)</span> <span class="p">{</span> <span class="nv">$0</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="nv">$1</span><span class="p">.</span><span class="bp">isEmpty</span> <span class="p">}</span>
+   <span class="p">.</span><span class="n">subscribe</span><span class="p">(</span><span class="n">context</span><span class="p">:</span> <span class="p">.</span><span class="n">main</span><span class="p">)</span> <span class="p">{</span> <span class="n">result</span> <span class="k">in</span>
+      <span class="kc">self</span><span class="p">.</span><span class="n">addToFavoritesButton</span><span class="p">.</span><span class="n">isEnabled</span> <span class="p">=</span> <span class="n">result</span><span class="p">.</span><span class="n">value</span> <span class="p">??</span> <span class="kc">false</span>
+   <span class="p">}</span></code></pre></div>
+
+<figcaption>"App scenario - dynamic view properties" appears in the <a href="https://github.com/mattgallagher/CwlSignal">CwlSignal.playground</a>.</figcaption>
+
+<p>Notice the <code>context: .main</code> to ensure that any final value is applied on the &ldquo;main&rdquo; thread (this <code>Exec</code> value checks to see if it is already on the &ldquo;main&rdquo; thread and directly invokes, otherwise invokes asynchronously on the <code>.main</code> thread).</p>
+
+<h2 id="three-tricky-scenarios">Three tricky scenarios</h2>
+
+<p>The examples I&rsquo;ve shown so far have kept everything simple with regards to the timing of the signal construction and the sending of values. We didn&rsquo;t start sending values until <em>after</em> the subscriber connected, avoiding the question of what would happen to signals if they had nowhere to go.</p>
+
+<p>Any reactive programming library usually needs to handle situations where the order of joining and disconnecting is less simple. The specific approach for handling of these types of scenario is usually a defining difference between reactive programming implementations.</p>
+
+<h3 id="instantaneous-values">Instantaneous values</h3>
+
+<p>In some cases, discarding all values sent before a listener connects is the desired behavior. For example, if you created a signal that emitted a &ldquo;tick&rdquo; notification once per second, then discarding ticks when no one is listening is probably the right option.</p>
+
+<p>If we send some values <em>before</em> a subscriber is connected:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="c1">// Create an input/output pair</span>
+<span class="kd">let</span> <span class="p">(</span><span class="n">input</span><span class="p">,</span> <span class="n">output</span><span class="p">)</span> <span class="p">=</span> <span class="n">Signal</span><span class="p">&lt;</span><span class="nb">Int</span><span class="o">&gt;</span><span class="p">.</span><span class="n">create</span><span class="p">()</span>
+
+<span class="c1">// Send values before a subscriber exists</span>
+<span class="n">input</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">input</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="mi">2</span><span class="p">)</span>
+
+<span class="c1">// Subscribe to listen to the values output by the channel</span>
+<span class="kc">self</span><span class="p">.</span><span class="n">endpoint</span> <span class="p">=</span> <span class="n">output</span><span class="p">.</span><span class="n">subscribeValues</span> <span class="p">{</span> <span class="n">value</span> <span class="k">in</span> <span class="bp">print</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="p">}</span>
+
+<span class="c1">// Send a value after a subscriber exists</span>
+<span class="n">input</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="mi">3</span><span class="p">)</span></code></pre></div>
+
+<p>Ouput will be:</p>
+
+<pre><code>3
+</code></pre>
+
+<p>There&rsquo;s more happening here than you can tell from this code sample and its output.</p>
+
+<p>The first two calls to <code>send</code> will actually return a <code>SignalError.inactive</code> error to inform that the sent values have gone nowhere (the <code>Signal</code> <em>knows</em> that there are no listeners). Note that this error is returned (rather than thrown) and has the <code>@discardableResult</code> attribute since it is expected that errors returned from an input will usually be ignored; ensuring the signal is connected appropriately is usually the signal constructor&rsquo;s responsibility, not the sender&rsquo;s responsibility.</p>
+
+<p>A value of <code>nil</code> from one of the <code>send</code> functions indicates there is no error and the value was sent correctly.</p>
+
+<h3 id="continuous-or-playback-values">Continuous or playback values</h3>
+
+<p>Let&rsquo;s consider a different scenario. Instead of a signal that emits &ldquo;ticks&rdquo;, we have a signal that emits the current hour, updated every hour. In this scenario, a receiver would probably want to receive the current hour immediately, even if it connected halfway between updates.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="c1">// Create an input/output pair, making the output continuous before returning</span>
+<span class="kd">let</span> <span class="p">(</span><span class="n">input</span><span class="p">,</span> <span class="n">output</span><span class="p">)</span> <span class="p">=</span> <span class="n">Signal</span><span class="p">&lt;</span><span class="nb">Int</span><span class="o">&gt;</span><span class="p">.</span><span class="n">create</span> <span class="p">{</span> <span class="n">signal</span> <span class="k">in</span> <span class="n">signal</span><span class="p">.</span><span class="n">continuous</span><span class="p">()</span> <span class="p">}</span>
+
+<span class="c1">// Send values before a subscriber exists</span>
+<span class="n">input</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">input</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="mi">2</span><span class="p">)</span>
+
+<span class="c1">// Subscribe to listen to the values output by the channel</span>
+<span class="kc">self</span><span class="p">.</span><span class="n">endpoint</span> <span class="p">=</span> <span class="n">output</span><span class="p">.</span><span class="n">subscribeValues</span> <span class="p">{</span> <span class="n">value</span> <span class="k">in</span> <span class="bp">print</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="p">}</span>
+
+<span class="c1">// Send a value after a subscriber exists</span>
+<span class="n">input</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="mi">3</span><span class="p">)</span></code></pre></div>
+
+<figcaption>"Advanced behaviors - continuous" appears in the <a href="https://github.com/mattgallagher/CwlSignal">CwlSignal.playground</a>.</figcaption>
+
+<p>Ouput will be:</p>
+
+<pre><code>2
+3
+</code></pre>
+
+<p>Making the signal <code>continuous</code>, as in this example, causes it to re-emit the most recent value when a new subscriber connects. Other options include <code>playback</code> (for re-emitting <em>all</em> values) or <code>buffer</code> (which lets you update a custom series of values each time a value is processed).</p>
+
+<p>In the previous example, I applied the <code>continuous</code> function in a trailing closure provided to <code>create</code>. This trailing closure is just a syntactic convenience for transforming the <em>signal</em> half of the returned tuple. I could also write:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">let</span> <span class="p">(</span><span class="n">input</span><span class="p">,</span> <span class="n">signal</span><span class="p">)</span> <span class="p">=</span> <span class="n">Signal</span><span class="p">&lt;</span><span class="nb">Int</span><span class="o">&gt;</span><span class="p">.</span><span class="n">create</span><span class="p">()</span>
+<span class="kd">let</span> <span class="nv">output</span> <span class="p">=</span> <span class="n">signal</span><span class="p">.</span><span class="n">continuous</span><span class="p">()</span></code></pre></div>
+
+<p>to do the same thing.</p>
+
+<h3 id="lazy-generation">Lazy generation</h3>
+
+<p>In many cases, the signal sender should not be created until <em>after</em> a subscriber connects. This allows for responding to whether a signal is needed, enabling patterns like lazy generation and cancellation.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="c1">// Create an output immediately but only create the input as needed</span>
+<span class="kd">let</span> <span class="nv">output</span> <span class="p">=</span> <span class="n">Signal</span><span class="p">&lt;</span><span class="nb">Int</span><span class="o">&gt;</span><span class="p">.</span><span class="n">generate</span> <span class="p">{</span> <span class="n">input</span> <span class="k">in</span>
+   <span class="k">if</span> <span class="kd">let</span> <span class="nv">i</span> <span class="p">=</span> <span class="n">input</span> <span class="p">{</span>
+      <span class="n">i</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="mi">1</span><span class="p">)</span>
+      <span class="n">i</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="mi">2</span><span class="p">)</span>
+      <span class="n">i</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="mi">3</span><span class="p">)</span>
+   <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="c1">// Subscribe to listen to the values output by the channel</span>
+<span class="kc">self</span><span class="p">.</span><span class="n">endpoint</span> <span class="p">=</span> <span class="n">output</span><span class="p">.</span><span class="n">subscribeValues</span> <span class="p">{</span> <span class="n">value</span> <span class="k">in</span> <span class="bp">print</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="p">}</span></code></pre></div>
+
+<figcaption>"Advanced behaviors - lazy generation" appears in the <a href="https://github.com/mattgallagher/CwlSignal">CwlSignal.playground</a>.</figcaption>
+
+<p>Output will be:</p>
+
+<pre><code>1
+2
+3
+</code></pre>
+
+<h2 id="signal-activation">Signal activation</h2>
+
+<blockquote>
+<p><strong>A terminology note</strong>: to this point, I&rsquo;ve talked about <code>Signal</code> as being a simple &ldquo;channel&rdquo;, which implies single-input, single-output. Since I&rsquo;ve already shown composing of parallel signals, it should be apparent that <code>Signal</code> structures get more complex than that. For the remainder of this section, I&rsquo;ll talk about the <code>Signal</code> &ldquo;graph&rdquo; which is a potentially multiple input, potentially multiple output, directed, acyclic arrangement made by connecting <code>Signal</code>s together.</p>
+</blockquote>
+
+<p>As I mentioned at the start of the previous section, these &ldquo;key scenarios&rdquo;, when handled at all, are handled very differently by different reactive programming implementions.</p>
+
+<h3 id="other-implementations">Other implementations</h3>
+
+<p>The standard solution for lazy construction or continuous values in other frameworks is usually to
+have a two stage construction of the graph. The first stage constructs empty scaffolding and the second stage, which is deferred until a &ldquo;subscribe&rdquo; message is propagated, constructs the actual working graph.</p>
+
+<p>This second construction stage can be run an arbitrary number of times to create multiple working versions of the graph for every subscriber. This is sometimes given names like a &ldquo;cold observable&rdquo; or &ldquo;signal producing&rdquo;.</p>
+
+<p>This approach allows some degree of response to each subscriber but it also creates a situation where all work – at all nodes in the graph – is actually performed an additional time for every subscriber.</p>
+
+<p>That&rsquo;s not how CwlSignal operates.</p>
+
+<h3 id="cwlsignal-and-activation">CwlSignal and &ldquo;activation&rdquo;</h3>
+
+<p>Instead of reconstructing parts of the graph, CwlSignal is designed around the concept of &ldquo;activation&rdquo;. On construction, a signal graph is &ldquo;inactive&rdquo;. When a <code>SignalEndpoint</code> is added to an inactive graph (by calling <code>subscribe</code>, or <code>subscribeValues</code>), every direct antecedent <code>Signal</code> becomes &ldquo;active&rdquo;. There&rsquo;s a small handful of effects that may occur during activation but the most common are:</p>
+
+<ul>
+<li>specially cached &ldquo;activation&rdquo; values (like the <code>continous</code> value) are immediately emitted through the graph – propagating <em>synchronously</em> during the activation phase (even when their <code>Signal</code> would normally be processed asynchronously)</li>
+<li>at the end of the activation phase, <code>generate</code> closures are invoked so lazily started signal emissions can begin</li>
+</ul>
+
+<p>The important point to note, in contrast to other reactive programming solutions, is that activation happens per <code>Signal</code> in the graph, not per subscriber. A new subscriber activates only those <code>Signal</code>s that are <em>inactive</em> between the new subscriber and any previously activated sections of the graph. This makes <code>Signal</code>s with multiple outputs a special consideration, since they must handle the activation of each of their outputs at separate times (See <a href="#single-output-by-default">Single-output by default</a>, below, for a discussion of the implications).</p>
+
+<p>Activation allows some powerful solutions to problems that occur in imperative programs when trying to integrate reactive programming with non-reactive constructs.</p>
+
+<p>Most prominent is &ldquo;capturing&rdquo;:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="c1">// Create an input/output pair, transforming the output before returning</span>
+<span class="kd">let</span> <span class="p">(</span><span class="n">input</span><span class="p">,</span> <span class="n">output</span><span class="p">)</span> <span class="p">=</span> <span class="n">Signal</span><span class="p">&lt;</span><span class="nb">Int</span><span class="o">&gt;</span><span class="p">.</span><span class="n">create</span> <span class="p">{</span> <span class="n">signal</span> <span class="k">in</span> <span class="n">signal</span><span class="p">.</span><span class="n">continuous</span><span class="p">()</span> <span class="p">}</span>
+
+<span class="c1">// The `continuous` signal will cache the most recently sent value</span>
+<span class="n">input</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="mi">1</span><span class="p">)</span>
+<span class="n">input</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="mi">2</span><span class="p">)</span>
+
+<span class="c1">// Capture the &#34;2&#34; activation value cached by the `continuous` signal</span>
+<span class="kd">let</span> <span class="nv">capture</span> <span class="p">=</span> <span class="n">output</span><span class="p">.</span><span class="n">capture</span><span class="p">()</span>
+<span class="kd">let</span> <span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">error</span><span class="p">)</span> <span class="p">=</span> <span class="n">capture</span><span class="p">.</span><span class="n">activation</span><span class="p">()</span>
+<span class="bp">print</span><span class="p">(</span><span class="s">&#34;Activation values: </span><span class="si">\(</span><span class="n">values</span><span class="si">)</span><span class="s">&#34;</span><span class="p">)</span>
+
+<span class="c1">// Capturing blocks signal delivery so *both* of these will be queued for later</span>
+<span class="n">input</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="mi">3</span><span class="p">)</span>
+<span class="n">input</span><span class="p">.</span><span class="n">send</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="mi">4</span><span class="p">)</span>
+
+<span class="c1">// Subscribing unblocks the signal so the &#34;3&#34; and the &#34;4&#34; will now be sent through.</span>
+<span class="kc">self</span><span class="p">.</span><span class="n">endpoint</span> <span class="p">=</span> <span class="n">capture</span><span class="p">.</span><span class="n">subscribeValues</span> <span class="p">{</span> <span class="n">value</span> <span class="k">in</span> <span class="bp">print</span><span class="p">(</span><span class="s">&#34;Regular value: </span><span class="si">\(</span><span class="n">value</span><span class="si">)</span><span class="s">&#34;</span><span class="p">)</span> <span class="p">}</span></code></pre></div>
+
+<figcaption>"Advanced behaviors - capturing" appears in the <a href="https://github.com/mattgallagher/CwlSignal">CwlSignal.playground</a>.</figcaption>
+
+<p>Output will be:</p>
+
+<pre><code>Activation values: [2]
+Regular value: 3
+Regular value: 4
+</code></pre>
+
+<p>As you can see, <code>SignalCapture</code> allows activation values to be pulled <em>synchronously</em> from a signal. This provides potential solutions to scenarios where code cannot proceed without being able to obtain an immediate value. Simply put: activation in CwlSignal provides pull-based synchronous behaviors, whereas typical reactive programming is push-based and potentially asynchronous.</p>
+
+<h3 id="closure-state-and-deactivation">Closure state and deactivation</h3>
+
+<p>In <em>most</em> cases, once a <code>Signal</code> has deactivated (due to an error sent through the <code>Signal</code> or the graph being disconnected from its endpoint), it will not be used again. However, some constructs like <code>SignalJunction&lt;T&gt;</code> (which allows the breaking and joining of <code>Signal</code> connections) and <code>Signal&lt;T&gt;.generate</code> (which receives a new <code>SignalInput</code> every time the graph activates) may be used to allow a section of a signal graph to be connected to a new <code>SignalEndpoint</code> and start again.</p>
+
+<p>This should be kept in mind if you&rsquo;re using persistent state in transformation closures – state should always be cleared or reset on deactivation. To assist with this, most transformation closures offer a <code>withState</code> variant that provide a persistent state value to the closure every time it is invoked but automatically reset this state value to its initial value on deactivation.</p>
+
+<p>Note that the <code>SignalInput</code> and <code>SignalEndpoint</code> classes are strictly single-use and once deactivated, will always <em>stay</em> deactivated.</p>
+
+<h2 id="single-output-by-default">Single-output by default</h2>
+
+<p>Another distinguishing trait of the <code>Signal</code> type in CwlSignal is that it is single-output. This is a difference compared to other reactive programming frameworks that allow multiple-observers by default.</p>
+
+<p>If you try to do this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">let</span> <span class="p">(</span><span class="n">input</span><span class="p">,</span> <span class="n">signal</span><span class="p">)</span> <span class="p">=</span> <span class="n">Signal</span><span class="p">&lt;</span><span class="nb">Int</span><span class="o">&gt;</span><span class="p">.</span><span class="n">create</span><span class="p">()</span>
+<span class="kd">let</span> <span class="nv">output1</span> <span class="p">=</span> <span class="n">signal</span><span class="p">.</span><span class="n">subscribe</span> <span class="p">{</span> <span class="n">r</span> <span class="k">in</span> <span class="bp">print</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="p">}</span>
+<span class="kd">let</span> <span class="nv">output2</span> <span class="p">=</span> <span class="n">signal</span><span class="p">.</span><span class="n">subscribe</span> <span class="p">{</span> <span class="n">r</span> <span class="k">in</span> <span class="bp">print</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="p">}</span></code></pre></div>
+
+<p>the second <code>subscribe</code> call will never actually connect to <code>signal</code> and will instead immediately receive a <code>SignalError.duplicate</code> error.</p>
+
+<p>To validly connect multiple outputs, you must have an instance of the <code>Signal</code> subclass <code>SignalMulti</code> which you can obtain only by using a transformation that returns a <code>SignalMulti</code>. The <code>SignalMulti</code> subclass has no additional public methods and externally, merely serves to notify that a signal supports multiple outputs.</p>
+
+<p>The reason you must obtain a <code>SignalMulti</code> is that it forces consideration of how to make the signal joinable mid-stream. Should the latest value be cached? Should all values be cached? Is a custom &ldquo;bring me up to speed&rdquo; value required? Is nothing required and a listener can simply join without any special behaviors?</p>
+
+<p><code>Signal</code> provides the <code>continuous</code>, <code>playback</code>, <code>buffer</code> and <code>multicast</code> functions. These <code>SignalMulti</code> returning functions provide the latest value, the entire sequence of values, a custom sequence of values, or no value at all to new subscribers, respectively.</p>
+
+<p>As an example:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">let</span> <span class="p">(</span><span class="n">input</span><span class="p">,</span> <span class="n">output</span><span class="p">)</span> <span class="p">=</span> <span class="n">Signal</span><span class="p">&lt;</span><span class="nb">Int</span><span class="o">&gt;</span><span class="p">.</span><span class="n">create</span><span class="p">()</span>
+
+<span class="c1">// Create a `SignalMulti&lt;Int&gt;` from the `Signal&lt;Int&gt;`</span>
+<span class="kd">let</span> <span class="nv">continuousOutput</span> <span class="p">=</span> <span class="n">output</span><span class="p">.</span><span class="n">continuous</span><span class="p">(</span><span class="n">initial</span><span class="p">:</span> <span class="mi">5</span><span class="p">)</span>
+
+<span class="kd">let</span> <span class="nv">output1</span> <span class="p">=</span> <span class="n">continuousOutput</span><span class="p">.</span><span class="n">subscribe</span> <span class="p">{</span> <span class="n">r</span> <span class="k">in</span> <span class="bp">print</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="p">}</span>
+<span class="kd">let</span> <span class="nv">output2</span> <span class="p">=</span> <span class="n">continuousOutput</span><span class="p">.</span><span class="n">subscribe</span> <span class="p">{</span> <span class="n">r</span> <span class="k">in</span> <span class="bp">print</span><span class="p">(</span><span class="n">r</span><span class="p">)</span> <span class="p">}</span></code></pre></div>
+
+<p>Both outputs here will immediately receive the <code>continuous</code> value <code>5</code>.</p>
+
+<h3 id="usage-implications-of-single-output-by-default">Usage implications of &ldquo;single-output by default&rdquo;</h3>
+
+<p>CwlSignal aims to be as foolproof as possible but along with &ldquo;forgetting to retain the <code>SignalEndpoint</code>&rdquo;, this is one of two clear situations where you can misuse a <code>Signal</code>. As with <code>SignalEndpoint</code> – whose behavior exists to <em>force</em> you to tie a lifetime to a receiving scope – there is a purpose to &ldquo;single-output by default&rdquo;.</p>
+
+<p>Single output forces you to choose the correct way to join subscribers <em>after</em> the stream has started.</p>
+
+<p>When multiple subscribers are implicitly permitted, the default behavior is typically equivalent to CwlSignal&rsquo;s <code>multicast</code> (you get nothing new on subscribing and simply see the values sent <em>after</em> subscribing). This is done because caching nothing is efficient but the problem is that it is less likely to be the desired behavior than <code>continuous</code> or other buffering patterns. A system that lets unplanned multiple observers subscribe to any arbitrary <code>Signal</code> is more likely to offer invalid behavior or hide a graph construction flaw than offer the correct solution.</p>
+
+<h3 id="interface-implications-of-single-output-by-default">Interface implications of &ldquo;single-output by default&rdquo;</h3>
+
+<p>You should never expose a <code>Signal</code> instance member in a public interface.</p>
+
+<p>A signal exposed by an interface should always be one of:</p>
+
+<ul>
+<li>a <code>SignalMulti</code>, or</li>
+<li>a newly created <code>Signal</code> on each access</li>
+</ul>
+
+<p>If you receive a <code>Signal</code>, rather than a <code>SignalMulti</code> from another interface, subscribe or transform only once. If you need multiple subscribers, either append your own <code>SignalMulti</code> transform or call the other interface again to get a new <code>Signal</code>.</p>
+
+<h2 id="other-details-about-cwlsignal">Other details about CwlSignal</h2>
+
+<p>The CwlSignal library is around 5000 lines (not including code pulled from CwlUtils) of densely written code. There are a lot of details in there and I wanted to highlight a few additional points.</p>
+
+<h3 id="types">Types</h3>
+
+<p>CwlSignal involves just a few public types:</p>
+
+<ul>
+<li><code>Signal</code> the downstream end of a channel (<code>SignalMulti</code> is the only subclass)</li>
+<li><code>SignalInput</code> the input end of a channel (the equivalent <code>SignalNext</code> type is provided by transformation closures to fulfill the same <code>SignalSender</code> role <em>between</em> <code>Signal</code>s)</li>
+<li><code>SignalEndpoint</code> returned when subscribing to <code>Signal</code> to extract values</li>
+<li><code>Result</code> and <code>Exec</code>, which I&rsquo;ve <a href="2016/08/21/result-types-part-one.html">detailed</a> in <a href="specifying-execution-contexts.html">previous articles</a></li>
+<li><code>SignalError</code>, <code>EitherResult</code>, <code>SignalCapture</code>, <code>SignalJunction</code>, <code>SignalJoinError</code>, <code>SignalMergeSet</code> which appear only if you&rsquo;re doing specific things with the graph.</li>
+</ul>
+
+<p>Seeing 14 type names all at once might seem a little complicated but in reactive programming, it&rsquo;s very minimalist. All except the last three have already appeared in the code examples in this article – if you didn&rsquo;t notice that they were there, then they have done their jobs.</p>
+
+<h3 id="result-t">Result<T></h3>
+
+<p>While the examples in this article have focussed on values, <code>Signal</code>s actually send instances of <code>Result&lt;T&gt;</code> between each other (the <code>send(value:)</code> and <code>subscribeValues</code> functions in this article wrap and unwrap values automatically and use <code>send(result:)</code> and <code>subscribe</code> under-the-hood). In contrast to other reactive programming implementations, <code>Signal</code> uses no other event types – there&rsquo;s no separate completed/interrupted/cancelled events, just <code>Result</code>. The first error sent causes an end of stream. A successful &ldquo;end of stream&rdquo; is usually a <code>SignalError.closed</code> and a close due to graph disconnection is usually a <code>SignalError.cancelled</code>.</p>
+
+<h3 id="lifetime-management">Lifetime management</h3>
+
+<p>A one-way communication channel has two ends: the sender and the receiver. Accordingly, the only two steps required for keeping a signal graph alive is that you must retain the <code>SignalInput</code> and the <code>SignalEndpoint</code>. Releasing the former indicates that there are no further values to come in the sequence and releasing the latter indicates that you no longer wish to receive updates.</p>
+
+<p>The effects of releasing either are slightly different.</p>
+
+<p>If a <code>SignalInput</code> is released, it will send a <code>SignalError.cancelled</code> result. The <code>SignalInput</code> will never be able to send another error but whether the result closes the entire graph is dependent on the transformer closures in the graph; a transformer can choose to block or ignore an error, preventing its propagation. A <code>SignalInput</code> weakly references its <code>Signal</code> so releasing a <code>SignalInput</code> won&rsquo;t necessarily release anything else in the graph.</p>
+
+<p>If a <code>SignalEndpoint</code> is released, it will immediately deactivate its subgraph (<code>Signal</code>s that output to that <code>SignalEndpoint</code> and no others). There is no chance to block this change although <code>Signal&lt;T&gt;.generate</code> closures and certain <code>withState</code> transformation closures are offered a chance to clean up. A <code>SignalEndpoint</code> strongly retains the signal graph and when it deactivates, it immediately releases the graph. Any <code>Signal</code> deactivated when a <code>SignalEndpoint</code> is released will also be released unless strongly held elsewhere.</p>
+
+<p>Both <code>SignalInput</code> and <code>SignalEndpoint</code> implement the <code>Cancellable</code> protocol so you can directly invoke <code>cancel</code> on them if it is not convenient to release them.</p>
+
+<h3 id="retaining-endpoints">Retaining endpoints</h3>
+
+<p>If you don&rsquo;t retain an endpoint, the signal will be cancelled.</p>
+
+<p>It is common for a class like a <code>ViewController</code> to have a large number of <code>SignalEndpoint</code>s for setting properties on its views. You usually don&rsquo;t care about the explicit type of the <code>SignalEndpoint</code>, you just need to keep it alive as long as the <code>ViewController</code>. Accordingly, it&rsquo;s common to have an <code>Array&lt;Cancellable&gt;</code> and just store the endpoints there.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kc">self</span><span class="p">.</span><span class="n">endpoints</span> <span class="o">+=</span> <span class="n">someSignal</span><span class="p">.</span><span class="n">subscribe</span> <span class="p">{</span> <span class="n">r</span> <span class="k">in</span> <span class="c1">// do something }</span></code></pre></div>
+
+<p>That <code>+=</code> operator is provided by CwlSignal; it is simply a shortcut for <code>RangeReplaceableCollection.append</code>.</p>
+
+<h3 id="classes-are-just-an-implementation-detail">Classes are just an implementation detail</h3>
+
+<p>While <code>SignalInput</code>, <code>Signal</code>, <code>SignalEnpoint</code> and other common types in CwlSignal are classes, using CwlSignal does not involve subclassing or implementing protocols. CwlSignal provides a sealed set of behaviors. Solving problems is acheived through composing signal graphs and applying transformation functions <em>between</em> signals, rather than trying to subvert the signal machinery.</p>
+
+<h3 id="support-for-reactivex">Support for ReactiveX</h3>
+
+<p>CwlSignal implements the full range of <a href="http://reactivex.io/documentation/operators.html">ReactiveX operators</a>, minus those that are redundant with underlying functions or don&rsquo;t make sense given CwlSignal&rsquo;s &ldquo;activation&rdquo; behavior. If you read the comments in the &ldquo;CwlSignalReactive.swift&rdquo; file, I mention all prominent omitted ReactiveX operators, with an explanation for why they&rsquo;re not applicable.</p>
+
+<p>I&rsquo;m not personally enthusiastic about the entire range of ReactiveX operators. While some operators like <code>combineLatest</code>, <code>map</code> and <code>timeout</code> are widely expected in reactive programming and make a lot of sense, many of the .NET LINQ inspired operators like <code>groupJoin</code> are so weird that you&rsquo;re probably better off solving your problems another way. In any case, this support is provided to allow some degree of conceptual common ground between CwlSignal and other reactive programming implementations and to provide assurances that CwlSignal does offer the capability to support a full range of standard behaviors.</p>
+
+<h3 id="high-performance">High performance</h3>
+
+<p>CwlSignal is fast; it can deliver multiple millions of values per second synchronously (more than 4 million per second per core on my Mac) and hundreds of thousands of values per second asynchronously (more than 200 000 values per second per core on my Mac). That makes it at least as fast as prominent competitor implementations and in most cases, between 2 and 10 times faster.</p>
+
+<h3 id="thread-safety">Thread safety</h3>
+
+<p>CwlSignal is threadsafe and this safety should hold in a wider range circumstances than most APIs.</p>
+
+<p>User-provided closures will never be invoked concurrently and will be invoked in your nominated context (if one is provided). Values sent simultaneously from multiple threads to the same <code>SignalInput</code> will be correctly serialized. It should not be possible to deadlock CwlSignal code under any combination of attempted graph cycles or re-entrancy (you can&rsquo;t make a graph cycle and re-entrancy will be detected and serialized). Even changing the structure of the signal graph from one thread while values are being processed through the graph on another thread will result in nothing worse than the discarding of values in-transit over outdated graph connections.</p>
+
+<h2 id="limited-out-of-the-box-integration">Limited out-of-the-box integration</h2>
+
+<p>I&rsquo;m releasing CwlSignal primarily as a &ldquo;back-end&rdquo; technology. I&rsquo;m not releasing a large number of out-of-the-box integration features for Cocoa or other APIs (although, <a href="reactive-programming-what-and-why.html">as I show in the next article</a>, CwlSignal doesn&rsquo;t need significant API integration to offer signficant code savings).</p>
+
+<p>The &ldquo;CwlSignalCocoa.swift&rdquo; file in the library does include basic helpers for key-value-observing, key-value-setting, target-action handling and notifications but you won&rsquo;t find built-in integration with <code>URLSession</code>/<code>URLConnection</code>, XPC or <code>NSTask</code> communication, CoreData or sqlite, any other Foundation or Cocoa delegate interface or any UIKit or AppKit views.</p>
+
+<p>I will likely add additional helpers in future to simplify common tasks but I don&rsquo;t expect that I will provide a set of shallow <code>Signal</code> hooks into UIKit or AppKit views. I do have a view framework involving reactive programming that I&rsquo;m trying to get ready for sharing but it&rsquo;s not a simple grafting of signals onto existing classes so it&rsquo;s going to take a bit more time to tidy up.</p>
+
+<h2 id="usage">Usage</h2>
+
+<blockquote>
+<p>The <a href="https://github.com/mattgallagher/CwlSignal">CwlSignal framework</a> is available on GitHub.</p>
+</blockquote>
+
+<p>To use <a href="https://github.com/mattgallagher/CwlSignal">CwlSignal</a> in your own projects, follow the instructions in the <a href="https://github.com/mattgallagher/CwlSignal/blob/master/README.md">ReadMe.md file for the project</a> to clone the repository and add the framework it produces to your own projects.</p>
+
+<p>Note that the CwlSignal framework directly includes most of the files from the CwlUtils framework inside its own module so if you&rsquo;re using CwlSignal, there&rsquo;s no reason to also include CwlUtils (just use the same features via CwlSignal, instead). This manual inclusion of dependencies is certainly not ideal but is a workaround for an order of magnitude loss in performance due to Swift 3&rsquo;s inability to specialize generics or inline functions between modules (and partly due to my desire to avoid reliance on package management until Swift Package Manager integrates with Xcode). I&rsquo;m hopfeul that changes to Swift, Xcode and Swift Package Manager will allow a better solution in future.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>If you&rsquo;ve seen other reactive programming code, I hope the simplicity of the examples in this article is apparent. There&rsquo;s no nested sets of closures or confusingly named types just to construct a basic channel. In most contexts, you need only the <code>Signal</code> type name, rather than a landscape of types with nothing obviously in common. Inputs and outputs are clearly separated with no confusion between type names or roles. There&rsquo;s no memory management or memory management containers that seem out-of-place in Swift and there are no names that reference .NET interfaces that don&rsquo;t exist in Cocoa.</p>
+
+<p>CwlSignal is simple, fast, threadsafe, full-featured and designed for Swift. It implements all common reactive programming operators while offering unique abilities like &ldquo;activation&rdquo; and &ldquo;capturing&rdquo;. <a href="https://github.com/mattgallagher/CwlSignal">Download the project</a> and try out the code for yourself using the embedded CwlSignal.playground which features a number of the examples from this and the next article.</p>
+
+<h3 id="looking-forward">Looking forward&hellip;</h3>
+
+<p>I&rsquo;ve tried to give an overview of the basic usage of this library and its distinguishing features relative to other reactive programming implementations. In the next article, I&rsquo;ll look at reactive programming in a more general sense and explain how it can be used to solve common problems that face application programmers.</p>
+
+		</div>
+	</article>
+</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="testing-actions-over-time.html">Testing actions over time</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="reactive-programming-what-and-why.html">What is reactive programming and why should I use it?</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../feed.json">JSON</a>, <a href="../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

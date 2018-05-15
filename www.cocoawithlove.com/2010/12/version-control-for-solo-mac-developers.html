@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Version control for solo Mac developers</title>
+  <meta name="description" content="In this post, I&#39;ll take a quick look at how to keep your projects in git and how to manage that easily on the Mac. More importantly though, I&#39;ll take a look at why you&#39;d want to do this, even if you&#39;re the only developer, you don&#39;t need to share your code, you don&#39;t have formalized releases that need to be tagged and you already have a backup system protecting your code." />
+
+  <meta name="twitter:title" content="Version control for solo Mac developers"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2010/12/version-control-for-solo-mac-developers.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="In this post, I&#39;ll take a quick look at how to keep your projects in git and how to manage that easily on the Mac. More importantly though, I&#39;ll take a look at why you&#39;d want to do this, even if you&#39;re the only developer, you don&#39;t need to share your code, you don&#39;t have formalized releases that need to be tagged and you already have a backup system protecting your code."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="version-control-for-solo-mac-developers.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Version control for solo Mac developers</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2010-12-12">December 12, 2010</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/code-management.html">code management</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>In this post, I'll take a quick look at how to keep your projects in git and how to manage that easily on the Mac. More importantly though, I'll take a look at why you'd want to do this, even if you're the only developer, you don't need to share your code, you don't have formalized releases that need to be tagged and you already have a backup system protecting your code.</p></span>
+
+<span class="fullpost">
+<h2>Introduction</h2>
+
+<p>After my posts a few weeks back on <a href="../11/deployment-script-for-generic-cocoa-mac.html">deployment scripts</a>, where I implored everyone to use version control systems for all projects, I received a few different emails asking about how I actually handle this.</p>
+
+<p>The main points to learn in this post are:</p>
+
+<ol><li>Every project you ever work on should be in version control</li>
+<li>Nothing needs to be centralized (you don't need a server) but you can use any computer as a server if you wish</li>
+<li>You can avoid the (often cryptic) command-line for most tasks</li>
+<li>I'll show you all the required steps</li>
+<li>I'll show you how it will help you as a solo developer, even if you don't need many of the traditional features of a version control system</li></ol>
+
+<p>Version control systems protect your work, help you review what you've done, help you share code if needed, work like a massive undo buffer when necessary and can help you keep your code tidy. Always use one.</p>
+
+<h2>Setting up git on your Mac</h2>
+
+<p>I recommend you use git for version control. Most modern, distributed, version control systems share a pretty similar feature and command set. The advantage with git is really that it's enjoying a lot of popularity at the moment and that popularity means there's plenty of documentation and how-to guides around to help out if you get lost. There are also some good tools around which make git use on the Mac more enjoyable &mdash; particularly GitX.</p>
+
+<h3>Installation</h3>
+
+<p><a href="http://code.google.com/p/git-osx-installer/">Download the git installer</a> (as I write this, the current version is 1.7.3.3). Run the installer package.</p>
+
+<p>Once that's done, you should set your username and email address (these will be tagged on all changes you make). Do this by opening the terminal and running the following commands:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">git</span> <span class="n">config</span> <span class="o">--</span><span class="n">global</span> <span class="n">user</span><span class="p">.</span><span class="n">name</span> <span class="sa"></span><span class="s">&#34;My name in git&#34;</span>
+<span class="n">git</span> <span class="n">config</span> <span class="o">--</span><span class="n">global</span> <span class="n">user</span><span class="p">.</span><span class="n">email</span> <span class="sa"></span><span class="s">&#34;myemailname@myemailaddress.com&#34;</span></code></pre></div>
+
+<p>Just replace "My name in git" and "myemailname@myemailaddress.com" with the name and email address you want to use.</p>
+
+<h3>GitX</h3>
+
+<p>I prefer to use GitX instead of git on the command-line where possible.</p>
+
+<p>I've discussed this before but I consider the command-line and a terminal window a poor way of gathering structured information and getting feedback about multi-part tasks.</p>
+
+<p>GitX is a good example of how a program can improve upon the information structure available on the command-line: it shows nice graphical diffs whenever you're browsing the repository or committing new changes, making browsing and committing much faster and easier.</p>
+
+<ul><a href="http://gitx.frim.nl/">Download GitX from here</a>.</ul>
+
+<p>Of course, this doesn't mean that all graphical user-interfaces are always better than the underlying command-line. I consider the Xcode 3 version control integration to be worse than the command-line because it simply isn't informative or robust enough.</p>
+
+<h2>Making your project into a git repository</h2>
+
+<p>As soon as you've created your Xcode project from the template, the next step should be creating the repository. To do this correctly involves the following three steps.</p>
+
+<h3>Add a .gitignore file</h3>
+
+<p>The following webpage:</p>
+
+   <ul><a href="https://github.com/github/gitignore/blob/master/Objective-C.gitignore">https://github.com/github/gitignore/blob/master/Objective-C.gitignore</a></ul>
+
+<p>Gives a ".gitignore" file suitable for use with Xcode. This will tell git to ignore build products and Xcode user-settings files that you don't really need to commit into your repository. You will need to save this file with the name ".gitignore" in the top level folder of your new Xcode project. Since you can't rename files to start with a "." in the Finder, you'll need to set the name using another program (i.e. rename from the Terminal or save from Xcode or TextEdit).</p>
+
+<p>If you don't have a global .gitigore file set up, then you'll probably want to add the content of this file to your .gitignore as well:</p>
+
+<ul><a href="https://github.com/github/gitignore/blob/master/Global/OSX.gitignore">https://github.com/github/gitignore/blob/master/Global/OSX.gitignore</a></ul>
+
+<blockquote>The current version of this .gitignore file contains the line ".DS_Store?". This doesn't work for me unless I <em>remove</em> the question mark.</blockquote>
+
+<p>If you did want to set this up as a global .gitignore file, save it to ~/.gitignore and run the following in the Terminal:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">git</span> <span class="n">config</span> <span class="o">--</span><span class="n">global</span> <span class="n">core</span><span class="p">.</span><span class="n">excludesfile</span> <span class="o">~/</span><span class="p">.</span><span class="n">gitignore</span></code></pre></div>
+
+<p>Since Xcode projects are inherently Mac-only though, I prefer to put the Mac global ignore settings into the project's .gitignore so that any machine using this repository will automatically have all of these settings.
+
+<h3>Create the repository</h3>
+
+<p>In GitX, select "New..." from the File menu and then choose the top level folder of your Xcode project. This will create the repository. It's as simple as that.</p>
+
+<p>Outside of GitX, you can create a new repository with the following command in the Terminal:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">git</span> <span class="n">init</span></code></pre></div>
+
+<p>All files for tracking the repository are kept at the top-level of the repository (unlike older version control systems like svn or cvs which littered files in every directory). Most git files are kept in the .git directory.</p>
+
+<h3>Add all your files to the repository</h3>
+
+<p>Open the project's folder in GitX. The toolbar contains a two segment "View" button. The left side is the "Browse" mode, the right side is the "Commit" mode. Set the view mode to "Commit".</p>
+
+<img src="../../assets/objc-era/GitXCommitView.png" width="508" height="469" />
+
+<p>The window in GitX should look something like this screenshot. The bottom-left panel shows all the changes you haven't added to the repository.</p>
+
+<p>To "stage" your changes (get them ready for a commit) select and double-click all the files you want to stage as a batch. In this case, select everything and double click. The files will all move to the "Staged Changes" area.</p>
+
+<p>In the "Commit Message" in the center, enter a message describing this change. In this case: "Created new project from Xcode template." would be a good message. Hit the "Commit" button and these files will all be added to the repository with the commit message provided.</p>
+
+<p>You can then use the "View" button in the toolbar again to select the "Browse" mode. You should now have one update in the project's history on the "Master" branch, with you as the "Author". The two segment control in the bottom-center of the window in Browse mode will allow you to switch between a "diff" of changes in the selected update (left side of the segment) and browsing the state of the repository as it was in the selected version (right side of the segment).</p>
+
+<p>In the Terminal, you can stage new additions and removals with the following commands:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">git</span> <span class="n">add</span> <span class="p">[</span><span class="n">path</span> <span class="n">to</span> <span class="n">file</span> <span class="n">or</span> <span class="n">files</span> <span class="n">to</span> <span class="n">add</span> <span class="n">to</span> <span class="n">the</span> <span class="n">repository</span><span class="p">]</span>
+<span class="n">git</span> <span class="n">rm</span> <span class="p">[</span><span class="n">path</span> <span class="n">to</span> <span class="n">file</span> <span class="n">or</span> <span class="n">files</span> <span class="n">to</span> <span class="n">remove</span> <span class="n">from</span> <span class="n">the</span> <span class="n">repository</span><span class="p">]</span></code></pre></div>
+
+<p>And you can commit additions and removals and commit other changes with the following command:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">git</span> <span class="n">commit</span> <span class="o">-</span><span class="n">m</span> <span class="sa"></span><span class="s">&#34;Commit message here&#34;</span> <span class="p">[</span><span class="n">path</span> <span class="n">to</span> <span class="n">file</span> <span class="n">or</span> <span class="n">files</span> <span class="n">whose</span> <span class="n">changes</span> <span class="n">you</span> <span class="n">want</span> <span class="n">to</span> <span class="n">commit</span><span class="p">]</span></code></pre></div>
+
+<h2>Keep it up-to-date</h2>
+
+<p>The remaining step required once your project is in a repository, is to keep it up-to-date. You do this by committing changes on a regular basis.</p>
+
+<p>How often should you commit changes? As often as you can. At a minimum, you should commit, when any of the following happens:</p>
+
+<ul><li>You finish a feature</li>
+<li>You fix a bug</li>
+<li>When you get up for lunch or at the end of the day</li>
+<li>When you distribute a release to anyone else</li></ul>
+
+<p>It's helpful to have your processes for marking bugs as fixed or deploying code for distribution contain the requirement that related changes be committed and tagged in your repository. This ensures that you can check the exact code state at the time you fixed any bug or made any distribution.</p>
+
+<p>For any other type of commit, don't be worried about committing bad or partially functional changes; remember, this is your own repository and you're not going to interfere with anyone else by committing a half-implemented feature (just don't push these changes to another computer). If you plan to make big changes that may leave the code non-functional for the duration of the changes, create a branch, check out the branch and commit your incremental implementation on the branch.</p>
+
+<p>Updating the repository works exactly like the original add shown above but it is here where GitX begins to really help the commit process:</p>
+
+<img src="../../assets/objc-era/GitXChanges.png" width="511" height="535" />
+
+<p>When you select the changed files during the commit process, the changes since the last commit are shown in the panel above. Here, I've added some interface outlets to the header file.</p>
+
+<p>Depending on whether or not you have any formal feature list, development roadmap or bug tracking system, the commit message should now reflect who requested this change and why. For example, if the behavior of "myButton", "someTextField" and "arrayController" are described in items 1, 5 and 25 of your Feature List, then the commit message for the above changes might read: "Features 1, 5, 25: added interface outlets between the window controller and views".</p>
+
+<p>The message for your commit message should always answer the question: "What was I thinking at the time? What problem was I trying to solve?"</p>
+
+<h2>Cloning this repository on another computer</h2>
+
+<p>Eventually, you'll run into a situation where you'll need to build and test on another machine. For the Mac you want to use as the source of the clone, make sure that "Remote Login" sharing is enabled in the "System Preferences".</p>
+
+<p>Assuming the destination computer correctly has git installed and configured, open a Terminal window on the destination and enter the following command:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">git</span> <span class="n">clone</span> <span class="nl">ssh</span><span class="p">:</span><span class="o">//</span><span class="n">username</span><span class="p">.</span><span class="n">on</span><span class="p">.</span><span class="n">source</span><span class="p">.</span><span class="n">computer</span><span class="p">@</span><span class="n">ip</span><span class="p">.</span><span class="n">address</span><span class="p">.</span><span class="n">of</span><span class="p">.</span><span class="n">source</span><span class="p">.</span><span class="n">computer</span><span class="o">/</span><span class="n">full</span><span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">project</span><span class="o">/</span><span class="n">directory</span></code></pre></div>
+
+<p>This will completely clone the repository and its history for use on the destination computer.</p>
+
+<p>Once you've cloned in this way, the source computer's address is given the name "origin". This means that if you need to pull new changes from the source to the destination again, you can use the following command:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">git</span> <span class="n">pull</span> <span class="n">origin</span> <span class="n">master</span></code></pre></div>
+
+<p>This will pull all changes on the "master" branch (the default or trunk branch). Similarly you can push to send changes back again:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">git</span> <span class="n">push</span> <span class="n">origin</span> <span class="n">master</span></code></pre></div>
+
+<p>If you're using a number of different computers and you want to push and pull between them, you can either use the full ssh address again or you can give your different "remote" computers names:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">git</span> <span class="n">remote</span> <span class="n">add</span> <span class="n">anotherremote</span> <span class="nl">ssh</span><span class="p">:</span><span class="o">//</span><span class="n">username</span><span class="p">.</span><span class="n">on</span><span class="p">.</span><span class="n">remote</span><span class="p">.</span><span class="n">computer</span><span class="p">@</span><span class="n">ip</span><span class="p">.</span><span class="n">address</span><span class="p">.</span><span class="n">of</span><span class="p">.</span><span class="n">remote</span><span class="p">.</span><span class="n">computer</span><span class="o">/</span><span class="n">full</span><span class="o">/</span><span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">project</span><span class="o">/</span><span class="n">directory</span></code></pre></div>
+
+<p>Once you've done this, the name "anotherremote" will be usable within the current repository where any remote address is required (e.g. for push and pull commands).</p>
+
+<h2>Working with third-party projects</h2>
+
+<p>Do you need to include a third-party git sub-project in your project? Clone the third-party git repository into a subfolder of your repository. Git will refuse to commit a sub-repository into a parent repository. That's okay, just add the sub-project's folder name to your respository's .gitignore file. If you make change to this third-party repository, you will need to commit those separately by opening the third-party repository's folder instead of your own top-level folder.</p>
+
+<p>Once you pull a third-party's repository, it's a good idea to immediately branch it and checkout under your new branch (you should never work on anyone else's master branch).</p>
+
+<p>You can branch and checkout the new branch in GitX. While in "Browse" mode, hit the "Create Branch" button. Give you branch a name. Your new branch will appear as a tag on the most recent version in the History. To check out this new branch (so all your changes will appear on it) you need to right-click the branch's tag in the History display and select "Checkout branch". The title of the window will be updated to reflect the new current branch.</p>
+
+<p>The advantage with keeping the third-party's repository is that if you make any changes, it is easy to see exactly what you've changed. You can also pull more changes from the master branch and then merge them with your own branch if you want to get updates for the project in future.</p>
+
+<p>If you want this third-party project to be checked out automatically every time you clone your own repository, you can add it using the git "submodule" command:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">git</span> <span class="n">submodule</span> <span class="n">add</span> <span class="o">-</span><span class="n">b</span> <span class="n">branchname</span> <span class="n">third</span><span class="o">-</span><span class="n">party</span><span class="o">-</span><span class="n">repository</span><span class="o">-</span><span class="n">url</span> <span class="n">destination_path</span></code></pre></div>
+
+<p>This will add a .gitmodules file to the top of the repository. Commit this file and "third-party-repository-url" will be automatically cloned at "destination_path", checked out on the branch "branchname" when this repository is cloned.</p>
+
+<blockquote>You can pull and push changes from svn repositories using git-svn, which is part of git by default. Have a look at this if you need cross repository support. There's also a third-party project named <a href="https://github.com/offbytwo/git-hg">git-hg</a> for cloning Mercurial repositories into git (although it is a one-way sync and may not be highly robust at this time).</blockquote>
+
+<h2>Other git features</h2>
+
+<p>This is really on the tip of what you can do in git. I haven't even touched on restoring a previous version, merging between branches or rolling back changes and undoing commits.</p>
+
+<p>I don't have an encyclopedic knowledge of git commands. If I need to do anything more than what's listed in this post, I normally need to look up the correctly commands to handle it properly. That's not such a bad thing: but be aware of the sorts of action that git can handle for you so you don't end up manually doing something that should be automatic.</p>
+
+<p>In any case, I think I've listed all of the operations you're likely to need on a daily basis. It should be a good start.</p>
+
+<h2>Developers who still don't use version control?</h2>
+
+<p>Many small developers still neglect to use version control for many of their projects. It's clear that the importance of good code management is not universal.</p>
+
+<p>I realize that it's easy to learn the mechanics of writing code and building programs without learning much about the profession of being a software developer, so let me add here: you should consider a version control system an essential part of being a software developer.</p>
+
+<p>This may seem a little strange to say, since it is obviously possible to create, build and release programs without using a version control system. In many respects, you may think that the features offered by a traditional version control system aren't really needed by a solo developer working on a small project. Reasons some developers give why they don't need version control:</p>
+
+<ol><li>They already have backups made of your main development machine (Time Machine plus periodic, permanent, offsite backups)</li>
+<li>Are the only person working on a project so they don't need to share and integrate with other developers</li>
+<li> They don't have formal releases or regression tests that require regenerating output from earlier versions</li></ol>
+
+<p>However, there are some serious reasons why every developer should use version control.</p>
+
+<h3>More precise than Time Machine</h3>
+
+<p>If you rely on Time Machine to give you an archive of changes to your code, you'll fall victim to the limit resolution of Time Machine. While Time Machine has hourly backups for 24 hours, it only has daily backups for the next month and after a month it only has weekly backups.</p>
+
+<p>If the build or feature you'd like to restore or re-instate falls in the gap between updates, you might not be able to pull it out of Time Machine. Worse still, your Time Machine volume will eventually run out of free space, so the oldest versions will start being removed. This will never happen in a version control system.</p>
+
+<p>Additionally, a version control system contains a log for all changes, making them easier to find. You can also use tags to find important changes quickly.</p>
+
+<blockquote>You should use Time Machine too. Ultimately, your code is safest if your repositories are backed up to another hard drive. Additionally, you should make regular snapshots (as CDs/DVDs, encrypted disk images) of your repositories and store these offsite. For CDs/DVDs, store them in a fireproof safe, offsite somewhere. If you use encrypted disk images, upload them to an online storage location that guarantees high data integrity (uptime is not as critical as data integrity). If a fire burns down your home/office, it should never put more than 1 week's work at risk.</blockquote>
+
+<h3>Provides a way of reviewing your own code changes</h3>
+
+<p>As a solo developer, you don't often have other developers who you can ask to review your code to ensure that all the changes make sense and nothing is accidentally deleted, removed or changed.</p>
+
+<p>Reviewing the changes every time you need to make a commit allows you to do this for yourself.</p>
+
+<p>As I said: every commit message should answer the question "What was I thinking at the time? What problem was I trying to solve?" If you can't actually answer this question, if you're not sure why the code changed, then this gives you the opportunity to work out what you were thinking and either remind yourself about the importance of the change or allow you to eliminate the change because it's unneeded.</p>
+
+<h3>Makes it easy to change to another machine for testing and then change back</h3>
+
+<p>If you ever need to test your code on another machine, it is quicker and more reliable to clone the repository on the new machine, make any changes you may require and then push them back to your primary machine.</p>
+
+<h3>Makes pulling the latest updates from a third-party much easier</h3>
+
+<p>As I mentioned, keeping third-party code in its repository makes pulling new changes to that third-party code and merging these updates with any changes of your own a lot easier.</p>
+
+<p>Further, if these changes are to a GPL project and you need to make your own modifications publicly available, you can simply provide a diff from the repository as an easy way of publishing your changes.</p>
+
+<h2>Conclusion</h2>
+
+<p>Distributed version control systems like git make managing your own repositories easier than ever. You don't need a central location. You don't need administration.</p>
+
+<p>Visual tools like GitX are also fantastic: you can easily track your changes and see what you've deliberately or accidentally done and commit or undo as appropriate.</p>
+
+<p>Being a software developer (as opposed to a casual coder) is about managing the software development project and its assets over its lifecycle. Your version control system is one of the most important tools for doing this.</p>
+
+<p>Even if you're only a casual developer, not a full-time developer, the logging, merging and tracking facilities offered by version control will save you effort over the course of any project with more than one edit. Use it.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../11/back-to-mac-12-features-from-ios-i-like.html">Back to the Mac? 12 features from iOS I&#39;d like to see in Lion</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="uitableview-construction-drawing-and.html">UITableView construction, drawing and management (revisited)</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

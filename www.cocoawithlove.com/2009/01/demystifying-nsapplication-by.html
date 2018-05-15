@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Demystifying NSApplication by recreating it</title>
+  <meta name="description" content="In this post I will recreate code that is normally concealed between the &lt;code&gt;NSApplicationMain&lt;/code&gt; call (invoked in a Cocoa application&#39;s &lt;code&gt;main&lt;/code&gt; function) and the &lt;code&gt;sendEvent:&lt;/code&gt; method (which distributes the events to windows and views from the main run loop). By recreating this code for you, I hope to explain the steps that occur between program startup and the dispatch of events to your code &amp;mdash; so you can gain greater understanding of what &lt;code&gt;NSApplication&lt;/code&gt; does on your behalf." />
+
+  <meta name="twitter:title" content="Demystifying NSApplication by recreating it"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/01/demystifying-nsapplication-by.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="In this post I will recreate code that is normally concealed between the &lt;code&gt;NSApplicationMain&lt;/code&gt; call (invoked in a Cocoa application&#39;s &lt;code&gt;main&lt;/code&gt; function) and the &lt;code&gt;sendEvent:&lt;/code&gt; method (which distributes the events to windows and views from the main run loop). By recreating this code for you, I hope to explain the steps that occur between program startup and the dispatch of events to your code &amp;mdash; so you can gain greater understanding of what &lt;code&gt;NSApplication&lt;/code&gt; does on your behalf."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="demystifying-nsapplication-by.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Demystifying NSApplication by recreating it</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-01-18">January 18, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/appkit.html">AppKit</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>In this post I will recreate code that is normally concealed between the <code>NSApplicationMain</code> call (invoked in a Cocoa application's <code>main</code> function) and the <code>sendEvent:</code> method (which distributes the events to windows and views from the main run loop). By recreating this code for you, I hope to explain the steps that occur between program startup and the dispatch of events to your code &mdash; so you can gain greater understanding of what <code>NSApplication</code> does on your behalf.</p></span>
+
+<span class="fullpost">
+<h2>Introduction</h2>
+<p>The default Cocoa Application template provided by Xcode contains just one line of code, in one function:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">*</span><span class="n">argv</span><span class="p">[])</span>
+<span class="p">{</span>
+    <span class="k">return</span> <span class="n">NSApplicationMain</span><span class="p">(</span><span class="n">argc</span><span class="p">,</span>  <span class="p">(</span><span class="k">const</span> <span class="kt">char</span> <span class="o">**</span><span class="p">)</span> <span class="n">argv</span><span class="p">);</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Somehow, this one line of code is enough to create a menubar, put a window onscreen and then handle user events (mouse clicks and menu selections) until the user quits the program, at which point the application gracefully exits.</p>
+
+<h2>What we know</h2>
+
+<p>Scattered throughout the Cocoa documentation are hints about what must happen in <code>NSApplicationMain</code>:</p>
+
+<ul>
+<li>Read from the "Info.plist" file to determine:
+<ul><li>The name of the "MainMenu" NIB file to load automatically on startup</li>
+<li>The name of the application's principal class (the class of the application object)</li></ul>
+<li>Construct the application object</li>
+<li>Load the "MainMenu" NIB file</li>
+<li>Begin the "Run Loop" (which handles the rest of the program)</li></ul>
+
+<p>I will recreate all of these steps by implementing my own version of <code>NSApplicationMain</code> &mdash; named <code>MyApplicationMain</code> &mdash; and by creating my own <code>NSApplication</code> subclass that implements the <code>run</code> method for itself.</p>
+
+<h2>MyApplicationMain</h2>
+
+<h3>Create the application object</h3>
+
+<p>The first step in the <code>MyApplicationMain</code> function is to read the name of the "Principal class" and construct the application object from this class.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSDictionary</span> <span class="o">*</span><span class="n">infoDictionary</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSBundle</span> <span class="n">mainBundle</span><span class="p">]</span> <span class="n">infoDictionary</span><span class="p">];</span>
+<span class="kt">Class</span> <span class="n">principalClass</span> <span class="o">=</span>
+    <span class="n">NSClassFromString</span><span class="p">([</span><span class="n">infoDictionary</span> <span class="nl">objectForKey</span><span class="p">:</span><span class="s">@&#34;NSPrincipalClass&#34;</span><span class="p">]);</span>
+<span class="n">NSAssert</span><span class="p">([</span><span class="n">principalClass</span> <span class="nl">respondsToSelector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="n">sharedApplication</span><span class="p">)],</span>
+    <span class="s">@&#34;Principal class must implement sharedApplication.&#34;</span><span class="p">);</span>
+<span class="n">NSApplication</span> <span class="o">*</span><span class="n">applicationObject</span> <span class="o">=</span> <span class="p">[</span><span class="n">principalClass</span> <span class="n">sharedApplication</span><span class="p">];</span></code></pre></div>
+
+<p>The <code>infoDictionary</code> method returns the "Info.plist" for a bundle (in this case, our application's bundle) converted into an <code>NSDictionary</code> for easy access. All we need to do is get the "NSPrincipalClass" string and fetch the class identified by that string.</p>
+
+<p>Since the application is a singleton, we construct it by calling the <code>sharedApplication</code> method on the class. If we try to construct the object using standard <code>alloc</code> and <code>init</code> calls, the <code>NSApp</code> singleton instance won't be set correctly and an exception will be thrown at a later point when a second application is created.</p>
+
+<blockquote>For more information on singletons, you can see <a href="../../2008/11/singletons-appdelegates-and-top-level.html">my earlier post about singletons</a> or visit Apple's page on <a href="http://developer.apple.com/documentation/Cocoa/Conceptual/CocoaFundamentals/CocoaObjects/chapter_3_section_10.html">Creating a Singleton Instance</a>.</blockquote> 
+
+<h3>Load the contents of the MainMenu NIB file</h3>
+
+<p>Loading the "MainMenu" NIB file is a similar task: get the name from the <code>infoDictionary</code> and then load it.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSString</span> <span class="o">*</span><span class="n">mainNibName</span> <span class="o">=</span> <span class="p">[</span><span class="n">infoDictionary</span> <span class="nl">objectForKey</span><span class="p">:</span><span class="s">@&#34;NSMainNibFile&#34;</span><span class="p">];</span>
+<span class="n">NSNib</span> <span class="o">*</span><span class="n">mainNib</span> <span class="o">=</span>
+    <span class="p">[[</span><span class="n">NSNib</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithNibNamed</span><span class="p">:</span><span class="n">mainNibName</span> <span class="nl">bundle</span><span class="p">:[</span><span class="n">NSBundle</span> <span class="n">mainBundle</span><span class="p">]];</span>
+<span class="p">[</span><span class="n">mainNib</span> <span class="nl">instantiateNibWithOwner</span><span class="p">:</span><span class="n">applicationObject</span> <span class="nl">topLevelObjects</span><span class="p">:</span><span class="nb">nil</span><span class="p">];</span></code></pre></div>
+
+<p>I briefly considered implementing the <code>NSNib</code> code too, to show how that works for loading objects in a NIB file, but since the format of a NIB file is not publicly declared, it wasn't possible. Suffice it to say that the <code>instantiateNibWithOwner:topLevelObjects</code> method performs the following steps:</p>
+
+<ul><li>Allocates all the objects in the NIB file and initializes them with one of the following methods:
+<ul><li><code>initWithFrame:</code> (used for <code>NSView</code> objects)</li>
+<li><code>initWithCoder:</code> (used for most other objects in the Interface Builder library)</li>
+<li><code>init</code> (used for all other objects)</li></ul>
+<li>Sets the <code>IBOutlet</code> pointers on objects as specified in the NIB file and establishes all bindings</li>
+<li>Invokes <code>awakeFromNib</code> on all objects that implement this method</li></ul>
+
+<h3>Start the run loop</h3>
+
+<p>It is extremely important that the application's main loop runs on the main thread. For this reason, we don't directly invoke <code>run</code> but instead make sure it is performed on the main thread.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">if</span> <span class="p">([</span><span class="n">applicationObject</span> <span class="nl">respondsToSelector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="n">run</span><span class="p">)])</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="n">applicationObject</span>
+        <span class="nl">performSelectorOnMainThread</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="n">run</span><span class="p">)</span>
+        <span class="nl">withObject</span><span class="p">:</span><span class="nb">nil</span>
+        <span class="nl">waitUntilDone</span><span class="p">:</span><span class="nb">YES</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>I also check that the <code>applicationObject</code> will respond to the method before trying to invoke it, just in case the "Principal Class" from the Info.plist file is not a valid <code>NSApplication</code> or <code>NSApplication</code>-like object.</p>
+
+<h2>Implementing our own run loop</h2>
+
+<p>The remaining task required so that you can trace the application's execution from startup to dispatch of events to your code is the implementation of the run loop.</p>
+
+<p>Despite Apple's comment in the <code>NSApplication</code> documentation that <code>run</code> is one of the "Methods to Override", my brief search failed to uncover anyone who had actually done it. My suspicion is this: it is <em>not</em> a method to override and that document is woefully out-of-date. The only reason to implement your own <em>run</em> method now is curiosity, not functionality.</p>
+
+<p>In that spirit, here's a reimplementation of <code>run</code> and a corresponding <code>terminate</code> method:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">run</span>
+<span class="p">{</span>
+    <span class="n">NSAutoreleasePool</span> <span class="o">*</span><span class="n">pool</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSAutoreleasePool</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">];</span>
+
+    <span class="p">[</span><span class="nb">self</span> <span class="n">finishLaunching</span><span class="p">];</span>
+
+    <span class="n">shouldKeepRunning</span> <span class="o">=</span> <span class="nb">YES</span><span class="p">;</span>
+    <span class="k">do</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="n">pool</span> <span class="k">release</span><span class="p">];</span>
+        <span class="n">pool</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSAutoreleasePool</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">];</span>
+
+        <span class="n">NSEvent</span> <span class="o">*</span><span class="n">event</span> <span class="o">=</span>
+            <span class="p">[</span><span class="nb">self</span>
+                <span class="nl">nextEventMatchingMask</span><span class="p">:</span><span class="n">NSAnyEventMask</span>
+                <span class="nl">untilDate</span><span class="p">:[</span><span class="n">NSDate</span> <span class="n">distantFuture</span><span class="p">]</span>
+                <span class="nl">inMode</span><span class="p">:</span><span class="n">NSDefaultRunLoopMode</span>
+                <span class="nl">dequeue</span><span class="p">:</span><span class="nb">YES</span><span class="p">];</span>
+
+        <span class="p">[</span><span class="nb">self</span> <span class="nl">sendEvent</span><span class="p">:</span><span class="n">event</span><span class="p">];</span>
+        <span class="p">[</span><span class="nb">self</span> <span class="n">updateWindows</span><span class="p">];</span>
+    <span class="p">}</span> <span class="k">while</span> <span class="p">(</span><span class="n">shouldKeepRunning</span><span class="p">);</span>
+
+    <span class="p">[</span><span class="n">pool</span> <span class="k">release</span><span class="p">];</span>
+<span class="p">}</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">terminate:</span><span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nv">sender</span>
+<span class="p">{</span>
+    <span class="n">shouldKeepRunning</span> <span class="o">=</span> <span class="nb">NO</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>It's as simple as you might expect: take the next event out of the queue for your application and route it appropriately using <code>sendEvent:</code> which handles the task of determining which window wants the event and invokes <code>sendEvent:</code> on the window to further route the event to a specific view.</p>
+
+<p>For those interested: I discovered all the methods that need to be invoked in the <code>run</code> method in the most naive way: by searching the <code>NSApplication</code> documentation for "loop" to find all methods that claimed they were invoked in the main run loop.</p>
+
+<p>The specific function of <code>finishLaunching</code> method is a bit of a mystery. All I know is that menus, menu updates and a host of other features won't work if it isn't invoked. It is possible that it sets up the responder chain for some actions. It is possible it adds observers to the run loop. I don't really know.</p>
+
+<p><code>nextEventMatchingMask:untilDate:inMode:dequeue:</code> is the biggest reason why I chose, when "reimplementing" <code>NSApplication</code> for this post, to make my implementation a subclass of <code>NSApplication</code> instead of a completely separate class. This method (or something it contains) converts notifications from the operating system and hardware drivers into <code>NSEvent</code> objects. A principal class is not required to be a subclass of <code>NSApplication</code> but I wouldn't know where to begin reimplementing this method, so I had to use <code>NSApplication</code> to do it.</p>
+
+<h2>Conclusion</h2>
+
+<blockquote>You can download an implementation of the default Cocoa Application Xcode 3.1 project that uses this code: <a href="../../assets/objc-era/RecreatingNSApplication.zip">RecreatingNSApplication.zip</a> (60kB)</blockquote>
+
+<p>This recreation of <code>NSApplicationMain</code> and <code>NSApplication</code>'s <code>run</code> does not do everything that the real implementations do (I've deliberately kept it simple for clarity) but I think it shows that the key steps involved are straightforward and easy to understand.</p>
+
+<p>There are a few steps that I haven't reimplemented: loading NIB files, retrieving events and routing events. Unfortunately, these remain black boxes to me, so I can't shed further light on them. You can find out some things by setting breakpoints (in your constructors for objects created in NIBs or in your event methods) and reading the names of Apple functions invoked to bring these commands to you.</p>
+
+<p>Beyond this, you can also read how <a href="http://www.koders.com/objectivec/fidC548A9896F2887D86D7074E7C563CC920B1698EC.aspx">GNUStep implements the same methods</a>. Apple doesn't necessarily do the same thing but GNUStep at least represents an observable solution to the same problems.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="multiple-row-selection-and-editing-in.html">Multiple row selection and editing in a UITableView</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="multiple-virtual-pages-in-uiscrollview.html">Multiple virtual pages in a UIScrollView with just 2 child views</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

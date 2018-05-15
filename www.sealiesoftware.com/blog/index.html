@@ -1,0 +1,686 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<!--
+Local Variables:
+sgml-default-dtd-file: "~/html-loose.ced"
+End:
+-->
+<html>
+  <head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+
+    <title>Hamster Emporium</title>
+    <link title="RSS 2.0" href="rss.xml.rss" type="application/rss+xml" rel="alternate">
+  </head>
+  <body bgcolor="#ffffff">
+    <table cellpadding="0" cellspacing="0">
+      <tr>
+	  <td valign="top" align="left">
+	    <a href="index.html"><img src="http://www.sealiesoftware.com/hamster.jpg" alt="" width="108" height="160"></a><br><br>
+	    <b>blog</b><br>
+	    <a href="index.html">recent</a><br>
+	    <a href="archive/index.html">archive</a><br>
+	    <a href="http://twitter.com/gparker">twitter</a><br>
+	    <br>
+	    <b>projects</b><br>
+	    <a href="http://www.apple.com/macosx/">Mac OS X</a><br>
+	    <a href="http://www.sealiesoftware.com/keyboard/index.html">Keyboard</a><br>
+	     &nbsp; <a href="http://www.sealiesoftware.com/keyboard/index.html">backlight</a><br>
+	    <a href="http://www.sealiesoftware.com/cscmenu/index.html">CSC Menu</a><br>
+	    <a href="http://www.sealiesoftware.com/valgrind/index.html">Valgrind</a><br>
+	    <a href="http://www.sealiesoftware.com/fringe/index.html">Fringe Player</a><br>
+	    <a href="http://www.sealiesoftware.com/pssh/index.html">pssh</a><br>
+	    <a href="http://www.sealiesoftware.com/peal/index.html">Peal</a><br>
+	    <a href="http://www.sealiesoftware.com/frankenmouse/index.html">Frankenmouse</a><br>
+	    <br>
+	  </td>
+	  <td>
+	    &nbsp; &nbsp;
+	  </td>
+	  <td valign="top">
+	      <h2>Hamster Emporium</h2>
+  <p>
+  <i>by Greg Parker, runtime wrangler and general specialist</i><br><br>
+  </p>
+  <table cellpadding="0" cellspacing="3">
+      <tr>
+	<td>
+	  <a href="archive/2017/6/5/Objective-C_and_fork_in_macOS_1013.html"><img src="http://www.sealiesoftware.com/link.gif" width="14" height="16" border="0" alt="(link)"></a>
+	</td>
+	<td>
+	  <b><font size="+1">Objective-C and fork() in macOS 10.13</font></b> &nbsp; 
+	  <font size="-1">(<a href="archive/2017/6/5/Objective-C_and_fork_in_macOS_1013.html">2017-6-5 12:05 PM</a>)</font>
+	</td>
+      </tr>
+      <tr>
+	<td>
+	  &nbsp;
+	</td>
+	<td>
+      <p>
+      The rules for using Objective-C between <code>fork()</code> and <code>exec()</code> have 
+      changed in macOS 10.13. Incorrect code that happened to work most 
+      of the time in the past may now fail. Some workarounds are available.
+<h4><code>fork()</code> and Objective-C</h4>
+    <p>
+      Before macOS 10.13, the Objective-C runtime did not support use 
+      between <code>fork()</code> and <code>exec()</code> in the child process of a multithreaded 
+      parent process. Calling any Objective-C method in that interval 
+      was not allowed. Most of the time it might work. Sometimes it would fail: for example, if a 
+      thread in the parent process happened to be holding one of 
+      the Objective-C runtime's locks when the <code>fork()</code> occurred, 
+      the child process would deadlock when it tried to take that lock.
+    <p>
+      As of macOS 10.13, the Objective-C runtime now supports use between
+      <code>fork()</code>
+      and <code>exec()</code> in applications built with the 10.13 SDK. There are
+      restrictions involving <code>+initialize</code> methods. Previously incorrect code may
+      now be correct, or it may fail consistently due to <code>+initialize</code> behavior.
+    <p>
+      Note that the Objective-C classes defined by the OS frameworks remain <code>fork</code>-unsafe. As a first approximation it is still incorrect to do anything between <code>fork()</code> and <code>exec()</code>.
+
+      <h4><code>fork()</code> and <code>+initialize</code></h4>
+    <p>
+      <code>+initialize</code> methods still have restrictions around <code>fork()</code>. The problem is that the thread-safety guarantees of <code>+initialize</code> implicitly introduce locks around state that the Objective-C runtime does not control. There is no good way to make <code>+initialize</code> both thread-safe and <code>fork</code>-safe. Instead the Objective-C runtime simply halts the process instead of running any <code>+initialize</code> override in the child process: 
+<p>
+<code>&nbsp; &nbsp; &nbsp; +[SomeClass initialize] may have been in progress in another thread when <code>fork()</code> was called. We cannot safely call it or ignore it in the <code>fork()</code> child process. Crashing instead.
+</code>
+<p>
+If you have a class that needs to be <code>fork</code>-safe and also overrides <code>+initialize</code>, you can use the "prepare" side of <code>pthread_atfork()</code> to force <code>+initialize</code> to run. Then the child process will see a consistent state without a <code>+initialize</code> deadlock threat.
+
+<h4>Workarounds for compatibility</h4>
+    <p>
+      There are three ways to get the old behavior back for source- or binary-compatibility.
+      <ul>
+      <li>Build your app with an SDK older than macOS 10.13.
+<li>Define environment variable <code>OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES</code>.
+<li>Add a <code>__DATA,__objc_fork_ok</code> section to your executable.
+</ul>
+<p>
+Be warned that incorrect code is more likely to deadlock on macOS 10.13 than before, even with one of these workarounds in place.
+
+<h4>Scripting languages</h4>
+<p>
+  Some scripting languages use <code>fork()</code> without <code>exec()</code> as a substitute for threads. Python's <code>multiprocessing</code> module is one example. The <code>OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES</code> environment variable described above may temporarily get your scripts running again.
+
+<h4>Summary of fixes</h4>
+<p>
+Possible fixes for <code>fork</code>-safety problems, from best to worst:
+<ol>
+<li>Use <code>NSTask</code> or <code>posix_spawn()</code> instead of <code>fork()</code> and <code>exec()</code>.
+<li>Do nothing between <code>fork()</code> and <code>exec()</code>.
+<li>Use only async-signal-safe operations between <code>fork()</code> and <code>exec()</code>.
+<li>Use ObjC classes with no <code>+initialize</code> overrides between <code>fork()</code> and <code>exec()</code>.
+<li>Use <code>pthread_atfork()</code> to force your <code>+initialize</code> methods to run before <code>fork()</code>.
+<li>Define environment variable <code>OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES</code>, or add a <code>__DATA,__objc_fork_ok</code> section, or build using an SDK older than macOS 10.13. Then cross your fingers.
+</ol>
+    </p>
+
+	</td>
+      </tr>
+  </table>
+  <table cellpadding="0" cellspacing="3">
+      <tr>
+	<td>
+	  <a href="archive/2013/09/24/objc_explain_Non-pointer_isa.html"><img src="http://www.sealiesoftware.com/link.gif" width="14" height="16" border="0" alt="(link)"></a>
+	</td>
+	<td>
+	  <b><font size="+1">[objc explain]: Non-pointer isa</font></b> &nbsp; 
+	  <font size="-1">(<a href="archive/2013/09/24/objc_explain_Non-pointer_isa.html">2013-09-24 1:27 AM</a>)</font>
+	</td>
+      </tr>
+      <tr>
+	<td>
+	  &nbsp;
+	</td>
+	<td>
+        <p>
+	On iOS for arm64, the isa field of Objective-C objects is no longer a pointer.
+	<h4>Say what?</h4>
+      <p>
+	On iOS for arm64, the isa field of Objective-C objects is no longer a pointer.	
+	<h4>If it's not a pointer anymore, what is it?</h4>
+      <p>
+	Some of the bits still encode the pointer to the object's class. But neither OS X nor iOS actually uses all 64 bits of virtual address space. The Objective-C runtime may use these extra bits to store per-object data like its retain count or whether it has been weakly referenced.
+	<h4>Why change it?</h4>
+      <p>
+	Performance. Re-purposing these otherwise unused bits increases speed and decreases memory size. On iOS 7 the focus is on optimizing retain/release and alloc/dealloc.
+	<h4>What does this mean for my code?</h4>
+      <p>
+	Don't read <code>obj->isa</code> directly. The compiler will complain if you do. <font size=-1>Trust the Compiler. The Compiler is your friend.</font> Use <code>[obj class]</code> or <code>object_getClass(obj)</code> instead. 
+      <p>
+	Don't write <code>obj->isa</code> directly. Use <code>object_setClass()</code> instead.
+      <p>
+	If you override <code>+allocWithZone:</code>, you may initialize your object's isa field to a "raw" isa pointer. If you do, no extra data will be stored in that isa field and you may suffer the slow path through code like retain/release. To enable these optimizations, instead set the isa field to zero (if it is not already) and then call <code>object_setClass()</code>.
+      <p>
+	If you override retain/release to implement a custom inline retain count, consider removing that code in favor of the runtime's implementation.
+      <p>
+	The 64-bit iOS simulator currently does not use non-pointer isa. Test your code on a real arm64 device.
+	<h4>What does this mean for debugging?</h4>
+      <p>
+	The debugger knows how to decode the class from the isa field. You should not need to examine it directly in most cases.
+      <p>
+	You can run your code with environment variable <code>OBJC_DISABLE_NONPOINTER_ISA=YES</code> to disable non-pointer isa for all classes. If your code works with this set and fails without it, you may be incorrectly accessing an isa field directly somewhere.
+      <p>
+	If you are writing a debugger-like tool, the Objective-C runtime exports some variables to help decode isa fields. <code>objc_debug_isa_class_mask</code> describes which bits are the class pointer: <code>(isa & class_mask) == </code>class pointer. <code>objc_debug_isa_magic_mask</code> and <code>objc_debug_isa_magic_value</code> describe some bits that help distinguish valid isa fields from other invalid values: <code>(isa & magic_mask) == magic_value</code> for isa fields that are not raw class pointers. These variables may change in the future so do not use them in application code.
+	<h4>No seriously, what do each of the bits mean?</h4>
+      <p>
+	For entertainment purposes only. These values will change in future OS versions. I think they already have changed, actually.
+	<table>
+	  <tr><td colspan=2 align=center>(LSB)<td>&nbsp;<td>&nbsp;</tr>
+	  <tr><td align=right>1<td>bit<td><code>indexed</code><td><code>0</code> is raw isa, <code>1</code> is non-pointer isa.</tr>
+	  <tr><td align=right>1<td>bit<td><code>has_assoc</code><td>Object has or once had an associated reference. Object with no associated references can deallocate faster.</tr>
+	  <tr><td align=right>1<td>bit<td><code>has_cxx_dtor</code><td>Object has a C++ or ARC destructor. Objects with no destructor can deallocate faster.</tr>
+	  <tr><td align=right>30<td>bits<td><code>shiftcls</code><td>Class pointer's non-zero bits.</tr>
+	  <tr><td align=right>9<td>bits<td><code>magic</code><td>Equals <code>0xd2</code>. Used by the debugger to distinguish real objects from uninitialized junk.</tr>
+	  <tr><td align=right>1<td>bit<td><code>weakly_referenced</code><td>Object is or once was pointed to by an ARC weak variable. Objects not weakly referenced can deallocate faster.</tr>
+	  <tr><td align=right>1<td>bit<td><code>deallocating</code><td>Object is currently deallocating.</tr>
+	  <tr><td align=right>1<td>bit<td><code>has_sidetable_rc</code><td>Object's retain count is too large to store inline.</tr>
+	  <tr><td align=right>19<td>bits<td><code>extra_rc</code><td>Object's retain count above 1. (For example, if <code>extra_rc</code> is 5 then the object's real retain count is 6.)</tr>
+	  <tr><td colspan=2 align=center>(MSB)<td>&nbsp;<td>&nbsp;
+	</table>
+      <p>
+
+	</td>
+      </tr>
+  </table>
+  <table cellpadding="0" cellspacing="3">
+      <tr>
+	<td>
+	  <a href="archive/2013/09/12/objc_explain_So_you_crashed_in_objc_msgSend_iPhone_5s_Edition.html"><img src="http://www.sealiesoftware.com/link.gif" width="14" height="16" border="0" alt="(link)"></a>
+	</td>
+	<td>
+	  <b><font size="+1">[objc explain]: So you crashed in objc_msgSend(): iPhone 5s Edition</font></b> &nbsp; 
+	  <font size="-1">(<a href="archive/2013/09/12/objc_explain_So_you_crashed_in_objc_msgSend_iPhone_5s_Edition.html">2013-09-12 12:45 PM</a>)</font>
+	</td>
+      </tr>
+      <tr>
+	<td>
+	  &nbsp;
+	</td>
+	<td>
+        <p>
+	<a
+	href="http://sealiesoftware.com/blog/archive/2008/09/22/objc_explain_So_you_crashed_in_objc_msgSend.html">So
+	you crashed in objc_msgSend()</a> has been updated with register
+	usage for iPhone 5s's ARM64 processor. The table now looks like this:
+	<table border=1 cellspacing=0 cellpadding=4>
+	  <th><td align=center colspan=2><code>objc_msgSend</code><br><code>objc_msgSend_fpret</code></td>
+	    <td align=center colspan=2><code>objc_msgSend_stret</code></td></th>
+	  <tr><td align=center>&nbsp;</td><td align=center><code>receiver</code></td><td align=center><code>SEL</code></td><td align=center><code>receiver</code></td><td align=center><code>SEL</code></td></tr>
+	  <tr><td>i386</td><td align=center>eax*</td><td align=center>ecx</td>
+	    <td align=center>eax*</td><td align=center>ecx</td></tr>
+	  <tr><td>x86_64</td><td align=center>rdi</td><td align=center>rsi</td>
+	    <td align=center>rsi</td><td align=center>rdx</td></tr>
+	  <tr><td>ppc</td><td align=center>r3</td><td align=center>r4</td>
+	    <td align=center>r4</td><td align=center>r5</td></tr>
+	  <tr><td>ppc64</td><td align=center>r3</td><td align=center>r4</td>
+	    <td align=center>r4</td><td align=center>r5</td></tr>
+	  <tr><td>arm</td><td align=center>r0</td><td align=center>r1</td>
+	    <td align=center>r1</td><td align=center>r2</td></tr>
+	  <tr><td>arm64</td><td align=center>x0</td><td align=center>x1</td>
+	    <td align=center>&mdash;</td><td align=center>&mdash;</td></tr>
+	</table>
+      </p>
+
+	</td>
+      </tr>
+  </table>
+  <table cellpadding="0" cellspacing="3">
+      <tr>
+	<td>
+	  <a href="archive/2012/2/29/objc_explain_return_value_of_message_to_nil.html"><img src="http://www.sealiesoftware.com/link.gif" width="14" height="16" border="0" alt="(link)"></a>
+	</td>
+	<td>
+	  <b><font size="+1">[objc explain]: return value of message to nil</font></b> &nbsp; 
+	  <font size="-1">(<a href="archive/2012/2/29/objc_explain_return_value_of_message_to_nil.html">2012-2-29 2:40 PM</a>)</font>
+	</td>
+      </tr>
+      <tr>
+	<td>
+	  &nbsp;
+	</td>
+	<td>
+        <h4>LLVM Compiler 3.0 (Xcode 4.2) or later</h4>
+      <p>
+	Integers up to 64 bits: 0<br>
+	Floating-point up to <code>long double</code>: 0.0<br>
+	Pointers: <code>nil</code><br>
+	Structs: <code>{0}</code><br>
+	Any <code>_Complex</code> type: <code>{0, 0}</code><br>
+      </p>
+      <h4>Notes</h4>
+      <p>
+	C++ objects returned by value are initialized to <code>{0}</code>, even if the type has a default constructor that does something else. This may be fixed in the future.<br>
+	Struct return is undefined if you call <code>objc_msgSend_stret()</code> directly.<br> 
+	Struct return is undefined if you use an older compiler.<br>
+	Floating-point return is undefined on Mac OS X 10.4 and earlier on Power PC.<br>
+	<code>_Complex long double</code> return is undefined if you use an older compiler.<br>
+      </p>
+
+	</td>
+      </tr>
+  </table>
+  <table cellpadding="0" cellspacing="3">
+      <tr>
+	<td>
+	  <a href="archive/2011/06/17/objc_explain_objc_msgSend_vtable.html"><img src="http://www.sealiesoftware.com/link.gif" width="14" height="16" border="0" alt="(link)"></a>
+	</td>
+	<td>
+	  <b><font size="+1">[objc explain]: objc_msgSend_vtable</font></b> &nbsp; 
+	  <font size="-1">(<a href="archive/2011/06/17/objc_explain_objc_msgSend_vtable.html">2011-06-17 4:42 PM</a>)</font>
+	</td>
+      </tr>
+      <tr>
+	<td>
+	  &nbsp;
+	</td>
+	<td>
+      <p>
+      <code>objc_msgSend_vtable</code> is a version
+      of <code>objc_msgSend</code> used to optimize a few of the most
+      commonly called methods. 
+    <p>
+      Most Objective-C methods are dispatched using a hash table lookup
+      inside <code>objc_msgSend</code>. On x86_64, a few selectors can be
+      dispatched using a C++-style virtual table: an array lookup, not a
+      hash table. 
+    <p>
+      The compiler knows which selectors are optimized by the runtime. It
+      compiles the call site differently,
+      calling <code>objc_msgSend_fixup</code> via a function pointer. At
+      runtime, <code>objc_msgSend_fixup</code> replaces the function
+      pointer with one of the <code>objc_msgSend_vtable</code> functions,
+      if the called selector is one of the optimized selectors. 
+    <p>
+      C++ vtables are notoriously fragile: the array offsets for each
+      virtual method are hardcoded into the generated code. Objective-C's
+      vtables are not fragile. Each vtable is built at runtime and updated
+      when method lists change. In theory even the set of optimized
+      methods could be changed. The non-fragile flexibility costs an extra
+      memory load during dispatch. 
+    <p>
+      Dispatch via vtable is faster than a hash table, but would consume
+      tremendous amounts of memory if used everywhere. Objective-C's
+      vtable implementation limits its use to a few selectors that are (1)
+      implemented everywhere, but (2) rarely overridden. That means most
+      classes share their superclass's vtable, which keeps memory costs
+      low. 
+    <p>
+      A crash in any <code>objc_msgSend_vtable</code> function should be
+      debugged exactly like a crash in <code>objc_msgSend</code>
+      itself. They both crash for all of the same reasons, like incorrect
+      memory management or memory smashers. 
+    <p>
+      Currently, the runtime uses sixteen
+      different <code>objc_msgSend_vtable</code> functions, one for each
+      slot in the sixteen-entry vtable. 
+    </p>
+    <table border=1 cellspacing=0 cellpadding=4>
+      <tr><td><code>objc_msgSend_vtable0</code><td><code>allocWithZone:</code>
+      <tr><td><code>objc_msgSend_vtable1</code><td><code>alloc</code>
+      <tr><td><code>objc_msgSend_vtable2</code><td><code>class</code>
+      <tr><td><code>objc_msgSend_vtable3</code><td><code>self</code>
+      <tr><td><code>objc_msgSend_vtable4</code><td><code>isKindOfClass:</code>
+      <tr><td><code>objc_msgSend_vtable5</code><td><code>respondsToSelector:</code>
+      <tr><td><code>objc_msgSend_vtable6</code><td><code>isFlipped</code>
+      <tr><td><code>objc_msgSend_vtable7</code><td><code>length</code>
+      <tr><td><code>objc_msgSend_vtable8</code><td><code>objectForKey:</code>
+      <tr><td><code>objc_msgSend_vtable9</code><td><code>count</code>
+      <tr><td><code>objc_msgSend_vtable10</code><td><code>objectAtIndex:</code>
+      <tr><td><code>objc_msgSend_vtable11</code><td><code>isEqualToString:</code>
+      <tr><td><code>objc_msgSend_vtable12</code><td><code>isEqual:</code>
+      <tr><td><code>objc_msgSend_vtable13</code><td><code>retain</code> (non-GC)<br><code>hash</code> (GC)
+      <tr><td><code>objc_msgSend_vtable14</code><td><code>release</code> (non-GC)<br><code>addObject:</code> (GC)
+      <tr><td><code>objc_msgSend_vtable15</code><td><code>autorelease</code> (non-GC)<br><code>countByEnumeratingWithState:objects:count:</code> (GC)
+    </table>
+    <p>
+       The vtable's contents differ for GC and non-GC, for obvious
+       reasons. <code>-isFlipped</code> is part of
+       NSView. <code>-countByEnumeratingWithState:objects:count:</code> is
+       the fast enumeration implementation, including <code>for (x in
+       y)</code>. Together these methods make up roughly 30-50% of calls
+       in typical Objective-C applications. 
+
+	</td>
+      </tr>
+  </table>
+  <table cellpadding="0" cellspacing="3">
+      <tr>
+	<td>
+	  <a href="archive/2010/09/01/Dr_Gregory_Parker_Department_of_Diagnostic_Engineering.html"><img src="http://www.sealiesoftware.com/link.gif" width="14" height="16" border="0" alt="(link)"></a>
+	</td>
+	<td>
+	  <b><font size="+1">Dr. Gregory Parker, Department of Diagnostic Engineering</font></b> &nbsp; 
+	  <font size="-1">(<a href="archive/2010/09/01/Dr_Gregory_Parker_Department_of_Diagnostic_Engineering.html">2010-09-01 3:15 AM</a>)</font>
+	</td>
+      </tr>
+      <tr>
+	<td>
+	  &nbsp;
+	</td>
+	<td>
+      <p>
+      Last week, <a href="http://twitter.com/rballard">Rick Ballard</a> came by my office for a consult. He had caught Xcode at a crash in <code>objc_msgSend()</code>. The crash looked like an intermittent problem that had been plaguing Xcode for months. So he called the local expert on debugging <code>objc_msgSend()</code>. Dr. Gregory Parker, Department of Diagnostic Engineering.
+    <p>
+      The good news was that Rick's crash was reliably reproducible. Running tests on a live patient is better than performing an autopsy on a dead one. The bad news was that the obvious debugging tools had not helped. <code>NSZombieEnabled</code> and <code>guardmalloc</code> had turned up nothing, and <code>AUTO_USE_GUARDS=YES</code> (the GC equivalent of <code>guardmalloc</code>) just thrashed the machine for two hours before running out of address space.
+    <p>
+      <a href="http://sealiesoftware.com/blog/archive/2008/09/22/objc_explain_So_you_crashed_in_objc_msgSend.html">So you crashed in <code>objc_msgSend()</code></a>. The selector was <code>-isAbsolutePath</code>, which was reasonable but meant the debugger's backtrace was missing a frame. <code>objc_msgSend()</code> had read the class from the object, read the method cache from the class, read a method from the method cache, and crashed while trying to read the <code>IMP</code> from the method. Theory: either one of those data structures had been hit by a memory smasher, or the original object was bogus but happened to have dereferenceable pointers in the right places to survive that long. The method cache's mask was invalid - it should have been of the form 2<sup>n</sup>-1 - so the failure must have been at or before that point in the chain.
+    <p>
+      The object pointer itself looked plausible. Theory: the object was valid, but a previous object at the same location had been used after being freed. We had the great luxury of a reproducible crash, so we turned on <code>MallocStackLoggingNoCompact</code> and ran it again. That memory had only been used for one object, and it had not been deallocated. So the evidence did not support the use-after-free theory. But the history showed that the object had been allocated as an <code>NSPathStore2</code> - an internal subclass of <code>NSString</code> for file pathnames - which matched the selector <code>-isAbsolutePath</code> and matched the call site's expectations. The theory that the object pointer was valid looked good.
+    <p>
+      The object pointer was good, and the method cache was not: the failure was on the chain between them. The contents of the object looked good. The bytes looked like alternating zero and ASCII, which is a dead giveaway for the UTF-16 used inside <code>NSString</code>. The string value decoded as <code>@"/Xcode4/usr/bin/llvm-gcc"</code>, which made sense in the call site's context.
+    <p>
+      The object's <code>isa</code> pointer was not so good. Its value was <code>0xa0050000</code>. This was not class <code>NSPathStore2</code> or any other class. <code>vmmap</code> showed it to be in Foundation's data segment, and <code>otool</code> showed it was specifically in Foundation's constant CF strings. But instead of pointing to the start of some string, it pointed to the middle of a string object. That string object was <code>@"tzm-Latn"</code>: some localization thingy, perhaps? Theory: some bug had replaced this object's isa pointer with a pointer to the middle of an unrelated localization string object. This did not sound like a good theory.
+    <p>
+      Go back to the board. Symptom: the object was allocated as an <code>NSPathStore2</code>. Symptom: the object's <code>isa</code> pointer is now <code>0xa0050000</code>, which is not <code>NSPathStore2</code>. What should the <code>isa</code> pointer's value have been? <code>otool</code> and <code>objc_getClass()</code> agreed: the correct <code>isa</code> pointer should have been <code>0xa005f198</code>. <code>0xa0050000</code> is suspiciously similar. Theory: something had cleared two bytes of this object, leaving a nonsense <code>isa</code> pointer. <code>@"tzm-Latn"</code> was a red herring.
+    <p>
+      Aha! This is 32-bit i386. Little endian. The pointer <code>0xa005f198</code> is stored backwards in memory: <code>0x98 0xf1 0x05 0xa0</code>. Clearing the least-significant bytes of the <code>isa</code> pointer meant clearing bytes 0 and 1 of the object, not bytes 2 and 3. Damage to bytes 0 and 1 is exactly what you'd expect from a two-byte overrun of the object preceding this one in memory. Theory: the bug was in that preceding object, and this <code>NSPathStore2</code> object was an innocent victim.
+    <p>
+      <code>malloc_history</code> works with a pointer to the middle of an allocation, too. We plugged in <code>object-1</code> and got back an instance of <code>DVTSourceModelItem</code>, not deallocated. Rick recognized this as part of Xcode's indexer, which was always running in another thread at the time of the crash. A buffer overrun from the <code>DVTSourceModelItem</code> object fit the symptoms.
+    <p>
+      But where was the buffer? I had expected an overrun in some heap-allocated C array, not an ordinary object. Nor did <code>DVTSourceModelItem</code> have any C arrays in its instance variables. 
+    <p>
+      Theory: the compiler or runtime had allocated too little memory for the instance of class <code>DVTSourceModelItem</code>, and ordinary ivar access had overrun that allocation. It was a long shot, but easy to test. <code>malloc_size()</code> and <code>class_getInstanceSize()</code> and an eyeball count of ivars all agreed that the object was 32 bytes. Theory disproved.
+    <p>
+      We tested the overrun theory again. Add an unused ivar to the end of <code>DVTSourceModelItem</code>, recompile, and run it. No crash. Remove the ivar. Crash. The extra ivar "fixed" the bug. The buffer overrun theory still fit the evidence, but we couldn't find it. 
+    <p>
+      No more ideas. We needed data. Debugger watchpoints were out: there were thousands of instances of <code>DVTSourceModelItem</code>, and we couldn't watch two bytes after each of them. We were not yet desperate enough to try brute force code inspection. <code>AUTO_USE_GUARDS=YES</code> could catch it, if it didn't fall over first. Since we had a suspect in mind, we could play the <code>guardmalloc</code> trick ourselves with a narrower target. Override <code>+[DVTSourceModelItem alloc]</code>, <code>mprotect()</code> the page after the allocation, and cross our fingers really hard hoping that it still reproduced after changing the timing so much.
+    <p>
+      Bang! It crashed (good) somewhere new (also good). <code>DVTSourceModelItem</code> <code>-init</code> was writing to one of its own instance variables. The ivar was a bit in a bitfield, and that bitfield was at the end of the ivar list. 
+    <p>
+      Disassemble. The generated code read 4 bytes around the bit into a register, change the bit in that register, and wrote the 4 bytes back to memory. That's typical for a bitfield. The unexpected part was that the 4 bytes spanned the last two bytes of the object and the first two bytes after the object. That's a bug. Most of the time the out of bounds access is invalid - it reads two bytes it shouldn't, and writes back the same value. But if there's another thread it can crash:
+      <table border=1 cellspacing=0 cellpadding=4>
+	<tr><td align=center>Thread 1</td><td align=center>Thread 2</td></tr>
+	<tr><td>reads four bytes, including two<br>bytes outside the object</td><td>&nbsp;</td></tr>
+	<tr><td>&nbsp;</td><td>allocates a new object</td></tr>
+	<tr><td>&nbsp;</td><td>writes an isa pointer</td></tr>
+	<tr><td>writes four bytes, clobbering the<br>new value written by Thread 2</td><td>&nbsp;</td></tr>
+	<tr><td>&nbsp;</td><td>crashes</td></tr>
+      </table>
+    <p>
+      Theory: a compiler bug generated bad code for <code>DVTSourceModelItem</code>'s bitfield ivar, causing a read-modify-write out of bounds by two bytes, which corrupted memory in other threads. Test: try a different compiler. <code>DVTSourceModelItem.m</code> was built with <code>clang</code>, so we recompiled with <code>llvm-gcc</code>. No crash, and the disassembly looked correct. Compile with <code>clang</code> again, crash again.
+    <p>
+      Diagnosis: <code>clang</code> compiler bug in bitfield ivars. The patient's symptoms were treated with an extra ivar in <code>DVTSourceModelItem</code> until a compiler transplant could be performed. 
+    <p>
+      Elapsed time: about three hours. Too long for an episode of a TV procedural drama, unfortunately. 
+    </p>
+
+	</td>
+      </tr>
+  </table>
+  <table cellpadding="0" cellspacing="3">
+      <tr>
+	<td>
+	  <a href="archive/2010/8/16/TargetConditionalsh.html"><img src="http://www.sealiesoftware.com/link.gif" width="14" height="16" border="0" alt="(link)"></a>
+	</td>
+	<td>
+	  <b><font size="+1">TargetConditionals.h</font></b> &nbsp; 
+	  <font size="-1">(<a href="archive/2010/8/16/TargetConditionalsh.html">2010-8-16 2:30 PM</a>)</font>
+	</td>
+      </tr>
+      <tr>
+	<td>
+	  &nbsp;
+	</td>
+	<td>
+      <p>
+    Updated 2017-2-27
+    <p>
+    <table border=1 cellspacing=0 cellpadding=4>
+      <th><td align=center>macOS</td><td align=center>iOS device</td><td align=center>iOS simulator</td><td align=center>tvOS device</td><td align=center>tvOS simulator</td></th><td align=center>watchOS device</td><td align=center>watchOS simulator</td></th>
+      <tr><td>TARGET_OS_OSX</td><td bgcolor=#eeffee>1</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+      <tr><td>TARGET_OS_IOS</td><td>0</td><td bgcolor=#eeffee>1</td><td bgcolor=#eeffee>1</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+      <tr><td>TARGET_OS_TV</td><td>0</td><td>0</td><td>0</td><td bgcolor=#eeffee>1</td><td bgcolor=#eeffee>1</td><td>0</td><td>0</td></tr>
+      <tr><td>TARGET_OS_WATCH</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td bgcolor=#eeffee>1</td><td bgcolor=#eeffee>1</td></tr>
+      <tr><td>TARGET_OS_SIMULATOR</td><td>0</td><td>0</td><td bgcolor=#eeffee>1</td><td>0</td><td bgcolor=#eeffee>1</td><td>0</td><td bgcolor=#eeffee>1</td></tr>
+      <tr><td colspan=8></td></tr>
+      <tr><td>TARGET_OS_MAC</td><td bgcolor=#eeffee>1</td><td bgcolor=#eeffee>1</td><td bgcolor=#eeffee>1</td><td bgcolor=#eeffee>1</td><td bgcolor=#eeffee>1</td><td bgcolor=#eeffee>1</td><td bgcolor=#eeffee>1</td></tr>
+      <tr><td>TARGET_OS_IPHONE</td><td>0</td><td bgcolor=#eeffee>1</td><td bgcolor=#eeffee>1</td><td bgcolor=#eeffee>1</td><td bgcolor=#eeffee>1</td><td bgcolor=#eeffee>1</td><td bgcolor=#eeffee>1</td></tr>
+      <tr><td>TARGET_OS_EMBEDDED</td><td>0</td><td bgcolor=#eeffee>1</td><td>0</td><td bgcolor=#eeffee>1</td><td>0</td><td bgcolor=#eeffee>1</td><td>0</td></tr>
+      <tr><td>TARGET_IPHONE_SIMULATOR</td><td colspan=7>same as TARGET_OS_SIMULATOR</td></tr>
+    </table>
+    <br>
+
+	</td>
+      </tr>
+  </table>
+  <table cellpadding="0" cellspacing="3">
+      <tr>
+	<td>
+	  <a href="archive/2010/4/8/Do-it-yourself_Objective-C_weak_import.html"><img src="http://www.sealiesoftware.com/link.gif" width="14" height="16" border="0" alt="(link)"></a>
+	</td>
+	<td>
+	  <b><font size="+1">Do-it-yourself Objective-C weak import</font></b> &nbsp; 
+	  <font size="-1">(<a href="archive/2010/4/8/Do-it-yourself_Objective-C_weak_import.html">2010-4-8 10:23 PM</a>)</font>
+	</td>
+      </tr>
+      <tr>
+	<td>
+	  &nbsp;
+	</td>
+	<td>
+        <h4>WARNING  DANGER  HAZARD  BEWARE  EEK</h4>
+      <p>
+	The scheme described herein is <b>UNTESTED</b> and probably
+	<b>BUGGY</b>. Use at your own risk.  
+      </p>
+      <h4>Executive summary</h4>
+      <p>
+	The Objective-C runtime supports <a href="http://sealiesoftware.com/blog/archive/2009/09/09/objc_explain_Weak-import_classes.html">weak-imported classes</a> back to
+	iPhone OS 3.1. An app could use a class added in iPhone OS 3.2 or
+	4.0 and still run on 3.1. The app would check if <code>[SomeClass
+	class]</code> is <code>nil</code> and act accordingly.
+      </p>
+      <p>
+	Unfortunately, the compilers and class declarations in framework
+	headers do not support weak import yet. But you may be able to use
+	weak linking anyway, by adding the right incantations yourself.
+      </p>
+      <p>
+	To <b>use</b> a class <code>SomeClass</code> that is unavailable
+	on some of your app's deployment targets, write this in
+	<b>every</b> file that uses the class:<pre>
+    asm(".weak_reference _OBJC_CLASS_$_SomeClass");</pre>
+	To <b>subclass</b> a class <code>SomeClass</code> that is unavailable 
+	on some of your app's deployment targets, write this in 
+	the file containing your subclass's
+	<code>@implementation</code>:<pre>
+    asm(".weak_reference _OBJC_CLASS_$_SomeClass");
+    asm(".weak_reference _OBJC_METACLASS_$_SomeClass");</pre>
+	This will not work for apps running on iPhone OS 3.0 or
+	older. Only iPhone OS 3.1 and newer has any hope of success. Of
+	course, since this is <b>UNTESTED</b> it may not work there either.
+      </p>
+      <h4>How it works</h4>
+      <p>
+	Say you're writing a game, and want to use the hypothetical
+	<code>UIDancePad</code> class added to iPhone OS 3.2. (Do not
+	dance on iPad.) When you use class <code>UIDancePad</code> in your
+	code, the compiler emits a C symbol pointing to the class:<pre>
+    .long _OBJC_CLASS_$_UIDancePad</pre>
+      </p>
+      <p>
+	Since <code>UIDancePad</code> is in a framework instead of your
+	code, the symbol remains undefined in your executable, as shown by
+	<code>`nm -m`</code>:<pre>
+    (undefined) external _OBJC_CLASS_$_UIDancePad (from DanceKit)</pre>
+      </p>
+      <p>
+	When you run on iPhone OS 3.2, everything works great: the dynamic
+	loader opens your executable and DanceKit, and binds your
+	undefined symbol to their class definition.
+      </p>
+      <p>
+	Things don't go so well on iPhone OS 3.1. DanceKit exists but does
+	not define <code>UIDancePad</code>. The dynamic loader is unable
+	to resolve 
+	your undefined symbol, and the process halts:<pre>
+    dyld: Symbol not found: _OBJC_CLASS_$_UIDancePad
+        Referenced from: /path/to/YourApp
+        Expected in: /path/to/DanceKit</pre>
+      </p>
+      <p>
+	Weak import solves this. The compiled symbol reference is now a
+	weak one:<pre>
+    .weak_reference _OBJC_CLASS_$_UIDancePad
+    .long _OBJC_CLASS_$_UIDancePad
+
+    (undefined) weak external _OBJC_CLASS_$_UIDancePad (from DanceKit)</pre>
+      </p>
+      <p>
+	The dynamic loader shrugs its shoulders if a weak reference cannot
+	be resolved, and sets the pointer to <code>NULL</code>. The
+	Objective-C runtime sees the <code>NULL</code> pointer and fixes
+	up the rest of the metadata as if <code>UIDancePad</code> never
+	existed. 
+      </p>
+      <p>
+	As mentioned above, the compiler and framework header support is
+	not yet in place. The incantations simply add the
+	assembler directives that the compiler does not yet know how to
+	emit:<pre>
+    asm(".weak_reference _OBJC_CLASS_$_UIDancePad");</pre>
+      </p>
+      <p>
+	Et voil&agrave;: weak import of an Objective-C class. Well, maybe. I have
+	only tested this on toy examples, none of which got anywhere close
+	to any version of iPhone OS. Coder beware!
+      </p>
+      <p>
+	(What about the <code>_OBJC_METACLASS</code> symbol, you ask? When
+	you subclass a class, your subclass's
+	metaclass's superclass pointer points to the subclass's superclass's
+	metaclass. In other words, your subclass's
+	<code>@implementation</code> points to both its superclass and its
+	superclass's <a
+	href="http://sealiesoftware.com/blog/archive/2009/04/14/objc_explain_Classes_and_metaclasses.html">metaclass</a>. That
+	requires two symbols: one for the class and one for the
+	metaclass. When you simply use a class without subclassing it, you
+	don't need the metaclass pointer.)
+      </p>
+
+	</td>
+      </tr>
+  </table>
+  <table cellpadding="0" cellspacing="3">
+      <tr>
+	<td>
+	  <a href="archive/2009/09/09/objc_explain_Weak-import_classes.html"><img src="http://www.sealiesoftware.com/link.gif" width="14" height="16" border="0" alt="(link)"></a>
+	</td>
+	<td>
+	  <b><font size="+1">[objc explain]: Weak-import classes</font></b> &nbsp; 
+	  <font size="-1">(<a href="archive/2009/09/09/objc_explain_Weak-import_classes.html">2009-09-09 1:30 PM</a>)</font>
+	</td>
+      </tr>
+      <tr>
+	<td>
+	  &nbsp;
+	</td>
+	<td>
+        <p>
+	Weak-import classes are a useful new Objective-C feature that you
+	can't use yet. 
+      </p>
+      <p>
+	Weak import is a solution when you want to use something from a
+	framework, but still need to be compatible with older versions of
+	the framework that didn't support it yet. Using weak import you
+	can test if the feature exists at runtime before you try to use
+	it. 
+      </p>
+      <p>
+	Objective-C has not previously supported weak import for
+	classes. Instead you had to use clumsy runtime introspection to
+	check whether a class was available, store a pointer to that class
+	in a variable, and use that variable when you wanted to send a
+	message to the class. Even worse, there was no reasonable way to
+	create your own subclass of a superclass that might be
+	unavailable. Some developers put the subclass in a separate
+	library that was not loaded until after checking that the
+	superclass was present, but even that trick is not allowed on
+	iPhone OS. 
+      </p>
+      <p>
+	Weak import for C functions works by checking the weak-imported
+	function pointer's value before calling it:
+      </p>
+      <pre>    if (NSNewFunction != NULL) {
+        NSNewFunction(...);
+    } else {
+        // NSNewFunction not supported on this system
+    }</pre>
+      <p>
+	The same mechanism is a natural fit with Objective-C classes and 
+	Objective-C's handling of messages to nil. These constructs are
+	much nicer than <code>NSClassFromString()</code> or a separate 
+	<code>NSBundle</code>. 
+      </p>
+      <pre>    if ([NSNewClass class] != nil) {
+        [NSNewClass doSomething];
+    } else {
+        // NSNewClass is unavailable on this system
+    }</pre>
+      <pre>    @interface MySubclass : NSNewClass ... @end
+    MySubclass *obj = [[MySubclass alloc] init];
+    if (!obj) {
+        // MySubclass (or a superclass thereof) is unavailable on this system
+    }</pre>
+      <p>
+	Weak import of Objective-C classes is now available. But you can't
+	use it yet. First, it's only supported today on iPhone OS 3.1; 
+	it's expected to arrive in a future Mac OS. 
+      </p>
+      <p>
+	Second, there's nothing you can do with weak import until the
+	first OS update <i>after</i> iPhone OS 3.1. Then you could write an app
+	that adopted new features in that future version, and used weak import
+	to be compatible with 3.1. (It still could not run on 3.0 or 2.x,
+	because those systems lack the runtime machinery to process the
+	weak import references.)
+      </p>
+      <p>
+	Weak import for Objective-C did not make Snow Leopard for
+	scheduling reasons. Assuming it ships in Mac OS X 10.7 Cat Name
+	Forthcoming, you won't be able to use it until Mac OS X 10.8
+	LOLcat. 
+      </p>
+
+	</td>
+      </tr>
+  </table>
+  <table cellpadding="0" cellspacing="3">
+      <tr>
+	<td>
+	  <a href="archive/2009/09/05/Colorized_keyboard_backlight.html"><img src="http://www.sealiesoftware.com/link.gif" width="14" height="16" border="0" alt="(link)"></a>
+	</td>
+	<td>
+	  <b><font size="+1">Colorized keyboard backlight</font></b> &nbsp; 
+	  <font size="-1">(<a href="archive/2009/09/05/Colorized_keyboard_backlight.html">2009-09-05 1:15 AM</a>)</font>
+	</td>
+      </tr>
+      <tr>
+	<td>
+	  &nbsp;
+	</td>
+	<td>
+      <p>
+      I use my MacBook Pro for astronomy. The backlit keyboard would be
+      great in the dark, but its white light is bad for night
+      vision. <a href="http://www.sealiesoftware.com/keyboard/index.html">This mod</a> makes it red, or any other color you want.
+    </p>
+
+	</td>
+      </tr>
+  </table>
+  <a href="archive/index.html">archive</a>
+
+	  </td>
+	</tr>
+    </table>
+    <hr>
+    <img align="right" src="http://www.sealiesoftware.com/sealie.gif" alt="seal!" width="114" height="69">
+    Greg Parker<br>
+    <a href="mailto:gparker-www@sealiesoftware.com">gparker-www@sealiesoftware.com</a><br>
+    <a href="http://www.sealiesoftware.com/index.html">Sealie Software</a>
+  </body>
+</html>

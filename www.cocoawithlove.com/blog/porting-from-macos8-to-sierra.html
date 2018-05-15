@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Compiling a Mac OS 8 application on macOS Sierra</title>
+  <meta name="description" content="A light hearted look back at my time programming in the 1990s as I try to get an old Minesweeper implementation of mine from 1999, written in C&#43;&#43; using PowerPlant for Mac OS 8, compiling in Xcode 8 and running on macOS Sierra." />
+
+  <meta name="twitter:title" content="Compiling a Mac OS 8 application on macOS Sierra"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/blog/porting-from-macos8-to-sierra.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="A light hearted look back at my time programming in the 1990s as I try to get an old Minesweeper implementation of mine from 1999, written in C&#43;&#43; using PowerPlant for Mac OS 8, compiling in Xcode 8 and running on macOS Sierra."/>
+
+  <link rel="icon" href="../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../css/main.css" />
+  <link rel="canonical" href="porting-from-macos8-to-sierra.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../index.html"><img class="heartandcup" src="../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../about/index.html">about</a>
+        <a class="page-link" href="../archive/index.html">archive</a>
+        <a class="page-link" href="../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Compiling a Mac OS 8 application on macOS Sierra</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2017-01-12">January 12, 2017</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../tags/nostalgia.html">nostalgia</a>, <a href="../tags/carbon.html">Carbon</a>
+		 
+	</div>
+</header>
+
+
+<main role="main">
+	<article itemscope itemtype="http://schema.org/BlogPosting">
+		<div class="post-content" itemprop="articleBody">
+			
+
+<p>In 1999, armed with a brand new copy of Metrowerks Codewarrior and a PowerMac running Mac OS 8.5.1, I wrote a basic implementation of Minesweeper to test out the Powerplant application development environment. It&rsquo;s the oldest project of mine that I&rsquo;ve kept, so I wanted to see if I could get it running again for the first time in 17 years.</p>
+
+<p>There&rsquo;s no Swift or Objective-C code in this article but there are disk-eating koalas, deliberately misspelled cities, Zernike polynomials, Cocoa software (but not the Cocoa you&rsquo;re thinking of), resource forks, master pointer blocks and in the end, I finally earn the admiration of my family.</p>
+
+<nav id="TableOfContents"><span class="toc-heading">Contents</span>
+<ul>
+<li>
+<ul>
+<li><a href="#the-1990s">The 1990s</a></li>
+<li><a href="#doomed-development-environments">Doomed development environments</a></li>
+<li><a href="#application-frameworks">Application frameworks</a></li>
+<li><a href="#powerplant">PowerPlant</a></li>
+<li><a href="#a-carbon-version-of-mines">A Carbon version of Mines</a></li>
+<li><a href="#resource-forks">Resource forks</a></li>
+<li><a href="#it-s-alive">It&rsquo;s alive!</a></li>
+<li><a href="#a-quick-code-analysis">A quick code analysis</a></li>
+<li><a href="#handles">Handles</a></li>
+<li><a href="#independent-review">Independent review</a></li>
+<li><a href="#conclusion">Conclusion</a></li>
+</ul></li>
+</ul>
+</nav>
+
+<h2 id="the-1990s">The 1990s</h2>
+
+<p>The Internet came to Australia in the late 1980s and reached my home town in 1989 when AARNET connected the University of Melbourne with the Australian National University.</p>
+
+<p>Not that I noticed at the time. I was out of the country for a few years working as a famous movie star (or something else; I don&rsquo;t know it was a long time ago). However, I did first <em>read</em> about the Internet in 1989 in Clifford Stoll&rsquo;s book &ldquo;The Cuckoo&rsquo;s Egg&rdquo;. Around 3 years later I was finally shown by a friend&rsquo;s older brother how I too could gain illicit access to Internet computers: you just walked into one of the libraries on university campus and sat down at any computer; no login required.</p>
+
+<p><img src="../assets/blog/cuckoos_egg.jpg" alt="There are dozens of different covers for this book. Mine looked like this." />
+<figcaption>There are dozens of different cover designs for this book. Mine looked like this.</figcaption></p>
+
+<p>The library computers all had Fetch (a disk-eating koala and FTP client that delivered low quality shareware mirrored from the University of Michigan in &ldquo;.sit.hqx&rdquo; format), NewsWatcher (a Usenet client for flame wars and 23 uuencoded parts out of 45), MacGopher (a rodent in the family Geomyidae that delivered menus containing menus containing menus containing – actually, I never made it that far) and an oddball new program called Mosaic (a program written at the Andreessen Center for Supercomputing Champagne that specialized in drawing 75% gray backgrounds behind &ldquo;under construction&rdquo; logos).</p>
+
+<p><img src="../assets/blog/old_internet_icons.png" alt="Fetch, NewsWatcher, MacGopher and NSCA Mosaic" />
+<figcaption>Fetch, NewsWatcher, MacGopher and Mosaic</figcaption></p>
+
+<p>Thusly blessed by early access to the World Wide Web, I had no choice but to start a career as a part time web developer while still in high school; first plain HTML, then Perl, then PHP/FI (two steps forward, one step back). I never really <em>enjoyed</em> web development but it helped pay my way through university with a little left over to buy a PowerMac 5500&#47;250. Apple of the 1990s being what it was, there were countless different computers that shared the name &ldquo;PowerMac 5500&rdquo; but the version I bought was charcoal black and had a built-in TV tuner, making it even cooler than the Quadra 840av that I had lusted after a couple years earlier (although it shared a similarly ridiculous GeoPort modem).</p>
+
+<p><img src="../assets/blog/pm5500.jpg" alt="PowerMac 5500/250 with TV Tuner" />
+<figcaption>PowerMac 5500&#47;250 &ldquo;Director edition&rdquo; with TV Tuner</figcaption></p>
+
+<h2 id="doomed-development-environments">Doomed development environments</h2>
+
+<p>Initially, I was still programming the PowerMac 5500 using the old copy of Think C 5 that I&rsquo;d been using since 1991.</p>
+
+<p><img src="../assets/blog/thinkc.png" alt="Think C" />
+<figcaption>This was the Think C icon (in System 6, all icons were black-and-white). Only now do I realize it&rsquo;s a starfield because earlier versions were named Lightspeed C; it made absolutely no sense at the time.</figcaption></p>
+
+<p>Think C was where I learned C and C++ (or whatever passed for C++ in 1991) but I don&rsquo;t know where any of that code went. Away? Eaten by a grue? It&rsquo;s gone.</p>
+
+<p>By 1998, Think C 5 was woefully outdated (Symantec and Norton Utilities had merged and been ruined by going full anti-virus) and I needed something else. Apple&rsquo;s development offering at the time was MPW, the &ldquo;Macintosh Programmer&rsquo;s Workshop&rdquo;. According to some, it was the &ldquo;primary environment for developing serious Mac programs&rdquo; but I never really used it. It wasn&rsquo;t free at the time and it was barely more than a glorified &ldquo;make&rdquo; script and command prompt. After using Think C for many years, the idea of programming without a proper IDE seemed like a serious regression (a principle I still maintain).</p>
+
+<p>I briefly dual booted BeOS on my PowerMac and used it as a C++ development environment. It came with the simple but effective &ldquo;BeIDE&rdquo; C++ development environment. I had not developed for either NeXTStep or Win32 at the time but in retrospect, the BeOS APIs were like a weird mashing together of NeXTStep and MFC with a few Classic Mac OS and Unix ideas. You had the main application APIs named &ldquo;Application Kit&rdquo; – like NeXTStep&rsquo;s AppKit but with &ldquo;B&rdquo; prefixes instead of &ldquo;NS&rdquo; prefixes. The core event loop resembled Win32-like window message handling. Under it all, your application was built from a number of &ldquo;.rsrc&rdquo; resources – like those in Mac OS – that were linked into the executable. And the whole thing ran in a vaguely POSIX environment with access to a bash shell.</p>
+
+<p><img src="../assets/blog/beide.png" alt="BeIDE" />
+<figcaption>BeIDE, taken from <a href="http://www.oreilly.com/openbook/beosprog/book/ch01.pdf">Programming the Be Operating System</a></figcaption></p>
+
+<p>At the time, BeOS was amazing – a cold boot to desktop in 15 seconds in 1998 was unbelievable – but Apple had passed over BeOS for something called NeXT (the right decision, in retrospect, although I disagreed at the time) and the rats were already leaving the ship. An operating system can&rsquo;t survive without users.</p>
+
+<p>I don&rsquo;t know where <em>my</em> BeOS code went but I assume that like <em>all</em> BeOS code, it didn&rsquo;t survive the transition to Mac OS X.</p>
+
+<p>While using BeOS, I noted the release of Metrowerks CodeWarrior 1.5 for that platform which claimed to be a more &ldquo;powerful&rdquo; IDE than the default BeIDE. I never tried it on BeOS but Metrowerks released an update for the Mac, &ldquo;CodeWarrior Pro 2&rdquo;, so I gave that a go. Codewarrior had features I&rsquo;d never seen before: a graphical class browser, an up-to-date C++ compiler, excellent layout editor &ldquo;Constructor&rdquo;, an IDE integrated resource manager &ldquo;PPEdit&rdquo; with a wide set of resource editing tools, and a user interface with a sense of style and use of colors other than gray (although, obviously, still plenty of gray).</p>
+
+<p><img src="../assets/blog/codewarrior.png" alt="CodeWarrior's project window" />
+<figcaption>CodeWarrior&rsquo;s project window, taken from <a href="https://www.cs.drexel.edu/~introcs/F98/placement/CWPro2/Lab/Mac/index.html">CodeWarrior Pro Introduction</a></figcaption></p>
+
+<p>For at least 3 years between 1998 and 2001, I <em>loved</em> CodeWarrior. I still fondly remember the box with yellow and black construction theming, the &ldquo;Blood, sweat, code&rdquo; tagline and the huge leap forward it represented in development tools for the Mac. Motorola (who acquired Metrowerks) completely fumbled the Mac OS X transition (also the PowerPC G4, the Iridium network, the ROKR phone and everything else since the 1980s) and Mac programmers largely moved to Apple&rsquo;s Project Builder. I still miss CodeWarrior&rsquo;s IDE; there were aspects of its user-interface in 1998 than were better than any major IDE before or since.</p>
+
+<p><img src="../assets/blog/codewarrior_tools_disk.jpg" alt="The CodeWarrior CDs came in these custom plastic and cardboard containers" />
+<figcaption>The CodeWarrior CDs came in these custom plastic and cardboard cases.</figcaption></p>
+
+<h2 id="application-frameworks">Application frameworks</h2>
+
+<p>It&rsquo;s a bit strange to think about a time when the libraries bundled with the operating system didn&rsquo;t really include a standard application framework and apps needed to include their own. To be clear, I&rsquo;m talking about libraries like AppKit/UIKit that perform basic application lifecycle stages, coordinate document creation and persistence, handle the main event loop, handle event dispatch and offer a library of reusable views and controls. In the 1990&rsquo;s and earlier, these things were <em>not</em> a part of the operating system. Every application had to handle it all for themselves – or bundle a framework that could do it.</p>
+
+<p>The first such framework on Mac platforms was MacApp – an Object Pascal framework originally developed under Larry Tesler. Of course, Larry Tesler has a long history in software, including a long stint at Xerox Parc with Alan Kay. He also worked on Stagecast Creator – the kid friendly application development environment that was originally called &ldquo;Cocoa&rdquo; when it was at Apple until Larry left Apple and took the development environment with him (minus the name) and Apple reused the name &ldquo;Cocoa&rdquo; for some other project.</p>
+
+<p><img src="../assets/blog/stagecastcreator.png" alt="Stagecast Creator" />
+<figcaption>Stagecast Creator, the development environment formerly known as Cocoa</figcaption></p>
+
+<p>My first efforts at programming for the Mac in C involved typing out an application framework named &ldquo;Skeleton&rdquo; from a book that I&rsquo;ve long forgotten (numerous frameworks at the time used the same &ldquo;Skeleton&rdquo; name so it&rsquo;s hard to work out, now, which book I actually read). The whole process was complicated by the fact that I had never seen C before so when I encountered compiler issues, I tended to add <code>&amp;</code> and <code>*</code> sigils to parameters, or just arbitrarily cast my pointers, until the compiler shut up and I was left to wonder what caused the erratic and crash-prone result. This was before memory protection, so when I say &ldquo;crash&rdquo;, I mean I needed to reboot the whole computer – it was a painful learning process. C&rsquo;s use of an asterisk in the declaration (e.g. <code>SomeType *somePointer;</code>) to define a pointer but asterisks elsewhere (e.g. <code>*somePointer</code>) to <em>dereference</em> that pointer remains one of the most newcomer hostile syntax decisions I&rsquo;ve ever encountered in a language (I should have gone with Object Pascal – its pointer syntax even <em>looks</em> like a smiley <code>^_^</code>).</p>
+
+<p>Skeleton was enough for me to write my first few applications. One that sticks in my memory was a version of Minesweeper. It was 5000 lines, all in a single &ldquo;main.c&rdquo; file and contained no resources or assets since I didn&rsquo;t really understand those things (I drew the artwork pixel by pixel in C). The code is long gone but I assume it was flawless.</p>
+
+<p>I had clearly learned everything there was to know about C so I moved onto C++. The Think C environment I was using included the Think Class Libraries (TCL). I spent more time learning C++ than learning about TCL itself. While I remember reading the TCL manuals, the chapters that remain in my mind were those that talked about &ldquo;Object Oriented Programming&rdquo; as though it solved all problems but then immediately segued into the infamous &ldquo;diamond inheritance&rdquo; problem and discussions about cars that are also planes (some things never change).</p>
+
+<p><img src="../assets/blog/thinkcdisk.png" alt="Think C 5 Disk 1" />
+<figcaption>I can&rsquo;t find an image of the actual Think C manuals. They used the same red-white-and-black styling as the disks but there were multiple tomes, each of which was heavy enough to crush an elephant. These things were delivered in boxes that doubled as miniature bookshelves but were still dwarfed by Apple&rsquo;s [at least] 6 volume Inside Macintosh series.</figcaption></p>
+
+<p>Armed with C++ and TCL, I half-finished numerous other programs through the 1990s, each more flawless than the last. But as 7 years of System 7 drew to a close in 1998, it was time to start fresh. This time with PowerPlant, the application framework bundled with CodeWarrior.</p>
+
+<p>I haven&rsquo;t kept <em>all</em> my CodeWarrior/PowerPlant projects but I have kept some. Maybe one day I&rsquo;ll try to get my engineering final year project working again; the enticingly named &ldquo;On Image Analysis Using Zernike Moments&rdquo;. It was the best rotionally invariant orthogonal polynomial image recognition Mac app that year but the time might not be right to bring it back, just yet.</p>
+
+<p><img src="../assets/blog/zernike_moments.png" alt="Zernike Moments" />
+<figcaption>Now&rsquo;s not the time for a Zernike moment.</figcaption></p>
+
+<p>Instead, I want to look at the first program I wrote with PowerPlant: a &ldquo;re-imagining&rdquo; of my earlier flawless masterpiece; a Minesweeper implementation. Here&rsquo;s hoping that in the 7 years since my earlier Minesweeper implementation, I&rsquo;d learned basic pointer syntax.</p>
+
+<h2 id="powerplant">PowerPlant</h2>
+
+<p>I need to get PowerPlant building before I can try to build a PowerPlant-based app.</p>
+
+<p>Fortunately, PowerPlant ended up open source. Freescale (the Motorola spinoff that took CodeWarrior with it) open sourced PowerPlant under a BSD-style license in 2006. The <a href="https://sourceforge.net/projects/open-powerplant/">PowerPlant Frameworks project</a> is largely abandoned but it exists and worked through the first few Mac OS X versions. But not through <em>all</em> Mac OS X versions. PowerPlant requires the Mac OS X 10.6 SDK or earlier to build – it won&rsquo;t build against the 10.7 SDK and certainly won&rsquo;t against the 10.12 SDK.</p>
+
+<p>The last versions of Xcode to include the 10.6 SDK were the <a href="http://adcdownload.apple.com/Developer_Tools/xcode_4.3.3_for_lion/xcode_4.3.3_for_lion.dmg">Xcode 4.3 series for Mac OS X 10.7 Lion</a>. You can&rsquo;t run any of these on Sierra but you <em>can</em> open the bundle and copy the &ldquo;Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.6.sdk&rdquo; folder and place it at the same location in your Xcode 8&rsquo;s bundle.</p>
+
+<p>That&rsquo;s not enough to get the 10.6 SDK to work. You also need to edit the MinimumSDKVersion in the &ldquo;Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Info.plist&rdquo; file in your Xcode bundle.</p>
+
+<p>Okay, Xcode is set up. Now to create a project file. I have no idea which files PowerPlant needs and which are optional extras so I threw everything into a single Xcode target, set the build to a 32-bit Intel build, 10.6 SDK, added &ldquo;$(SDKROOT)/Developer/Headers/FlatCarbon&rdquo; to the header search paths, set &ldquo;Always search user paths&rdquo;, &ldquo;Compile sources as C++&rdquo;, arbitrarily chose one of the prefix headers, set the C++ dialect to C++98 and the standard library to libstdc++ and hit build to see what would happen.</p>
+
+<p>Oh hi there, OpenTransport! I remember you! How are things going? Oh, how sad; you stopped existing after Mac OS X 10.3? Fine, everything networking gets removed from the build.</p>
+
+<p>Apparently, I&rsquo;m trying to build against an old library from the 1990s I don&rsquo;t have named &ldquo;MoreFiles&rdquo;. Even though versions of it still appear to exist on GitHub, it&rsquo;s optional so I&rsquo;ll disable it.</p>
+
+<p>The debugging functions are causing problems so they go too.</p>
+
+<p>Dozens of <code>switch</code> statements appear to have variables defined within <code>case</code> labels which is bothering clang. I&rsquo;ll need to wrap them all in their own scopes.</p>
+
+<p>Gestalt is driving me crazy by telling me that it doesn&rsquo;t return the correct OS version past Mac OS 10.9 so I strip it out and hard-code its result. That&rsquo;ll fool it.</p>
+
+<p>A dozen little changes later and everything appears to work.</p>
+
+<h2 id="a-carbon-version-of-mines">A Carbon version of Mines</h2>
+
+<p>The Mines application itself is around 1800 lines of code split across just 4 classes. It&rsquo;s at the &ldquo;small&rdquo;, if not &ldquo;tiny&rdquo; end of the program size scale.</p>
+
+<p>However, unlike PowerPlant – which had been updated for Mac OS X – I had not tried to run or compile the Mines application since Mac OS 8.5.1 back in 1999. I&rsquo;ve never ported any apps from classic Mac OS to Mac OS X so I don&rsquo;t know how smooth it will be.</p>
+
+<p>It turns out that the only more-than-one-line code change I needed to make was to replace <code>::StandardGetFile</code> (the standard open file dialog from classic Mac OS). This function is not a part of Carbon and needs to be replaced by <code>::NavGetFile</code>. I dutifully made a 15 line change here only to subsequently realize that this code isn&rsquo;t used at all (the application doesn&rsquo;t save files so opening files does nothing).</p>
+
+<p>There are a few other minor compatibility changes I made. <code>::GetDateTime</code> to <code>CFAbsoluteTimeGetCurrent</code>, <code>.rgnBBox</code> to <code>::GetRegionBounds</code> but on the whole everything appears to compile without serious drama.</p>
+
+<h2 id="resource-forks">Resource forks</h2>
+
+<p>Of course, upon running, the program immediately aborted trying to find the required resources.</p>
+
+<p>Classic Mac OS resources weren&rsquo;t anything particularly strange: they were really just a way of serializing a number of binary blobs into a single file. Each resource was uniquely identified by a type code and an index.</p>
+
+<p><img src="../assets/blog/resedit.png" alt="ResEdit" />
+<figcaption>ResEdit: probably the most widely used development tool of the classic Mac OS era.</figcaption></p>
+
+<p>None of this represents a problem. What <em>does</em> represent a problem is that these resources were stored in a separate resource &ldquo;fork&rdquo; of the file. In some ways, that made sense; these blobs were often metadata for the data stored in the data fork. While it&rsquo;s a nice idea to have rich, structured metadata, storing metadata outside the data fork is problematic in a world where files are moved between operating systems and file systems that interoperate only via a single data fork; metadata either gets lost or it ends up as a series of annoying hidden files.</p>
+
+<p>In short, rich metadata should be purgeable (like Spotlight metadata – it will be regenerated contextually or from the main data the next time Spotlight sees the file). Non-purgeable metadata should be in the main data fork.</p>
+
+<p>Accordingly, resource forks have always been &ldquo;deprecated&rdquo; in Mac OS X. It <em>can</em> read them but only with some effort. Rather than needing that effort, it&rsquo;s far better to move the old resource forks from &ldquo;Mines.rsrc&rdquo; (standard resources) and &ldquo;Mines.ppob&rdquo; (PowerPlant-specific resources) into the data fork of a single file. If this new data fork resource file is named &ldquo;Mines.rsrc&rdquo; (same basename as the executable) and placed in the application bundle&rsquo;s &ldquo;Resources&rdquo; folder, its data fork will be <em>automatically</em> read when we call <code>::GetResource</code>.</p>
+
+<p>The shortest way to do this is to run &ldquo;derez&rdquo; on the two resource forks (e.g. <code>derez Mines.rsrc &gt; Mines.r</code> and <code>derez Mines.ppob &gt; Mines2.r</code>), concatenate the two files and use &ldquo;rez&rdquo; to build them back into a single data fork (<code>rez Mines.r -useDF -o Mines.rsrc</code>). A small note on concatenation: the files may be produced with classic Mac CR line endings. If the file also contains UNIX LF line endings then &ldquo;rez&rdquo; will silently ignore everything after that point (I spent 20 minutes wondering why none of the resources from the .ppob file were being found after a UNIX LF crept into a class Mac CR line endings file).</p>
+
+<h2 id="it-s-alive">It&rsquo;s alive!</h2>
+
+<p><img src="../assets/blog/mines.png" alt="Mines" />
+<figcaption>Let&rsquo;s be realistic, it&rsquo;s just a Minesweeper implemention.</figcaption></p>
+
+<p>With the resources fixed, the application runs.</p>
+
+<p>Click on &ldquo;New Game&rdquo;, left-click on tiles to reveal, shift-click to mark possible mines (I had a single-button mouse at the time) and continue clearing until every non-mine is revealed. Use the &ldquo;Game Options&rdquo; in the &ldquo;Game&rdquo; menu to change the number of mines, the size of the field, whether there&rsquo;s a time-limit and whether the game is &ldquo;auto started&rdquo;.</p>
+
+<p>There remain plenty of quirks that I&rsquo;ll leave &ldquo;as-is&rdquo;. The &ldquo;About Mines&rdquo; item in the &ldquo;Mines&rdquo; menu works but all other items in this menu do nothing (including the <em>two</em> &ldquo;Quit Mines&rdquo; entries, probably created by PowerPlant itself). To quit the app, use the &ldquo;Quit&rdquo; at the bottom of the &ldquo;File&rdquo; menu.</p>
+
+<h2 id="a-quick-code-analysis">A quick code analysis</h2>
+
+<p>It&rsquo;s not the worst code you&rsquo;re likely to see. It&rsquo;s tidy and coherent, even if it demonstrates apparent ignorance of any larger scale design patterns.</p>
+
+<p>The most obvious problem is that each square in the minefield is represented as a simple <code>short</code> – with the adjacent mines count, cleared status and flagged status packed into the <code>short</code> using bitmasks. On a technical level, this works fine except that packing and unpacking data from the <code>short</code> is work left to the <code>CMinesWindow</code>, requiring methodical and menial work at every location where the minefield is accessed.</p>
+
+<p>Clearly, it would be better if <code>Tile</code> were a C++ class with methods that return <code>isFlag</code> or <code>numAdjacentMines</code> and the packing or unpacking of data were abstracted away as internal technical details (perhaps as proper bitfields). This would make <code>CMinesWindow</code> code easier to read and would likely have significant lines-of-code savings.</p>
+
+<p><div class="highlight"><pre class="chroma"><code class="language-cpp" data-lang="cpp"><span class="c1">// Add one to the proximity count of each surrounding square
+</span><span class="c1"></span><span class="k">if</span><span class="p">(</span> <span class="p">(</span><span class="n">randNum</span><span class="o">%</span><span class="n">mFieldWidth</span><span class="p">)</span><span class="o">!=</span><span class="mi">0</span> <span class="p">)</span>
+<span class="p">{</span>
+   <span class="k">if</span><span class="p">(</span> <span class="p">(</span><span class="n">randNum</span><span class="o">/</span><span class="n">mFieldWidth</span><span class="p">)</span><span class="o">!=</span><span class="mi">0</span> <span class="p">)</span>
+      <span class="k">if</span><span class="p">(</span> <span class="p">(</span><span class="n">mMineField</span><span class="p">[</span><span class="n">randNum</span><span class="o">-</span><span class="n">mFieldWidth</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">&amp;</span><span class="mh">0x00FF</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">kEightMines</span> <span class="p">)</span>
+         <span class="n">mMineField</span><span class="p">[</span><span class="n">randNum</span><span class="o">-</span><span class="n">mFieldWidth</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">++</span><span class="p">;</span>
+   <span class="k">if</span><span class="p">(</span> <span class="p">(</span><span class="n">mMineField</span><span class="p">[</span><span class="n">randNum</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">&amp;</span><span class="mh">0x00FF</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">kEightMines</span> <span class="p">)</span>
+      <span class="n">mMineField</span><span class="p">[</span><span class="n">randNum</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">++</span><span class="p">;</span>
+   <span class="k">if</span><span class="p">(</span> <span class="p">(</span><span class="n">randNum</span><span class="o">/</span><span class="n">mFieldWidth</span><span class="p">)</span><span class="o">!=</span> <span class="n">mFieldHeight</span><span class="o">-</span><span class="mi">1</span> <span class="p">)</span>
+      <span class="k">if</span><span class="p">(</span> <span class="p">(</span><span class="n">mMineField</span><span class="p">[</span><span class="n">randNum</span><span class="o">+</span><span class="n">mFieldWidth</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">&amp;</span><span class="mh">0x00FF</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">kEightMines</span> <span class="p">)</span>
+         <span class="n">mMineField</span><span class="p">[</span><span class="n">randNum</span><span class="o">+</span><span class="n">mFieldWidth</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">++</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+<figcaption>All of this code should really be abstracted away behind dedicated <code>Tile</code> and <code>MineField</code> interfaces.</figcaption></p>
+
+<p>That leads into idea that the mine field itself should be a single <code>MineField</code> data type that knows how to determine adjacent <code>Tile</code>s, knows its own bounds, knows how to populate itself and knows how to propagate revealed zero tiles.</p>
+
+<p>Then we need to consider the fact that all the state of the game (time remaining, mines remaining and the mine field) should be part of a <code>Game</code> data type that knows how to start the game based on a set of initial difficulty settings and can serialize the user instruction stream (reveal this tile, protect that tile).</p>
+
+<p>The <code>Game</code> should be easy to serialize (save and restore) and pause – neither of which are possible in the existing game.</p>
+
+<p>Finally, this all leads into the question of whether there is any Model-View-Controller separation in this code. There are not clearly separate &ldquo;Model&rdquo;, &ldquo;View&rdquo; and &ldquo;Controller&rdquo; classes but it is still possible to identify the data members and methods which correspond to each – even though they are all part of the <code>CMinesWindow</code> interface. All of the instance variables that <code>CMinesWindow</code> itself defines are really model data. Everything view-related is purely in the inherited <code>CWindow</code> and the <code>CMinesView</code>. The controller code occurs in the <code>CWindow</code>, <code>LPeriodical</code> and <code>LListener</code> method overrides which propagate changes from the view and outside environment to the model.</p>
+
+<p><div class="highlight"><pre class="chroma"><code class="language-cpp" data-lang="cpp"><span class="c1">//#############################
+</span><span class="c1">// The constructor
+</span><span class="c1">//#############################
+</span><span class="c1"></span><span class="n">CMinesWindow</span><span class="o">::</span><span class="n">CMinesWindow</span><span class="p">(</span><span class="n">LStream</span><span class="o">*</span> <span class="n">inStream</span><span class="p">)</span> <span class="o">:</span>
+   <span class="n">LWindow</span><span class="p">(</span><span class="n">inStream</span><span class="p">)</span>
+<span class="p">{</span>
+   <span class="c1">// Initialise some variables
+</span><span class="c1"></span>   <span class="n">mFieldHeight</span> <span class="o">=</span> <span class="mi">12</span><span class="p">;</span>
+   <span class="n">mFieldWidth</span> <span class="o">=</span> <span class="mi">20</span><span class="p">;</span>
+   <span class="n">mNumCoveredSquares</span> <span class="o">=</span> <span class="n">mFieldHeight</span> <span class="o">*</span> <span class="n">mFieldWidth</span><span class="p">;</span>
+   <span class="n">mNumMines</span> <span class="o">=</span> <span class="mi">20</span><span class="p">;</span>
+   <span class="n">mGameLength</span> <span class="o">=</span> <span class="mi">200</span><span class="p">;</span>
+   <span class="n">mInGame</span> <span class="o">=</span> <span class="nb">false</span><span class="p">;</span>
+   <span class="n">mAutoStart</span> <span class="o">=</span> <span class="nb">false</span><span class="p">;</span>
+   <span class="n">mUntimed</span> <span class="o">=</span> <span class="nb">false</span><span class="p">;</span>
+   
+   <span class="c1">// Place a decorative minefield in the window to start with
+</span><span class="c1"></span>   <span class="n">mMineField</span> <span class="o">=</span> <span class="p">(</span><span class="kt">short</span> <span class="o">*</span><span class="p">)</span><span class="o">::</span><span class="n">NewPtr</span><span class="p">(</span> <span class="k">sizeof</span><span class="p">(</span><span class="kt">short</span><span class="p">)</span><span class="o">*</span><span class="mi">20</span><span class="o">*</span><span class="mi">12</span> <span class="p">);</span>
+   <span class="n">ThrowIfMemFail_</span><span class="p">(</span><span class="n">mMineField</span><span class="p">);</span>
+   
+   <span class="c1">//Clear the minefield
+</span><span class="c1"></span>   <span class="kt">short</span> <span class="n">i</span><span class="o">=</span><span class="mi">0</span><span class="p">;</span>
+   <span class="k">while</span><span class="p">(</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">mFieldWidth</span><span class="o">*</span><span class="n">mFieldHeight</span> <span class="p">)</span>
+   <span class="p">{</span>
+      <span class="n">mMineField</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">kZeroMines</span><span class="p">;</span>
+      <span class="n">i</span><span class="o">++</span><span class="p">;</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+<figcaption>It&rsquo;s not exactly the code you&rsquo;d expect to find in a <em>window</em> constructor. Ignoring the super-constructor, this method is purely concerned with the model.</figcaption></p>
+
+<p>Given all of these perfectly valid criticisms, it&rsquo;s surprising how tidy and organized the code all is. I guess abstractions really just don&rsquo;t matter much when the code is this small.</p>
+
+<h2 id="handles">Handles</h2>
+
+<p>In general, looking at Mac OS 8 era code isn&rsquo;t as strange as I expected. Maybe it&rsquo;s because I&rsquo;m still accustomed to reading C++ and C in my daily life but this isn&rsquo;t so different from some of the code I still actively maintain today. C functions taking multiple carefully allocated and configured struct parameters and returning error codes was ugly then but it&rsquo;s still ugly now. You can find plenty of modern CoreFoundation functions that work the same way.</p>
+
+<p>What really jumps out at me as &ldquo;code from another world&rdquo; are <strong>handles</strong>.</p>
+
+<p>For those of you that don&rsquo;t remember: memory layout in pre-OS X era Mac OS was &ldquo;fixed&rdquo;. Your application was given a specific memory size at launch and the stack was at the top, the heap was at the bottom and the two raced towards each other – frequently colliding in out-of-memory or stack overflow situations. You could &ldquo;Get Info&rdquo; on the application and give it more memory on next launch but once launched, the application couldn&rsquo;t easily get more memory.</p>
+
+<p><img src="../assets/blog/classic_stack.png" alt="The stack" />
+<figcaption>&ldquo;Figure 1: The stack&rdquo; from Macintosh Memory Management, Inside Macintosh, Volume I</figcaption></p>
+
+<p>One of the biggest problem in this arrangement was memory fragmentation – allocating and deallocating heap memory in a pattern that leaves unusable &ldquo;holes&rdquo; in the heap. Memory fragmentation still exists (it is <em>partially</em> mediated by memory paging and better allocators) but we can usually ignore it because 30% excess memory usage isn&rsquo;t a big issue when you have 16 GB of RAM. In an era when the computer might have less than 1MB of RAM, memory fragmentation was a serious problem.</p>
+
+<p>To address this, Mac OS used &ldquo;handles&rdquo;. These were different to Windows handles (which are memory resources owned by the operating system on your behalf). Instead, Mac OS handles were pointers to pointers. Dereference a handle once and you&rsquo;d get the &ldquo;master pointer&rdquo; which lived in a special &ldquo;master pointer block&rdquo; (ideally at the bottom of the heap). Dereference the &ldquo;master pointer&rdquo; and you&rsquo;d finally get your actual block. The advantage with this approach is that while the &ldquo;master pointer block&rdquo; was a fixed location, the actual block was &ldquo;relocatable&rdquo; – it could be moved by the memory manager to resolve heap fragmentation.</p>
+
+<p><img src="../assets/blog/handles.png" alt="Handle to a relocatable block" />
+<figcaption>&ldquo;Figure 5: A handle to a relocatable block&rdquo; from Macintosh Memory Management, Inside Macintosh, Volume I</figcaption></p>
+
+<p>Each time you wanted to access the handle&rsquo;s data, you had to dereference <em>both</em> levels so you could find the (possibly) moved location. If you needed to use functions that could move memory, you needed to be careful to call <code>HLock</code> to hold the handle in place otherwise every pointer to the handle&rsquo;s contents would be invalid. Needless to say: this caused memory corruption on a regular basis when failing to consider heap compaction around your pointers. Good times.</p>
+
+<p><img src="../assets/blog/heap_compaction.png" alt="Heap compaction" />
+<figcaption>&ldquo;Figure 3: Heap compaction&rdquo; from Macintosh Memory Management, Inside Macintosh, Volume I</figcaption></p>
+
+<p>You also needed to guess how many handles would be needed by the program and allocate the correct number of master pointers blocks at program startup. Master pointer blocks could be added at any time but since a master pointer block was a &ldquo;fixed&rdquo; location allocation, it would fragment memory if it appeared in the middle of the heap.</p>
+
+<p>Of course, none of this has ever applied to Mac OS X. All the <code>HLock</code>, <code>MoveHHi</code>, <code>MoreMasterPointers</code> and other related <code>Handle</code> functions have always been no-ops on Mac OS X and <code>Handle</code>s are now non-relocatable (like normal pointer allocations), relying on paging and better heap allocators to mediate fragmentation.</p>
+
+<p>The entire concept of relocatable memory blocks and trying to plan for peak memory usage before the program is started seems so surreal now.</p>
+
+<h2 id="independent-review">Independent review</h2>
+
+<p>So I got Mines running and it&rsquo;s sitting on my computer screen. Mission accomplished, I go to cook dinner.</p>
+
+<p>When I return, one of my children is sitting at the computer playing the game. Apparently my wife had given instructions on how to play and my child continued playing another half dozen games after my wife had left to help me with the dinner.</p>
+
+<p>I&rsquo;m not sure any of my children have ever so much as <em>looked</em> at one of the computer programs I&rsquo;d written before, much less played with it for 20 minutes.</p>
+
+<p>What was the opinion?</p>
+
+<p>&ldquo;Good.&rdquo;</p>
+
+<p>I&rsquo;ll take it.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<blockquote>
+<p><strong>You can <a href="https://github.com/mattgallagher/Mines">download Mines</a> from <a href="https://github.com/mattgallagher">my github account</a>.</strong> This code is under two different open source licenses due to the inclusion of PowerPlant. Remember that you still need to obtain a copy of the Mac OS X 10.6 SDK and modify the Mac OS X platform Info.plist file or you&rsquo;ll get errors about a missing SDK when you try to build. Consult the <a href="https://github.com/mattgallagher/Mines/blob/master/README.md">Readme file</a> for details.</p>
+</blockquote>
+
+<p>I didn&rsquo;t really expect to get Mines running but in the end it was surprisingly simple.</p>
+
+<p>I mean, it took nearly 4 hours to get PowerPlant building. I&rsquo;ve omitted some of the wrong turns involved for brevity. I also spent a couple hours trying to get the PowerPlant &ldquo;Constructor&rdquo; application to read my old &ldquo;PPob&rdquo; resources which I didn&rsquo;t cover. This eventually worked (after replacing <code>::FSpOpenResFile</code> with <code>::FSOpenResourceFile</code> and forcing loading of the <code>'CTYP'</code> resource files) but was riddled with issues parsing layout and colors so I wouldn&rsquo;t want to actually maintain a user-interface this way.</p>
+
+<p>Updating my own Mines application code for PowerPlant and Mac OS changes required less than 20 minutes (ignoring time wasted due to line encoding issues in the &ldquo;.r&rdquo; Rez file).</p>
+
+<p>The game itself is simple and full of quirks, design issues and gameplay problems (try setting the board size to largest and the mines to &ldquo;Some&rdquo; and the game basically solves itself). Obviously, I didn&rsquo;t do this for the quality of the game; I just wanted to see if I could.</p>
+
+		</div>
+	</article>
+</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="key-value-observing-wrapper.html">A key-value observing wrapper</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="package-manager-fetch.html">Using &#39;swift package fetch&#39; in an Xcode project</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../feed.json">JSON</a>, <a href="../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

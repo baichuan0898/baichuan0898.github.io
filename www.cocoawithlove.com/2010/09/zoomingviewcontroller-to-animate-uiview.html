@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>A ZoomingViewController to animate a UIView to fullscreen</title>
+  <meta name="description" content="&lt;code&gt;ZoomingViewController&lt;/code&gt; is a class you can attach to any existing view that will let you zoom the view to fullscreen with a single tap, rotate the view while in fullscreen by rotating the device and tap to return to the original inline state." />
+
+  <meta name="twitter:title" content="A ZoomingViewController to animate a UIView to fullscreen"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2010/09/zoomingviewcontroller-to-animate-uiview.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="&lt;code&gt;ZoomingViewController&lt;/code&gt; is a class you can attach to any existing view that will let you zoom the view to fullscreen with a single tap, rotate the view while in fullscreen by rotating the device and tap to return to the original inline state."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="zoomingviewcontroller-to-animate-uiview.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">A ZoomingViewController to animate a UIView to fullscreen</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2010-09-26">September 26, 2010</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/uikit.html">UIKit</a>, <a href="../../categories/coregraphics.html">CoreGraphics</a>, <a href="../../categories/coreanimation.html">CoreAnimation</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p><code>ZoomingViewController</code> is a class you can attach to any existing view that will let you zoom the view to fullscreen with a single tap, rotate the view while in fullscreen by rotating the device and tap to return to the original inline state.</p></span>
+
+<span class="fullpost">
+<h2>Introduction</h2>
+<p>The <code>ZoomingViewController</code> class in this week's sample project handles the zooming in the following sample app:</p>
+
+<img src="../../assets/objc-era/zoomingviewcontroller.png" width="450" height="396" />
+
+<p>The animation between the inline and fullscreen states is smooth and you can rotate the device in fullscreen to rotate the view.</p>
+
+<p>You can attach the <code>ZoomingViewController</code> to any view to add this behavior.</p>
+
+<blockquote>You can download the <code>ZoomingViewController</code> and the complete sample project used in this post here <a href="../../assets/objc-era/TapZoomRotate.zip">TapZoomRotate.zip</a> (160kb)</blockquote>
+
+<h2>Requirements</h2>
+
+<p>The <code>ZoomingViewController</code> has three primary requirements:</p>
+
+<ul>
+<li>Respond to tap actions</li>
+<li>Smoothly zoom between different superviews</li>
+<li>Allow the view to rotate in fullscreen</li>
+</ul>
+
+<h2>Responding to tap actions</h2>
+
+<p>Most of the time, you don't need to handle tap actions yourself &mdash; controls like buttons or table view cells all have built-in tap detection.</p>
+
+<p>Prior to iOS 3.2, detecting a tap meant implementing <code>touchesBegan:withEvent:</code> and <code>touchesEnded:withEvent:</code> in the view or responder chain. This was fiddly since you had to perform time and location based calculations yourself to determine if the tap completed validly. Further, it would not have worked for this <code>ZoomingViewController</code> class, which only attaches to the view rather than being part of the the view or responder chain implementation.</p>
+
+<p>Fortunately, the gesture recognizers introduced in iOS 3.2 make this trivially easy:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">singleTapGestureRecognizer</span> <span class="o">=</span>
+    <span class="p">[[</span><span class="n">UITapGestureRecognizer</span> <span class="n">alloc</span><span class="p">]</span>
+        <span class="nl">initWithTarget</span><span class="p">:</span><span class="nb">self</span> <span class="nl">action</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="nl">toggleZoom</span><span class="p">:)];</span>
+<span class="n">singleTapGestureRecognizer</span><span class="p">.</span><span class="n">numberOfTapsRequired</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+
+<span class="p">[</span><span class="nb">self</span><span class="p">.</span><span class="n">view</span> <span class="nl">addGestureRecognizer</span><span class="p">:</span><span class="n">singleTapGestureRecognizer</span><span class="p">];</span></code></pre></div>
+
+<h2>Smoothly zooming between different superviews</h2>
+
+<p>First, we need to remember the old superview and location within it. We do this by inserting a proxy view into the hierarchy at the view's location &mdash; this way, it will also track the autoresized location of the view if the window rotates.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">proxyView</span> <span class="o">=</span> <span class="p">[[</span><span class="n">UIView</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithFrame</span><span class="p">:</span><span class="nb">self</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">frame</span><span class="p">];</span>
+<span class="n">proxyView</span><span class="p">.</span><span class="n">hidden</span> <span class="o">=</span> <span class="nb">YES</span><span class="p">;</span>
+<span class="n">proxyView</span><span class="p">.</span><span class="n">autoresizingMask</span> <span class="o">=</span> <span class="nb">self</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">autoresizingMask</span><span class="p">;</span>
+<span class="p">[</span><span class="nb">self</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">superview</span> <span class="nl">addSubview</span><span class="p">:</span><span class="n">proxyView</span><span class="p">];</span></code></pre></div>
+
+<p>Then, we need to calculate our current position in the coordinate space of the target view (the target view is the window itself for animating to fullscreen). With this location calculated, we switch superview to the target view and set the frame to this calculated position.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">CGRect</span> <span class="n">frame</span> <span class="o">=</span>
+    <span class="p">[</span><span class="nb">self</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">window</span>
+        <span class="nl">convertRect</span><span class="p">:</span><span class="nb">self</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">frame</span>
+        <span class="nl">fromView</span><span class="p">:</span><span class="n">proxyView</span><span class="p">.</span><span class="n">superview</span><span class="p">];</span>
+<span class="p">[</span><span class="nb">self</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">window</span> <span class="nl">addSubview</span><span class="p">:</span><span class="nb">self</span><span class="p">.</span><span class="n">view</span><span class="p">];</span>
+<span class="nb">self</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">frame</span> <span class="o">=</span> <span class="n">frame</span><span class="p">;</span></code></pre></div>
+
+<p>Then, we animate from this calculated position to actually fill the screen:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">[</span><span class="n">UIView</span>
+    <span class="nl">animateWithDuration</span><span class="p">:</span><span class="mf">0.2</span>
+    <span class="nl">animations</span><span class="p">:</span><span class="o">^</span><span class="p">{</span>
+        <span class="nb">self</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">frame</span> <span class="o">=</span> <span class="nb">self</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">window</span><span class="p">.</span><span class="n">bounds</span><span class="p">;</span>
+    <span class="p">}];</span>
+<span class="p">[[</span><span class="n">UIApplication</span> <span class="n">sharedApplication</span><span class="p">]</span>
+    <span class="nl">setStatusBarHidden</span><span class="p">:</span><span class="nb">YES</span>
+    <span class="nl">withAnimation</span><span class="p">:</span><span class="n">UIStatusBarAnimationFade</span><span class="p">];</span></code></pre></div>
+
+<h2>Allowing the view to rotate in fullscreen</h2>
+
+<p><code>ZoomingViewController</code> is not actually a subclass of <code>UIViewController</code>. Even though it "controls" a view for the purpose of zooming in and out, it doesn't require any of the behavior from <code>UIViewController</code> to do this.</p>
+
+<p>Even if you did make the class a <code>UIViewController</code> subclass, it still wouldn't let you use the auto rotate behavior built into <code>UIViewController</code>. The reason is that <code>shouldAutorotateToInterfaceOrientation:</code> is only invoked on the first <code>UIViewController</code> found in the window. Since the fullscreen view will always be the second view in the window (after the inline view from which it zoomed), the <code>UIViewController</code> auto rotate behavior won't be able to satisfy our rotation needs.</p>
+
+<p>So we need to implement rotation ourselves. This requires 3 steps:</p>
+
+<ul>
+<li>Determine the correct fullscreen bounds for a given orientation</li>
+<li>Calculate a <code>CGAffineTransform</code> to transform from the current bounds to the new bounds after a rotation</li>
+<li>Listen to <code>UIDeviceOrientationDidChangeNotification</code> and actually apply these new values when things change</li>
+</ul>
+
+<p>Getting the bounds for the fullscreen view based on the orientation is pretty simple too. We do need to account for the strangeness of face up and face down orientations &mdash; I do this by taking the status bar orientation in these cases instead (I don't use the status bar all the time in case it is out of sync with the actual device for some reason).</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">CGRect</span><span class="p">)</span><span class="nf">rotatedWindowBounds</span>
+<span class="p">{</span>
+    <span class="n">UIDeviceOrientation</span> <span class="n">orientation</span> <span class="o">=</span> <span class="p">[[</span><span class="n">UIDevice</span> <span class="n">currentDevice</span><span class="p">]</span> <span class="n">orientation</span><span class="p">];</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">orientation</span> <span class="o">==</span> <span class="n">UIDeviceOrientationFaceUp</span> <span class="o">||</span>
+        <span class="n">orientation</span> <span class="o">==</span> <span class="n">UIDeviceOrientationFaceDown</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">orientation</span> <span class="o">=</span> <span class="p">[</span><span class="n">UIApplication</span> <span class="n">sharedApplication</span><span class="p">].</span><span class="n">statusBarOrientation</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="k">if</span> <span class="p">(</span><span class="n">orientation</span> <span class="o">==</span> <span class="n">UIDeviceOrientationLandscapeLeft</span> <span class="o">||</span>
+        <span class="n">orientation</span> <span class="o">==</span> <span class="n">UIDeviceOrientationLandscapeRight</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">CGRect</span> <span class="n">windowBounds</span> <span class="o">=</span> <span class="nb">self</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">window</span><span class="p">.</span><span class="n">bounds</span><span class="p">;</span>
+        <span class="k">return</span> <span class="n">CGRectMake</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">windowBounds</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span><span class="p">,</span> <span class="n">windowBounds</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">width</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="nb">self</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">window</span><span class="p">.</span><span class="n">bounds</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>After a <code>UIDeviceOrientationDidChangeNotification</code>, we apply these new bounds.</p>
+
+<p>Unfortunately, applying different bounds has the effect of changing the coordinates of view's midpoint. Since the final step of rotating the view requires applying a rotation transformation and rotations are always performed around the midpoint of the view, we must also translate the view in situations where the bounds have changed so that the midpoint is the same as it was previously.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">CGAffineTransform</span><span class="p">)</span><span class="nf">orientationTransformFromSourceBounds:</span><span class="p">(</span><span class="n">CGRect</span><span class="p">)</span><span class="nv">sourceBounds</span>
+<span class="p">{</span>
+    <span class="n">UIDeviceOrientation</span> <span class="n">orientation</span> <span class="o">=</span> <span class="p">[[</span><span class="n">UIDevice</span> <span class="n">currentDevice</span><span class="p">]</span> <span class="n">orientation</span><span class="p">];</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">orientation</span> <span class="o">==</span> <span class="n">UIDeviceOrientationFaceUp</span> <span class="o">||</span>
+        <span class="n">orientation</span> <span class="o">==</span> <span class="n">UIDeviceOrientationFaceDown</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">orientation</span> <span class="o">=</span> <span class="p">[</span><span class="n">UIApplication</span> <span class="n">sharedApplication</span><span class="p">].</span><span class="n">statusBarOrientation</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="k">if</span> <span class="p">(</span><span class="n">orientation</span> <span class="o">==</span> <span class="n">UIDeviceOrientationPortraitUpsideDown</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="n">CGAffineTransformMakeRotation</span><span class="p">(</span><span class="n">M_PI</span><span class="p">);</span>
+    <span class="p">}</span>
+    <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">orientation</span> <span class="o">==</span> <span class="n">UIDeviceOrientationLandscapeLeft</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">CGRect</span> <span class="n">windowBounds</span> <span class="o">=</span> <span class="nb">self</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">window</span><span class="p">.</span><span class="n">bounds</span><span class="p">;</span>
+        <span class="n">CGAffineTransform</span> <span class="n">result</span> <span class="o">=</span> <span class="n">CGAffineTransformMakeRotation</span><span class="p">(</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">M_PI</span><span class="p">);</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">CGAffineTransformTranslate</span><span class="p">(</span><span class="n">result</span><span class="p">,</span>
+            <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">windowBounds</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span> <span class="o">-</span> <span class="n">sourceBounds</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">width</span><span class="p">),</span>
+            <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">windowBounds</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span> <span class="o">-</span> <span class="n">sourceBounds</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">width</span><span class="p">));</span>
+        <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">orientation</span> <span class="o">==</span> <span class="n">UIDeviceOrientationLandscapeRight</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">CGRect</span> <span class="n">windowBounds</span> <span class="o">=</span> <span class="nb">self</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">window</span><span class="p">.</span><span class="n">bounds</span><span class="p">;</span>
+        <span class="n">CGAffineTransform</span> <span class="n">result</span> <span class="o">=</span> <span class="n">CGAffineTransformMakeRotation</span><span class="p">(</span><span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="n">M_PI</span><span class="p">);</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">CGAffineTransformTranslate</span><span class="p">(</span><span class="n">result</span><span class="p">,</span>
+            <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">windowBounds</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">width</span> <span class="o">-</span> <span class="n">sourceBounds</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span><span class="p">),</span>
+            <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">windowBounds</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">width</span> <span class="o">-</span> <span class="n">sourceBounds</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span><span class="p">));</span>
+        <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">return</span> <span class="n">CGAffineTransformIdentity</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Finally, we apply alls these values in response to the <code>UIDeviceOrientationDidChangeNotification</code>. Listening to the notification is easy, we just add ourselves as an observer when switching into fullscreen display:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">[[</span><span class="n">NSNotificationCenter</span> <span class="n">defaultCenter</span><span class="p">]</span>
+    <span class="nl">addObserver</span><span class="p">:</span><span class="nb">self</span>
+    <span class="nl">selector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="nl">deviceRotated</span><span class="p">:)</span>
+    <span class="nl">name</span><span class="p">:</span><span class="n">UIDeviceOrientationDidChangeNotification</span>
+    <span class="nl">object</span><span class="p">:[</span><span class="n">UIDevice</span> <span class="n">currentDevice</span><span class="p">]];</span></code></pre></div>
+
+<p>The only additional point to note is that when a view rotates, it exposes the view behind its corners briefly. To avoid this potentially unappealing situation, the <code>ZoomingViewController</code> uses a blanking view (a basic black view) that it inserts behind the view being rotated and removes when the rotation is complete.</p>
+
+<p>The implementation of <code>deviceRotated:</code> contains the following code that creates and inserts the blanking view and applies the rotation in response to the <code>UIDeviceOrientationDidChangeNotification</code>:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">CGRect</span> <span class="n">windowBounds</span> <span class="o">=</span> <span class="nb">self</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">window</span><span class="p">.</span><span class="n">bounds</span><span class="p">;</span>
+<span class="n">UIView</span> <span class="o">*</span><span class="n">blankingView</span> <span class="o">=</span>
+    <span class="p">[[[</span><span class="n">UIView</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithFrame</span><span class="p">:</span>
+        <span class="n">CGRectMake</span><span class="p">(</span><span class="o">-</span><span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">windowBounds</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span> <span class="o">-</span> <span class="n">windowBounds</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">width</span><span class="p">),</span>
+            <span class="mi">0</span><span class="p">,</span> <span class="n">windowBounds</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span><span class="p">,</span> <span class="n">windowBounds</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span><span class="p">)]</span> <span class="n">autorelease</span><span class="p">];</span>
+<span class="n">blankingView</span><span class="p">.</span><span class="n">backgroundColor</span> <span class="o">=</span> <span class="p">[</span><span class="n">UIColor</span> <span class="n">blackColor</span><span class="p">];</span>
+<span class="p">[</span><span class="nb">self</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">superview</span> <span class="nl">insertSubview</span><span class="p">:</span><span class="n">blankingView</span> <span class="nl">belowSubview</span><span class="p">:</span><span class="nb">self</span><span class="p">.</span><span class="n">view</span><span class="p">];</span>
+
+<span class="p">[</span><span class="n">UIView</span> <span class="nl">animateWithDuration</span><span class="p">:</span><span class="mf">0.25</span> <span class="nl">animations</span><span class="p">:</span><span class="o">^</span><span class="p">{</span>
+    <span class="nb">self</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">bounds</span> <span class="o">=</span> <span class="p">[</span><span class="nb">self</span> <span class="n">rotatedWindowBounds</span><span class="p">];</span>
+    <span class="nb">self</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">transform</span> <span class="o">=</span> <span class="p">[</span><span class="nb">self</span> <span class="nl">orientationTransformFromSourceBounds</span><span class="p">:</span><span class="nb">self</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">bounds</span><span class="p">];</span>
+<span class="p">}</span> <span class="nl">completion</span><span class="p">:</span><span class="o">^</span><span class="p">(</span><span class="kt">BOOL</span> <span class="n">complete</span><span class="p">){</span>
+    <span class="p">[</span><span class="n">blankingView</span> <span class="n">removeFromSuperview</span><span class="p">];</span>
+<span class="p">}];</span></code></pre></div>
+
+<h2>Conclusion</h2>
+
+<blockquote>You can download the <code>ZoomingViewController</code> and the complete sample project used in this post here <a href="../../assets/objc-era/TapZoomRotate.zip">TapZoomRotate.zip</a> (160kb)</blockquote>
+
+<p><code>ZoomingViewController</code> is as simple to use as possible: create it, set its view and the view will immediately start responding to taps, zooming to fullscreen and rotating in fullscreen mode. You can apply it to any view in your hierarchy at any time where you need fullscreen display behavior.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="minimalist-cocoa-programming.html">Minimalist Cocoa programming</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../10/testing-if-arbitrary-pointer-is-valid.html">Testing if an arbitrary pointer is a valid object pointer</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>CoreGraphics curves and lines: a sample app</title>
+  <meta name="description" content="This is a small application which shows the basic CoreGraphics line drawing primitives. Includes mouse editable control points to manipulate the primitives graphically." />
+
+  <meta name="twitter:title" content="CoreGraphics curves and lines: a sample app"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2008/07/coregraphics-curves-and-lines-sample.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="This is a small application which shows the basic CoreGraphics line drawing primitives. Includes mouse editable control points to manipulate the primitives graphically."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="coregraphics-curves-and-lines-sample.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="118px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">CoreGraphics curves and lines: a sample app</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2008-07-12">July 12, 2008</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/appkit.html">AppKit</a>, <a href="../../categories/coregraphics.html">CoreGraphics</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>This is a small application which shows the basic CoreGraphics line drawing primitives. Includes mouse editable control points to manipulate the primitives graphically.</p></span>
+
+<span class="fullpost">
+<h2>CurveDrawing</h2>
+<p>This post is a departure from my normal style. It's really just an example that you can play with to get a feel for how basic controls and drawing operate in a Cocoa application.</p>
+
+<p>The project and code for this post can be downloaded here:</p>
+<ul><li><a href="../../assets/objc-era/CurveDrawing.zip">CurveDrawing.zip (45kB)</a></li></ul>
+
+<blockquote>This project is XCode 3.0 Universal.<br/><span style="font-size:11px;">If you have an Intel Mac and haven't installed the PPC SDKs, you may get a "warning... missing required architecture PPC". Either disable the PPC build (Project->Project Settings->Build->Architecures) or choose "Debug" instead of "Release" from the "Active Build Configuration" to avoid.</span></blockquote>
+
+<p>The code for the application shows:</p>
+
+<ul>
+<li><span class="monospace">NSView</span> subclassing</li>
+<li>Using an <span class="monospace">NSSegmentedControl</span> to switch between options</li>
+<li>Line and rectangle drawing using CoreGraphics C functions</li>
+<li>Getting the <span class="monospace">CGContextRef</span> for the current <span class="monospace">NSGraphicsContext</span> using<br/>
+<span class="monospace">-[NSGraphicsContext graphicsPort]</span></li>
+<li>Mouse tracking and dragging using<br/><span class="monospace">-[NSWindow nextEventMatchingMask:(NSLeftMouseDraggedMask | NSLeftMouseUpMask)]</span></li>
+<li>Using an <span class="monospace">NSSlider</span> an configuring it for continuous updates using<br/><span class="monospace">-[NSControl setContinuous:YES]</span></li>
+</ul>
+
+<p>Once compiled, the result will look like this:</p>
+<img src="../../assets/objc-era/samplescreenshot.png" width="268" height="280" />
+
+<p>The program doesn't implement any kind of Model-View-Controller architecture (the "model" is really just 4 NSPoint values &mdash; too trivial for an abstracted layer). It also doesn't show <em>all</em> the CoreGraphics lines drawing primitives &mdash; I've left out a couple that can't easily be described with 4 control points.</p>
+
+<h2>Understanding the program</h2>
+
+<p>The program always shows exactly 4 control points as small gray squares in the window. Each of these can be clicked and dragged around with the mouse</p>
+
+<p>The control points are used to draw the current primitive (selected in the segmented control at the top of the window).</p>
+
+<p>"ArcToPoint" draws using the function <span class="monospace">CGContextAddArcToPoint</span>. This primitive is typically used for drawing round rectangles, though it can also be used to draw curve segments between lines of any angle (chamfers and fillets). The radius of the curve is controlled by the slider at the bottom of the window.</p>
+
+<p>"CurveToPoint" draws using the function <span class="monospace">CGContextAddCurveToPoint</span>. It uses all four points to draw a cubic Bézier.</p>
+
+<p>"EllipseInRect" draws using the function <span class="monospace">CGContextAddEllipseInRect</span>. It draws an ellipse in the rectangle that encloses all four control points.</p>
+
+<p>"Lines" draws using the function <span class="monospace">CGContextAddLineToPoint</span>. It draws line segments through all the control points.</p>
+
+<p>"QuadCurve" draws using the function <span class="monospace">CGContextAddQuadCurveToPoint</span>. It uses the first three points to draw a quadratic Bézier.</p>
+
+<p>"Rect" draws using the function <span class="monospace">CGContextAddRect</span>. It draws a rectangle that encloses all four control points.</p>
+
+<h2>Understanding the code</h2>
+
+<p>The only code for the program is in the "CurveView.m" source file. It consists of the following methods:</p>
+
+<ul>
+<li><strong>initWithFrame:</strong><br/>Invoked as the NIB is loaded. Initializes the array of points to their initial values.</li>
+<li><strong>awakeFromNib</strong><br/>Invoked by the NIB loader after the CurveView has been connected to the slider. Sets the slider to continuous (so that we receive updates while the slider is being adjusted) and sets the initial "radius" value to the midpoint of the slider.</li>
+<li><strong>drawRect:</strong><br/>An implementation of the default <span class="monospace">NSView</span> drawing method. Invoked by Cocoa automatically when the view needs to be drawn in the window or when the view is deliberately updated. It draws:
+<ul>
+<li>background as a white square framed in black</li>
+<li>a line from point 0 to 1, 1 to 2 and 2 to 3</li>
+<li>the currently selected drawing primitive using the control points</li>
+<li>a square to represent each of the four control points</li>
+</ul></li>
+<li><strong>mouseDown:</strong><br/>Determines if a click in the view occurred in one of the control point squares and drags the control point while the mouse remains down.</li>
+<li><strong>setRadius:</strong><br/>Invoked automatically by the binding set up in the NIB file between the slider and the "radius" value on the <span class="monospace">NSObjectController</span> in the NIB. Since the "content" of the <span class="monospace">NSObjectController</span> is set to the "CurveView", this has the effect of binding the slider to the CurveView's radius.<br/>We implement this method (instead of letting the binding set the value directly) to trigger a view redraw after changing the "radius".</li>
+<li><strong>changeSegment:</strong><br/>Invoked as the target of the <span class="monospace">NSSegmentedControl</span>'s action when clicked. We change the selected index and redraw.</li>
+<li><strong>resetControlPoints:</strong><br/>Invoked from the "initWithFrame:" method and by the button in the window. Sets the points in the array to their default values.</li>
+<li><strong>controlPointRectForPoint:</strong><br/>Invoked from "drawRect:" and "mouseDown:". Returns the bounds of the control point rectangle corresponding to a point.</li>
+<li><strong>boundsOfAllControlPoints</strong><br/>Calculates and returns a rectangle enclosing all the control points.</li>
+</ul>
+
+<h2>Understanding the MainMenu.xib file</h2>
+
+<p>The XIB file is the new XML version of the NIB file. It is still compiled into a .nib file when the project is built.</p>
+
+<p>Most of the objects in the application are created from the NIB file. These include:</p>
+<ul><li>All menus in the menu bar and all their contents (these are the default Cocoa Application menus)</li>
+<li>The window and all its contents, including the <span class="monospace">CurveView</span> (modelled as a Custom <span class="monospace">NSView</span> in InterfaceBuilder)</li>
+<li>An <span class="monospace">NSObjectController</span> which only exists to connect the <span class="monospace">NSSlider</span> in the window to the "radius" value of the <span class="monospace">CurveView</span> via bindings</li></ul>
+
+<p>Connections made between objects:</p>
+
+<ul><li>"Reset Control Points" button has its action connected to the <span class="monospace">CurveView</span>'s <span class="monospace">resetControlPoints:</span> method to allow the button to work.</li>
+<li>"ArcToPoint radius" slider has its value binding connected to the "radius" value of the "Object Controller" to announce changes to the slider.</li>
+<li>"Object Controller" <span class="monospace">NSObjectController</span> has its "content" set to the <span class="monospace">CurveView</span> to allow the controller to keep things (specifically the slider) in sync with <span class="monospace">CurveView</span> values.</li>
+<li>The <span class="monospace">NSSegmentedControl</span> has its action set to the <span class="monospace">CurveView</span>'s <span class="monospace">changeSegment:</span> method.</li>
+<li>The <span class="monospace">CurveView</span> has its "sliderControl" set to the "ArcToPoint radius" slider.</li></ul>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="nsmaptable-more-than-nsdictionary-for.html">NSMapTable: more than an NSDictionary for weak pointers</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="better-integration-for-nsviewcontroller.html">Better integration for NSViewController and NSView</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

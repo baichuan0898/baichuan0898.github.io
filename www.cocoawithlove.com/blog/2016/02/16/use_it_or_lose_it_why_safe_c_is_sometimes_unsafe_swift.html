@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Use it or lose it: why safe C is sometimes unsafe Swift</title>
+  <meta name="description" content="Swift and C have different memory layouts. This means that using Swift to call C functions in a manner that would be valid in C can cause memory safety problems. I&#39;ll show how this can occur with a subtle Release build bug inspired by issues that occurred while writing the previous article." />
+
+  <meta name="twitter:title" content="Use it or lose it: why safe C is sometimes unsafe Swift"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/blog/2016/02/16/use_it_or_lose_it_why_safe_c_is_sometimes_unsafe_swift.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Swift and C have different memory layouts. This means that using Swift to call C functions in a manner that would be valid in C can cause memory safety problems. I&#39;ll show how this can occur with a subtle Release build bug inspired by issues that occurred while writing the previous article."/>
+
+  <link rel="icon" href="../../../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../../../css/main.css" />
+  <link rel="canonical" href="use_it_or_lose_it_why_safe_c_is_sometimes_unsafe_swift.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../../../index.html"><img class="heartandcup" src="../../../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../../../about/index.html">about</a>
+        <a class="page-link" href="../../../../archive/index.html">archive</a>
+        <a class="page-link" href="../../../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Use it or lose it: why safe C is sometimes unsafe Swift</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2016-02-16">February 16, 2016</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../../../tags/swift.html">Swift</a>
+		 
+	</div>
+</header>
+
+
+<main role="main">
+	<article itemscope itemtype="http://schema.org/BlogPosting">
+		<div class="post-content" itemprop="articleBody">
+			
+
+<p>Swift is a memory safe language so that means no memory safety bugs, right? Not quite. Swift often needs to interact with C and C remains memory unsafe. To further complicate matters, C and Swift have different models of how memory works, leading to some subtle situations that would have been totally safe in C becoming unsafe in Swift.</p>
+
+<p>In this article, I&rsquo;ll look at a class of memory safety bug that occurred multiple times while I was writing <a href="../02/partial-functions-part-two-catching-precondition-failures.html">the previous article</a>. This particular bug occurs only in Release builds and can occur even when your code has no occurrence of the word &ldquo;unsafe&rdquo; anywhere in it.</p>
+
+<nav id="TableOfContents"><span class="toc-heading">Contents</span>
+<ul>
+<li>
+<ul>
+<li><a href="#an-example">An example</a></li>
+<li><a href="#c-s-memory-layout">C&rsquo;s memory layout</a></li>
+<li><a href="#swift-s-memory-layout">Swift&rsquo;s memory layout</a></li>
+<li><a href="#a-destructuring-optimization-pass">A destructuring optimization pass</a></li>
+<li><a href="#the-fix">The fix</a></li>
+<li><a href="#how-does-this-relate-to-the-previous-article">How does this relate to the previous article?</a></li>
+<li><a href="#conclusion">Conclusion</a></li>
+</ul></li>
+</ul>
+</nav>
+
+<h2 id="an-example">An example</h2>
+
+<p>The following example shows an Objective-C test that creates a C string from an Objective-C string, copies the C string using <code>strcpy</code> and converts back to Objective-C, testing that the result is the same as the original.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">testProblem</span>
+<span class="p">{</span>
+   <span class="n">NSString</span> <span class="o">*</span><span class="n">source</span> <span class="o">=</span> <span class="s">@&#34;Hi, all!&#34;</span><span class="p">;</span>
+   <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">cs</span> <span class="o">=</span> <span class="p">[</span><span class="n">source</span> <span class="nl">cStringUsingEncoding</span><span class="p">:</span><span class="n">NSUTF8StringEncoding</span><span class="p">];</span>
+
+   <span class="kt">char</span> <span class="n">string1</span><span class="p">[</span><span class="mi">10</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="mi">0</span><span class="p">};</span>
+   <span class="kt">char</span> <span class="n">string2</span><span class="p">[</span><span class="mi">10</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="n">cs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">cs</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">cs</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">cs</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="n">cs</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="n">cs</span><span class="p">[</span><span class="mi">5</span><span class="p">],</span> <span class="n">cs</span><span class="p">[</span><span class="mi">6</span><span class="p">],</span> <span class="n">cs</span><span class="p">[</span><span class="mi">7</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">};</span>
+
+   <span class="n">strcpy</span><span class="p">(</span><span class="o">&amp;</span><span class="n">string1</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">&amp;</span><span class="n">string2</span><span class="p">[</span><span class="mi">0</span><span class="p">]);</span>
+   
+   <span class="n">NSString</span> <span class="o">*</span><span class="n">destination</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSString</span> <span class="nl">stringWithUTF8String</span><span class="p">:</span><span class="n">string1</span><span class="p">];</span>
+   <span class="n">XCTAssert</span><span class="p">([</span><span class="n">destination</span> <span class="nl">isEqualToString</span><span class="p">:</span><span class="n">source</span><span class="p">]);</span>
+<span class="p">}</span></code></pre></div>
+
+<p>There are some minor quirks in how I&rsquo;ve written this but it is totally valid C/Objective-C and the <code>XCTAssert</code> check succeeds. Let&rsquo;s recreate it as accurately as possible in Swift:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">testProblem</span><span class="p">()</span> <span class="p">{</span>
+   <span class="kd">typealias</span> <span class="n">TenCChars</span> <span class="p">=</span> <span class="p">(</span><span class="nb">CChar</span><span class="p">,</span> <span class="nb">CChar</span><span class="p">,</span> <span class="nb">CChar</span><span class="p">,</span> <span class="nb">CChar</span><span class="p">,</span> <span class="nb">CChar</span><span class="p">,</span> <span class="nb">CChar</span><span class="p">,</span> <span class="nb">CChar</span><span class="p">,</span> <span class="nb">CChar</span><span class="p">,</span> <span class="nb">CChar</span><span class="p">,</span> <span class="nb">CChar</span><span class="p">)</span>
+   
+   <span class="kd">let</span> <span class="nv">source</span> <span class="p">=</span> <span class="s">&#34;Hi, all!&#34;</span>
+   <span class="kd">let</span> <span class="nv">cs</span> <span class="p">=</span> <span class="n">source</span><span class="p">.</span><span class="n">cString</span><span class="p">(</span><span class="n">using</span><span class="p">:</span> <span class="nb">String</span><span class="p">.</span><span class="n">Encoding</span><span class="p">.</span><span class="n">utf8</span><span class="p">)</span><span class="o">!</span>
+
+   <span class="kd">var</span> <span class="nv">string1</span> <span class="p">=</span> <span class="n">TenCChars</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+   <span class="kd">var</span> <span class="nv">string2</span> <span class="p">=</span> <span class="n">TenCChars</span><span class="p">(</span><span class="n">cs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">cs</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">cs</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">cs</span><span class="p">[</span><span class="mi">3</span><span class="p">],</span> <span class="n">cs</span><span class="p">[</span><span class="mi">4</span><span class="p">],</span> <span class="n">cs</span><span class="p">[</span><span class="mi">5</span><span class="p">],</span> <span class="n">cs</span><span class="p">[</span><span class="mi">6</span><span class="p">],</span> <span class="n">cs</span><span class="p">[</span><span class="mi">7</span><span class="p">],</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+
+   <span class="c1">// Hint: the problem occurs on this line</span>
+   <span class="n">strcpy</span><span class="p">(&amp;</span><span class="n">string1</span><span class="p">.</span><span class="mi">0</span><span class="p">,</span> <span class="p">&amp;</span><span class="n">string2</span><span class="p">.</span><span class="mi">0</span><span class="p">)</span>
+   
+   <span class="c1">// And also on this line</span>
+   <span class="kd">let</span> <span class="nv">destination</span> <span class="p">=</span> <span class="nb">String</span><span class="p">(</span><span class="n">validatingUTF8</span><span class="p">:</span> <span class="p">&amp;</span><span class="n">string1</span><span class="p">.</span><span class="mi">0</span><span class="p">)</span><span class="o">!</span>
+   <span class="n">XCTAssert</span><span class="p">(</span><span class="n">destination</span> <span class="p">==</span> <span class="n">source</span><span class="p">)</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Swift is doing exactly what the Objective-C code does. The code compiles and works correctly in Debug.</p>
+
+<p>In Release, there is a memory safety problem and the <code>XCTAssert</code> fails. This memory safety problem occurs despite the fact that the word &ldquo;unsafe&rdquo; does not appear anywhere in the code. The problem is particularly subtle: change the order of <code>string1</code> and <code>string2</code> and you&rsquo;ll still have memory unsafety but the test will pass.</p>
+
+<p>Can you see the problem?</p>
+
+<h2 id="c-s-memory-layout">C&rsquo;s memory layout</h2>
+
+<p>The source of the problem is a difference in memory layout between C and Swift.</p>
+
+<p>In C&rsquo;s memory layout:</p>
+
+<ol>
+<li>every variable has an address</li>
+<li>every field in a structure can be reached by offsetting a pointer from another field in the structure</li>
+</ol>
+
+<p>Despite being part of C&rsquo;s memory layout, these points are not necessarily true – particularly after optimization. Variables in registers don&rsquo;t have addresses. Variables, fields and whole structures may be omitted if they are unused.</p>
+
+<p>But the optimizer in C is required to maintain the illusion of the memory layout. Maintaining this illusion requires something very specific:</p>
+
+<blockquote>
+<p>If you take the address of any field of a struct then the compiler must ensure the entire struct – and any parent struct that contains it – is allocated in an addressable location and fields may not be reordered or omitted.</p>
+</blockquote>
+
+<p>So when we write:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">strcpy</span><span class="p">(</span><span class="o">&amp;</span><span class="n">string1</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="o">&amp;</span><span class="n">string2</span><span class="p">[</span><span class="mi">0</span><span class="p">]);</span></code></pre></div>
+
+<p>in C, we are forcing the compiler to ensure that the entire <code>string1</code> and <code>string2</code> arrays are addressable and complete. They cannot be registers, they cannot be truncated, they cannot be eliminated.</p>
+
+<p>Maintaining the C memory layout has a cost – the optimizer becomes limited in what it can do. Potentially unnecessary stack allocations have a performance overhead relative to register allocations or elimination.</p>
+
+<h2 id="swift-s-memory-layout">Swift&rsquo;s memory layout</h2>
+
+<p>In Swift&rsquo;s memory layout:</p>
+
+<ol>
+<li>variables don&rsquo;t necessarily have addresses except inside a scope that creates an address</li>
+<li>a pointer to one field of a tuple or struct offers zero knowledge about siblings or parents</li>
+</ol>
+
+<p>You can create an <code>UnsafeMutablePointer</code> to a variable in Swift but Swift may need to copy that variable to the stack specifically for the <code>UnsafeMutablePointer</code> creation and may immediately remove it from the stack afterwards.</p>
+
+<p>Specifically for this article:</p>
+
+<blockquote>
+<p>you cannot create a pointer to a field within a tuple or struct and then use that pointer to access sibling or parent fields in the same tuple or struct.</p>
+</blockquote>
+
+<p>That is the simple answer to what&rsquo;s gone wrong in the Swift version: we tried to use a pointer to the first element of a tuple to read and write to the whole tuple. Creating a pointer to the first element of a larger structure and using that as a proxy for the whole structure is common in C and C++ but it&rsquo;s simply not allowed in Swift.</p>
+
+<h2 id="a-destructuring-optimization-pass">A destructuring optimization pass</h2>
+
+<p>The optimization pass that causes the problem in this article occurs in the <a href="https://github.com/apple/swift/blob/master/lib/SILOptimizer/Transforms/SILSROA.cpp">SILSROA optimization pass</a> in the Swift compiler. It is applied during the <code>runSILOptimizationPasses</code> function in <a href="https://github.com/apple/swift/blob/master/lib/SILOptimizer/PassManager/Passes.cpp">Passes.cpp</a>. This SROA (scalar replacement of aggregates) optimization destructures structs and tuples that are only used for their component fields (never used in their entirety). This lets the separate fields of the struct be moved around and optimized separately – as though they were separately declared variables.</p>
+
+<p>For the example in this article, after destructuring the tuple the Swift compiler realizes that – according to the rules of the Swift memory layout – only the zeroth field of the <code>string1</code> and <code>string2</code> tuples are ever read so the initialization of the remaining fields is marked as a &ldquo;dead store&rdquo; and the dead fields 1-9 are omitted from the function entirely (never allocated on the stack).</p>
+
+<p>The result is that <code>strcpy</code>, when it advances the pointer past the first element, overwrites whatever is on the stack past <code>string1</code>. I&rsquo;ve organized the variables so that the source of the copy (<code>string2</code>) is immediately overwritten – causing an obvious and testable problem – but depending on how your variables on the stack are organized, you might not overwrite anything important, making this a very difficult bug to spot.</p>
+
+<h2 id="the-fix">The fix</h2>
+
+<p>The solution isn&rsquo;t particularly difficult: if we <em>need</em> the entire structure then we must <em>use</em> the entire structure. To do this, replace the line:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="n">strcpy</span><span class="p">(&amp;</span><span class="n">string1</span><span class="p">.</span><span class="mi">0</span><span class="p">,</span> <span class="p">&amp;</span><span class="n">string2</span><span class="p">.</span><span class="mi">0</span><span class="p">)</span></code></pre></div>
+
+<p>with</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="bp">withUnsafeMutablePointer</span><span class="p">(</span><span class="n">to</span><span class="p">:</span> <span class="p">&amp;</span><span class="n">string1</span><span class="p">)</span> <span class="p">{</span>
+   <span class="nv">$0</span><span class="p">.</span><span class="n">withMemoryRebound</span><span class="p">(</span><span class="n">to</span><span class="p">:</span> <span class="nb">CChar</span><span class="p">.</span><span class="kc">self</span><span class="p">,</span> <span class="n">capacity</span><span class="p">:</span> <span class="mi">10</span><span class="p">)</span> <span class="p">{</span> <span class="n">str1Ptr</span> <span class="k">in</span>
+      <span class="bp">withUnsafePointer</span><span class="p">(</span><span class="n">to</span><span class="p">:</span> <span class="p">&amp;</span><span class="n">string2</span><span class="p">)</span> <span class="p">{</span>
+         <span class="nv">$0</span><span class="p">.</span><span class="n">withMemoryRebound</span><span class="p">(</span><span class="n">to</span><span class="p">:</span> <span class="nb">CChar</span><span class="p">.</span><span class="kc">self</span><span class="p">,</span> <span class="n">capacity</span><span class="p">:</span> <span class="mi">10</span><span class="p">)</span> <span class="p">{</span> <span class="n">str2Ptr</span> <span class="k">in</span>
+            <span class="kc">_</span> <span class="p">=</span> <span class="n">strcpy</span><span class="p">(</span><span class="n">str1Ptr</span><span class="p">,</span> <span class="n">str2Ptr</span><span class="p">)</span>
+         <span class="p">}</span>
+      <span class="p">}</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This code makes its pointers from the entire <code>string1</code> and <code>string2</code> tuples (not just the zeroth elements). This guarantees the entire tuple remains intact. Once inside the <code>withUnsafeMutablePointer</code> scope, we can recast the pointer to <code>CChar</code> (from the 10 element tuple type) to satisfy the <code>strcpy</code> function signature.</p>
+
+<p>For completeness, we should also fix the <code>String.fromCString</code> line:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">let</span> <span class="nv">destination</span> <span class="p">=</span> <span class="bp">withUnsafePointer</span><span class="p">(&amp;</span><span class="n">string1</span><span class="p">)</span> <span class="p">{</span>
+   <span class="nv">$0</span><span class="p">.</span><span class="n">withMemoryRebound</span><span class="p">(</span><span class="n">to</span><span class="p">:</span> <span class="nb">CChar</span><span class="p">.</span><span class="kc">self</span><span class="p">,</span> <span class="n">capacity</span><span class="p">:</span> <span class="mi">10</span><span class="p">)</span> <span class="p">{</span>
+       <span class="nb">String</span><span class="p">.</span><span class="n">fromCString</span><span class="p">(</span><span class="nv">$0</span><span class="p">)</span><span class="o">!</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The bug will go away if we fix just one of the two uses of <code>string1</code> but both uses were technically wrong so both should be fixed.</p>
+
+<h2 id="how-does-this-relate-to-the-previous-article">How does this relate to the previous article?</h2>
+
+<p>The code that originally triggered this problem for me comes from <code>machMessageHandler</code> in <a href="https://github.com/mattgallagher/CwlPreconditionTesting/blob/master/Sources/CwlPreconditionTesting/CwlCatchBadInstruction.swift?ts=3">CwlCatchBadInstruction.swift</a>. It was originally:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="k">guard</span> <span class="n">mach_exc_server</span><span class="p">(&amp;</span><span class="n">request</span><span class="p">.</span><span class="n">Head</span><span class="p">,</span> <span class="p">&amp;</span><span class="n">reply</span><span class="p">.</span><span class="n">Head</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span> <span class="k">else</span> <span class="p">{</span> <span class="k">throw</span> <span class="n">MachExcServer</span><span class="p">.</span><span class="nb">Any</span> <span class="p">}</span></code></pre></div>
+
+<p>but I was forced to rewrite it as:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="k">guard</span> <span class="n">request</span><span class="p">.</span><span class="n">withMsgHeaderPointer</span><span class="p">(</span><span class="k">in</span><span class="p">:</span> <span class="p">{</span> <span class="n">requestPtr</span> <span class="k">in</span> <span class="n">reply</span><span class="p">.</span><span class="n">withMsgHeaderPointer</span> <span class="p">{</span> <span class="n">replyPtr</span> <span class="k">in</span>
+   <span class="n">mach_exc_server</span><span class="p">(</span><span class="n">requestPtr</span><span class="p">,</span> <span class="n">replyPtr</span><span class="p">)</span>
+<span class="p">}</span> <span class="p">})</span> <span class="o">!=</span> <span class="mi">0</span> <span class="k">else</span> <span class="p">{</span> <span class="k">throw</span> <span class="n">MachExcServer</span><span class="p">.</span><span class="n">code</span><span class="p">(</span><span class="n">reply</span><span class="p">.</span><span class="n">RetCode</span><span class="p">)</span> <span class="p">}</span></code></pre></div>
+
+<p>(using specialized functions to handle the ugliness of the pointer recasting).</p>
+
+<p>In this example, <code>request</code> and <code>reply</code> are large structures for storing incoming and outgoing Mach messages but the <code>mach_exc_server</code> function only takes a pointer to their first field. Before the fix, in Release the <code>reply</code> structure was blank past the <code>Head</code> field and the Mach exception handler failed to do anything (the <code>EXC_BAD_INSTRUCTION</code> remained uncaught and the program crashed).</p>
+
+<p>There are numerous other examples in the same file where I&rsquo;ve wrapped statements in <code>withUnsafeMutablePointer</code> (or custom functions that wrap <code>withUnsafeMutablePointer</code>) to avoid the same problem. Curiously though, the <code>machMessageHandler</code> function was the only location that produced an easily observable bug. The other occurrences either avoided SROA optimization (for various reasons) or they didn&rsquo;t actually write past their bounds or they overwrote unimportant variables.</p>
+
+<p>You can see then that the problem requires a number of conditions to be true before it causes clear problems. It might seem like this works in your favor (simple chance may protect you from adverse effects) but without a clear crash or test failure every time, you might end up making this mistake in multiple places. Or the problem might remain dormant in your code and only cause a crash later when changes made elsewhere alter the arrangement of stack variables.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>This article is really just an aside, commenting on an interesting quirk from the previous article. The lesson that we need to construct pointers over the correct bounds in Swift is a straightforward one but it&rsquo;s important to understand that bugs of this type can be very subtle; practically invisible. Any unsafe pointer – including an implicitly created one – can result in unsafe memory usage if the user of the pointer tries to access memory outside the bounds of the pointer&rsquo;s creation.</p>
+
+		</div>
+	</article>
+</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../02/partial-functions-part-two-catching-precondition-failures.html">Partial functions in Swift, Part 2: Catching precondition failures</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../28/stack-traces-in-swift.html">Tracking tasks with stack traces in Swift</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../../../feed.json">JSON</a>, <a href="../../../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

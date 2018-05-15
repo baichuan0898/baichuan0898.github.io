@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>5 key-value coding approaches in Cocoa</title>
+  <meta name="description" content="Key-value coding (KVC) is a way of decoupling a generic action from the specific properties it may need to act upon. It is most commonly associated with the &lt;code&gt;NSKeyValueCoding&lt;/code&gt; protocol but there are a number of other ways to achieve the same effect. In this post, I look at why key-value coding is important and show you 5 different ways &amp;mdash; each with their own particular advantages &amp;mdash; to implement this pattern." />
+
+  <meta name="twitter:title" content="5 key-value coding approaches in Cocoa"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2010/01/5-key-value-coding-approaches-in-cocoa.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Key-value coding (KVC) is a way of decoupling a generic action from the specific properties it may need to act upon. It is most commonly associated with the &lt;code&gt;NSKeyValueCoding&lt;/code&gt; protocol but there are a number of other ways to achieve the same effect. In this post, I look at why key-value coding is important and show you 5 different ways &amp;mdash; each with their own particular advantages &amp;mdash; to implement this pattern."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="5-key-value-coding-approaches-in-cocoa.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">5 key-value coding approaches in Cocoa</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2010-01-25">January 25, 2010</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/objective-c.html">Objective-C</a>, <a href="../../categories/foundation.html">Foundation</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>Key-value coding (KVC) is a way of decoupling a generic action from the specific properties it may need to act upon. It is most commonly associated with the <code>NSKeyValueCoding</code> protocol but there are a number of other ways to achieve the same effect. In this post, I look at why key-value coding is important and show you 5 different ways &mdash; each with their own particular advantages &mdash; to implement this pattern.</p></span>
+
+<span class="fullpost">
+<h2>Introduction</h2>
+<p>The <code>NSKeyValueCoding</code> protocol has been in Cocoa since Mac OS X 10.0 but it first made a real mark in Mac OS X 10.3 when user-interface bindings demonstrated their potential &mdash; allowing user-interface controls to connect to properties on objects by configuring the data, not changing the code.</p>
+
+<p>While the core concepts in key-value coding exist (or can be implemented) in most programming frameworks, key-value coding is both prevalent and pervasive throughout Cocoa in a way that is uncommon, certainly among other compiled application frameworks.</p>
+
+<p>Despite its prevalence, you can avoid key-value coding if you choose. However, Apple introduced it for a reason &mdash; it is a simple design pattern that can be highly beneficial to your code. To that end, I'm going to spend this post talking about what key-value coding is, how it can improve your code and different approaches you can use to achieve the effect.</p>
+
+<h2>What is key-value coding?</h2>
+
+<p>The idea behind key-value coding is pretty simple: instead of directly getting and setting specific properties on an object, key-value coding involves passing in a "key" (usually a string) and getting or setting the property associated with that key.</p>
+
+<p>This may sound a lot like <code>NSDictionary</code>
+
+<p>For example:
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="c1">// Set a property directly...
+</span><span class="c1"></span><span class="n">someObject</span><span class="p">.</span><span class="n">someProperty</span> <span class="o">=</span> <span class="n">someValue</span><span class="p">;</span>
+
+<span class="c1">// ...or set the same property using key-value coding
+</span><span class="c1"></span><span class="p">[</span><span class="n">someObject</span> <span class="nl">setValue</span><span class="p">:</span><span class="n">someValue</span> <span class="nl">forKey</span><span class="p">:</span><span class="s">@&#34;someProperty&#34;</span><span class="p">];</span></code></pre></div>
+
+<p>Why would you want to do this? The answer is that it decouples the action of setting a value for a property from the specific property involved.</p>
+
+<p>Imagine a table for editing names and addresses:</p>
+
+<img src="../../assets/objc-era/tablescreenshot.png" width="251" height="155" />
+
+<p>Without key-value coding, the <code>NSTableViewDataSource</code> method to handle an edit for one of the rows might look like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">tableView:</span><span class="p">(</span><span class="n">NSTableView</span> <span class="o">*</span><span class="p">)</span><span class="nv">aTableView</span>
+    <span class="nf">setObjectValue:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">anObject</span>
+    <span class="nf">forTableColumn:</span><span class="p">(</span><span class="n">NSTableColumn</span> <span class="o">*</span><span class="p">)</span><span class="nv">aTableColumn</span>
+    <span class="nf">row:</span><span class="p">(</span><span class="kt">int</span><span class="p">)</span><span class="nv">rowIndex</span>
+<span class="p">{</span>
+    <span class="k">if</span> <span class="p">([[</span><span class="n">aTableColumn</span> <span class="n">identifier</span><span class="p">]</span> <span class="nl">isEqual</span><span class="p">:</span><span class="s">@&#34;name&#34;</span><span class="p">])</span>
+    <span class="p">{</span>
+        <span class="p">[[</span><span class="n">records</span> <span class="nl">objectAtIndex</span><span class="p">:</span><span class="n">rowIndex</span><span class="p">]</span> <span class="nl">setName</span><span class="p">:</span><span class="n">anObject</span><span class="p">];</span>
+    <span class="p">}</span>
+    <span class="k">else</span> <span class="k">if</span> <span class="p">([[</span><span class="n">aTableColumn</span> <span class="n">identifier</span><span class="p">]</span> <span class="nl">isEqual</span><span class="p">:</span><span class="s">@&#34;address&#34;</span><span class="p">])</span>
+    <span class="p">{</span>
+        <span class="p">[[</span><span class="n">records</span> <span class="nl">objectAtIndex</span><span class="p">:</span><span class="n">rowIndex</span><span class="p">]</span> <span class="nl">setAddress</span><span class="p">:</span><span class="n">anObject</span><span class="p">];</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>With key-value coding, the method becomes:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">tableView:</span><span class="p">(</span><span class="n">NSTableView</span> <span class="o">*</span><span class="p">)</span><span class="nv">aTableView</span>
+    <span class="nf">setObjectValue:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">anObject</span>
+    <span class="nf">forTableColumn:</span><span class="p">(</span><span class="n">NSTableColumn</span> <span class="o">*</span><span class="p">)</span><span class="nv">aTableColumn</span>
+    <span class="nf">row:</span><span class="p">(</span><span class="kt">int</span><span class="p">)</span><span class="nv">rowIndex</span>
+<span class="p">{</span>
+    <span class="p">[[</span><span class="n">records</span> <span class="nl">objectAtIndex</span><span class="p">:</span><span class="n">rowIndex</span><span class="p">]</span> <span class="nl">setValue</span><span class="p">:</span><span class="n">anObject</span> <span class="nl">forKey</span><span class="p">:[</span><span class="n">aTableColumn</span> <span class="n">identifier</span><span class="p">]];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>I spoke about bindings before: this approach isn't using user-interface bindings (that would require no code at all). This is really showing a simplified way that bindings might be implemented.</p>
+
+<p>This key-value coding approach is better because it doesn't have to handle the edit of each property as a separate condition. This is the essence of key-value coding.</p>
+
+<p>And key-value coding remains just as efficient as the data set increases in size. A table with 1,000 columns would require the same amount of code to edit.</p>
+
+<h2>KVC approach 1: NSKeyValueCoding protocol</h2>
+
+<p>All the key-value coding that I've show so far uses the <code>NSKeyValueCoding</code> protocol. Actually, I call it a protocol but it is actually an "informal protocol" (a category on <code>NSObject</code>).</p>
+
+<p>This category implements the <code>setValue:forKey:</code> and <code>valueForKey:</code> methods that you can use for setting and getting values by <code>NSString</code> keys.</p>
+
+<h3>Advantages</h3>
+
+<ul>
+<li>Finds getter and setter methods automatically and will even get or set ivars directly if a getter or setter can't be found. This means that most properties automatically support <code>NSKeyValueCoding</code>. Learn more about the search paths in my <a href="../../2008/07/key-value-information.html">Key Value Information post</a>.</li>
+<li>Includes key paths (for traversing multiple properties).</li>
+<li>Integrates with <code>NSKeyValueObserving</code> for implementing the Observer design pattern.</li>
+<li>Offers fallbacks and ways of dealing with undefined keys.</li>
+</ul>
+
+<h3>Disadvantages</h3>
+
+<ul>
+<li>The extended search path makes this one of the slowest key-value coding approaches (see my earlier performance-related post on <a href="../../2009/11/performance-tests-replacing-core-data.html">Replacing Core Data Key Paths</a>).</li>
+<li>Requires either a method or ivar on the class matching the property name that can be found by <code>NSKeyValueCoding</code>.</li>
+<li>Only supports <code>NSString</code>s as property keys.</li>
+</ul>
+
+<h2>KVC approach 2: Manual subsets of NSKeyValueCoding behavior</h2>
+
+<p>The <code>NSKeyValueCoding</code> protocol looks up methods by selector names and looks up ivars by name.</p>
+
+<p>This is work that you can do yourself.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="c1">// Manual KVC setter method implementation
+</span><span class="c1"></span><span class="n">NSString</span> <span class="o">*</span><span class="n">setterString</span> <span class="o">=</span> <span class="p">[</span><span class="s">@&#34;set&#34;</span> <span class="nl">stringByAppendingString</span><span class="p">:[</span><span class="n">someKeyString</span> <span class="n">capitalizedString</span><span class="p">]];</span>
+<span class="p">[</span><span class="n">someObject</span> <span class="nl">performSelector</span><span class="p">:</span><span class="n">NSSelectorFromString</span><span class="p">(</span><span class="n">setterString</span><span class="p">)</span> <span class="nl">withObject</span><span class="p">:</span><span class="n">someValue</span><span class="p">];</span>
+
+<span class="c1">// Manual KVC ivar setter
+</span><span class="c1"></span><span class="n">object_setInstanceVariable</span><span class="p">(</span><span class="n">someObject</span><span class="p">,</span> <span class="n">someKeyString</span><span class="p">,</span> <span class="n">someValue</span><span class="p">);</span></code></pre></div>
+
+<p>Why would you do this instead of using the <code>NSKeyValueCoding</code> approach? You would only use this in situations where you want to avoid methods or ivars that would ordinarily be found by <code>NSKeyValueCoding</code>. This approach allows you to define your own lookup path.</p>
+
+<h3>Advantages</h3>
+
+<ul>
+<li>More control over the lookup path than with <code>NSKeyValueCoding</code>.</li>
+<li>Potentially faster than <code>NSKeyValueCoding</code>.</li>
+<li>Will work for classes that don't inherit from <code>NSObject</code> and hence don't have <code>NSKeyValueCoding</code> implementations.</li>
+<li>Manual method implementations can get and set non-object values.</li>
+</ul>
+
+<h3>Disadvantages</h3>
+
+<ul>
+<li>Less flexible than <code>NSKeyValueCoding</code>.</li>
+<li>In most cases, it is more work than using <code>NSKeyValueCoding</code>.</li>
+</ul>
+
+<h2>KVC approach 3: Associated objects</h2>
+
+<p>The Objective-C 2.0 runtime (used on the iPhone and 64-bit Mac OS X apps) allows you to set any object to be associated with any other object. This allows any object in the runtime to have an arbitrary set of extra properties set by key, without support from ivars or methods on the object itself.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">objc_setAssociatedObject</span><span class="p">(</span><span class="n">someObject</span><span class="p">,</span> <span class="n">someKey</span><span class="p">,</span> <span class="n">someValue</span><span class="p">,</span> <span class="n">OBJC_ASSOCIATION_RETAIN_NONATOMIC</span><span class="p">);</span></code></pre></div>
+
+<p>The main reason why you would use this approach is that you want to set properties on an object from the outside &mdash; i.e. without the object supporting, being involved with or even knowing about the property access. Properties can be set on an object by other parts of the program for their own purposes.</p>
+
+<h3>Advantages</h3>
+
+<ul>
+<li>No support from the object (methods or ivars) required.</li>
+<li>Key can be any pointer (so can the object if <code>OBJC_ASSOCIATION_ASSIGN</code> is used).</li>
+<li>Potentially the fastest KVC approach.</li>
+</ul>
+
+<h3>Disadvantages</h3>
+
+<ul>
+<li>Key is a pointer, not an object, so if an object is used, it must be a pointer-unique object (i.e. won't work if you try to get and set with different allocations of the same string value).</li>
+<li>Does not affect ivars or methods on the object. Generally this means if you want the object itself to know about the change, you must use a different approach.</li>
+</ul>
+
+<h2>KVC approach 4: selectors as keys</h2>
+
+<p>Key-value coding is primarily about looking up a property for a key and then acting upon the property found during lookup.</p>
+
+<p>Objective-C has a lookup at its very core &mdash; the method lookup. The keys for this lookup are selectors.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">objc_msgSend</span><span class="p">(</span><span class="n">someObject</span><span class="p">,</span> <span class="n">someSetterSelector</span><span class="p">,</span> <span class="n">someValue</span><span class="p">);</span></code></pre></div>
+
+<p>This approach is similar to manually implementing the method part of <code>NSKeyValueCoding</code> but rather than forming a selector string from the key and then looking up the selector string, this approach opts to use the selector as the key.</p>
+
+<p>The disadvantage this approach has is that separate selectors are needed for getting and setting.</p>
+
+<h3>Advantages</h3>
+
+<ul>
+<li>Fastest approach that goes through methods (which is good since methods are overrideable and hence more subclass friendly).</li>
+<li>Can get and set non-object data (although <code>objc_msgSend_fpret</code> and <code>objc_msgSend_stret</code> need to be used to get <code>float</code>, <code>double</code> and <code>struct</code> properties).</li>
+</ul>
+
+<h3>Disadvantages</h3>
+
+<ul>
+<li>Different keys required for getting and setting.</li>
+<li>Selectors are not objects and are therefore can't be stored directly in Objective-C arrays and dictionaries (must use CoreFoundation or <code>NSValue</code> wrappers).</li>
+</ul>
+
+<h2>KVC approach 5: do it yourself</h2>
+
+<p>The final approach to key-value coding is to handle the implementation yourself. This is something you would do if you needed maximum flexibility (for handling unusual keys/values) or wanted to expose different key-value sets from a single object.</p>
+
+<p>The easiest way to do this is to expose a getter and a setter method and simply get or set the values on a dictionary contained by the object.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setCollectionValue:</span><span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nv">value</span> <span class="nf">forKey:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">key</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="n">collectionDictionary</span> <span class="nl">setObject</span><span class="p">:</span><span class="n">value</span> <span class="nl">forKey</span><span class="p">:</span><span class="n">key</span><span class="p">];</span>
+<span class="p">}</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nf">getCollectionValueForKey:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">key</span>
+<span class="p">{</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">collectionDictionary</span> <span class="nl">objectForKey</span><span class="p">:</span><span class="n">key</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>To handle the internal storage of the values, you could use any of the key-value storage structures in Cocoa:</p>
+
+<ul>
+<li><code>NSMutableDictionary</code></li>
+<li><code>NSMapTable</code></li>
+<li><code>CFMutableDictionaryRef</code></li>
+<li>associated objects on <code>self</code> or other objects (see above)</li>
+</ul>
+
+<p>or your own storage solution.</p>
+
+<h3>Advantages</h3>
+
+<ul>
+<li>A single object can exposes multiple, separate collections.</li>
+<li>Can get and set any data type supported by the underlying collection.</li>
+<li>The most flexible approach for fallbacks and handling special cases.</li>
+</ul>
+
+<h3>Disadvantages</h3>
+
+<ul>
+<li>Must be implemented by the target class (will not work for arbitrary objects).</li>
+<li>Doesn't interoperate with <code>NSKeyValueObserving</code> or any of the other <code>NSKeyValueCoding</code> concepts.</li>
+</ul>
+
+<h2>Conclusion</h2>
+
+<p>Using key-value coding is not mandatory &mdash; it is certainly possible to implement whole projects without it. However, it is one of the best code patterns for reducing repetitious code and making classes more reusable by decoupling actions from properties and data.</p>
+
+<p>As you can see, there are a number of different kinds of key-value coding you can use in your program. <code>NSKeyValueCoding</code> is probably the most flexible, reusable and best supported throughout Cocoa, so unless you need one of the advantages of the other approaches or you want to keep your solution to a problem narrow, it is probably the best approach to use.</p> 
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="what-is-meta-class-in-objective-c.html">What is a meta-class in Objective-C?</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../02/finding-cause-of-simple-performance.html">Finding the cause of performance issues in your programs</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Memory and thread-safe custom property methods</title>
+  <meta name="description" content="Objective-2.0 property methods are a nice convenience but if you need to override a property implementation &amp;mdash; particularly an atomic, retained or copied object setter property &amp;mdash; there are some potential bugs you can create if you don&#39;t follow the rules carefully. I&#39;ll show you the pitfalls and the correct way to implement a property accessor. I&#39;ll also show a way to directly invoke hidden runtime functions to let Objective-C perform atomic getting and setting safely for you." />
+
+  <meta name="twitter:title" content="Memory and thread-safe custom property methods"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/10/memory-and-thread-safe-custom-property.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Objective-2.0 property methods are a nice convenience but if you need to override a property implementation &amp;mdash; particularly an atomic, retained or copied object setter property &amp;mdash; there are some potential bugs you can create if you don&#39;t follow the rules carefully. I&#39;ll show you the pitfalls and the correct way to implement a property accessor. I&#39;ll also show a way to directly invoke hidden runtime functions to let Objective-C perform atomic getting and setting safely for you."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="memory-and-thread-safe-custom-property.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Memory and thread-safe custom property methods</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-10-25">October 25, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/objective-c.html">Objective-C</a>, <a href="../../categories/fun-hacks.html">fun hacks</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>Objective-2.0 property methods are a nice convenience but if you need to override a property implementation &mdash; particularly an atomic, retained or copied object setter property &mdash; there are some potential bugs you can create if you don't follow the rules carefully. I'll show you the pitfalls and the correct way to implement a property accessor. I'll also show a way to directly invoke hidden runtime functions to let Objective-C perform atomic getting and setting safely for you.</p></span>
+
+<span class="fullpost">
+<h2>Custom getter and setter methods for implicitly atomic types</h2>
+
+<p>For implicitly atomic types or for types where memory management doesn't apply, custom getter and setter methods in Objective-C are easy. These "easy" situations include:</p>
+
+<ul><li>Basic value types (<code>char</code>, <code>short</code>, <code>int</code>, <code>float</code>, <code>long</code>, <code>double</code>, etc).</li>
+<li>Objective-C objects in a garbage collected environment</li>
+<li>Assigned (non-retained) pointers</li></ul>
+
+<p>For these types, it is pretty hard to get a custom getter or setter method wrong. For the following property declaration:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@property</span> <span class="n">SomeAtomicType</span> <span class="n">somePropertyVariable</span><span class="p">;</span></code></pre></div>
+
+<p>the custom getter and setter simply look like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">SomeAtomicType</span><span class="p">)</span><span class="nf">somePropertyVariable</span>
+<span class="p">{</span>
+    <span class="k">return</span> <span class="n">somePropertyVariable</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setSomePropertyVariable:</span><span class="p">(</span><span class="n">SomeAtomicType</span><span class="p">)</span><span class="nv">aValue</span>
+<span class="p">{</span>
+    <span class="n">somePropertyVariable</span> <span class="o">=</span> <span class="n">aValue</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<h2>Common mistakes in accessor methods for non-atomic types</h2>
+
+<p>Non-atomic types require greater care. These types include:</p>
+
+<ul><li>Objective-C objects in a manually managed memory environment</li>
+<li><code>struct</code>s and other compound types</li></ul>
+
+<p>Given how simple custom getter and setter methods are for atomic types, it is easy to be complacent about implementing methods for these types. However, following the wrong approach can lead to memory crash bugs and lack of proper thread safety.</p>
+
+<p>To illustrate how simple it can be to introduce bugs while implementing a custom setter method, consider the following declared property:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@property</span> <span class="n">NSString</span> <span class="p">(</span><span class="k">copy</span><span class="p">)</span> <span class="n">someString</span><span class="p">;</span></code></pre></div>
+
+<p>A hasty implementation of the setter might be:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setSomeString:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">aString</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="n">someString</span> <span class="k">release</span><span class="p">];</span>
+    <span class="n">someString</span> <span class="o">=</span> <span class="p">[</span><span class="n">aString</span> <span class="k">copy</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This implementation actually contains two bugs:</p>
+
+<ol><li><strong>This method is not atomic.</strong><br/>The <code>someString</code> object changes twice: once on <code>release</code> and again when it is assigned the copied object's address. This method is <em>not</em> atomic and therefore violates the declaration (which omits the <code>nonatomic</code> keyword and therefore requires atomicity).</li>
+<li><strong>The assignment contains a potential memory deallocation bug.</strong><br/>If <code>someString</code> is ever assigned its own value, it will <code>release</code> it before <code>copy</code>ing it, causing potential use of a <code>release</code>d variable. The code: <code>self.someString = someString;</code> is an example of this potential issue.</li>
+</ol>
+
+<p>Don't feel too bad if you've ever made these mistakes. I spent some time looking at <a href="http://clang.llvm.org/">clang's</a> synthesized method implementations when I was researching this post and I noticed that <a href="http://llvm.org/svn/llvm-project/cfe/trunk/lib/CodeGen/CGObjC.cpp">they've forgotten to handle struct accessor methods in an atomic manner</a> when required.</p>
+
+<h2>Safe implementations of custom accessor methods for non-atomic types</h2>
+
+<p>To address this second issue, <a href="http://developer.apple.com/mac/library/documentation/Cocoa/Conceptual/ObjectiveC/Articles/ocProperties.html">Apple's Declared Properties documentation</a> suggests that your setter methods should look like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setSomeString:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">aString</span>
+<span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">someString</span> <span class="o">!=</span> <span class="n">aString</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="n">someString</span> <span class="k">release</span><span class="p">];</span>
+        <span class="n">someString</span> <span class="o">=</span> <span class="p">[</span><span class="n">aString</span> <span class="k">copy</span><span class="p">];</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This only fixes the memory issue, it doesn't fix the atomicity issue. To handle that, the only simple solution is to used a <code>@synchronized</code> section:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setSomeString:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">aString</span>
+<span class="p">{</span>
+    <span class="k">@synchronized</span><span class="p">(</span><span class="nb">self</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">someString</span> <span class="o">!=</span> <span class="n">aString</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="p">[</span><span class="n">someString</span> <span class="k">release</span><span class="p">];</span>
+            <span class="n">someString</span> <span class="o">=</span> <span class="p">[</span><span class="n">aString</span> <span class="k">copy</span><span class="p">];</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This approach will also work for <code>retain</code> properties as well (simply replace the <code>copy</code> method with a <code>retain</code>.</p>
+
+<p>To maintain atomicity, you also need a <code>retain/autorelease</code> pattern and lock on any getter methods too:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nf">someString</span>
+<span class="p">{</span>
+    <span class="k">@synchronized</span><span class="p">(</span><span class="nb">self</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="kt">id</span> <span class="n">result</span> <span class="o">=</span> <span class="p">[</span><span class="n">someString</span> <span class="k">retain</span><span class="p">];</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">result</span> <span class="n">autorelease</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The <code>@synchronized</code> section is only required around the <code>retain</code> since that will prevent a setter releasing the value before we can return it (the <code>autorelease</code> is then safely done outside the section).</p>
+
+<p>For <code>struct</code> and other compound data types, we don't need to <code>retain</code> or <code>copy</code>, so only the <code>@synchronized</code> section is required:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">NSRect</span><span class="p">)</span><span class="nf">someRect</span>
+<span class="p">{</span>
+    <span class="k">@synchronized</span><span class="p">(</span><span class="nb">self</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="n">someRect</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+<span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setSomeRect:</span><span class="p">(</span><span class="n">NSRect</span><span class="p">)</span><span class="nv">aRect</span>
+<span class="p">{</span>
+    <span class="k">@synchronized</span><span class="p">(</span><span class="nb">self</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">someRect</span> <span class="o">=</span> <span class="n">aRect</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<h2>A faster, shorter way to implement custom accessors</h2>
+
+<p>There are two negative points to the custom accessor methods listed above:</p>
+
+<ul><li>They need to be coded exactly to avoid bugs.</li>
+<li>The <code>@synchronized</code> section on <code>self</code> is coarse-grained and slow.</li></ul>
+
+<p>There is another way to implement these methods that doesn't require as much careful coding and uses much more efficient locking: use the same functions that the <code>synthesized</code> methods use.</p>
+
+<p>The following functions are implemented in the Objective-C runtime:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">id</span> <span class="nf">objc_getProperty</span><span class="p">(</span><span class="kt">id</span> <span class="nb">self</span><span class="p">,</span> <span class="kt">SEL</span> <span class="n">_cmd</span><span class="p">,</span> <span class="n">ptrdiff_t</span> <span class="n">offset</span><span class="p">,</span> <span class="kt">BOOL</span> <span class="k">atomic</span><span class="p">);</span>
+<span class="kt">void</span> <span class="nf">objc_setProperty</span><span class="p">(</span><span class="kt">id</span> <span class="nb">self</span><span class="p">,</span> <span class="kt">SEL</span> <span class="n">_cmd</span><span class="p">,</span> <span class="n">ptrdiff_t</span> <span class="n">offset</span><span class="p">,</span> <span class="kt">id</span> <span class="n">newValue</span><span class="p">,</span> <span class="kt">BOOL</span> <span class="k">atomic</span><span class="p">,</span>
+    <span class="kt">BOOL</span> <span class="n">shouldCopy</span><span class="p">);</span>
+<span class="kt">void</span> <span class="nf">objc_copyStruct</span><span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="n">dest</span><span class="p">,</span> <span class="k">const</span> <span class="kt">void</span> <span class="o">*</span><span class="n">src</span><span class="p">,</span> <span class="n">ptrdiff_t</span> <span class="n">size</span><span class="p">,</span> <span class="kt">BOOL</span> <span class="k">atomic</span><span class="p">,</span>
+    <span class="kt">BOOL</span> <span class="n">hasStrong</span><span class="p">);</span></code></pre></div>
+
+<p>While these functions are implemented in the runtime, they are not declared, so if you want to use them, you must declare them yourself (the compiler will then find their definitions when you compile).</p>
+
+<p>These methods are much faster than using a <code>@synchronized</code> section on the whole object because (as shown in their <a href="http://www.opensource.apple.com/source/objc4/objc4-371.2/runtime/Accessors.subproj/objc-accessors.m">Apple opensource implementation</a>) they use a finely grained, instance variable only spin lock for concurrent access (although the copy struct function uses two locks following an interface design mixup).</p>
+
+<p>When you declare these functions, you can also declare the following convenience macros:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="cp">#define AtomicRetainedSetToFrom(dest, source) \
+</span><span class="cp"></span>    <span class="n">objc_setProperty</span><span class="p">(</span><span class="nb">self</span><span class="p">,</span> <span class="n">_cmd</span><span class="p">,</span> <span class="p">(</span><span class="n">ptrdiff_t</span><span class="p">)(</span><span class="o">&amp;</span><span class="n">dest</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span><span class="n">ptrdiff_t</span><span class="p">)(</span><span class="nb">self</span><span class="p">),</span> <span class="n">source</span><span class="p">,</span> <span class="nb">YES</span><span class="p">,</span> <span class="nb">NO</span><span class="p">)</span>
+<span class="cp">#define AtomicCopiedSetToFrom(dest, source) \
+</span><span class="cp"></span>    <span class="n">objc_setProperty</span><span class="p">(</span><span class="nb">self</span><span class="p">,</span> <span class="n">_cmd</span><span class="p">,</span> <span class="p">(</span><span class="n">ptrdiff_t</span><span class="p">)(</span><span class="o">&amp;</span><span class="n">dest</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span><span class="n">ptrdiff_t</span><span class="p">)(</span><span class="nb">self</span><span class="p">),</span> <span class="n">source</span><span class="p">,</span> <span class="nb">YES</span><span class="p">,</span> <span class="nb">YES</span><span class="p">)</span>
+<span class="cp">#define AtomicAutoreleasedGet(source) \
+</span><span class="cp"></span>    <span class="n">objc_getProperty</span><span class="p">(</span><span class="nb">self</span><span class="p">,</span> <span class="n">_cmd</span><span class="p">,</span> <span class="p">(</span><span class="n">ptrdiff_t</span><span class="p">)(</span><span class="o">&amp;</span><span class="n">source</span><span class="p">)</span> <span class="o">-</span> <span class="p">(</span><span class="n">ptrdiff_t</span><span class="p">)(</span><span class="nb">self</span><span class="p">),</span> <span class="nb">YES</span><span class="p">)</span>
+<span class="cp">#define AtomicStructToFrom(dest, source) \
+</span><span class="cp"></span>    <span class="n">objc_copyStruct</span><span class="p">(</span><span class="o">&amp;</span><span class="n">dest</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">source</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">__typeof__</span><span class="p">(</span><span class="n">source</span><span class="p">)),</span> <span class="nb">YES</span><span class="p">,</span> <span class="nb">NO</span><span class="p">)</span></code></pre></div>
+
+<p>I like to include the "To/From" words so I can remember the ordering of the source and destination parameters. You can remove them if they bother you.</p>
+
+<p>With these macros, the <code>someString</code> "copy" getter and setter methods above would become:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nf">someString</span>
+<span class="p">{</span>
+    <span class="k">return</span> <span class="n">AtomicAutoreleasedGet</span><span class="p">(</span><span class="n">someString</span><span class="p">);</span>
+<span class="p">}</span>
+<span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setSomeString:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">aString</span>
+<span class="p">{</span>
+    <span class="n">AtomicCopiedSetToFrom</span><span class="p">(</span><span class="n">someString</span><span class="p">,</span> <span class="n">aString</span><span class="p">);</span>
+<span class="p">}</span></code></pre></div>
+
+<p>and the someRect accessor methods shown above would become:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">NSRect</span><span class="p">)</span><span class="nf">someRect</span>
+<span class="p">{</span>
+    <span class="n">NSRect</span> <span class="n">result</span><span class="p">;</span>
+    <span class="n">AtomicStructToFrom</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="n">someRect</span><span class="p">);</span>
+    <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setSomeRect:</span><span class="p">(</span><span class="n">NSRect</span><span class="p">)</span><span class="nv">aRect</span>
+<span class="p">{</span>
+    <span class="n">AtomicStructToFrom</span><span class="p">(</span><span class="n">someRect</span><span class="p">,</span> <span class="n">aRect</span><span class="p">);</span>
+<span class="p">}</span></code></pre></div>
+
+<h2>Conclusion</h2>
+
+<p>Most of the accessor methods I've shown here are atomic but in reality, most Objective-C object accessors are declared <code>nonatomic</code>.</p>
+
+<p>Even if your properties are declared <code>nonatomic</code>, the memory management rules still apply. These rules are important to follow since they can lead to some very obscure and hard to track down memory bugs.</p>
+
+<p>The macros I've provided are all for atomic properties. For non-atomic properties the boilerplate assignment code is probably simple enough to remember. If not, you could also use a macro:</p> <div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="cp">#define NonatomicRetainedSetToFrom(a, b) do{if(a!=b){[a release];a=[b retain];}}while(0)
+</span><span class="cp">#define NonatomicCopySetToFrom(a, b) do{if(a!=b){[a release];a=[b copy];}}while(0)</span></code></pre></div>
+
+<p><strong>Update:</strong> following comments below, I realize I omitted to qualify the situations in which these accessors are thread-safe. Specifically:</p>
+
+<ol><li>These setter methods are only thread-safe if the parameters passed to them are immutable. For mutable parameters, you may need to ensure thread safety between mutations on the parameter and the assignment of the property.</li>
+<li>Atomic accessors only provide thread safety to an instance variable if they are the sole way you access the instance variable. If non-property access is required, you must ensure shared thread safety between property accessor methods and the non-property access.</li>
+<li>Atomic assignment for the "implicitly atomic" types I listed does not mean that all CPUs/cores see the same thing (since each CPU/core could have its own cache of the value) &mdash; it only ensures that value is wholly set without possibility of interruption. If you require all CPUs/core to be synchronized and see the same value at a given moment, then even the "implicitly atomic" types may require <code>volatile</code> qualifiers or a <code>@synchronized</code> section around the assignment to flush caches.</li>
+</ol>
+
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="how-blocks-are-implemented-and.html">How blocks are implemented (and the consequences)</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../11/creating-iphone-and-mac-icons-using.html">Creating iPhone and Mac icons using Inkscape (Part 1 of 2)</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

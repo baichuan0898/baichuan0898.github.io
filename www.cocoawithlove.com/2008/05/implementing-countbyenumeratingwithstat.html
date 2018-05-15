@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Implementing countByEnumeratingWithState:objects:count:</title>
+  <meta name="description" content="If you want to use fast enumeration on your own classes, you must implement &lt;span countByEnumeratingWithState:objects:count:. Unfortunately, it&#39;s a confusing method. Here are two sample implementations that show the steps needed to implement this method in most cases." />
+
+  <meta name="twitter:title" content="Implementing countByEnumeratingWithState:objects:count:"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2008/05/implementing-countbyenumeratingwithstat.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="If you want to use fast enumeration on your own classes, you must implement &lt;span countByEnumeratingWithState:objects:count:. Unfortunately, it&#39;s a confusing method. Here are two sample implementations that show the steps needed to implement this method in most cases."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="implementing-countbyenumeratingwithstat.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Implementing countByEnumeratingWithState:objects:count:</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2008-05-19">May 19, 2008</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/objective-c.html">Objective-C</a>, <a href="../../categories/foundation.html">Foundation</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>If you want to use fast enumeration on your own classes, you must implement <span class="monospace">countByEnumeratingWithState:objects:count:</span>. Unfortunately, it's a confusing method. Here are two sample implementations that show the steps needed to implement this method in most cases.</p></span>
+
+<span class="fullpost">
+<h2>Some sample NSFastEnumeration implementations</h2>
+
+<p>You need to implement NSFastEnumeration if you want to use your own classes in the Objective-C 2.0 "<span class="monospace">for...in</span>" fast-enumeration language feature.</p>
+
+<p>The documentation for its only method (<span class="monospace">countByEnumeratingWithState:objects:count:</span>) is pretty cryptic and overwhelming &mdash; mostly because the method needs to be flexible and Apple don't want to tell you how to write your code. I have no such qualms and since there aren't many examples on the Internets at the moment I thought I'd show you some easy approaches for implementing it in your own programs.</p>
+
+<p>There are two different ways to enumerate. The first is where your class already has, or is willing to create, a C array of Objective-C <span class="monospace">id</span> values which point to the objects being enumerated. The second is where you don't have this storage and want to use storage passed to you.</p>
+
+<blockquote><strong>Warning:</strong> These examples do not use the <span class="monospace">mutationsPtr</span> and are therefore only safe for use with <em>immutable</em> collections. If the enumerated collection is <em>mutable</em>, you will need to point <span class="monospace">mutationsPtr</span> to an appropriate mutation guard value (normally a mutations count value).</blockquote>
+
+<h2>First case: already have a C array of storage</h2>
+
+<p>Our class looks like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@interface</span> <span class="nc">SimpleStringArray</span> : <span class="nc">NSObject</span> <span class="o">&lt;</span><span class="n">NSFastEnumeration</span><span class="o">&gt;</span>
+<span class="p">{</span>
+    <span class="n">NSString</span> <span class="o">*</span><span class="n">stringArray</span><span class="p">[</span><span class="n">ARRAY_LENGTH</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>In this case, the implementation of <span class="monospace">countByEnumeratingWithState:objects:count:</span> would look like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">NSUInteger</span><span class="p">)</span><span class="nf">countByEnumeratingWithState:</span><span class="p">(</span><span class="n">NSFastEnumerationState</span> <span class="o">*</span><span class="p">)</span><span class="nv">state</span> <span class="nf">objects:</span><span class="p">(</span><span class="kt">id</span> <span class="o">*</span><span class="p">)</span><span class="nv">stackbuf</span> <span class="nf">count:</span><span class="p">(</span><span class="n">NSUInteger</span><span class="p">)</span><span class="nv">len</span>
+<span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">state</span><span class="o">-&gt;</span><span class="n">state</span> <span class="o">&gt;=</span> <span class="n">ARRAY_LENGTH</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="n">state</span><span class="o">-&gt;</span><span class="n">itemsPtr</span> <span class="o">=</span> <span class="n">stringArray</span><span class="p">;</span>
+    <span class="n">state</span><span class="o">-&gt;</span><span class="n">state</span> <span class="o">=</span> <span class="n">ARRAY_LENGTH</span><span class="p">;</span>
+    <span class="n">state</span><span class="o">-&gt;</span><span class="n">mutationsPtr</span> <span class="o">=</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">long</span> <span class="o">*</span><span class="p">)</span><span class="nb">self</span><span class="p">;</span>
+    
+    <span class="k">return</span> <span class="n">ARRAY_LENGTH</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Quick explanation:</p>
+<ul><li>we've ignored <span class="monospace">stackbuf</span> and <span class="monospace">count</span> (because we already have storage)</li>
+<li>as required, we've set <span class="monospace">state->state</span> to a non zero value (the iteration index after the current items are iterated)</li>
+<li>as required, we've set <span class="monospace">state->mutationsPtr</span> to a non zero value (the self pointer since we have no "array has changed" flag that we can point it to)</li>
+<li>we've returned the complete length of the array, so it will all be iterated in one pass (on the second pass, <span class="monospace">state->state</span> will equal ARRAY_LENGTH and we'll return "0", ending the loop)</li></ul>
+
+<h2>Second case: need storage</h2>
+
+<p>If our class' data is a collection of <span class="monospace">NSString</span> objects stored in a list of linearly connected C structs, then we might have no C array value to return.</p>
+
+<p>Assume our list is declared like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">typedef</span> <span class="k">struct</span>
+<span class="p">{</span>
+    <span class="n">NSString</span> <span class="o">*</span> <span class="n">stringPtr</span><span class="p">;</span>
+    <span class="k">struct</span> <span class="n">MyList</span> <span class="o">*</span> <span class="n">nextNode</span><span class="p">;</span>
+<span class="p">}</span> <span class="n">MyList</span><span class="p">;</span></code></pre></div>
+
+<p>and our class is declared like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@interface</span> <span class="nc">StringList</span> : <span class="nc">NSObject</span> <span class="o">&lt;</span><span class="n">NSFastEnumeration</span><span class="o">&gt;</span>
+<span class="p">{</span>
+    <span class="n">MyList</span> <span class="o">*</span> <span class="n">_startOfListNode</span><span class="p">;</span>
+    <span class="n">MyList</span> <span class="o">*</span> <span class="n">_endOfListPlusOneNode</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This is more complicated example because we need to actually gather the data from the list and store our traversal state between iterations. Here is how it might look:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">NSUInteger</span><span class="p">)</span><span class="nf">countByEnumeratingWithState:</span><span class="p">(</span><span class="n">NSFastEnumerationState</span> <span class="o">*</span><span class="p">)</span><span class="nv">state</span> <span class="nf">objects:</span><span class="p">(</span><span class="kt">id</span> <span class="o">*</span><span class="p">)</span><span class="nv">stackbuf</span> <span class="nf">count:</span><span class="p">(</span><span class="n">NSUInteger</span><span class="p">)</span><span class="nv">len</span>
+<span class="p">{</span>
+    <span class="n">MyList</span> <span class="o">*</span><span class="n">currentNode</span><span class="p">;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">state</span><span class="o">-&gt;</span><span class="n">state</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="c1">// Set the starting point. _startOfListNode is assumed to be our
+</span><span class="c1"></span>        <span class="c1">// object&#39;s instance variable that points to the start of the list.
+</span><span class="c1"></span>        <span class="n">currentNode</span> <span class="o">=</span> <span class="n">_startOfListNode</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="k">else</span>
+    <span class="p">{</span>
+        <span class="c1">// Subsequent iterations, get the current progress out of state-&gt;state
+</span><span class="c1"></span>        <span class="n">currentNode</span> <span class="o">=</span> <span class="p">(</span><span class="k">struct</span> <span class="n">MyList</span> <span class="o">*</span><span class="p">)</span><span class="n">state</span><span class="o">-&gt;</span><span class="n">state</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="c1">// Accumulate nodes from the list until we reach the object&#39;s
+</span><span class="c1"></span>    <span class="c1">// _endOfListPlusOneNode
+</span><span class="c1"></span>    <span class="n">NSUInteger</span> <span class="n">batchCount</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="k">while</span> <span class="p">(</span><span class="n">currentNode</span> <span class="o">!=</span> <span class="n">_endOfListPlusOneNode</span> <span class="o">&amp;&amp;</span> <span class="n">batchCount</span> <span class="o">&lt;</span> <span class="n">len</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">stackbuf</span><span class="p">[</span><span class="n">batchCount</span><span class="p">]</span> <span class="o">=</span> <span class="n">currentNode</span><span class="o">-&gt;</span><span class="n">stringPtr</span><span class="p">;</span>
+        <span class="n">currentNode</span> <span class="o">=</span> <span class="n">currentNode</span><span class="o">-&gt;</span><span class="n">nextNode</span><span class="p">;</span>
+        <span class="n">batchCount</span><span class="o">++</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="n">state</span><span class="o">-&gt;</span><span class="n">state</span> <span class="o">=</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">long</span><span class="p">)</span><span class="n">currentNode</span><span class="p">;</span>
+    <span class="n">state</span><span class="o">-&gt;</span><span class="n">itemsPtr</span> <span class="o">=</span> <span class="n">stackbuf</span><span class="p">;</span>
+    <span class="n">state</span><span class="o">-&gt;</span><span class="n">mutationsPtr</span> <span class="o">=</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="kt">long</span> <span class="o">*</span><span class="p">)</span><span class="nb">self</span><span class="p">;</span>
+
+    <span class="k">return</span> <span class="n">batchCount</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Explanation of this example:</p>
+<ul><li>We now use <span class="monospace">stackbuf</span> to store the data accumulated from the list and we return it in <span class="monospace">state->itemsPtr</span>.</li>
+<li><span class="monospace">len</span> is used now because it is the maximum number of objects we can accumulate in <span class="monospace">stackbuf</span> each time.</li>
+<li>When executed the first time (when <span class="monospace">state->state == 0</span>), we set the <span class="monospace">currentNode</span> to our object's private <span class="monospace">_startOfListNode</span> &mdash; that we assume we have correctly set to the start of our list.</li>
+<li>Every other time we are run, <span class="monospace">state->state</span> will hold our <span class="monospace">currentNode</span>, saved from the last iteration.</li>
+<li>The fast enumeration will repeatedly invoke this method until we reach a <span class="monospace">currentNode == _endOfListPlusOneNode</span> at the end of the list &mdash; remember that <span class="monospace">state->state</span> is not allowed to be nil, which is why we use this non-nil end marker node. If you use a list that ends in nil, then you should detect this and set <span class="monospace">state->state</span> to a special non-nil "end" flag so that you won't get trapped in an infinite loop.</ul>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="fast-enumeration-clarifications.html">Objective-C 2.0: Fast enumeration clarifications</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="adapter-interfaces-in-objective-c-using.html">Adapter interfaces in Objective-C, using categories.</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

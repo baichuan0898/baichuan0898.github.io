@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>5 ways to draw a 2D shape with a hole in CoreGraphics</title>
+  <meta name="description" content="In this post, I look at 5 different ways that you can draw a very simple shape: a square with a triangular hole cut out of the center. In a drawing environment like CoreGraphics which offers double buffering, winding count path filling, even-odd path filling and clipping regions, there&#39;s no single answer. An iPhone sample project is provided containing the code but all drawing functions are identical on the Mac." />
+
+  <meta name="twitter:title" content="5 ways to draw a 2D shape with a hole in CoreGraphics"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2010/05/5-ways-to-draw-2d-shape-with-hole-in.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="In this post, I look at 5 different ways that you can draw a very simple shape: a square with a triangular hole cut out of the center. In a drawing environment like CoreGraphics which offers double buffering, winding count path filling, even-odd path filling and clipping regions, there&#39;s no single answer. An iPhone sample project is provided containing the code but all drawing functions are identical on the Mac."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="5-ways-to-draw-2d-shape-with-hole-in.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">5 ways to draw a 2D shape with a hole in CoreGraphics</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2010-05-17">May 17, 2010</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/appkit.html">AppKit</a>, <a href="../../categories/coregraphics.html">CoreGraphics</a>, <a href="../../categories/cocoa-touch.html">Cocoa Touch</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>In this post, I look at 5 different ways that you can draw a very simple shape: a square with a triangular hole cut out of the center. In a drawing environment like CoreGraphics which offers double buffering, winding count path filling, even-odd path filling and clipping regions, there's no single answer. An iPhone sample project is provided containing the code but all drawing functions are identical on the Mac.</p></span>
+
+<span class="fullpost">
+
+<h2>Introduction</h2>
+<p>This post will look at different ways to draw the following shape:</p>
+
+<img src="../../assets/objc-era/shape.png" width="111" height="112" />
+
+<p>This is a very simple shape but it requires a non-simple topology: you must cut the center out of the shape to draw it. This post will look at 5 different ways that this can be done and the advantages or disadvantages with each.</p>
+
+<p>To make the explanations easier, I've named each of the coordinates used to draw the shape:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="c1">// Coordinates are:
+</span><span class="c1">//
+</span><span class="c1">// A-------------B     A(0,0), B(100,0), C(100,100), D(0,100)
+</span><span class="c1">// |      E      |     E(50,10), F(10,90), G(90,90)
+</span><span class="c1">// |     / \     |     H(50,90), I(50,100)
+</span><span class="c1">// |    /   \    |
+</span><span class="c1">// |   /     \   |
+</span><span class="c1">// |  F---H---G  |
+</span><span class="c1"></span><span class="o">//</span> <span class="n">D</span><span class="o">------</span><span class="n">I</span><span class="o">------</span><span class="n">C</span></code></pre></div>
+
+<h2>Technique 1: overpainting</h2>
+
+<p>The most naive approach to drawing the shape is to draw the square (ABCD) in the shape's color and then draw the triangle (EFG) over the top in the color of the background.</p>
+
+<p>To be clear though: this is an example of a technique that you should <em>not</em> use.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="c1">// Technique 1: overpaint
+</span><span class="c1"></span><span class="n">CGContextMoveToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Ax</span><span class="p">,</span> <span class="n">Ay</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Bx</span><span class="p">,</span> <span class="n">By</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Cx</span><span class="p">,</span> <span class="n">Cy</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Dx</span><span class="p">,</span> <span class="n">Dy</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Ax</span><span class="p">,</span> <span class="n">Ay</span><span class="p">);</span>
+<span class="n">CGContextSetRGBFillColor</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span>
+<span class="n">CGContextFillPath</span><span class="p">(</span><span class="n">context</span><span class="p">);</span>
+<span class="n">CGContextMoveToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Ex</span><span class="p">,</span> <span class="n">Ey</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Fx</span><span class="p">,</span> <span class="n">Fy</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Gx</span><span class="p">,</span> <span class="n">Gy</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Ex</span><span class="p">,</span> <span class="n">Ey</span><span class="p">);</span>
+<span class="n">CGContextSetRGBFillColor</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span>
+<span class="n">CGContextFillPath</span><span class="p">(</span><span class="n">context</span><span class="p">);</span></code></pre></div>
+
+<p><strong>Advantages</strong>: if you're only familiar with the "painter's algorithm" (everything is just painted over the top of everything else) then this might be the easiest concept to understand.</p>
+
+<p><strong>Disadvantages</strong>: if your background changes, the effect won't work.</p>
+
+<img src="../../assets/objc-era/shape1problem.png" width="159" height="144" />
+
+<p>This approach also has the problem that the pixels within the triangle of the image are drawn twice in the offscreen buffer (once in the square's color and once in the background color). If you are drawing a very large number of shapes this way, this overdrawing will be slower than not drawing the center pixels in the first place.</p>
+
+<h2>Technique 2: false hole</h2>
+
+<p>Another attempt to cheat when drawing this shape would be to draw the shape as a single, simple polygon &mdash; i.e. cut the shape along the line segment between H and I and draw it like a horseshoe (ABCI then HGEFH then finish with IDA).</p>
+
+<p>Again, this is an example of a technique that you should <em>not</em> use.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="c1">// Technique 2: false hole
+</span><span class="c1"></span><span class="n">CGContextMoveToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Ax</span><span class="p">,</span> <span class="n">Ay</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Bx</span><span class="p">,</span> <span class="n">By</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Cx</span><span class="p">,</span> <span class="n">Cy</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Ix</span><span class="p">,</span> <span class="n">Iy</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Hx</span><span class="p">,</span> <span class="n">Hy</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Gx</span><span class="p">,</span> <span class="n">Gy</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Ex</span><span class="p">,</span> <span class="n">Ey</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Fx</span><span class="p">,</span> <span class="n">Fy</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Hx</span><span class="p">,</span> <span class="n">Hy</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Ix</span><span class="p">,</span> <span class="n">Iy</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Dx</span><span class="p">,</span> <span class="n">Dy</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Ax</span><span class="p">,</span> <span class="n">Ay</span><span class="p">);</span>
+<span class="n">CGContextSetRGBFillColor</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span>
+<span class="n">CGContextFillPath</span><span class="p">(</span><span class="n">context</span><span class="p">);</span></code></pre></div>
+
+<p><strong>Advantages</strong>: avoids the previous problem of the background being overdrawn in the wrong color.</p>
+
+<p><strong> Disadvantages </strong>: contains extra edges which won't draw correctly if you attempt to stroke the shape.</p>
+
+<img src="../../assets/objc-era/shape2problem.png" width="152" height="152" />
+
+<p>This approach can also suffer from precision problems: if the cut at the bottom does not actually overlap, it may be visible as a gap in the object when drawn at very high resolutions (for example on the Mac once resolution independence becomes user settable and objects can be drawn at unexpected sizes).</p>
+
+<h2>Technique 3: Winding count</h2>
+
+<p>This is the first of the correct approaches to drawing a hole in a path and uses the "winding count" polygon interior algorithm to label the inside of the triangle as "outside" the bounds of our path.</p>
+
+<p>Winding count is the default way that CoreGraphics determines if a pixel is inside or outside a path. It works like this:</p>
+
+<ol>
+<li>CoreGraphics draws every horizontal row within the path's bounding rectangle from left-to-right</li>
+<li>At the start of each row, CoreGraphics sets the winding count for the shape to zero.</li>
+<li>If CoreGraphics crosses a line in the shape at any point during the row, it notes if the line was going upwards or downwards at the point where CoreGraphics crossed it.</li>
+<li>An upward line increases the winding count of the shape by 1.</li>
+<li>A downward line decreases the winding count of the shape by 1.</li>
+<li>If the winding count for the shape is ever non-zero (positive or negative) then pixels are filled according to the color of the shape.</li>
+</ol>
+
+<p>If that's a little hard to follow then the simple description of winding count is:</p>
+
+<blockquote><strong>Simple winding count</strong>: If a boundary is drawn clockwise, then a counter-clockwise boundary inside it will switch the shape off. If a boundary is drawn counter-clockwise, then a clockwise boundary inside it will switch it off.</blockquote>
+
+<p>This is how we use winding count to draw the shape:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="c1">// Technique 3: winding count fill rule
+</span><span class="c1"></span><span class="n">CGContextMoveToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Ax</span><span class="p">,</span> <span class="n">Ay</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Bx</span><span class="p">,</span> <span class="n">By</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Cx</span><span class="p">,</span> <span class="n">Cy</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Dx</span><span class="p">,</span> <span class="n">Dy</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Ax</span><span class="p">,</span> <span class="n">Ay</span><span class="p">);</span>
+<span class="n">CGContextClosePath</span><span class="p">(</span><span class="n">context</span><span class="p">);</span>
+<span class="n">CGContextMoveToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Ex</span><span class="p">,</span> <span class="n">Ey</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Fx</span><span class="p">,</span> <span class="n">Fy</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Gx</span><span class="p">,</span> <span class="n">Gy</span><span class="p">);</span>
+<span class="n">CGContextClosePath</span><span class="p">(</span><span class="n">context</span><span class="p">);</span>
+<span class="n">CGContextSetRGBFillColor</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.75</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span>
+<span class="n">CGContextFillPath</span><span class="p">(</span><span class="n">context</span><span class="p">);</span></code></pre></div>
+
+<p>The ABCD boundary is clockwise, so the counter-clockwise EFG creates a hole. To start the inner boundary, we just close the first boundary and move to the next (all boundaries become part of the current path).</p>
+
+<p><strong>Advantages</strong>: genuinely draws a shape with a hole cut out of it.</p>
+
+<p><strong>Disadvantages</strong>: accidentally draw the inner shape in the order EGF and it won't work (clockwise plus clockwise leads to a winding count of 2 &mdash; which is still non-zero and the shape will still be filled.</p>
+
+<p>Winding counts require a little extra effort to ensure that directions are maintained at all times.</p>
+
+<h2>Technique 4: Even-odd paths</h2>
+
+<p>Even-odd is the other rule used for paths in CoreGraphics. The rule is a little simpler to explain than winding count: in even-odd, the outmost boundary begins the object, the next outermost turns it off again, and so on for other nested paths.</p>
+
+<p>The code is very similar to the winding count version except that we fill using <code>CGContextEOFillPath</code> and the order of EFG with respect to ABCD does not matter.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="c1">// Technique 4: even-odd fill rule
+</span><span class="c1"></span><span class="n">CGContextMoveToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Ax</span><span class="p">,</span> <span class="n">Ay</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Bx</span><span class="p">,</span> <span class="n">By</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Cx</span><span class="p">,</span> <span class="n">Cy</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Dx</span><span class="p">,</span> <span class="n">Dy</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Ax</span><span class="p">,</span> <span class="n">Ay</span><span class="p">);</span>
+<span class="n">CGContextClosePath</span><span class="p">(</span><span class="n">context</span><span class="p">);</span>
+<span class="n">CGContextMoveToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Ex</span><span class="p">,</span> <span class="n">Ey</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Fx</span><span class="p">,</span> <span class="n">Fy</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Gx</span><span class="p">,</span> <span class="n">Gy</span><span class="p">);</span>
+<span class="n">CGContextClosePath</span><span class="p">(</span><span class="n">context</span><span class="p">);</span>
+<span class="n">CGContextSetRGBFillColor</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="mf">0.75</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span>
+<span class="n">CGContextEOFillPath</span><span class="p">(</span><span class="n">context</span><span class="p">);</span></code></pre></div>
+
+<p><strong>Advantages</strong>: less prone to ordering issues than winding count.</p>
+
+<p><strong>Disadvantages</strong>: there are some situations where winding count may give a better result. Consider the following pentagram drawn in a single continuous path 12345.</p>
+
+<img src="../../assets/objc-era/eoversuswinding.png" width="451" height="191" />
+
+<p>In this case, if you actually wanted to fill the center of the shape, you'd need to use winding count (the shape is drawn in a continuous clockwise direction so the winding count is always positive).</p>
+
+<h2>Technique 5: Clipping region</h2>
+
+<p>The final approach that I'll show is using a clipping region to remove the triangle at the center of the shape from the enabled drawing region.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="c1">// Technique 5: remove the inner hole using a clipping region
+</span><span class="c1"></span><span class="n">CGContextSaveGState</span><span class="p">(</span><span class="n">context</span><span class="p">);</span>
+<span class="n">CGContextAddRect</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">CGContextGetClipBoundingBox</span><span class="p">(</span><span class="n">context</span><span class="p">));</span>
+<span class="n">CGContextMoveToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Ex</span><span class="p">,</span> <span class="n">Ey</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Fx</span><span class="p">,</span> <span class="n">Fy</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Gx</span><span class="p">,</span> <span class="n">Gy</span><span class="p">);</span>
+<span class="n">CGContextClosePath</span><span class="p">(</span><span class="n">context</span><span class="p">);</span>
+<span class="n">CGContextEOClip</span><span class="p">(</span><span class="n">context</span><span class="p">);</span>
+<span class="n">CGContextMoveToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Ax</span><span class="p">,</span> <span class="n">Ay</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Bx</span><span class="p">,</span> <span class="n">By</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Cx</span><span class="p">,</span> <span class="n">Cy</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Dx</span><span class="p">,</span> <span class="n">Dy</span><span class="p">);</span>
+<span class="n">CGContextAddLineToPoint</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">Ax</span><span class="p">,</span> <span class="n">Ay</span><span class="p">);</span>
+<span class="n">CGContextSetRGBFillColor</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span>
+<span class="n">CGContextFillPath</span><span class="p">(</span><span class="n">context</span><span class="p">);</span>
+<span class="n">CGContextRestoreGState</span><span class="p">(</span><span class="n">context</span><span class="p">);</span></code></pre></div>
+
+<p>You can see that this approach is actually quite complicated since a clipping region with a hole requires the same effort as a shape with a hole: I subtracted the triangle from the clipping region's bounding rectangle using an even-odd clipping rule.</p>
+
+<p><strong>Advantages</strong>: a clipping region can subtract or cut very complicated shapes &mdash; even clusters of shapes &mdash; very simply.</p>
+
+<p><strong>Disadvantages</strong>: for cutting a single shape like this, the extra effort required to save the old graphics state and restore it after we're done, plus the fact that the clipping region is just as complicated as the shape itself, makes this approach more effort than the previous two.</p>
+
+<h2>Conclusion</h2>
+
+<blockquote>You can download the code for drawing these shapes here: <a href="../../assets/objc-era/GraphicalSubtraction.zip">GraphicalSubtraction.zip</a> (25kB)</blockquote>
+
+<p>A very simple shape but you can draw it in some very different ways. As you can see, the "wrong" ways of solving the problem don't actually save any code &mdash; the proper solutions are roughly the same length.</p>
+
+<p>The best ways to solve this problem are to use the even-odd or winding count approaches. While the shape might look like the center is clipped out, the clipping region turns out to be more work and non-rectangular clipping regions are actually more computationally difficult as well.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="look-at-how-malloc-works-on-mac.html">A look at how malloc works on the Mac</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="handling-unhandled-exceptions-and.html">Handling unhandled exceptions and signals</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

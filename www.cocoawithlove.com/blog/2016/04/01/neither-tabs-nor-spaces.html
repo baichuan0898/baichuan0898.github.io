@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Indent with tabs or spaces? I wish I didn&#39;t need to know.</title>
+  <meta name="description" content="In an ideal world, we would not know if our code was indented with either tabs or spaces. Remember: the moment you become aware of how your code indentation is encoded, you&#39;re not programming, you&#39;re managing your programming tools." />
+
+  <meta name="twitter:title" content="Indent with tabs or spaces? I wish I didn&#39;t need to know."/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/blog/2016/04/01/neither-tabs-nor-spaces.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="In an ideal world, we would not know if our code was indented with either tabs or spaces. Remember: the moment you become aware of how your code indentation is encoded, you&#39;re not programming, you&#39;re managing your programming tools."/>
+
+  <link rel="icon" href="../../../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../../../css/main.css" />
+  <link rel="canonical" href="neither-tabs-nor-spaces.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../../../index.html"><img class="heartandcup" src="../../../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../../../about/index.html">about</a>
+        <a class="page-link" href="../../../../archive/index.html">archive</a>
+        <a class="page-link" href="../../../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Indent with tabs or spaces? I wish I didn&#39;t need to know.</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2016-04-01">April 1, 2016</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../../../tags/tools.html">tools</a>
+		 
+	</div>
+</header>
+
+
+<main role="main">
+	<article itemscope itemtype="http://schema.org/BlogPosting">
+		<div class="post-content" itemprop="articleBody">
+			
+
+<p>The always entertaining <a href="http://ericasadun.com">Erica Sadun</a> wrote an article on her blog yesterday about code indentation styles, titled <a href="http://ericasadun.com/2016/03/31/swift-style-are-you-a-4-denter/">&ldquo;Swift Style: Are you a 4-denter?&rdquo;</a>. There was <a href="https://twitter.com/ericasadun/status/715566210872582145">a flurry of replies on Twitter</a> as others playfully chimed in.</p>
+
+<p>While I love trolling and human misery as much as the next person, I&rsquo;m always saddened when I see these discussions – not because I have a deeply vested interest in tabs over spaces or one indentation width over another – but because the existence of the argument reminds me of the fact that after more than 50 years of indented code, nothing has been done to fix the technology limitations that cause these debates.</p>
+
+<p>Ignoring hypothetical technology changes to eliminate the problem, there are some code formatting choices you can make to maximize maintainability. But I&rsquo;ll give you a hint: if you&rsquo;re trying to save time by changing things on the left edge of the line, you&rsquo;re looking in the wrong spot.</p>
+
+<nav id="TableOfContents"><span class="toc-heading">Contents</span>
+<ul>
+<li>
+<ul>
+<li><a href="#a-quick-rhetorical-question">A quick rhetorical question&hellip;</a></li>
+<li><a href="#document-formats-could-eliminate-the-debate-entirely">Document formats could eliminate the debate entirely</a></li>
+<li><a href="#tabs-versus-spaces">Tabs versus spaces</a></li>
+<li><a href="#non-indent-formatting">Non-indent formatting</a>
+<ul>
+<li><a href="#hard-wrapping-and-parameter-alignment">Hard wrapping and parameter alignment</a></li>
+<li><a href="#column-formatting">Column formatting</a></li>
+</ul></li>
+<li><a href="#conclusion">Conclusion</a></li>
+</ul></li>
+</ul>
+</nav>
+
+<h2 id="a-quick-rhetorical-question">A quick rhetorical question&hellip;</h2>
+
+<p>Have a look at the following code:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">helloWorld</span><span class="p">()</span> <span class="p">{</span>
+   <span class="bp">print</span><span class="p">(</span><span class="s">&#34;Hello world&#34;</span><span class="p">)</span>
+<span class="p">}</span></code></pre></div>
+
+<p><strong>Question</strong>: when I typed this text, did I type Unix linefeeds <code>\n</code>, classic Mac carriage returns <code>\r</code> or Windows carriage return linefeeds <code>\r\n</code>?</p>
+
+<p>Obviously, I didn&rsquo;t type anything of the sort. I hit the &ldquo;return&rdquo; key and my text editor did whatever was required to take me to the start of the next line.</p>
+
+<p>Here is how I feel about the encoding of layout commands:</p>
+
+<blockquote>
+<p>The encoding of layout commands is the responsibility of the text editor program, not the user. The fact that users are perpetually embroiled in debates about the underlying encoding is a failure between text editing programs and text formats to negotiate parameters without user intervention.</p>
+</blockquote>
+
+<h2 id="document-formats-could-eliminate-the-debate-entirely">Document formats could eliminate the debate entirely</h2>
+
+<p>Consider an XML document declaration:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-xml" data-lang="xml"><span class="cp">&lt;?xml version=&#34;1.0&#34; encoding=&#34;UTF-8&#34;?&gt;</span></code></pre></div>
+
+<p>XML documents start by clearly declaring their type and encoding, eliminating ambiguity and making the potentially unsolvable problem of determining document type and <a href="(https-/en.wikipedia.org/wiki/Bush_hid_the_facts).html">text encoding</a> into a trivially easy task.</p>
+
+<p>With a Swift file, knowing the format or text encoding is rarely a problem. Instead, imagine if it was standard practice for Swift documents to start with a comment like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="cm">/*swift tabwidth=&#34;4&#34; prefertabs=&#34;true&#34;*/</span></code></pre></div>
+
+<p>This shouldn&rsquo;t be such a strange thing to see: something equvalent is probably buried in your .vimrc or Xcode settings. The problem is that this information is attached to your editor, not the document. This information needs to be carried along with the document.</p>
+
+<p>If common code editors supported this type of &ldquo;document declaration&rdquo; comment, there wouldn&rsquo;t need to be a tabs versus spaces debate. The mere presence of this line would be enough for a text editor to correctly interpret any combination of tab and space characters at the start of a line and ensure any newly added indentations are correctly encoded.</p>
+
+<blockquote>
+<p>Xcode <em>project</em> files do include this type of declaration (File inspector → Text Settings). That&rsquo;s great but Xcode doesn&rsquo;t prevent you copying and pasting incorrect indents from another file, adding files to the project with the wrong indentation settings or simply adding spaces where they don&rsquo;t belong. So the setting isn&rsquo;t really an intrinsic part of the document, it&rsquo;s just a guideline used when performing <em>some</em> operations.</p>
+</blockquote>
+
+<h2 id="tabs-versus-spaces">Tabs versus spaces</h2>
+
+<p>But like I said before: in more than 50 years, no one in a position to fix the problem has done anything. I don&rsquo;t anticipate change.</p>
+
+<p>So given the existing constraints what do we do to keep editing and maintenance costs to a minimum? Tabs or spaces?</p>
+
+<p>From a code maintenance point-of-view, it doesn&rsquo;t really matter: you will need to vigilantly enforce your standard, no matter what standard you choose.</p>
+
+<p>Both spaces and tabs require that all editors of a document coordinate on which standard they&rsquo;re going to use. But tabs and spaces are both invisible by default which leads to mistakes. That&rsquo;s the reason why hostility exists: it&rsquo;s not because one is superior to another, it&rsquo;s because anyone who uses a different standard to you is a potential looming threat to your coding standard.</p>
+
+<p>Frankly, compilers should detect inconsistent indentation styles and emit warnings. That would help far more than any debate over choice of standard.</p>
+
+<p>But detecting indentation is complicated by files where lines don&rsquo;t always start on a whole number of indents&hellip;</p>
+
+<h2 id="non-indent-formatting">Non-indent formatting</h2>
+
+<p>There&rsquo;s a related issue to indentation that requires separate discussion: horizontal alignment of text in ways other than indentation.</p>
+
+<p>Non-indent formatting is one of the biggest reasons why many people choose spaces over tabs. For a range of reasons, tabs are more prone to problems when used as part of non-indent formatting.</p>
+
+<p>Here&rsquo;s my take on the issue though: you should never use non-indent formatting in your code, regardless of your choice of tabs or spaces for indentation encoding. This advice has little to do with tabs versus spaces though and more to do with the belief that time spent formatting code is time wasted and it creates an unncessary code maintenance headache.</p>
+
+<p>I use the following rule and I suggest it for all people free to choose their own coding standards:</p>
+
+<blockquote>
+<p><strong>Indent code but <em>never</em> horizontally align code in any other way</strong>. After indentation, never put 2 spaces together (except inside a comment block or string literal) and never use a tab character at all.</p>
+</blockquote>
+
+<p>Your editor may be set up to &ldquo;smart indent&rdquo; or otherwise facilitate certain kinds of non-indent formatting but I assure you, there&rsquo;s still a non-zero effort involved in maintaing the aesthetic. It&rsquo;s <em>much</em> harder to coordinate this type of styling across a team than tabs/spaces settings. And it simply doesn&rsquo;t help readability enough to be worth the effort.</p>
+
+<h3 id="hard-wrapping-and-parameter-alignment">Hard wrapping and parameter alignment</h3>
+
+<p>Let&rsquo;s look at some code to see what I&rsquo;m talking about. Here&rsquo;s some code from <a href="https://github.com/apple/swift/blob/master/lib/IRGen/GenEnum.cpp">Swift&rsquo;s GenEnum.cpp</a>:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-cpp" data-lang="cpp"><span class="kt">void</span> <span class="nf">storeExtraInhabitant</span><span class="p">(</span><span class="n">IRGenFunction</span> <span class="o">&amp;</span><span class="n">IGF</span><span class="p">,</span>
+                          <span class="n">llvm</span><span class="o">::</span><span class="n">Value</span> <span class="o">*</span><span class="n">index</span><span class="p">,</span>
+                          <span class="n">Address</span> <span class="n">dest</span><span class="p">,</span> <span class="n">SILType</span> <span class="n">T</span><span class="p">)</span> <span class="k">const</span> <span class="k">override</span> <span class="p">{</span>
+  <span class="k">auto</span> <span class="o">&amp;</span><span class="n">C</span> <span class="o">=</span> <span class="n">IGF</span><span class="p">.</span><span class="n">IGM</span><span class="p">.</span><span class="n">getLLVMContext</span><span class="p">();</span>
+  <span class="k">auto</span> <span class="n">payloadTy</span> <span class="o">=</span> <span class="n">llvm</span><span class="o">::</span><span class="n">IntegerType</span><span class="o">::</span><span class="n">get</span><span class="p">(</span><span class="n">C</span><span class="p">,</span>
+                  <span class="n">cast</span><span class="o">&lt;</span><span class="n">FixedTypeInfo</span><span class="o">&gt;</span><span class="p">(</span><span class="n">TI</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">getFixedSize</span><span class="p">().</span><span class="n">getValueInBits</span><span class="p">());</span>
+  <span class="n">dest</span> <span class="o">=</span> <span class="n">IGF</span><span class="p">.</span><span class="n">Builder</span><span class="p">.</span><span class="n">CreateBitCast</span><span class="p">(</span><span class="n">dest</span><span class="p">,</span> <span class="n">payloadTy</span><span class="o">-&gt;</span><span class="n">getPointerTo</span><span class="p">());</span>
+
+  <span class="n">index</span> <span class="o">=</span> <span class="n">IGF</span><span class="p">.</span><span class="n">Builder</span><span class="p">.</span><span class="n">CreateZExtOrTrunc</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">payloadTy</span><span class="p">);</span>
+  <span class="n">index</span> <span class="o">=</span> <span class="n">IGF</span><span class="p">.</span><span class="n">Builder</span><span class="p">.</span><span class="n">CreateAdd</span><span class="p">(</span><span class="n">index</span><span class="p">,</span>
+            <span class="n">llvm</span><span class="o">::</span><span class="n">ConstantInt</span><span class="o">::</span><span class="n">get</span><span class="p">(</span><span class="n">payloadTy</span><span class="p">,</span> <span class="n">ElementsWithNoPayload</span><span class="p">.</span><span class="n">size</span><span class="p">()));</span>
+  <span class="n">IGF</span><span class="p">.</span><span class="n">Builder</span><span class="p">.</span><span class="n">CreateStore</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">dest</span><span class="p">);</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Clearly, this file is authored with a standard that requires parameters are horizontally aligned when they&rsquo;re put on new lines. Is it really time well spent? The alignment plays poorly with the 80 character line width and many of the aligned parameters aren&rsquo;t actually aligned – they just hang in the middle of the line for no apparent reason until you realize they&rsquo;ve bumped up against the right margin of the window and been pushed partially leftwards.</p>
+
+<p>Let&rsquo;s look at this same code with no formatting other than indentation:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-cpp" data-lang="cpp"><span class="kt">void</span> <span class="nf">storeExtraInhabitant</span><span class="p">(</span><span class="n">IRGenFunction</span> <span class="o">&amp;</span><span class="n">IGF</span><span class="p">,</span> <span class="n">llvm</span><span class="o">::</span><span class="n">Value</span> <span class="o">*</span><span class="n">index</span><span class="p">,</span> <span class="n">Address</span>
+   <span class="n">dest</span><span class="p">,</span> <span class="n">SILType</span> <span class="n">T</span><span class="p">)</span> <span class="k">const</span> <span class="k">override</span>
+<span class="p">{</span>
+   <span class="k">auto</span> <span class="o">&amp;</span><span class="n">C</span> <span class="o">=</span> <span class="n">IGF</span><span class="p">.</span><span class="n">IGM</span><span class="p">.</span><span class="n">getLLVMContext</span><span class="p">();</span>
+   <span class="k">auto</span> <span class="n">payloadTy</span> <span class="o">=</span> <span class="n">llvm</span><span class="o">::</span><span class="n">IntegerType</span><span class="o">::</span><span class="n">get</span><span class="p">(</span><span class="n">C</span><span class="p">,</span>
+      <span class="n">cast</span><span class="o">&lt;</span><span class="n">FixedTypeInfo</span><span class="o">&gt;</span><span class="p">(</span><span class="n">TI</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">getFixedSize</span><span class="p">().</span><span class="n">getValueInBits</span><span class="p">());</span>
+   <span class="n">dest</span> <span class="o">=</span> <span class="n">IGF</span><span class="p">.</span><span class="n">Builder</span><span class="p">.</span><span class="n">CreateBitCast</span><span class="p">(</span><span class="n">dest</span><span class="p">,</span> <span class="n">payloadTy</span><span class="o">-&gt;</span><span class="n">getPointerTo</span><span class="p">());</span>
+
+   <span class="n">index</span> <span class="o">=</span> <span class="n">IGF</span><span class="p">.</span><span class="n">Builder</span><span class="p">.</span><span class="n">CreateZExtOrTrunc</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">payloadTy</span><span class="p">);</span>
+   <span class="n">index</span> <span class="o">=</span> <span class="n">IGF</span><span class="p">.</span><span class="n">Builder</span><span class="p">.</span><span class="n">CreateAdd</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">llvm</span><span class="o">::</span><span class="n">ConstantInt</span><span class="o">::</span><span class="n">get</span><span class="p">(</span><span class="n">payloadTy</span><span class="p">,</span>
+      <span class="n">ElementsWithNoPayload</span><span class="p">.</span><span class="n">size</span><span class="p">()));</span>
+   <span class="n">IGF</span><span class="p">.</span><span class="n">Builder</span><span class="p">.</span><span class="n">CreateStore</span><span class="p">(</span><span class="n">index</span><span class="p">,</span> <span class="n">dest</span><span class="p">);</span>
+<span class="p">}</span></code></pre></div>
+
+<p>I&rsquo;ve cheated slightly: I moved the opening brace to its own line and increased the indentation to 3 spaces. Both changes are to offset the increased density from eliminating non-indent formatting.</p>
+
+<p>But despite my scurrilous cheating ways, I think there&rsquo;s an objective truth here: the extensive formatting effort in the first example doesn&rsquo;t make it substantially easier to read. In fact, I personally I find the more consistent indentation in the second example (the <em>lack</em> of formatting) makes it <em>easier</em> to read.</p>
+
+<p>Even if you find the second example harder to read, you need to ask yourself: how much easier? Because the second example comes with a very big advantage: in Xcode (or <a href="http://superuser.com/questions/72714/vim-line-wrap-with-indent#73190">Vim</a> and other editors), soft line wrapping with indentation can be automatic and completely eliminates any need to ever hard format code.</p>
+
+<p>Relying on soft wrapping in your editor can take a little acclimatization (many developers have hard-wrapping techniques drilled into them) but this one approach alone can save dozens of hours of time per year as every edit, re-edit or refactor to a hard-wrapped line wastes a few seconds of your time.</p>
+
+<h3 id="column-formatting">Column formatting</h3>
+
+<p>Maybe it was cruel to use C++ as an example: it&rsquo;s ugly from the beginning. Let&rsquo;s start with something that looks <em>pretty</em>. The following code is from <a href="https://github.com/FFmpeg/FFmpeg/blob/master/libavformat/mpjpegdec.c">ffmpeg&rsquo;s mpjpegdec.c</a>:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-c" data-lang="c"><span class="k">static</span> <span class="k">const</span> <span class="n">AVClass</span> <span class="n">mpjpeg_demuxer_class</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="p">.</span><span class="n">class_name</span>     <span class="o">=</span> <span class="sa"></span><span class="s">&#34;MPJPEG demuxer&#34;</span><span class="p">,</span>
+    <span class="p">.</span><span class="n">item_name</span>      <span class="o">=</span> <span class="n">av_default_item_name</span><span class="p">,</span>
+    <span class="p">.</span><span class="n">option</span>         <span class="o">=</span> <span class="n">mpjpeg_options</span><span class="p">,</span>
+    <span class="p">.</span><span class="n">version</span>        <span class="o">=</span> <span class="n">LIBAVUTIL_VERSION_INT</span><span class="p">,</span>
+<span class="p">};</span></code></pre></div>
+
+<p>Two columns! It looks pretty! It&rsquo;s contextually appropriate for the declarative structure!</p>
+
+<p>But are you really saving time? Separating the two columns helps you locate the right column more quickly but that&rsquo;s not really very important.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-c" data-lang="c"><span class="k">static</span> <span class="k">const</span> <span class="n">AVClass</span> <span class="n">mpjpeg_demuxer_class</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="p">.</span><span class="n">class_name</span> <span class="o">=</span> <span class="sa"></span><span class="s">&#34;MPJPEG demuxer&#34;</span><span class="p">,</span>
+    <span class="p">.</span><span class="n">item_name</span> <span class="o">=</span> <span class="n">av_default_item_name</span><span class="p">,</span>
+    <span class="p">.</span><span class="n">option</span> <span class="o">=</span> <span class="n">mpjpeg_options</span><span class="p">,</span>
+    <span class="p">.</span><span class="n">version</span> <span class="o">=</span> <span class="n">LIBAVUTIL_VERSION_INT</span><span class="p">,</span>
+<span class="p">};</span></code></pre></div>
+
+<p>Removing formatting has made the code uglier.</p>
+
+<p>But you can still find the <em>keys</em> at a glance, with almost the same speed. The right column doesn&rsquo;t pop out and it doesn&rsquo;t look like a pretty formatted table but there was no time wasted in lining up columns and no need for formatting maintenance.</p>
+
+<p>Is your time really well spent by aligning columns?</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>We shouldn&rsquo;t need to care about tabs versus spaces – it should be coordinated between the document and the editor with no possibility for mistakes.</p>
+
+<p>Sadly, that&rsquo;s not how things work.</p>
+
+<p>Compilers should emit warnings about inconsistent indentation used within a given file so we aren&rsquo;t perpetually forced to police invisible characters.</p>
+
+<p>Sadly, that&rsquo;s not how things work, either.</p>
+
+<p>Due to the failures of our tools to address the issue, we&rsquo;re stuck with ongoing work to enforce whatever indentation standard we choose.</p>
+
+<p>You can look at my code on Github and discover how I typically encode my indents. I do have a standard and I do keep to it but unless you choose to push changes to one of my projects, you shouldn&rsquo;t care.</p>
+
+<p>Far more interesting example to follow is how I handle whitespace <em>elsewhere</em> on the line: a <code>\t</code> character will never appear anywhere except in an indent and two or more space characters will only appear in indents, comment blocks or string literals. This avoids a whole host of problems and combined with the fact that I use soft-wrapping where possible, saves a noticeable amount of time in editing and refactoring code.</p>
+
+		</div>
+	</article>
+</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../../03/27/on-delete.html">Breaking Swift with reference counted structs</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../14/error-recovery-attempter.html">Presenting unanticipated errors to users</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../../../feed.json">JSON</a>, <a href="../../../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

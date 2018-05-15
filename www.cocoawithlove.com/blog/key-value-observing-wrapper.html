@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>A key-value observing wrapper</title>
+  <meta name="description" content="Just a little helper class that I use to round off the rough edges when dealing with Cocoa&#39;s key-value observing." />
+
+  <meta name="twitter:title" content="A key-value observing wrapper"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/blog/key-value-observing-wrapper.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Just a little helper class that I use to round off the rough edges when dealing with Cocoa&#39;s key-value observing."/>
+
+  <link rel="icon" href="../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../css/main.css" />
+  <link rel="canonical" href="key-value-observing-wrapper.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../index.html"><img class="heartandcup" src="../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../about/index.html">about</a>
+        <a class="page-link" href="../archive/index.html">archive</a>
+        <a class="page-link" href="../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">A key-value observing wrapper</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2016-12-31">December 31, 2016</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../tags/cocoa.html">cocoa</a>
+		 
+	</div>
+</header>
+
+
+<main role="main">
+	<article itemscope itemtype="http://schema.org/BlogPosting">
+		<div class="post-content" itemprop="articleBody">
+			
+
+<p>In this article, I&rsquo;ll show you a helper type named <code>KeyValueObserver</code> that improves syntax and addresses some core problems in key-value observing. This class is used by the <a href="https://github.com/mattgallagher/CwlSignal">CwlSignal project</a> to adapt key-value observing into a reactive programming pattern but the class depends only on the <code>OnDelete</code> class from <a href="https://github.com/mattgallagher/CwlUtils">CwlUtils</a> so you can just copy these two files and use it  without reactive programming, to improve the experience of working with key-value observing.</p>
+
+<p>There are other wrappers for key-value observing that apply type-safety or synchronize notifications or similar abstractions around key-value observing. This isn&rsquo;t one of those; instead it largely keeps the same &ldquo;change dictionary&rdquo; output and thread-safety implications of the underlying key-value observing, assuming that your application will want to apply its own logic to process the change dictionary or ensure thread safety. I&rsquo;ll show how CwlSignal applies both of these things over the top of <code>KeyValueObserver</code>.</p>
+
+<p>The purpose of the <code>KeyValueObserver</code> class – other than a dramatic improvement in syntax – is to address deeper problems in the key-value observing machinery such as lack of reporting about where changes occurred on a key path, failure to observe weak properties correctly and eliminating the dreaded <code>NSInternalInconsistencyException</code> if the observed object deallocates while observers are registered.</p>
+
+<nav id="TableOfContents"><span class="toc-heading">Contents</span>
+<ul>
+<li>
+<ul>
+<li><a href="#a-little-history">A little history</a></li>
+<li><a href="#key-value-observing-in-swift">Key-value observing in Swift</a></li>
+<li><a href="#a-wrapper-class">A wrapper class</a></li>
+<li><a href="#advantages-of-keyvalueobserver">Advantages of <code>KeyValueObserver</code></a></li>
+<li><a href="#how-does-keyvalueobserver-work">How does <code>KeyValueObserver</code> work?</a></li>
+<li><a href="#usage">Usage</a></li>
+<li><a href="#conclusion">Conclusion</a>
+<ul>
+<li><a href="#looking-forward">Looking forward&hellip;</a></li>
+</ul></li>
+</ul></li>
+</ul>
+</nav>
+
+<h2 id="a-little-history">A little history</h2>
+
+<p>Key-value observing first appeared in Mac OS X 10.3. At the time, I was astounded by the &ldquo;magic&rdquo; of it. Many classes appeared to automatically support key-value observing for simple properties. It started a fascination for me where I tried to achieve other tricks with the Objective-C messaging system. Ultimately, this fascination waned – years before Swift arrived – due to the many kinds of maintenance headache that dynamic messaging can cause.</p>
+
+<p>If you ever relied on implicitly supported key-value observing (observing a value where the documentation didn&rsquo;t explicitly advertise the value as key-value observable), you doubtless saw one of the effects of relying on tricks; it was unreliable. It wasn&rsquo;t unreliable due to any flaw in the key-value observing machinery itself but simply due to the fact that unless a class carefully chooses to support key-value observing for a particular property, it&rsquo;s likely to occasionally update that property in different ways that simply don&rsquo;t trigger key-value observing notifications.</p>
+
+<p>So despite being apparently &ldquo;magic&rdquo;, key-value observing still required the same methodical design at the emitting end as other notification systems.</p>
+
+<p>On its own, that&rsquo;s not really a problem; it negates some of the &ldquo;magic&rdquo; but it doesn&rsquo;t negate the worthiness of the entire key-value observing API. However, the system does take a turn for the worse when we start to look at the observing end.</p>
+
+<p>Proper implementations across <code>addObserver</code>, <code>observeValue</code> and <code>removeObserver</code> are large, complex and fraught with a number of risks that are not always apparent at first glance: failing to call super in the <code>observeValue</code> method, failing to keep observations unique, failing to correctly process the <code>change</code> dictionary, failing to remove the observation when done.</p>
+
+<p>Even once you&rsquo;ve implemented everything and your code appears to mostly work, if the observed object is somehow released before the observation is removed – due to a code path you hadn&rsquo;t fully tested – the whole program crashes:</p>
+
+<pre><code>2016-12-31 09:16:14.476134 MyApp[63688:8417160] *** Terminating app due to uncaught
+exception 'NSInternalInconsistencyException', reason: 'An instance 0x100a072c0 of class
+SomeModule.SomeClass was deallocated while key value observers were still registered
+with it. Current observation info: &lt;NSKeyValueObservationInfo 0x100a09e30&gt; (
+</code></pre>
+
+<p>In my experience, these types of lifecycle ordering glitches do happen from time to time; not frequently but often enough that a better approach than crashing is strongly desired.</p>
+
+<h2 id="key-value-observing-in-swift">Key-value observing in Swift</h2>
+
+<p>Newly written programs should use reactive programming or other more modern change management approaches instead of key-value observing but when deadling with existing APIs, we often don&rsquo;t have a choice.</p>
+
+<p>So let&rsquo;s look at what&rsquo;s involved in key-value observing in Swift. There are dozens of ways to implement the observing end – each with different drawbacks and costs. It&rsquo;s not a system that feels like it&rsquo;s &ldquo;on rails&rdquo;, instead you&rsquo;re really designing your own system each time. I&rsquo;m going to give an example of what I consider to be &ldquo;good&rdquo; handling of key-value observing but keep in mind that it still has its own costs and drawbacks relative to other approaches. If you want, you can compare this approach to another that <a href="reactive-programming-what-and-why.html#a-button-dependent-on-two-state-values">I demonstrated in a previous article</a>.</p>
+
+<p>Remember, <em>all</em> of the following code is simply to handle the observing of a <em>single</em> key-value observing property.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">class</span> <span class="nc">MyClass</span><span class="p">:</span> <span class="n">NSObject</span> <span class="p">{</span>
+   <span class="kd">var</span> <span class="nv">observations</span> <span class="p">=</span> <span class="nb">Dictionary</span><span class="p">&lt;</span><span class="n">UnsafeMutableRawPointer</span><span class="p">,</span> <span class="p">(</span><span class="n">NSObject</span><span class="p">,</span> <span class="nb">String</span><span class="p">)</span><span class="o">&gt;</span><span class="p">()</span>
+   
+   <span class="c1">// Set up the observations in some function (constructor/viewDidLoad/awakeFromNib)</span>
+   <span class="kd">func</span> <span class="nf">startObserving</span><span class="p">(</span><span class="n">observedObject</span><span class="p">:</span> <span class="n">TargetType</span><span class="p">)</span> <span class="p">{</span>
+      <span class="c1">// Implementing addObserver properly requires a context object to keep the</span>
+      <span class="c1">// observation unique. We can make this a wrapper or specialized handling class but</span>
+      <span class="c1">// the simplest scenario is a dummy allocation; little more than a unique key.</span>
+      <span class="kd">let</span> <span class="nv">context</span> <span class="p">=</span> <span class="n">UnsafeMutableRawPointer</span><span class="p">.</span><span class="n">allocate</span><span class="p">(</span><span class="n">bytes</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="n">alignedTo</span><span class="p">:</span> <span class="mi">0</span><span class="p">)</span>
+
+      <span class="c1">// We need to store the context object so it persists and we can test against it</span>
+      <span class="c1">// later. It&#39;s usually a good idea to retain the observedObject too, to avoid</span>
+      <span class="c1">// exceptions.</span>
+      <span class="kc">self</span><span class="p">.</span><span class="n">observations</span><span class="p">[</span><span class="n">context</span><span class="p">]</span> <span class="p">=</span> <span class="p">(</span><span class="n">observedObject</span><span class="p">,</span> <span class="p">#</span><span class="n">keyPath</span><span class="p">(</span><span class="n">TargetType</span><span class="p">.</span><span class="n">targetProperty</span><span class="p">))</span>
+
+      <span class="c1">// Finally, we can add the observer</span>
+      <span class="n">observedObject</span><span class="p">.</span><span class="n">addObserver</span><span class="p">(</span><span class="kc">self</span><span class="p">,</span> <span class="n">forKeyPath</span><span class="p">:</span> <span class="p">#</span><span class="n">keyPath</span><span class="p">(</span><span class="n">TargetType</span><span class="p">.</span><span class="n">targetProperty</span><span class="p">),</span>
+         <span class="n">options</span><span class="p">:</span> <span class="n">NSKeyValueObservingOptions</span><span class="p">.</span><span class="n">new</span><span class="p">.</span><span class="n">union</span><span class="p">(</span><span class="n">NSKeyValueObservingOptions</span><span class="p">.</span><span class="n">initial</span><span class="p">),</span>
+            <span class="n">context</span><span class="p">:</span> <span class="n">context</span><span class="p">)</span>
+   <span class="p">}</span>
+   
+   <span class="c1">// Implement the observeValue function</span>
+   <span class="kr">override</span> <span class="kd">func</span> <span class="nf">observeValue</span><span class="p">(</span><span class="n">forKeyPath</span> <span class="n">keyPath</span><span class="p">:</span> <span class="nb">String</span><span class="p">?,</span> <span class="n">of</span> <span class="n">object</span><span class="p">:</span> <span class="nb">Any</span><span class="p">?,</span>
+      <span class="n">change</span><span class="p">:</span> <span class="p">[</span><span class="n">NSKeyValueChangeKey</span> <span class="p">:</span> <span class="nb">Any</span><span class="p">]?,</span> <span class="n">context</span><span class="p">:</span> <span class="n">UnsafeMutableRawPointer</span><span class="p">?)</span> <span class="p">{</span>
+      <span class="c1">// We need to make *multiple* checks before we can continue</span>
+      <span class="k">if</span> <span class="kd">let</span> <span class="nv">c</span> <span class="p">=</span> <span class="n">context</span><span class="p">,</span> <span class="kd">let</span> <span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="kc">_</span><span class="p">)</span> <span class="p">=</span> <span class="kc">self</span><span class="p">.</span><span class="n">observations</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="k">as</span><span class="p">?</span> <span class="n">TargetType</span><span class="p">,</span> <span class="kd">let</span>
+         <span class="nv">newValue</span> <span class="p">=</span> <span class="n">change</span><span class="p">?[.</span><span class="n">newKey</span><span class="p">]</span> <span class="k">as</span><span class="p">?</span> <span class="n">TargetPropertyType</span> <span class="p">{</span>
+         <span class="c1">// If the context object is a specialied handling class, then it likely knows</span>
+         <span class="c1">// what keyPath to which this observation relates. However, we&#39;re not using a</span>
+         <span class="c1">// customized handler class, we still need to switch here on the keyPath since</span>
+         <span class="c1">// our class may need to handle multiple different types of property.</span>
+         <span class="k">switch</span> <span class="n">keyPath</span> <span class="p">{</span>
+         <span class="k">case</span> <span class="p">.</span><span class="n">some</span><span class="p">(#</span><span class="n">keyPath</span><span class="p">(</span><span class="n">TargetType</span><span class="p">.</span><span class="n">targetProperty</span><span class="p">)):</span>
+            <span class="c1">// Do something to `self` in response to `newValue`</span>
+         <span class="k">default</span><span class="p">:</span> <span class="k">break</span>
+         <span class="p">}</span>
+      <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+         <span class="c1">// Need to invoke super</span>
+         <span class="kc">super</span><span class="p">.</span><span class="n">observeValue</span><span class="p">(</span><span class="n">forKeyPath</span><span class="p">:</span> <span class="n">keyPath</span><span class="p">,</span> <span class="n">of</span><span class="p">:</span> <span class="n">object</span><span class="p">,</span> <span class="n">change</span><span class="p">:</span> <span class="n">change</span><span class="p">,</span>
+            <span class="n">context</span><span class="p">:</span> <span class="n">context</span><span class="p">)</span>
+      <span class="p">}</span>
+   <span class="p">}</span>
+   
+   <span class="kd">deinit</span> <span class="p">{</span>
+      <span class="c1">// Remember to remove all of the observations we&#39;re holding and release the context</span>
+      <span class="k">for</span> <span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">keyPath</span><span class="p">))</span> <span class="k">in</span> <span class="n">observations</span> <span class="p">{</span>
+         <span class="n">target</span><span class="p">.</span><span class="n">removeObserver</span><span class="p">(</span><span class="kc">self</span><span class="p">,</span> <span class="n">forKeyPath</span><span class="p">:</span> <span class="n">keyPath</span><span class="p">,</span> <span class="n">context</span><span class="p">:</span> <span class="n">context</span><span class="p">)</span>
+         <span class="n">context</span><span class="p">.</span><span class="n">deallocate</span><span class="p">(</span><span class="n">bytes</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="n">alignedTo</span><span class="p">:</span> <span class="mi">0</span><span class="p">)</span>
+      <span class="p">}</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The large number of comments make this code look bigger than it really is but the reality remains: this is a lot of code.</p>
+
+<p>Notice that the code comments repeatedly refer to &ldquo;a specialized handling class&rdquo; that would act as the &ldquo;context&rdquo; for the observation. Obviously, that&rsquo;s where we&rsquo;re going.</p>
+
+<h2 id="a-wrapper-class">A wrapper class</h2>
+
+<p>The <code>KeyValueObserver</code> wrapper class that I&rsquo;m presenting in this article reduces the above code down to the following:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">class</span> <span class="nc">MyClass</span><span class="p">:</span> <span class="n">NSObject</span> <span class="p">{</span>
+   <span class="kd">var</span> <span class="nv">observers</span> <span class="p">=</span> <span class="p">[</span><span class="n">KeyValueObserver</span><span class="p">]()</span>
+   
+   <span class="kd">func</span> <span class="nf">startObserving</span><span class="p">(</span><span class="n">observedObject</span><span class="p">:</span> <span class="n">TargetType</span><span class="p">)</span> <span class="p">{</span>
+      <span class="c1">// Construct the observation</span>
+      <span class="kd">let</span> <span class="nv">observer</span> <span class="p">=</span> <span class="n">KeyValueObserver</span><span class="p">(</span><span class="n">source</span><span class="p">:</span> <span class="n">observedObject</span><span class="p">,</span> <span class="n">keyPath</span><span class="p">:</span>
+         <span class="p">#</span><span class="n">keyPath</span><span class="p">(</span><span class="n">TargetType</span><span class="p">.</span><span class="n">targetProperty</span><span class="p">))</span> <span class="p">{</span> <span class="p">[</span><span class="kr">weak</span> <span class="kc">self</span><span class="p">]</span> <span class="n">change</span><span class="p">,</span> <span class="n">reason</span> <span class="k">in</span>
+         
+         <span class="c1">// Safely get strong ref to self and the new value from the change dict</span>
+         <span class="k">guard</span> <span class="kd">let</span> <span class="nv">s</span> <span class="p">=</span> <span class="kc">self</span><span class="p">,</span> <span class="kd">let</span> <span class="nv">newValue</span> <span class="p">=</span> <span class="n">change</span><span class="p">[.</span><span class="n">newKey</span><span class="p">]</span> <span class="k">as</span><span class="p">?</span>
+            <span class="n">TargetPropertyType</span> <span class="k">else</span> <span class="p">{</span> <span class="k">return</span> <span class="p">}</span>
+         
+         <span class="c1">// Do something to `s` (aka `self`) in response to `newValue`</span>
+      <span class="p">}</span>
+      
+      <span class="c1">// Retain the observation</span>
+      <span class="n">observers</span><span class="p">.</span><span class="n">append</span><span class="p">(</span><span class="n">observer</span><span class="p">)</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This is not a case where I&rsquo;m aiming for maximum syntactic efficiency. The work required still involves a little boilerplate, mostly because <code>KeyValueObserver</code> isn&rsquo;t trying to re-invent the wheel.</p>
+
+<p>Some verbosity remains due to the following three points:</p>
+
+<ul>
+<li>the <code>KeyValueObserver</code> is not generic over the observed type (you need to dynamically downcast observed values)</li>
+<li>the <code>change</code> dictionary is the same as that used by key value observing (although it&rsquo;s guaranteed to be non-nil)</li>
+<li>the full set of <code>NSKeyValueObservingOptions</code> can be used with <code>KeyValueObserver</code> (although the default value of <code>new</code> + <code>initial</code> is used implicitly, here)</li>
+</ul>
+
+<p>The advantage to keeping these minor complexities is that this <code>KeyValueObserver</code> should be able to replace <em>any</em> usage of Cocoa key-value observing. However, if you want maximum syntactic efficiency, you&rsquo;ll still want an additional layer that further adapts the output (e.g. CwlSignal or simply a subclass of <code>KeyValueObserver</code> that applies a transformation to the <code>callback</code> applied to the <code>init</code> method).</p>
+
+<p>For example, <a href="https://github.com/mattgallagher/CwlSignal">CwlSignal</a> includes a wrapper around <code>KeyValueObserver</code> that offers built-in handling for the first two bullet points (and locks the third point to either <code>new</code> or <code>new</code> + <code>initial</code>), resulting in the following code:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">class</span> <span class="nc">MyClass</span><span class="p">:</span> <span class="n">NSObject</span> <span class="p">{</span>
+   <span class="kd">var</span> <span class="nv">endpoints</span> <span class="p">=</span> <span class="p">[</span><span class="n">Cancellable</span><span class="p">]()</span>
+   
+   <span class="kd">func</span> <span class="nf">startObserving</span><span class="p">(</span><span class="n">observedObject</span><span class="p">:</span> <span class="n">TargetType</span><span class="p">)</span> <span class="p">{</span>
+      <span class="n">endpoints</span> <span class="o">+=</span> <span class="n">Signal</span><span class="p">&lt;</span><span class="n">TargetPropertyType</span><span class="o">&gt;</span><span class="p">.</span><span class="n">keyValueObserving</span><span class="p">(</span><span class="n">observedObject</span><span class="p">,</span> <span class="n">keyPath</span><span class="p">:</span>
+         <span class="p">#</span><span class="n">keyPath</span><span class="p">(</span><span class="n">TargetType</span><span class="p">.</span><span class="n">targetProperty</span><span class="p">)).</span><span class="n">subscribeValues</span> <span class="p">{</span> <span class="p">[</span><span class="kr">weak</span> <span class="kc">self</span><span class="p">]</span> <span class="n">newValue</span> <span class="k">in</span>
+         <span class="c1">// Do something to `self` in response to `newValue`</span>
+      <span class="p">}</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The <code>Signal&lt;T&gt;.keyValueObserving</code> function is just a static function around <code>signalKeyValueObserving</code> that dynamically downcasts the <code>Any</code> results typically emitted from key-value observing to the value type <code>T</code>, discarding values of the wrong type. You can see how these functions are implemented in the <a href="https://github.com/mattgallagher/CwlSignal/blob/master/CwlSignal/CwlSignalCocoa.swift?ts=3">CwlSignalCocoa.swift file in the CwlSignal project</a>.</p>
+
+<h2 id="advantages-of-keyvalueobserver">Advantages of <code>KeyValueObserver</code></h2>
+
+<p>Most of the code savings with <code>KeyValueObserver</code> come from automatically providing a &ldquo;specialized handling class&rdquo; context object, to which I referred in the code comments from the example in the <a href="#key-value-observing-in-swift">Key-value observing in Swift</a> section. There&rsquo;s also some savings due to using a trailing closure instead of relying on method overloads.</p>
+
+<p>However, the advantages go deeper than syntactic advantages. If you look closely, you&rsquo;ll also notice that the <code>observeValue</code> example retained <code>observedObject</code> in the dictionary, along with the <code>context</code> and <code>keyPath</code> whereas in the <code>KeyValueObserver</code> example the <code>observedObject</code> is <em>not</em> retained at all (it is assumed to be kept alive elsewhere).</p>
+
+<p>The <code>observeValue</code> example <em>needed</em> to retain the <code>observedObject</code> due to the risks associated with the observed object getting released while being observed and triggering an exception. Meanwhile, with <code>KeyValueObserver</code>, letting the observed object release while we are observing it is well defined - on release of the observed object, the observing closure will be invoked with the <code>reason</code> value set to <code>.sourceDeleted</code> (the <code>change</code> dictionary will be empty).</p>
+
+<p>The <code>reason</code> parameter can also provide further information about <em>where</em> the change occurred, including <code>.valueChanged</code> (if the end value changes) and <code>.pathChanged</code> (if a change occurs between the observed object and the end of the key path).</p>
+
+<h2 id="how-does-keyvalueobserver-work">How does <code>KeyValueObserver</code> work?</h2>
+
+<p>The whole class is fairly straightforward Swift – unlike some other key-value wrappers, it doesn&rsquo;t need to dip down to Objective-C or engage in any runtime antics like swizzling. The class does use the Objective-C runtime functions to learn if the observed property is <code>weak</code> and to set associated objects (used for detecting when the observed object is released) but that&rsquo;s about as complicated as it gets.</p>
+
+<p>The largest code contribution in the <code>KeyValueObserver</code> class is to handle any actual <em>path</em> observing itself. Normally with Cocoa key-value observing, you can pass a &ldquo;key path&rdquo; and the intermediate observations along the path are all handled automatically. With <code>KeyValueObserver</code>, the key path is parsed and each step in the path is individually observed. This gives greater flexibility and allows more information about <em>where</em> the change occurred but it is responsible for about half the code in the class as these steps need to be deleted and recreated when the path changes. If you look at the class and see anything involving the <code>tailPath</code> that you can&rsquo;t understand – it&rsquo;s probably just tracking and updating these intermediate key path steps.</p>
+
+<p>There&rsquo;s one use of <code>tailPath</code> that isn&rsquo;t a key path as you might expect: weak properties. Weak properties don&rsquo;t always send key value changed notifications for the property. To avoid this problem, <code>KeyValueObserver</code> may also include a <code>tailPath</code> observer on <code>self</code>. This is used because changing weak properties will trigger a change notification from <code>self</code>, even when they don&rsquo;t trigger a change notification on the property itself. <code>KeyValueObserver</code> uses this dummy key path to correctly notify the weak property itself.</p>
+
+<p>A final interesting point: I mentioned that this class does not actually change the thread safety of key-value observing (that notifications could still occur concurrently from separate threads). This is true, however, the class <em>does</em> include a mutex. The mutex is used to protect the class&rsquo; two mutable state values – it does not deliberately change the serialization of callbacks. If serialization is needed, it should be applied by a layer on top of <code>KeyValueObserver</code> (e.g. CwlSignal&rsquo;s usage of <code>KeyValueObserver</code> serializes everything through the <code>Signal</code> class).</p>
+
+<p>If you really want to see how it works, I recommend you <a href="https://github.com/mattgallagher/CwlUtils/blob/master/Sources/CwlUtils/CwlKeyValueObserver.swift?ts=3">look at the code, directly</a>. I&rsquo;ve documented most of the functions and variables and discussed a number of other aspects of the code in comments – including why the <code>source</code> needs to be tracked as <code>Unmanaged&lt;NSObject&gt;</code> instead of <code>weak</code> or <code>unowned</code>.</p>
+
+<h2 id="usage">Usage</h2>
+
+<blockquote>
+<p>The project containing <code>KeyValueObserver</code> is available on github: <a href="https://github.com/mattgallagher/CwlUtils">mattgallagher/CwlUtils</a>.</p>
+</blockquote>
+
+<p>The <a href="https://github.com/mattgallagher/CwlUtils/blob/master/Sources/CwlUtils/CwlKeyValueObserver.swift?ts=3">CwlKeyValueObserver.swift</a> file depends only on the <a href="https://github.com/mattgallagher/CwlUtils/blob/master/Sources/CwlUtils/CwlOnDelete.swift?ts=3">CwlOnDelete.swift</a> file in the same project so you can just copy these two files if that&rsquo;s all you need.</p>
+
+<p>Otherwise, the <a href="https://github.com/mattgallagher/CwlUtils/blob/master/README.md">ReadMe.md file for the project</a> contains detailed information on cloning the whole repository and adding the framework it produces to your own projects.</p>
+
+<p>This file is also part of the <a href="cwlsignal.html">CwlSignal framework</a>. If you&rsquo;re already using CwlSignal, then it is already available to you. As a <a href="reactive-programming-what-and-why.html">reactive programming framework</a>, CwlSignal offers significantly more options for processing, transforming and handling observations.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>Less code, providing more information and fewer possible problems; <code>KeyValueObserver</code> makes the observing end of a key-value observing relationship significantly better. It doesn&rsquo;t totally smooth out <em>all</em> the rough edges when dealing with key-value observing but it provides a foundation upon which you can add further application-specific filtering.</p>
+
+<h3 id="looking-forward">Looking forward&hellip;</h3>
+
+<p>It&rsquo;s New Year&rsquo;s Eve 2016 as I write this. Catch you all in 2017!</p>
+
+		</div>
+	</article>
+</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="resources-releases-reentrancy.html">Reference counted releases in Swift</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="porting-from-macos8-to-sierra.html">Compiling a Mac OS 8 application on macOS Sierra</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../feed.json">JSON</a>, <a href="../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

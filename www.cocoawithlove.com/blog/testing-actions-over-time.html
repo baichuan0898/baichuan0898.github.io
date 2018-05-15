@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Testing actions over time</title>
+  <meta name="description" content="Testing that actions are scheduled correctly over time is a pain. I&#39;ll show a way to test events scheduled over time, threads and other execution contexts with a &#34;Debug Context Coordinator&#34; that functions as a basic task scheduler but operates over a simulated version of time so that testing of invocation times and task interaction can be precise and free from changes due to host activity." />
+
+  <meta name="twitter:title" content="Testing actions over time"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/blog/testing-actions-over-time.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Testing that actions are scheduled correctly over time is a pain. I&#39;ll show a way to test events scheduled over time, threads and other execution contexts with a &#34;Debug Context Coordinator&#34; that functions as a basic task scheduler but operates over a simulated version of time so that testing of invocation times and task interaction can be precise and free from changes due to host activity."/>
+
+  <link rel="icon" href="../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../css/main.css" />
+  <link rel="canonical" href="testing-actions-over-time.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../index.html"><img class="heartandcup" src="../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../about/index.html">about</a>
+        <a class="page-link" href="../archive/index.html">archive</a>
+        <a class="page-link" href="../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Testing actions over time</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2016-10-25">October 25, 2016</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../tags/asynchrony.html">asynchrony</a>, <a href="../tags/testing.html">testing</a>
+		 
+	</div>
+</header>
+
+
+<main role="main">
+	<article itemscope itemtype="http://schema.org/BlogPosting">
+		<div class="post-content" itemprop="articleBody">
+			
+
+<p>Testing that actions are scheduled correctly over time is a pain. It&rsquo;s common to have tests that &ldquo;mostly&rdquo; work but don&rsquo;t confirm accuracy, run slowly, fail periodically and exceed wait times whenever a breakpoint is hit during testing.</p>
+
+<p>One of the key reasons is that thread scheduling is imprecise. Tenths of a second inaccuracy are common and occasional spikes of much higher inaccuracy can occur. If we wan to measure the timing of thread scheduled events, we end up needing events spaced over a long time to allow for significant windows of inaccuracy – this is not practical for large numbers of tests.</p>
+
+<p>It is possible to mock the thread scheduler – so that we record the <em>attempts</em> to schedule a task – but on its own, an empty mock might not be enough. If we need to test how scheduled events <em>interact</em> then they still need to be performed, ideally as though they <em>precisely</em> met their timing target.</p>
+
+<p>I&rsquo;ll show a way to test events scheduled over time, threads and other execution contexts with a <code>DebugContextCoordinator</code> that functions as a basic task scheduler but operates over a simulated version of time so that testing of invocation times and task interaction can be precise and free from changes due to host activity.</p>
+
+<nav id="TableOfContents"><span class="toc-heading">Contents</span>
+<ul>
+<li>
+<ul>
+<li><a href="#a-test-case-involving-timing">A test case involving timing</a></li>
+<li><a href="#let-s-fill-in-the-service-implementation">Let&rsquo;s fill in the <code>Service</code> implementation</a></li>
+<li><a href="#let-s-try-testing-using-host-time">Let&rsquo;s try testing using host time</a></li>
+<li><a href="#injecting-a-scheduler-like-any-other-dependency">Injecting a scheduler like any other dependency</a></li>
+<li><a href="#testing-with-debugcontextcoordinator">Testing with <code>DebugContextCoordinator</code></a></li>
+<li><a href="#usage">Usage</a></li>
+<li><a href="#conclusion">Conclusion</a>
+<ul>
+<li><a href="#looking-forward">Looking forward&hellip;</a></li>
+</ul></li>
+</ul></li>
+</ul>
+</nav>
+
+<h2 id="a-test-case-involving-timing">A test case involving timing</h2>
+
+<p>Let&rsquo;s imagine we want to test the following function:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">class</span> <span class="nc">Service</span> <span class="p">{</span>
+   <span class="kd">func</span> <span class="nf">connect</span><span class="p">(</span><span class="n">timeout</span> <span class="n">seconds</span><span class="p">:</span> <span class="nb">Double</span><span class="p">,</span> <span class="n">handler</span><span class="p">:</span> <span class="p">(</span><span class="n">Result</span><span class="p">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="p">())</span>
+<span class="p">}</span></code></pre></div>
+
+<p>In general, we would want to test for three possible scenarios:</p>
+
+<ol>
+<li>The connection succeeds and the <code>handler</code> is invoked with a <code>.success(value)</code></li>
+<li>The timeout elapses before the connection succeeds and the <code>handler</code> is invoked with a <code>.failure(ServiceError.timeout)</code>.</li>
+<li>The <code>Service</code> instance is released before success or timeout and the handler is never invoked.</li>
+</ol>
+
+<p>However, for this article, I want to focus exclusively on the second scenario: the timeout.</p>
+
+<p>Basic testing with the <code>XCTest</code> framework might involve:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">testConnectionTimeout</span><span class="p">()</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">expectation</span> <span class="p">=</span> <span class="n">expectation</span><span class="p">(</span><span class="n">description</span><span class="p">:</span> <span class="s">&#34;Waiting for timeout callback&#34;</span><span class="p">)</span>
+   <span class="kd">let</span> <span class="nv">service</span> <span class="p">=</span> <span class="n">Service</span><span class="p">()</span>
+   <span class="n">service</span><span class="p">.</span><span class="n">connect</span><span class="p">(</span><span class="n">timeout</span><span class="p">:</span> <span class="mf">0.001</span><span class="p">)</span> <span class="p">{</span> <span class="n">r</span> <span class="k">in</span>
+      <span class="n">XCTAssert</span><span class="p">(</span><span class="n">r</span><span class="p">.</span><span class="n">value</span> <span class="p">==</span> <span class="kc">nil</span><span class="p">)</span>
+      <span class="n">expectation</span><span class="p">.</span><span class="n">fulfill</span><span class="p">()</span>
+   <span class="p">}</span>
+
+   <span class="n">waitForExpectations</span><span class="p">(</span><span class="n">timeout</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span> <span class="n">handler</span><span class="p">:</span> <span class="kc">nil</span><span class="p">)</span>
+   <span class="bp">withExtendedLifetime</span><span class="p">(</span><span class="n">service</span><span class="p">)</span> <span class="p">{}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>While this tests that a timeout is <em>possible</em>, the test lacks any rigor.</p>
+
+<p>In order to avoid the common pattern where a timeout of <code>0</code> means &ldquo;never timeout&rdquo;, a small <code>0.001</code> second value is provided for the timeout. That means that there&rsquo;s a very real window in which the service might legitimately complete faster than this timeout, resulting in testing failures. Even reducing this value to zero wouldn&rsquo;t solve the problem since a zero second timer takes non-zero time and it&rsquo;s technically possible for a success result to occur faster than a zero second timeout timer.</p>
+
+<p>In addition, even if this test succeeds, we&rsquo;re not actually testing that the timeout occurred at the correct time. The implemenation could confuse seconds for milliseconds and this test might still succeed.</p>
+
+<h2 id="let-s-fill-in-the-service-implementation">Let&rsquo;s fill in the <code>Service</code> implementation</h2>
+
+<p>Before we more forward and improve our testing, let&rsquo;s step backward and fill in the definition of the <code>Service</code> so we can better define what we&rsquo;re doing. Our <code>Service</code> is fairly simple. It takes an underlying <code>ConnectionFunction</code> an applies a timeout limit when waiting for a connection response.</p>
+
+<p>The underlying <code>ConnectionFunction</code> can be swapped from the default <code>NetworkService.init</code> to an alternate implementation at construction time, allowing us to avoid network connections and get repeatable behavior when testing. Specifying alternate interfaces for any interally used external connections is also called <a href="https://en.wikipedia.org/wiki/Dependency_injection">dependency injection</a>. I hope this isn&rsquo;t news to anyone: it&rsquo;s a fundamental aspect of isolating our code for testing.</p>
+
+<p><strong>NOTE</strong>: This code example is quite large given that it&rsquo;s just applying a time limit to an underlying action. I didn&rsquo;t want to skimp on necessary steps so there&rsquo;s a lot of work associated with managing lifetimes and ensuring everything cancels correctly when lifetimes elapse. I&rsquo;ve tried to comment the code to explain some of these decisions. There are more syntactically efficient ways to manage lifetimes for asynchronous tasks (same steps but hidden behind simpler interfaces) but that&rsquo;s a topic for another article.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">public</span> <span class="kd">protocol</span> <span class="nc">Cancellable</span><span class="p">:</span> <span class="kd">class</span> <span class="p">{</span> <span class="kd">func</span> <span class="nf">cancel</span><span class="p">()</span> <span class="p">}</span>
+<span class="kd">enum</span> <span class="nc">ServiceError</span><span class="p">:</span> <span class="n">Error</span> <span class="p">{</span> <span class="k">case</span> <span class="n">timeout</span> <span class="p">}</span>
+
+<span class="kd">class</span> <span class="nc">Service</span> <span class="p">{</span>
+   <span class="kd">typealias</span> <span class="n">ConnectionFunction</span> <span class="p">=</span>
+      <span class="p">(</span><span class="n">DispatchQueue</span><span class="p">,</span> <span class="p">@</span><span class="n">escaping</span> <span class="p">(</span><span class="n">Result</span><span class="p">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="p">())</span> <span class="p">-&gt;</span> <span class="n">Cancellable</span>
+
+   <span class="kd">let</span> <span class="nv">underlyingConnect</span><span class="p">:</span> <span class="n">ConnectionFunction</span>
+   <span class="kd">var</span> <span class="nv">currentAction</span><span class="p">:</span> <span class="n">Cancellable</span><span class="p">?</span> <span class="p">=</span> <span class="kc">nil</span>
+   <span class="kd">let</span> <span class="nv">queue</span> <span class="p">=</span> <span class="n">DispatchQueue</span><span class="p">(</span><span class="n">label</span><span class="p">:</span> <span class="s">&#34;</span><span class="si">\(</span><span class="n">Service</span><span class="p">.</span><span class="kc">self</span><span class="si">)</span><span class="s">&#34;</span><span class="p">)</span>
+   
+   <span class="c1">// Construction of the Service lets us specify the underlying &#34;connect&#34; service</span>
+   <span class="kd">init</span><span class="p">(</span><span class="n">connect</span><span class="p">:</span> <span class="p">@</span><span class="n">escaping</span> <span class="n">ConnectionFunction</span> <span class="p">=</span> <span class="n">NetworkService</span><span class="p">.</span><span class="kd">init</span><span class="p">)</span> <span class="p">{</span>
+      <span class="kc">self</span><span class="p">.</span><span class="n">underlyingConnect</span> <span class="p">=</span> <span class="n">connect</span>
+   <span class="p">}</span>
+
+   <span class="c1">// The connect function that we want to test</span>
+   <span class="kd">func</span> <span class="nf">connect</span><span class="p">(</span><span class="n">timeout</span> <span class="n">seconds</span><span class="p">:</span> <span class="nb">Double</span><span class="p">,</span> <span class="n">handler</span><span class="p">:</span> <span class="p">@</span><span class="n">escaping</span> <span class="p">(</span><span class="n">Result</span><span class="p">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="p">())</span> <span class="p">{</span>
+      <span class="kd">var</span> <span class="nv">previousAction</span><span class="p">:</span> <span class="n">Cancellable</span><span class="p">?</span> <span class="p">=</span> <span class="kc">nil</span>
+      <span class="n">queue</span><span class="p">.</span><span class="n">sync</span> <span class="p">{</span>
+         <span class="n">previousAction</span> <span class="p">=</span> <span class="kc">self</span><span class="p">.</span><span class="n">currentAction</span>
+         
+         <span class="c1">// Tie the timer and underlying action together with a single lifetime object for</span>
+         <span class="c1">// this `connect` action</span>
+         <span class="kd">let</span> <span class="nv">timerAndAction</span> <span class="p">=</span> <span class="n">CancellableTimerAndAction</span><span class="p">()</span>
+         
+         <span class="c1">// Run the underlying connection</span>
+         <span class="kd">let</span> <span class="nv">underlyingAction</span> <span class="p">=</span> <span class="kc">self</span><span class="p">.</span><span class="n">underlyingConnect</span><span class="p">(</span><span class="n">queue</span><span class="p">)</span> <span class="p">{</span>
+            <span class="p">[</span><span class="kr">weak</span> <span class="n">timerAndAction</span><span class="p">]</span> <span class="n">result</span> <span class="k">in</span>
+            <span class="c1">// Cancel the action so no futher callbacks are invoked</span>
+            <span class="n">timerAndAction</span><span class="p">?.</span><span class="n">cancel</span><span class="p">()</span>
+            
+            <span class="c1">// Send the succes to the handler</span>
+            <span class="n">handler</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+         <span class="p">}</span>
+         
+         <span class="c1">// Run the timeout timer</span>
+         <span class="kd">let</span> <span class="nv">timer</span> <span class="p">=</span> <span class="n">DispatchSource</span><span class="p">.</span><span class="n">singleTimer</span><span class="p">(</span><span class="n">interval</span><span class="p">:</span>
+            <span class="n">DispatchTimeInterval</span><span class="p">.</span><span class="n">fromSeconds</span><span class="p">(</span><span class="n">seconds</span><span class="p">),</span> <span class="n">queue</span><span class="p">:</span> <span class="n">queue</span><span class="p">)</span> <span class="p">{</span>
+            <span class="p">[</span><span class="kr">weak</span> <span class="n">timerAndAction</span><span class="p">]</span> <span class="k">in</span>
+            <span class="c1">// Cancel the action so no futher callbacks are invoked</span>
+            <span class="n">timerAndAction</span><span class="p">?.</span><span class="n">cancel</span><span class="p">()</span>
+            
+            <span class="c1">// Send the timeout to the handler</span>
+            <span class="n">handler</span><span class="p">(.</span><span class="n">failure</span><span class="p">(</span><span class="n">ServiceError</span><span class="p">.</span><span class="n">timeout</span><span class="p">))</span>
+         <span class="p">}</span> <span class="k">as</span><span class="p">?</span> <span class="n">DispatchSource</span>
+         
+         <span class="c1">// Store everything in the lifetime object for this action and then store that</span>
+         <span class="c1">// in the parent</span>
+         <span class="n">timerAndAction</span><span class="p">.</span><span class="n">timer</span> <span class="p">=</span> <span class="n">timer</span>
+         <span class="n">timerAndAction</span><span class="p">.</span><span class="n">action</span> <span class="p">=</span> <span class="n">underlyingAction</span>
+         <span class="kc">self</span><span class="p">.</span><span class="n">currentAction</span> <span class="p">=</span> <span class="n">timerAndAction</span>
+      <span class="p">}</span>
+      
+      <span class="c1">// A good rule of thumb: never release lifetime objects inside a mutex – you might</span>
+      <span class="c1">// trigger a re-entrancy deadlock</span>
+      <span class="bp">withExtendedLifetime</span><span class="p">(</span><span class="n">previousAction</span><span class="p">)</span> <span class="p">{}</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>where <code>CancellableTimerAndAction</code> is just a wrapper around two separate <code>Cancellable</code>s so that they are tied together with the same lifetime:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">class</span> <span class="nc">CancellableTimerAndAction</span><span class="p">:</span> <span class="n">Cancellable</span> <span class="p">{</span>
+   <span class="kd">var</span> <span class="nv">timer</span><span class="p">:</span> <span class="n">Cancellable</span><span class="p">?</span> <span class="p">=</span> <span class="kc">nil</span>
+   <span class="kd">var</span> <span class="nv">action</span><span class="p">:</span> <span class="n">Cancellable</span><span class="p">?</span> <span class="p">=</span> <span class="kc">nil</span>
+
+   <span class="kd">func</span> <span class="nf">cancel</span><span class="p">()</span> <span class="p">{</span>
+      <span class="n">timer</span><span class="p">?.</span><span class="n">cancel</span><span class="p">()</span>
+      <span class="n">action</span><span class="p">?.</span><span class="n">cancel</span><span class="p">()</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Assuming a valid implementation of <code>NetworkService</code> the previous tests would all likely succeed.</p>
+
+<p>However, as previously stated: we are not correctly testing that the timeout occurs <em>when</em> it should and we&rsquo;re still connecting to the network which (in a real-world example) would connect to an external service like a website making testing prone to failures for range of difficult to control reasons.</p>
+
+<h2 id="let-s-try-testing-using-host-time">Let&rsquo;s try testing using host time</h2>
+
+<p>Let&rsquo;s start to test things better by replacing the <code>NetworkService</code> with a debug <code>StringService</code> where we can control the exact time the service takes and isn&rsquo;t dependent on anything outside our program.</p>
+
+<p>Additionally, we need to start testing the actual time taken. Lets look at what that involves:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">let</span> <span class="nv">expectation</span> <span class="p">=</span> <span class="n">expectation</span><span class="p">(</span><span class="n">description</span><span class="p">:</span> <span class="s">&#34;Waiting for timeout callback&#34;</span><span class="p">)</span>
+
+<span class="c1">// Use our debug `StringService`</span>
+<span class="kd">let</span> <span class="nv">service</span> <span class="p">=</span> <span class="n">Service</span><span class="p">(</span><span class="n">connect</span><span class="p">:</span> <span class="n">StringService</span><span class="p">.</span><span class="n">withDelay</span><span class="p">(</span><span class="mf">2.0</span><span class="p">))</span>
+
+<span class="c1">// Set up the time data we need</span>
+<span class="kd">let</span> <span class="nv">startTime</span> <span class="p">=</span> <span class="n">mach_absolute_time</span><span class="p">()</span>
+<span class="kd">let</span> <span class="nv">timeoutTime</span> <span class="p">=</span> <span class="mf">1.0</span>
+<span class="kd">let</span> <span class="nv">targetTime</span> <span class="p">=</span> <span class="nb">UInt64</span><span class="p">(</span><span class="n">timeoutTime</span> <span class="o">*</span> <span class="nb">Double</span><span class="p">(</span><span class="n">NSEC_PER_SEC</span><span class="p">))</span>
+<span class="kd">let</span> <span class="nv">leeway</span> <span class="p">=</span> <span class="nb">UInt64</span><span class="p">(</span><span class="mf">0.01</span> <span class="o">*</span> <span class="nb">Double</span><span class="p">(</span><span class="n">NSEC_PER_SEC</span><span class="p">))</span>
+
+<span class="n">service</span><span class="p">.</span><span class="n">connect</span><span class="p">(</span><span class="n">timeout</span><span class="p">:</span> <span class="n">timeoutTime</span><span class="p">)</span> <span class="p">{</span> <span class="n">r</span> <span class="k">in</span>
+   <span class="c1">// Measure and test the time elapsed</span>
+   <span class="kd">let</span> <span class="nv">endTime</span> <span class="p">=</span> <span class="n">mach_absolute_time</span><span class="p">()</span>
+   <span class="n">XCTAssert</span><span class="p">(</span><span class="n">endTime</span> <span class="o">-</span> <span class="n">startTime</span> <span class="o">&gt;</span> <span class="n">targetTime</span> <span class="o">-</span> <span class="n">leeway</span><span class="p">)</span>
+   <span class="n">XCTAssert</span><span class="p">(</span><span class="n">endTime</span> <span class="o">-</span> <span class="n">startTime</span> <span class="o">&lt;</span> <span class="n">targetTime</span> <span class="o">+</span> <span class="n">leeway</span><span class="p">)</span>
+
+   <span class="n">XCTAssert</span><span class="p">(</span><span class="n">r</span><span class="p">.</span><span class="n">value</span> <span class="p">==</span> <span class="kc">nil</span><span class="p">)</span>
+   <span class="n">expectation</span><span class="p">.</span><span class="n">fulfill</span><span class="p">()</span>
+<span class="p">}</span>
+
+<span class="c1">// Wait for all scheduled actions to occur</span>
+<span class="n">waitForExpectations</span><span class="p">(</span><span class="n">timeout</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span> <span class="n">handler</span><span class="p">:</span> <span class="kc">nil</span><span class="p">)</span></code></pre></div>
+
+<p>This mostly works but as you can see:</p>
+
+<ul>
+<li>There&rsquo;s a lot of boilerplate associated with getting and measuring host time and measuring both upper and lower bounds</li>
+<li>Even in this trivial case, we&rsquo;ve had to use 10 milliseconds of leeway (the actual timing is usually between 1 and 5 milliseconds slower than the <code>targetTime</code> on my computer)</li>
+<li>In rare cases, this may still fail since heavy load or &ldquo;stop the world&rdquo; events on the host system (compressing memory, virtual memory thrashing, WindowServer crashes, sleep events) can cause many seconds delay.</li>
+</ul>
+
+<h2 id="injecting-a-scheduler-like-any-other-dependency">Injecting a scheduler like any other dependency</h2>
+
+<p>When we wanted to make the <code>NetworkService</code> more testable, we provided an alternate <code>StringService</code> which fulfilled the same interface (and basic functionality) with a controller and deterministic behavior.</p>
+
+<p>The approach to making <em>time</em> more testable is the same; we need to be able to switch between normal and testing implementations by supplying a different scheduling interface on construction. Unfortunately, libdispatch isn&rsquo;t a single interface that we can swap out. In our code here, we&rsquo;re using two separate interfaces, <code>DispatchQueue</code> and <code>DispatchSource</code>, so we&rsquo;ll need to define a single new interface that unifies the functionality of both these interfaces.</p>
+
+<p>We now get to why the CwlExec.swift file <a href="specifying-execution-contexts.html">I presented in the previous article for specifying execution contexts</a> also contains a range of timer and timestamp features – it is intended to be a unified interface for both these facets of libdispatch.</p>
+
+<p>Lets rewrite the <code>Service</code> class to use <code>Exec</code> instead of libdispatch. The comments in this new version serve purely to document the differences compared to the previous libdispatch version.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">class</span> <span class="nc">Service</span> <span class="p">{</span>
+   <span class="c1">// Added an `Exec` parameter to the `ConnectionFunction`</span>
+   <span class="kd">typealias</span> <span class="n">ConnectionFunction</span> <span class="p">=</span> <span class="p">(</span><span class="n">Exec</span><span class="p">,</span> <span class="p">@</span><span class="n">escaping</span> <span class="p">(</span><span class="n">Result</span><span class="p">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="p">())</span> <span class="p">-&gt;</span> <span class="n">Cancellable</span>
+   <span class="kd">let</span> <span class="nv">underlyingConnect</span><span class="p">:</span> <span class="n">ConnectionFunction</span>
+   <span class="kd">let</span> <span class="nv">handler</span><span class="p">:</span> <span class="p">(</span><span class="n">Result</span><span class="p">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="p">()</span>
+
+   <span class="c1">// Changed from `DispatchSourceTimer` to the more general `Cancellable`</span>
+   <span class="kd">var</span> <span class="nv">currentAction</span><span class="p">:</span> <span class="n">Cancellable</span><span class="p">?</span> <span class="p">=</span> <span class="kc">nil</span>
+   
+   <span class="c1">// Self-constructed serial `DispatchQueue` changed to user-provided `Exec`</span>
+   <span class="kd">let</span> <span class="nv">context</span><span class="p">:</span> <span class="n">Exec</span>
+   
+   <span class="c1">// The `context` is now provided on construction</span>
+   <span class="kd">init</span><span class="p">(</span><span class="n">context</span><span class="p">:</span> <span class="n">Exec</span> <span class="p">=</span> <span class="p">.</span><span class="k">default</span><span class="p">,</span> <span class="n">connect</span><span class="p">:</span> <span class="n">ConnectionFunction</span> <span class="p">=</span> <span class="n">NetworkService</span><span class="p">.</span><span class="kd">init</span><span class="p">,</span>
+      <span class="n">handler</span><span class="p">:</span> <span class="p">@</span><span class="n">escaping</span> <span class="p">(</span><span class="n">Result</span><span class="p">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="p">())</span> <span class="p">{</span>
+      <span class="kc">self</span><span class="p">.</span><span class="n">underlyingConnect</span> <span class="p">=</span> <span class="n">connect</span>
+      
+      <span class="c1">// Since the provided context could be concurrent, we use `serialized` to obtain a</span>
+      <span class="c1">// serialized version in those cases</span>
+      <span class="kc">self</span><span class="p">.</span><span class="n">context</span> <span class="p">=</span> <span class="n">context</span><span class="p">.</span><span class="n">serialized</span><span class="p">()</span>
+   <span class="p">}</span>
+
+   <span class="kd">func</span> <span class="nf">connect</span><span class="p">(</span><span class="n">timeout</span> <span class="n">seconds</span><span class="p">:</span> <span class="nb">Double</span><span class="p">)</span> <span class="p">{</span>
+      <span class="kd">var</span> <span class="nv">previousAction</span><span class="p">:</span> <span class="n">Cancellable</span><span class="p">?</span> <span class="p">=</span> <span class="kc">nil</span>
+      <span class="n">context</span><span class="p">.</span><span class="n">invokeAndWait</span> <span class="p">{</span>
+         <span class="n">previousAction</span> <span class="p">=</span> <span class="kc">self</span><span class="p">.</span><span class="n">currentAction</span>
+         <span class="kd">let</span> <span class="nv">timerAndAction</span> <span class="p">=</span> <span class="n">CancellableTimerAndAction</span><span class="p">()</span>
+         
+         <span class="c1">// `context` is passed instead of `queue`</span>
+         <span class="kd">let</span> <span class="nv">underlyingAction</span> <span class="p">=</span> <span class="kc">self</span><span class="p">.</span><span class="n">underlyingConnect</span><span class="p">(</span><span class="kc">self</span><span class="p">.</span><span class="n">context</span><span class="p">)</span> <span class="p">{</span>
+            <span class="p">[</span><span class="kr">weak</span> <span class="n">timerAndAction</span><span class="p">]</span> <span class="n">result</span> <span class="k">in</span>
+            <span class="c1">// Cancel the timer if the success occurs first</span>
+            <span class="n">timerAndAction</span><span class="p">?.</span><span class="n">cancel</span><span class="p">()</span>
+            <span class="n">handler</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+         <span class="p">}</span>
+         
+         <span class="c1">// Timer is constructed from the `context` instead of passing a `DispatchQueue`</span>
+         <span class="kd">let</span> <span class="nv">timer</span> <span class="p">=</span> <span class="kc">self</span><span class="p">.</span><span class="n">context</span><span class="p">.</span><span class="n">singleTimer</span><span class="p">(</span><span class="n">interval</span><span class="p">:</span>
+            <span class="n">DispatchTimeInterval</span><span class="p">.</span><span class="n">fromSeconds</span><span class="p">(</span><span class="n">seconds</span><span class="p">))</span> <span class="p">{</span> <span class="p">[</span><span class="kr">weak</span> <span class="n">timerAndAction</span><span class="p">]</span> <span class="k">in</span>
+            <span class="c1">// Cancel the connection if the timer fires first</span>
+            <span class="n">timerAndAction</span><span class="p">?.</span><span class="n">cancel</span><span class="p">()</span>
+            <span class="n">handler</span><span class="p">(.</span><span class="n">failure</span><span class="p">(</span><span class="n">ServiceError</span><span class="p">.</span><span class="n">timeout</span><span class="p">))</span>
+         <span class="p">}</span>
+         
+         <span class="n">timerAndAction</span><span class="p">.</span><span class="n">timer</span> <span class="p">=</span> <span class="n">timer</span>
+         <span class="n">timerAndAction</span><span class="p">.</span><span class="n">action</span> <span class="p">=</span> <span class="n">underlyingAction</span>
+         <span class="kc">self</span><span class="p">.</span><span class="n">currentAction</span> <span class="p">=</span> <span class="n">timerAndAction</span>
+      <span class="p">}</span>
+      
+      <span class="bp">withExtendedLifetime</span><span class="p">(</span><span class="n">previousAction</span><span class="p">)</span> <span class="p">{}</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>You can see that there&rsquo;s a lot of little minor changes but no structural changes. The <code>Exec</code> type is intended to act as a low-friction abstration of <code>DispatchQueue</code>-like behavior.</p>
+
+<p>As a further advantage, the <code>handler</code> callback for the <code>connect</code> function is now invoked in the <code>Exec</code> of the user&rsquo;s choice, so this change in interface offers all the same advantages discussed in the <a href="specifying-execution-contexts.html">previous article</a>.</p>
+
+<h2 id="testing-with-debugcontextcoordinator">Testing with <code>DebugContextCoordinator</code></h2>
+
+<p>Now that libdispatch is replaced by the more flexible <code>Exec</code>, we can use the flexibility to schedule events with something other than libdispatch.</p>
+
+<p>The new scheduler is named <code>DebugContextCoordinator</code>. This class runs tasks in an appropriate order but they will run according to a simulated, rather than real version of time, making everything testable and deterministic. With everything run in appropriate order, you should be able to simply substitute instances of <code>Exec.custom</code> created from a <code>DebugContextCoordinator</code> in place of the standard <code>Exec</code> cases and most common scheduling should continue to work, unchanged.</p>
+
+<p>Let&rsquo;s look at how our test for the timeout case would work:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="c1">// Construct the coordinator</span>
+<span class="kd">let</span> <span class="nv">coordinator</span> <span class="p">=</span> <span class="n">DebugContextCoordinator</span><span class="p">()</span>
+
+<span class="c1">// Construct an instance of `Exec` that behaves like `Exec.syncQueue` (a serial</span>
+<span class="c1">// `DispatchQueue`) but actually schedules on the coordinator</span>
+<span class="kd">let</span> <span class="nv">context</span> <span class="p">=</span> <span class="n">coordinator</span><span class="p">.</span><span class="n">syncQueue</span>
+
+<span class="c1">// Construct the `Service` using our debug context</span>
+<span class="kd">let</span> <span class="nv">service</span> <span class="p">=</span> <span class="n">Service</span><span class="p">(</span><span class="n">context</span><span class="p">:</span> <span class="n">context</span><span class="p">,</span> <span class="n">connect</span><span class="p">:</span> <span class="n">StringService</span><span class="p">.</span><span class="n">withDelay</span><span class="p">(</span><span class="mf">2.0</span><span class="p">))</span>
+
+<span class="c1">// Run the `connect` function</span>
+<span class="kd">let</span> <span class="nv">timeoutTime</span> <span class="p">=</span> <span class="mf">1.0</span>
+<span class="kd">var</span> <span class="nv">result</span><span class="p">:</span> <span class="n">Result</span><span class="p">&lt;</span><span class="nb">String</span><span class="o">&gt;?</span> <span class="p">=</span> <span class="kc">nil</span>
+<span class="n">service</span><span class="p">.</span><span class="n">connect</span><span class="p">(</span><span class="n">timeout</span><span class="p">:</span> <span class="n">timeoutTime</span><span class="p">)</span> <span class="p">{</span> <span class="n">r</span> <span class="k">in</span>
+   <span class="n">XCTAssert</span><span class="p">(</span><span class="n">result</span> <span class="p">==</span> <span class="kc">nil</span><span class="p">)</span>
+   <span class="n">result</span> <span class="p">=</span> <span class="n">r</span>
+   <span class="n">XCTAssert</span><span class="p">(</span><span class="n">coordinator</span><span class="p">.</span><span class="n">currentTime</span> <span class="p">==</span> <span class="nb">UInt64</span><span class="p">(</span><span class="n">timeoutTime</span> <span class="o">*</span> <span class="nb">Double</span><span class="p">(</span><span class="n">NSEC_PER_SEC</span><span class="p">)))</span>
+   <span class="n">XCTAssert</span><span class="p">(</span><span class="n">coordinator</span><span class="p">.</span><span class="n">currentThread</span><span class="p">.</span><span class="n">matches</span><span class="p">(</span><span class="n">context</span><span class="p">))</span>
+<span class="p">}</span>
+
+<span class="c1">// Perform all scheduled tasks immediately</span>
+<span class="n">coordinator</span><span class="p">.</span><span class="n">runScheduledTasks</span><span class="p">()</span>
+
+<span class="c1">// Ensure we got the correct result</span>
+<span class="n">XCTAssert</span><span class="p">(</span><span class="n">result</span><span class="p">?.</span><span class="n">error</span> <span class="k">as</span><span class="p">?</span> <span class="n">ServiceError</span> <span class="p">==</span> <span class="n">ServiceError</span><span class="p">.</span><span class="n">timeout</span><span class="p">)</span>
+
+<span class="bp">withExtendedLifetime</span><span class="p">(</span><span class="n">service</span><span class="p">)</span> <span class="p">{}</span></code></pre></div>
+
+<p>Some clear points to note here:</p>
+
+<ul>
+<li>We no longer need <code>expectation</code> and <code>waitForExpectations</code> since all actions (even those nominally scheduled over time) are performed immediately when <code>runScheduledTasks</code> is called</li>
+<li>We&rsquo;re testing the <em>exact</em> time (no more range required)</li>
+<li>We can also test that the callback thread matches our specified context</li>
+</ul>
+
+<p>Less visible:</p>
+
+<ul>
+<li>it now takes less than a millisecond to run (versus 1.1 seconds, previously) since it doesn&rsquo;t need to wait for any real-world time to elapse to simulate a second in the debug context.</li>
+<li>pausing the debugger or taking other actions that delay execution will never cause a test to fail its timing test – host time is now unrelated to the virtual time that the <code>DebugContextCoordinator</code> uses.</li>
+</ul>
+
+<p>Downsides:</p>
+
+<ul>
+<li>if your code relies on probing its execution context directly (for example, with <code>Thread.currentThread</code>, <code>DispatchSpecificKey</code> or even just getting the current time), you won&rsquo;t get the same resullts and in some cases, this will prevent your tests working. If possible, remove queries of the execution context or ask the <code>Exec</code> instance for information about the execution context.</li>
+<li>since <code>DebugContextCoordinator</code> runs single threaded, it won&rsquo;t help you find threading bugs – thread testing will need to be done a different way.</li>
+</ul>
+
+<h2 id="usage">Usage</h2>
+
+<blockquote>
+<p>The project containing the <code>DebugContextCoordinator</code>, along with all dependencies like <code>Exec</code> is available on github: <a href="https://github.com/mattgallagher/CwlUtils">mattgallagher/CwlUtils</a>.</p>
+</blockquote>
+
+<p>The <a href="https://github.com/mattgallagher/CwlUtils/blob/master/Sources/CwlUtils/CwlDebugContext.swift?ts=3">CwlDebugContext.swift</a> file has a few dependences on other files in the same project, including <a href="https://github.com/mattgallagher/CwlUtils/blob/master/Sources/CwlUtils/CwlExec.swift?ts=3">CwlExec.swift</a>, <a href="https://github.com/mattgallagher/CwlUtils/blob/master/Sources/CwlUtils/CwlDispatch.swift?ts=3">CwlDispatch.swift</a> and the <a href="https://github.com/mattgallagher/CwlUtils/blob/master/Sources/CwlUtils/CwlMutex.swift?ts=3">CwlMutex.swift</a> file. It probably wouldn&rsquo;t be difficult to grab these files separately and add them to your project (if you prefer static linkage) but I recommend following the instructions in the <a href="https://github.com/mattgallagher/CwlUtils/blob/master/README.md">ReadMe.md file for the project</a> and simply cloning the whole repository and adding the framework it produces to your own projects.</p>
+
+<p>As for the tests shown in this article, the final version of the <code>Service</code> class and the tests involved are part of the <a href="https://github.com/mattgallagher/CwlUtils/blob/master/Tests/CwlUtilsTests/CwlDebugContextTests.swift?ts=3">CwlDebugContextTests.swift</a> file so you can play around with how the <code>DebugContextCoordinator</code> behaves at runtime.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>The <code>Exec</code> type presented in the <a href="specifying-execution-contexts.html">previous article</a> as a means of controlling callback execution context can also be used as a means of abstracting timing and scheduling too. The two ideas benefit from each other: when we added <code>Exec</code> to the <code>Service</code> class to abstract the timing, we automatically gained the ability to invoke the callback <code>handler</code> in an execution context of the user&rsquo;s choosing.</p>
+
+<p>The advantage with using a <code>DebugContext</code> and <code>DebugContextCoordinator</code> to handle timing is that you&rsquo;re no longer dependent on the actual timing information from the host machine, leading to greater precision and greater reliablility in testing.</p>
+
+<h3 id="looking-forward">Looking forward&hellip;</h3>
+
+<p>While not directly related to timing, I included a &ldquo;NOTE&rdquo; before a large code sample in this article: properly handling lifetimes for asynchronous tasks can make a simple composition of actions (like combining an action with a timeout) quite complicated. In the next article, I&rsquo;ll begin looking at abstractions used for composing asychronous tasks with the aim of reducing this complexity.</p>
+
+		</div>
+	</article>
+</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="specifying-execution-contexts.html">Specifying function execution contexts</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="cwlsignal.html">CwlSignal, a library for reactive programming</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../feed.json">JSON</a>, <a href="../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

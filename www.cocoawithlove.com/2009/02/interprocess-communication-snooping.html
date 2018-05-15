@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Interprocess communication: snooping, intercepting and subverting</title>
+  <meta name="description" content="When Xcode is running, Interface Builder seems to magically know which classes, methods and variables are available. Where does Interface Builder get this information? How can you recreate this effect when editing source files in an external editor without Xcode running? This is the story of how I investigated the communication between Xcode and Interface Builder, so that I could recreate it for myself." />
+
+  <meta name="twitter:title" content="Interprocess communication: snooping, intercepting and subverting"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/02/interprocess-communication-snooping.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="When Xcode is running, Interface Builder seems to magically know which classes, methods and variables are available. Where does Interface Builder get this information? How can you recreate this effect when editing source files in an external editor without Xcode running? This is the story of how I investigated the communication between Xcode and Interface Builder, so that I could recreate it for myself."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="interprocess-communication-snooping.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Interprocess communication: snooping, intercepting and subverting</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-02-01">February 1, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/xcode.html">Xcode</a>, <a href="../../categories/foundation.html">Foundation</a>, <a href="../../categories/fun-hacks.html">fun hacks</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>When Xcode is running, Interface Builder seems to magically know which classes, methods and variables are available. Where does Interface Builder get this information? How can you recreate this effect when editing source files in an external editor without Xcode running? This is the story of how I investigated the communication between Xcode and Interface Builder, so that I could recreate it for myself.</p></span>
+
+<span class="fullpost">
+<h2>Xcode and Interface Builder, sitting in a tree...</h2>
+<p>Prior to Mac OS X 10.5 (Snowless Leopard), if you made a change to your classes, <code>IBActions</code> or <code>IBOutlets</code>, you needed to manually instruct Interface Builder to re-read the relevant header files before these changes were visible in Interface Builder.</p>
+
+<p>With Xcode 3 and Interface Builder this has changed. If you add a new class to a project in Xcode, it is immediately available in class lists when you switch to Interface Builder. Similarly, change an <code>IBAction</code> or <code>IBOutlet</code> in Xcode, save the header file and switch to Interface Builder: your changes are immediately visible.</p>
+
+<p>And yet, if you quit Xcode and edit the same files in an external editor, Interface Builder doesn't automatically detect the changes. Clearly, Interface Builder is using something other than basic file monitoring to detect the changes.</p>
+
+<h2>NSDistributedNotificationCenter</h2>
+
+<p>The simplest way for applications in Mac OS X to communicate is through the distributed notification center, <code>NSDistributedNotificationCenter</code> in Foundation or <code>CFNotificationCenterRef</code> (initialized with <code>CFNotificationCenterGetDistributedCenter</code>) in CoreFoundation. This allows applications to broadcast dictionaries of objects to any application interested in listening.</p>
+
+<p>To see if Xcode is communicating to Interface Builder using a <code>NSDistributedNotificationCenter</code>, I needed to configure the process "distnoted" (the daemon which manages the <code>NSDistributedNotificationCenter</code>) to log notifications so I could see if anything relevant is broadcast.</p>
+
+<p>Apple's <a href="http://developer.apple.com/technotes/tn2004/tn2124.html">Technical Note TN2124: Mac OS X Debugging Magic</a> explains <em>some</em> of what's needed. On the command line:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">sudo</span> <span class="n">touch</span> <span class="o">/</span><span class="n">var</span><span class="o">/</span><span class="n">log</span><span class="o">/</span><span class="n">do_dnserver_log</span></code></pre></div>
+
+<p>Apple's documentation leaves out the next (required) steps:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">sudo</span> <span class="n">touch</span> <span class="o">/</span><span class="n">var</span><span class="o">/</span><span class="n">log</span><span class="o">/</span><span class="n">dnserver</span><span class="p">.</span><span class="n">log</span>
+<span class="n">sudo</span> <span class="n">chown</span> <span class="n">daemon</span> <span class="o">/</span><span class="n">var</span><span class="o">/</span><span class="n">log</span><span class="o">/</span><span class="n">dnserver</span><span class="p">.</span><span class="n">log</span></code></pre></div>
+
+<p>and then restart.</p>
+
+<p>Sadly for my investigation, this isn't how Xcode communicates to Interface Builder. Looking at the log when Xcode and Interface Builder are started, reveals nothing relevant from either program.</p>
+
+<h2>NSPortNameServer</h2>
+
+<p>I observed the next clue to how Xcode and Interface Builder communicate by starting two copies of each. In this setup, a new class created in the first instance of Xcode will be visible in both instances of Interface Builder but a new class created in the second instance of Xcode will not be detected by either copy of Interface Builder.</p>
+
+<p>This type of behavior is typical of named port connections.</p>
+
+<p>A quick Mac OS X lesson: almost all inter-process communication on the Mac is built on Mach Ports underneath. Mach Ports are a way to pass messages (blocks of data) between processes.</p>
+
+<p>The easiest way to for a process advertise a Mach Port so that other processes may connect to it, is to give it a name. Network names are registered using <code>NSNetService</code> (Bonjour) but on a single host (as is far more likely in this case) network names are registered through <code>NSPortNameServer</code>.</p>
+
+<p><code>NSPortNameServer</code> is, in turn, handled by "launchd" (the daemon that Apple created to replace init, cron, inetd and others). So to see if the <code>NSPortNameServer</code> supposition was correct, I needed to get "launchd" to output log information about Port Names.</p>
+
+<p>Again, I followed <a href="http://developer.apple.com/technotes/tn2004/tn2124.html">Technical Note TN2124: Mac OS X Debugging Magic</a> to learn how to do this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">sudo</span> <span class="n">launchctl</span> <span class="n">log</span> <span class="n">level</span> <span class="n">debug</span></code></pre></div>
+
+<p>And once again, the information contained in the Tech Note turned out to be insufficient. Apple really need to update this Tech Note.</p>
+
+<p>I wrote a program to send thousands of port name lookups on random names but no logging was output. However, I could see that the "syslog" process (the process that records logging information) was very busy but it wasn't recording any information anywhere.</p>
+
+<p>This is a typical "syslog.conf" problem: you must direct "syslog" information for the relevant "facility" and "level" to a destination. Unfortunately, the "facility" name that Apple gives for "launchd" in Tech Note TN2124 is wrong. Instead, I appended a "<code>*.debug</code>" line to my "syslog.conf" file and sent the output to /var/log/debug.log instead.</p>
+
+<p>This finally worked: "launchd" information (and debug information from other processes) found its way to the debug log file.</p>
+
+<p>Finding the correct piece of information in this haystack looked like an impossible task until I started Interface Builder without Xcode running:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">Mach</span> <span class="n">service</span> <span class="n">lookup</span> <span class="nl">failed</span><span class="p">:</span> <span class="n">PBXProjectWatcherServerConnection</span><span class="o">-</span><span class="mf">3.1.2</span></code></pre></div>
+
+<p>It doesn't follow Apple's own naming policy for Port Names (which would be something more like "com.apple.Xcode.projectwatcherserverconnection.3.1.2") but at least it is clear about its function.</p>
+
+<h2>NSConnection</h2>
+
+<p>At this point, the data sent over the Mach Port could be anything. How do you work out the format? I hoped that Apple used an <code>NSConnection</code> since the Cocoa libraries will handle this automatically for me.</p>
+
+<p>Fortunately, running the following line of Cocoa Objective-C:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">id</span> <span class="n">rootObject</span> <span class="o">=</span>
+    <span class="p">[</span><span class="n">NSConnection</span> <span class="nl">rootProxyForConnectionWithRegisteredName</span><span class="p">:</span>
+        <span class="s">@&#34;PBXProjectWatcherServerConnection-3.1.2&#34;</span> <span class="nl">host</span><span class="p">:</span><span class="nb">nil</span><span class="p">];</span></code></pre></div>
+
+<p>cleanly returned an object of type <code>PBXProjectWatcherManager</code>, revealing that yes, this is a regular <code>NSConnection</code> served over the Mach Port.</p>
+
+<h2>Recreating PBXProjectWatcherManager</h2>
+
+<p>The final step in replacing Xcode's role in keeping Interface Builder up-to-date with changes was to recreate <code>PBXProjectWatcherManager</code>. The easiest way to get this working, is to use <a href="http://iphone.freecoder.org/classdump_en.html">class-dump</a> to tell us what methods <code>PBXProjectWatcherManager</code> implements.</p>
+
+<p>Running class-dump directly on Xcode.app was no real help (Xcode.app doesn't directly contain most of Xcode's functionality &mdash; it's in shared libraries). Using Activity Monitor (or lsof on the command-line) to inspect the Open Files of Xcode reveals all the shared libraries that Xcode uses. Most of these libraries live in /Developer/Library/PrivateFrameworks, so I ran the following script in that directory:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">foreach</span> <span class="n">f</span> <span class="p">(</span><span class="o">*</span><span class="p">.</span><span class="n">framework</span><span class="p">)</span>
+  <span class="k">class</span><span class="o">-</span><span class="n">dump</span> <span class="err">$</span><span class="n">f</span> <span class="o">&gt;</span> <span class="o">~/</span><span class="n">Desktop</span><span class="o">/</span><span class="err">`</span><span class="n">basename</span> <span class="err">$</span><span class="n">f</span> <span class="p">.</span><span class="n">framework</span><span class="err">`</span><span class="p">.</span><span class="n">h</span>
+<span class="n">end</span></code></pre></div>
+
+<p>to generate header file descriptions of each framework on the desktop. "DevToolsInterface.h" turned out to contain the description of the <code>PBXProjectWatcherManager</code> class.</p>
+
+<p>Then it was a matter of working out which methods of <code>PBXProjectWatcherManager</code> are invoked and what they needed to return. So I created two projects: one to advertise its own <code>PBXProjectWatcherManager</code> under the name "PBXProjectWatcherServerConnection-3.1.2" and listen as Interface Builder connected and one to connect to Xcode's version of the same and work out the correct responses.</p>
+
+<h2>Final solution</h2>
+
+<p>The result is that Interface Builder invokes the following:</p>
+
+<table>
+<thead>
+<tr><td>Method invoked</td><td>Required response</td></tr>
+</thead>
+<tr><td><code>openProjectsContainingFile:</code></td><td>An <code>NSString</code> containing a URI to any Projects that contain a file with the specified path.</td></tr>
+<tr><td><code>pathOfProject:</code></td><td>An <code>NSString</code> containing the file path for the specified Project URI.</td></tr>
+<tr><td><code>nameOfProject:</code></td><td>An <code>NSString</code> containing the project name for the specified Project URI.</td></tr>
+<tr><td><code>targetsInProject:</code></td><td>An <code>NSArray</code> of <code>NSString</code> containing the UUIDs for all targets in the specified Project URI.</td></tr>
+<tr><td><code>nameOfTarget:inProject:</code></td><td>An <code>NSString</code> containing the target name for the specified target UUID.</td></tr>
+<tr><td><code>filesOfTypes:inTarget:ofProject:</code></td><td>Types is normally <code>nil</code> so the response is an <code>NSArray</code> of <code>NSString</code> containing file paths to all files contained in the target.</td></tr>
+</table>
+
+<p>Apparently, Interface Builder gets all the header file paths for all targets that use a given XIB file and monitors these files itself for changes. Experimental testing indicates that all that is required to replace Xcode's role in this case is to return these Project, Target and File values and Interface Builder will handle the rest (parsing the header files for information it requires).</p>
+
+<p>Interface Builder re-requests these values every time it is brought to the front, so it polls the "PBXProjectWatcherServerConnection-3.1.2" server, rather than implementing any automated form of observation (despite observation methods on <code>PBXProjectWatcherManager</code>). My guess is that this is more robust if either end of the <code>NSConnection</code> crashes.</p>
+
+<h2>Conclusion</h2>
+
+<p>I hope I've been informative about interprocess communication on the Mac and techniques for monitoring and intercepting these communications.</p>
+
+<p>These techniques presented in this post are only useful for intercepting standard Cocoa communication techniques.</p>
+
+<p>Obviously, implementing your own "PBXProjectWatcherServerConnection-3.1.2" server would require care. It isn't sending complicated information but you would need to update it every time Xcode is updated and there are dozens of other methods in the <code>PBXProjectWatcherManager</code> that may play a role I didn't uncover in this brief investigation.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../01/multiple-virtual-pages-in-uiscrollview.html">Multiple virtual pages in a UIScrollView with just 2 child views</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="breadth-first-traversal-of-graph-of.html">Breadth-first traversal of a graph of Objective-C objects</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

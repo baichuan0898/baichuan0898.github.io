@@ -1,0 +1,121 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<!--
+Local Variables:
+sgml-default-dtd-file: "~/html-loose.ced"
+End:
+-->
+<html>
+  <head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+
+    <title>Hamster Emporium: [objc explain]: Non-pointer isa</title>
+    <link title="RSS 2.0" href="../../../../rss.xml.rss" type="application/rss+xml" rel="alternate">
+  </head>
+  <body bgcolor="#ffffff">
+    <table cellpadding="0" cellspacing="0">
+      <tr>
+	  <td valign="top" align="left">
+	    <a href="../../../../index.html"><img src="http://www.sealiesoftware.com/hamster.jpg" alt="" width="108" height="160"></a><br><br>
+	    <b>blog</b><br>
+	    <a href="../../../../index.html">recent</a><br>
+	    <a href="../../../index.html">archive</a><br>
+	    <a href="http://twitter.com/gparker">twitter</a><br>
+	    <br>
+	    <b>projects</b><br>
+	    <a href="http://www.apple.com/macosx/">Mac OS X</a><br>
+	    <a href="http://www.sealiesoftware.com/keyboard/index.html">Keyboard</a><br>
+	     &nbsp; <a href="http://www.sealiesoftware.com/keyboard/index.html">backlight</a><br>
+	    <a href="http://www.sealiesoftware.com/cscmenu/index.html">CSC Menu</a><br>
+	    <a href="http://www.sealiesoftware.com/valgrind/index.html">Valgrind</a><br>
+	    <a href="http://www.sealiesoftware.com/fringe/index.html">Fringe Player</a><br>
+	    <a href="http://www.sealiesoftware.com/pssh/index.html">pssh</a><br>
+	    <a href="http://www.sealiesoftware.com/peal/index.html">Peal</a><br>
+	    <a href="http://www.sealiesoftware.com/frankenmouse/index.html">Frankenmouse</a><br>
+	    <br>
+	  </td>
+	  <td>
+	    &nbsp; &nbsp;
+	  </td>
+	  <td valign="top">
+	      <h2>Hamster Emporium archive</h2>
+  <p>
+     &lt;&lt; &nbsp; <a href="../../../2017/6/5/Objective-C_and_fork_in_macOS_1013.html">Objective-C and fork() in macOS 10.13</a> &nbsp; | &nbsp;  
+    <a href="../../../index.html">archive</a>
+     &nbsp; | &nbsp; <a href="../12/objc_explain_So_you_crashed_in_objc_msgSend_iPhone_5s_Edition.html">[objc explain]: So you crashed in objc_msgSend(): iPhone 5s Edition</a> &nbsp; &gt;&gt; 
+  </p>
+  <table cellpadding="0" cellspacing="3">
+      <tr>
+	<td>
+	  <a href="objc_explain_Non-pointer_isa.html"><img src="http://www.sealiesoftware.com/link.gif" width="14" height="16" border="0" alt="(link)"></a>
+	</td>
+	<td>
+	  <b><font size="+1">[objc explain]: Non-pointer isa</font></b> &nbsp; 
+	  <font size="-1">(<a href="objc_explain_Non-pointer_isa.html">2013-09-24 1:27 AM</a>)</font>
+	</td>
+      </tr>
+      <tr>
+	<td>
+	  &nbsp;
+	</td>
+	<td>
+	        <p>
+	On iOS for arm64, the isa field of Objective-C objects is no longer a pointer.
+	<h4>Say what?</h4>
+      <p>
+	On iOS for arm64, the isa field of Objective-C objects is no longer a pointer.	
+	<h4>If it's not a pointer anymore, what is it?</h4>
+      <p>
+	Some of the bits still encode the pointer to the object's class. But neither OS X nor iOS actually uses all 64 bits of virtual address space. The Objective-C runtime may use these extra bits to store per-object data like its retain count or whether it has been weakly referenced.
+	<h4>Why change it?</h4>
+      <p>
+	Performance. Re-purposing these otherwise unused bits increases speed and decreases memory size. On iOS 7 the focus is on optimizing retain/release and alloc/dealloc.
+	<h4>What does this mean for my code?</h4>
+      <p>
+	Don't read <code>obj->isa</code> directly. The compiler will complain if you do. <font size=-1>Trust the Compiler. The Compiler is your friend.</font> Use <code>[obj class]</code> or <code>object_getClass(obj)</code> instead. 
+      <p>
+	Don't write <code>obj->isa</code> directly. Use <code>object_setClass()</code> instead.
+      <p>
+	If you override <code>+allocWithZone:</code>, you may initialize your object's isa field to a "raw" isa pointer. If you do, no extra data will be stored in that isa field and you may suffer the slow path through code like retain/release. To enable these optimizations, instead set the isa field to zero (if it is not already) and then call <code>object_setClass()</code>.
+      <p>
+	If you override retain/release to implement a custom inline retain count, consider removing that code in favor of the runtime's implementation.
+      <p>
+	The 64-bit iOS simulator currently does not use non-pointer isa. Test your code on a real arm64 device.
+	<h4>What does this mean for debugging?</h4>
+      <p>
+	The debugger knows how to decode the class from the isa field. You should not need to examine it directly in most cases.
+      <p>
+	You can run your code with environment variable <code>OBJC_DISABLE_NONPOINTER_ISA=YES</code> to disable non-pointer isa for all classes. If your code works with this set and fails without it, you may be incorrectly accessing an isa field directly somewhere.
+      <p>
+	If you are writing a debugger-like tool, the Objective-C runtime exports some variables to help decode isa fields. <code>objc_debug_isa_class_mask</code> describes which bits are the class pointer: <code>(isa & class_mask) == </code>class pointer. <code>objc_debug_isa_magic_mask</code> and <code>objc_debug_isa_magic_value</code> describe some bits that help distinguish valid isa fields from other invalid values: <code>(isa & magic_mask) == magic_value</code> for isa fields that are not raw class pointers. These variables may change in the future so do not use them in application code.
+	<h4>No seriously, what do each of the bits mean?</h4>
+      <p>
+	For entertainment purposes only. These values will change in future OS versions. I think they already have changed, actually.
+	<table>
+	  <tr><td colspan=2 align=center>(LSB)<td>&nbsp;<td>&nbsp;</tr>
+	  <tr><td align=right>1<td>bit<td><code>indexed</code><td><code>0</code> is raw isa, <code>1</code> is non-pointer isa.</tr>
+	  <tr><td align=right>1<td>bit<td><code>has_assoc</code><td>Object has or once had an associated reference. Object with no associated references can deallocate faster.</tr>
+	  <tr><td align=right>1<td>bit<td><code>has_cxx_dtor</code><td>Object has a C++ or ARC destructor. Objects with no destructor can deallocate faster.</tr>
+	  <tr><td align=right>30<td>bits<td><code>shiftcls</code><td>Class pointer's non-zero bits.</tr>
+	  <tr><td align=right>9<td>bits<td><code>magic</code><td>Equals <code>0xd2</code>. Used by the debugger to distinguish real objects from uninitialized junk.</tr>
+	  <tr><td align=right>1<td>bit<td><code>weakly_referenced</code><td>Object is or once was pointed to by an ARC weak variable. Objects not weakly referenced can deallocate faster.</tr>
+	  <tr><td align=right>1<td>bit<td><code>deallocating</code><td>Object is currently deallocating.</tr>
+	  <tr><td align=right>1<td>bit<td><code>has_sidetable_rc</code><td>Object's retain count is too large to store inline.</tr>
+	  <tr><td align=right>19<td>bits<td><code>extra_rc</code><td>Object's retain count above 1. (For example, if <code>extra_rc</code> is 5 then the object's real retain count is 6.)</tr>
+	  <tr><td colspan=2 align=center>(MSB)<td>&nbsp;<td>&nbsp;
+	</table>
+      <p>
+
+	  </td>
+      </tr>
+  </table>
+
+	  </td>
+	</tr>
+    </table>
+    <hr>
+    <img align="right" src="http://www.sealiesoftware.com/sealie.gif" alt="seal!" width="114" height="69">
+    Greg Parker<br>
+    <a href="mailto:gparker-www@sealiesoftware.com">gparker-www@sealiesoftware.com</a><br>
+    <a href="http://www.sealiesoftware.com/index.html">Sealie Software</a>
+  </body>
+</html>

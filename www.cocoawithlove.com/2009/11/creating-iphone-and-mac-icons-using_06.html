@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Creating iPhone and Mac icons using Inkscape (Part 2 of 2)</title>
+  <meta name="description" content="In this part, I expand on the simple techniques presented in the first part by adding different line, effect and texture styles. I&#39;ll also present some Mac application icons and simple texturing." />
+
+  <meta name="twitter:title" content="Creating iPhone and Mac icons using Inkscape (Part 2 of 2)"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/11/creating-iphone-and-mac-icons-using_06.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="In this part, I expand on the simple techniques presented in the first part by adding different line, effect and texture styles. I&#39;ll also present some Mac application icons and simple texturing."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="creating-iphone-and-mac-icons-using_06.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="118px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Creating iPhone and Mac icons using Inkscape (Part 2 of 2)</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-11-06">November 6, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/graphics.html">graphics</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>In this part, I expand on the simple techniques presented in the first part by adding different line, effect and texture styles. I'll also present some Mac application icons and simple texturing.</p></span>
+
+<span class="fullpost">
+
+<h2>Introduction</h2>
+
+<p>This series covers the creation of the following different icon styles:</p>
+
+<img src="../../assets/objc-era/all-icons.png" width="550" height="111" />
+
+<p>The first icon was created in the first part of the series. I'll go through the creation of the remaining variations on the checkbox/checkmark theme in this post.</p>
+
+<p>I'll assume that you've read the first part or are familiar with the techniques involved.</p>
+
+<h2>Icon 2: A brighter, more colorful iPhone icon</h2>
+
+<img src="../../assets/objc-era/icon2.png" width="147" height="146" style="float:right;padding-top:20px;padding-left:20px;padding-bottom:20px;"/>
+
+<h3>Goals in this section</h3>
+
+<ul>
+<li>Use a radial gradient</li>
+<li>Learn to adjust all of the common stroke properties</li>
+<li>Learn to adjust a multi-effect filter</li>
+</ul>
+
+<p>The icon developed in Part 1 is very simple &mdash; really just a couple white lines over a typical iPhone icon background &mdash; which is appropriate for a serious application but might not stand out as prominently against other icons.</p>
+
+<p>In this variation, I'll have the background reach a bright point behind the checkbox element and change the effect on the lines so that the lines look embossed into this bright point &mdash; visually integrating the background and the overlayed element.</p>
+
+<p>I'll also introduce a complimentary (opposite hues) color scheme with an azure blue and a red.</p>
+
+<h3>A radial background</h3>
+
+<p>Starting with a 57x57 document as created in Part 1, add a rectangle filling the document area.</p>
+
+<p>Set the fill to a radial fill and edit the gradient. In the Gradient Editor, click "Add Stop" twice to make the gradient a four part gradient. Top to bottom, the four gradient colors should be:
+
+<ol><li>RGBA=(192,255,250,255)</li>
+<li>RGBA=(99,164,184,255), Offset 0.26</li>
+<li>RGBA=(5,74,119,255), Offset 0.62</li>
+<li>RGBA=(0,40,80,255)</li></ol>
+
+<p>We now have a bright spot in the center of the background.</p>
+
+<img src="../../assets/objc-era/blue-dot.png" width="300" height="301" />
+
+<p>Over the top of this, paste (or recreate) the starburst effect from Part &mdash; X,Y=(-15.7,-15.7) should center it perfectly.</p>
+
+<p>In the Fill and Stroke palette, set the opacity of the starburst to 100%.</p>
+
+<p>Now, to make the starburst smoother, open the Filter Editor (from the Filters menu) and find the starburst's blur effect (it should be selected in the filter column when the starburst itself is selected). Select the Gaussian Blur effect and set the standard deviation to 0.75.</p>
+
+<h3>Different stroke properties for the checkbox and checkmark</h3>
+
+<p>Create the checkbox and checkmark in the same way that they were created in the first part or copy them in. If you copy them in, select both the checkbox and the checkmark and choose Filters&rarr;Remove Filters to remove the shadow and bevel effect applied in the first part.</p>
+
+<p>Remove the corner radius from the checkbox (select it using the rectangle tool and set the Rx and Ry to zero). In the Fill and Stroke Editor, select the Stroke Style Tab and set the Line Width to 4.0 "px" and the Join Style to rounded. The result of these steps is to create a slightly thicker line that is curved on the corners within its width.</p>
+
+<p>Select the checkmark and set the stroke color to RGBA=(255,42,42,255) and the stroke width to 4.0 "px".</p>
+
+<img src="../../assets/objc-era/altered-strokes.png" width="377" height="367" />
+
+<h3>A customized "Cutout glow"</h3>
+
+<p>With both checkbox and checkmark selected, choose Filters&rarr;Shadows and Glows&rarr;Cutout Glow. Go to the Filter Editor and find this Cutout Glow filter. This filter will have 5 effect rows. Select the Offset row and set the X,Y offset to (0.8,0.8). Select the Gaussian Blur row and set the Standard Deviation to 1.0.</p>
+
+<img src="../../assets/objc-era/cutout-glow.png" width="550" height="310" />
+
+<p>Now follow the instructions from the "Apply the gloss effect and round corners" subsection of the previous post to complete the icon.</p>
+
+<h2>Icon 3: A cartoonish style</h2>
+
+<img src="../../assets/objc-era/icon3.png" width="148" height="146" style="float:right;padding-top:20px;padding-left:20px;padding-bottom:20px;"/>
+
+<h3>Goals in this section</h3>
+
+<ul>
+<li>Directly edit paths for greater control</li>
+<li>See a Path Effect (Spiro Spline) in action</li>
+</ul>
+
+<p>This variation will forego the starburst effect and instead go for a smoother, more "cartoonish" approach. The checkbox and checkmark will then need to be more distinctive as they will be the only significant graphical elements</p>
+
+<h3>Creating a path</h3>
+
+<p>Start with the background rectangle from the "brighter, more colorful iPhone icon" created above (if you created a cloned version for the round corners, don't copy the cloned version as it will behave strangely).</p>
+
+<p>Select the Bezier Path tool (11th icon down in the Tool Area). We'll draw the rough loop first.</p>
+
+<p>You can use the Bezier Path tool in one of two ways: simple click-and-release to create corner points and straight line segments or click and drag to create curve points (the dragging then affects the curvature of each point).</p>
+
+<p>For simplicity here, I'll show you how to create the path using corner points and we'll apply the curve as a second step. When you're more comfortable with the Bezier Tool, this can be done as a single step.</p>
+
+<p>Create a point at the 12 o'clock position, then 9, 6, 3 and then underneath the original 12. Then another inside the second twelve and then inside the 3, 6, 9, and between the first and second 12's. Then close the path by clicking on the first point.</p>
+
+<img src="../../assets/objc-era/stroke-creation.png" width="500" height="241" />
+
+<blockquote><strong>Bezier path creation</strong>: If you make a mistake with the path, you can either fix it later or press escape to cancel the whole path. Pressing the return-key will end the path without closing it.</blockquote>
+
+<h3>Adjusting path control point properties</h3>
+
+<p>Using the Node Tool (2nd icon down in the Tool Area) ensure the path you just created is selected. Drag a selection box around the nodes at 3, 6 and 9 o'clock (don't select the nodes at 12 o'clock). In the toolbar at the top, select the "Make selected nodes smooth" button (should be 8th from the left in the toolbar immediately above the window).</p>
+
+<img src="../../assets/objc-era/smooth-points.png" width="300" height="309" />
+
+<h3>Applying a path effect</h3>
+
+<p>Leaving the path selected, choose the Path&rarr;Path Effect Editor menu item. In the Path Effect Editor palette, select "Spiro Spline" from the popup menu and click the "Add" button. The "Spiro Spline" is an effect that makes smooth curved paths much easier than regular Bezier curves.</p>
+
+<img src="../../assets/objc-era/spiro-spline.png" width="400" height="299" />
+
+<p>Once this is done, you can tweak the nodes in the path (using the Node Tool) until it is the exact shape desired.</p>
+
+<p>In the Fill and Stroke Editer, remove any stroke, apply a faded yellow to faded orange linear gradient fill from left to right across the checkbox loop and it is done.</p>
+
+<img src="../../assets/objc-era/checkbox-loop.png" width="300" height="302" />
+
+<h3>Stroke to path</h3>
+
+<p>Create the checkmark as for the previous icons but set the Stroke Width to 6 "px" and the Style Join and Cap to square corners. With the path selected, choose the menu item Path&rarr;Stroke to Path. This will turn the line into a filled path. Set the stroke of this path to "no stroke" and set the fill to an orange to red linear gradient fill from left to right across the checkmark.</p>
+
+<p>Now we need to adjust the checkmark to have a looser aesthetic. Select the Node Tool and the checkmark. Drag the lines in the short stem upwards slightly and the lines in the long stem inwards slightly. Adjust the control points at the ends of each stem so that they are flared outwards a 
+little.</p>
+
+<img src="../../assets/objc-era/checkmark-adjustment.png" width="381" height="400" />
+
+<p>Follow the instructions from "Bevel effect and shadow" from Part 1 to apply these effects. Follow the instructions from the "Apply the gloss effect and round corners" subsection of the previous post to complete the icon.</p>
+
+<h2>Icon 4: A document-based Mac icon</h2>
+
+<img src="../../assets/objc-era/icon4.png" width="179" height="182" style="float:right;padding-top:20px;padding-left:20px;padding-bottom:20px;"/>
+
+<h3>Goals in this section</h3>
+
+<ul>
+<li>See the common components of a Mac document-based application icon</li>
+<li>Use multiple overlapping gradients to achieve softer gradients</li>
+<li>Add a texture to a background by filling with text</li>
+</ul>
+
+<p>In terms of colors and effects, Mac icons tend to be far more subdued than iPhone icons. Where iPhone icons are only shown on the Home screen but are small and need to stand out, Mac icons may sit in the Dock for extended periods and shouldn't be distracting during this time.</p>
+
+<p>For this reason, Mac icon colors tend to be slightly more subdued than iPhone icon colors and are frequently much lighter overall.</p>
+
+<p>While Mac icons are typically larger (an average of around 64x64) they can also be shown at smaller resolutions. The approach to satisfying the size range is normally to compose the icon from two key parts:</p>
+
+<ul><li>An object or item that is easily recognizable in silhouette or at small sizes</li>
+<li>Texture or subtler elements that fade away at smaller sizes but add structure and context at larger sizes</li>
+</ul>
+
+<p>Mac icons must also handle a range of different background colors as they may be shown against people's desktop backgrounds, white folder backgrounds or against the near black of a vertical Dock. To achieve good contrast against the background, most icons are generally light in color but with a subtle shadow behind them &mdash; not for 3D effect but to contrast with lighter backgrounds. Many icons also incorporate a frame or boundary into the representation which further adds to the strength of the icon's silhouette.</p>
+
+<h3>A rotated background</h3>
+
+<p>To start the icon, create a 64x64 px document. This size will help us optimize for the expected screen resolution.</p>
+
+<p>Into this, draw a 44 by 50 rectangle. Give it an azure to deep blue linear gradient from left to right and a white 3px stroke.</p>
+
+<p>Using the Selection Tool (first in the Tool Area), select the rectangle. Initially, this will show the resizing arrows around the shape. Click a second time to switch these arrows to the rotating arrows (don't double click as that will switch to the Node Tool). Click and drag one of the corner arrows to rotate the rectangle by 8&deg; (the rotated angle should be visible in the status bar at the bottom of the window while dragging but the exact angle isn't important).</p>
+
+<img src="../../assets/objc-era/rotated-gradient.png" width="272" height="271" />
+
+<h3>Some effects and another gradient</h3>
+
+<p>On its own, a single gradient isn't a very impressive effect. The trick in making a background effect that is both attractive and subtle, is normally to layer a few different effects on top of each other.</p>
+
+<p>With the rectangle selected, select "Path"&rarr;"Union". This may seem like a weird thing to do but it actually recreates the object using a path at the rotated orientation. We do this because Effects in Inkscape (like the shadow we're just about to apply) look bad (pixelated) when rotated. Recreating the object at this rotation means the effect will not have a rotation applied.</p>
+
+<p>Copy and paste this rotated rectangle and put the copy next to the original. Apply a drop shadow to the original with 50% opacity, Offset of (1,1) and radius of 1.5.</p>
+
+<p>Now remove the stroke from the copy. You'll notice that without the white stroke covering 1.5 px of the copy, the gradient region of the copy actually looks slightly bigger than the original. We need this shape to be the same size as the colored area of the original, so use the Selection Tool and with the rezize arrows, adjust the two to match (set the color to a flat fill like red and overlap the two objects to make it easier).</p>
+
+<p>Now set the second object to have a top to bottom (parallel to its rotated axis) linear gradient fill with four color points:</p>
+
+<ol><li>RGBA=(168,247,249,255)</li>
+<li>RGBA=(144,198,215,0), Offset 0.30</li>
+<li>RGBA=(95,144,175,0), Offset 0.70</li>
+<li>RGBA=(18,49,106,255)</li></ol>
+
+<p>Since this second gradient is transparent in the middle, it will show the first gradient in varying amounts through the middle. Overlapping the two should result in a softer gradient that vaguely resembles diffuse lighting across a slightly convex surface.</p>
+
+<img src="../../assets/objc-era/second-gradient.png" width="266" height="267" />
+
+<h3>A light text-based texture</h3>
+
+<p>The formatting of the following paragraph is not an mistake.</p>
+
+<ul>As indicated before, it<br/>helps to add a texture to<br/>your Mac icons. It is best<br/>if you have a texture or<br/>image that is related to<br/>your application &mdash; for<br/>this icon I don't really<br/>have an application, so<br/>I'm going to use a block<br/>of arbitrary text (this<br/>paragraph, in fact).</ul>
+
+<p>The Text Tool is two icons above the Gradient Tool. Click on the document to create a text object and type the text shown and formatted as above. With the text object selected, choose the Zapfino font from the font popup menu in the top toolbar. I like Zapfino because when zoomed out, it seems ornate and indistinct.</p>
+
+<p>Now use the Selection Tool to scale and position the text object over the other gradient rectangles.</p>
+
+<img src="../../assets/objc-era/text.png" width="373" height="372" />
+
+<p>To add a gloss effect over everything, create a 53 by 28 rectangle, with a flat RGBA=(255,255,255,60) fill and no stroke and rotate and position it over the top half of the existing shapes.</p>
+
+<h3>The "representative" element</h3>
+
+<p>For the representative element, I'll use a checkmark in an orange circle. Create a checkmark line (same as in previous icons) set a white 5 px stroke on the checkmark.</p>
+
+<p>Create a 43 by 43 circle (unlike the Rectangle Tool, you can't specify the size of a circle with the Circle Tool selected. If you want to do this, you'll need to use the Selection Tool). Set a red-orange to yellow-orange radial gradient on the object and no stroke.</p>
+
+<p>Using the Gradient Tool, drag the center control point of the gradient to the bottom-right corner of the circle's bounding box, the endpoint of the horizontal stem to the bottom-left corner and the vertical endpoint to the top-right corner.</p>
+
+<img src="../../assets/objc-era/representative-element.png" width="369" height="277" />
+
+<p>With the circle selected, use the menu item Filters&rarr;ABCs&rarr;Diffuse Light. Then use the Filter Editor to set the Gaussian Blur effect of this filter to a Standard Deviation of 1.0. Then apply a drop shadow to the circle.</p>
+
+<p>Finally, position everything together and the icon is complete.</p>
+
+<h2>Icon 5: A circular Mac icon</h2>
+
+<img src="../../assets/objc-era/icon5.png" width="164" height="164" style="float:right;padding-top:20px;padding-left:20px;padding-bottom:20px;"/>
+
+<h3>Goals in this section</h3>
+
+<ul>
+<li>See the common components of a Mac "appliance" application icon</li>
+<li>Apply effects to a path to make the boundary shape more interesting and more distinct from the background</li>
+<li>Create a texture using an effect</li>
+</ul>
+
+<p>A circular icon is constructed in the same way as a rectangular backed icon. The only significant differences are:</p>
+
+<ul><li>gradients tend to be various kinds of radial gradient to give a convex feel to the round shape</li>
+<li>the overlayed element will be more centered so it helps if it is less solid (thinner and lighter)</li></ul>
+
+<h3>Compose a round icon</h3>
+
+<p>Since you've seen how to put together basic shapes and radial fills before, I'll just show you the components I used to create this icon as a graphic:</p>
+
+<img src="../../assets/objc-era/round-icon-components.png" width="550" height="133" />
+
+<p>Notice how bright the elements all are: Mac icons are normally quite bright &mdash; you want to avoid a "muddy" effect with too many dark colors.</p>
+
+<p>When composing elements, if one of them is at the wrong depth (overlaps other objects wrong) you can change the depth by selecting the object and using the Page Up/Page Down keys (or by using the "Object"&rarr;"Raise"/"Lower" menu items).</p>
+
+<h3>Make the checkmark look interesting</h3>
+
+<p>The checkmark must stand alone in this icon, which means that it should have a few special effects applied to it so that it doesn't look sterile and boring. I applied the following effects to the checkmark:</p>
+
+<ol>
+<li>Filters&rarr;Non-realistic 3D shaders&rarr;Comics</li>
+<li>Filters&rarr;Shadows and Glows&rarr;Inner Glow. For this filter, I changed the Flood color to a medium blue and reduced the Gaussian Blur (now the second blur in the Effects list for this object after the Comics blur from the previous effect) to a Standard Deviation of 1.0.</li>
+<li>A drop shadow.</li>
+</ol>
+
+<img src="../../assets/objc-era/checkmark-with-effects.png" width="146" height="165" />
+
+<p>To texture the circle, I used the RGBA=(176,112,42,140) circle (middle element shown above) and applied a Filters&rarr;Image effects, transparent&rarr;Marbled ink effect. This gives a slightly moon cratered look that matches the somewhat planetoid shape of the object.</p>
+
+<img src="../../assets/objc-era/textured-circle.png" width="212" height="228" />
+
+<h2>Conclusion</h2>
+
+<blockquote>You can <a href="../../assets/objc-era/cocoawithlove-inkscape-icons-part1.svg">download an Inkscape SVG file containing all the icons and their compositions</a> (482kB).</blockquote>
+
+<p>This two part series has been outside the normal domain of programming information that I provide. However, applications programmers will regularly find themselves needing to create, edit or adjust artwork-related assets in their applications. I hope I've given some useful tips on the way artwork assets are composed and ways you can make your artwork look good, even if it is very simple.</p>
+
+<img src="../../assets/objc-era/all-icons.png" width="550" height="111" />
+
+<p>With iPhone or Mac icons, they are typically composed from the same elements:</p>
+
+<ol>
+<li>A background gradient (or two).</li>
+<li>A texture or additional effect.</li>
+<li>A gloss or lighting highlight.</li>
+<li>A foreground element or symbol representing your application which, after the other elements are applied, need only be very simple.</li>
+</ol>
+
+<p>With gradients and effects, it is helpful to use a few so that your icon seems rich on close inspection but to keep each one very subtle since they shouldn't distract or make the icon harder to perceive (in a quick glance, the user shouldn't even see the effects you've added).</p>
+
+<p>Icons do not need to be complex; the most professional icons are often very basic. Lack of artistic skill need not be a hinderance if you keep it simple.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="creating-iphone-and-mac-icons-using.html">Creating iPhone and Mac icons using Inkscape (Part 1 of 2)</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="drop-in-fix-for-problems-with-nshost.html">A drop-in fix for the problems with NSHost</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

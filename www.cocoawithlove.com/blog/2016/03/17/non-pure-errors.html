@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Errors: unexpected, composite, non-pure, external.</title>
+  <meta name="description" content="Error handling is a topic I plan to visit periodically but it&#39;s difficult since &#39;error&#39; is such a poorly defined term. In this article, I give a clear definition of an error and further define the most common associated complications. The intent is to establish a foundation for future discussions on the topic." />
+
+  <meta name="twitter:title" content="Errors: unexpected, composite, non-pure, external."/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/blog/2016/03/17/non-pure-errors.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Error handling is a topic I plan to visit periodically but it&#39;s difficult since &#39;error&#39; is such a poorly defined term. In this article, I give a clear definition of an error and further define the most common associated complications. The intent is to establish a foundation for future discussions on the topic."/>
+
+  <link rel="icon" href="../../../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../../../css/main.css" />
+  <link rel="canonical" href="non-pure-errors.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../../../index.html"><img class="heartandcup" src="../../../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../../../about/index.html">about</a>
+        <a class="page-link" href="../../../../archive/index.html">archive</a>
+        <a class="page-link" href="../../../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Errors: unexpected, composite, non-pure, external.</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2016-03-17">March 17, 2016</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../../../tags/fundamentals.html">fundamentals</a>, <a href="../../../../tags/error-handling.html">error handling</a>
+		 
+	</div>
+</header>
+
+
+<main role="main">
+	<article itemscope itemtype="http://schema.org/BlogPosting">
+		<div class="post-content" itemprop="articleBody">
+			
+
+<p>The opening sentence of <a href="https://developer.apple.com/library/ios/documentation/Swift/Conceptual/Swift_Programming_Language/index.html">&ldquo;The Swift Programming Language&rdquo;</a> chapter on <a href="https://developer.apple.com/library/ios/documentation/Swift/Conceptual/Swift_Programming_Language/ErrorHandling.html">&ldquo;Error Handling&rdquo;</a> briefly refers to &ldquo;error conditions&rdquo; but beyond that, there&rsquo;s no definition of what an error is, the conditions that would give rise to one or why it would require special handling.</p>
+
+<p>It&rsquo;s not a problem unique to &ldquo;The Swift Programming Language&rdquo;; search for &ldquo;error&rdquo; on the web and you&rsquo;ll realize it is difficult to find a clear definition of this kind of error that isn&rsquo;t a discussion about error representations. Error representations are just value types so they&rsquo;re not ultimately very interesting. They may be returned along separate return paths to non-errors or they may be combined with non-error types into composite entities like &ldquo;sum&rdquo; types – but they are still just values.</p>
+
+<p>To better manage errors and test the functions that involve them, we need to look at what makes errors (not just their representations) unique. I&rsquo;ll give a universal definition of an &ldquo;error&rdquo; and look at an increasing series of complications common to errors (&ldquo;unexpected&rdquo;, &ldquo;composite&rdquo;, &ldquo;non-pure&rdquo;, &ldquo;external&rdquo;) that make them much worse than typical values and look at the implications this has on testing and subsequent handling.</p>
+
+<nav id="TableOfContents"><span class="toc-heading">Contents</span>
+<ul>
+<li>
+<ul>
+<li><a href="#figure-1-a-pure-function">Figure 1: a pure function</a></li>
+<li><a href="#figure-2-a-piecewise-function">Figure 2: a piecewise function</a></li>
+<li><a href="#errors-are-expectation-failures">Errors are expectation failures</a></li>
+<li><a href="#implications-of-errors">Implications of errors</a></li>
+<li><a href="#impact-of-a-composite-type-on-the-caller">Impact of a composite type on the caller</a></li>
+<li><a href="#figure-3-a-non-pure-function">Figure 3: a non-pure function</a></li>
+<li><a href="#non-pure-statements">Non-pure statements</a></li>
+<li><a href="#impact-of-non-pure-functions-on-testing">Impact of non-pure functions on testing</a></li>
+<li><a href="#figure-4-a-non-pure-error">Figure 4: a non-pure error</a></li>
+<li><a href="#external-state">External state</a></li>
+<li><a href="#conclusion">Conclusion</a></li>
+</ul></li>
+</ul>
+</nav>
+
+<h2 id="figure-1-a-pure-function">Figure 1: a pure function</h2>
+
+<p>To begin, let&rsquo;s look at a function that doesn&rsquo;t produce an error or require any error handling.</p>
+
+<p><img src="../../../../assets/blog/errors1.svg" alt="Figure 1: a pure function" /></p>
+
+<p>This is the structure of a basic &ldquo;pure&rdquo; function. If you&rsquo;re unfamiliar with functional programming technology:</p>
+
+<blockquote>
+<p>A <a href="https://en.wikipedia.org/wiki/Pure_function"><strong>pure function</strong></a> is one whose behavior depends only on its input arguments (the only data it reads must be read from its arguments) and doesn&rsquo;t change program state (only temporary local variables and the &ldquo;return&rdquo; value may be written)</p>
+</blockquote>
+
+<p>The function pre-processes arguments (the &ldquo;prepare&rdquo; step in the diagram), maps the input values onto output values in accordance with expected behavior (the &ldquo;evaluate&rdquo; step) and then packages and sends the output to the caller (the &ldquo;return&rdquo; step).</p>
+
+<p>An example in Swift:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">multiplyU32toU64</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nb">UInt32</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="nb">UInt32</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">UInt64</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span> <span class="p">=</span> <span class="p">(</span><span class="nb">UInt64</span><span class="p">(</span><span class="n">a</span><span class="p">),</span> <span class="nb">UInt64</span><span class="p">(</span><span class="n">b</span><span class="p">))</span>
+   <span class="kd">let</span> <span class="nv">result</span> <span class="p">=</span> <span class="n">x</span> <span class="o">*</span> <span class="n">y</span>
+   <span class="k">return</span> <span class="n">result</span>
+<span class="p">}</span></code></pre></div>
+
+<p>In this function, the first line is the &ldquo;prepare&rdquo; step (processing the arguments into the desired format), the second line is the &ldquo;evaluate&rdquo; step (performs the logic of the function) and the third line is the &ldquo;return&rdquo; step (sending the results of the &ldquo;evaluate&rdquo; step to the caller).</p>
+
+<p>By design, this function has the same semantics (logical behavior) for all possible inputs. Due to the increase from 32 to 64 bits, there is no possibility of overflow and there is no other way to trigger a special valued output in this function; any two <code>Int32</code> values will produce an <code>Int64</code> that is the multiplicative product of the two.</p>
+
+<h2 id="figure-2-a-piecewise-function">Figure 2: a piecewise function</h2>
+
+<p><img src="../../../../assets/blog/errors2.svg" alt="Figure 2: a piecewise function" /></p>
+
+<p>This diagram represents another &ldquo;pure&rdquo; function. In some respects, it is simply a &ldquo;zoom in&rdquo; on the previous diagram – the &ldquo;prepare&rdquo; step has expanded into &ldquo;check&rdquo; and &ldquo;partition&rdquo; steps. The &ldquo;evaluate&rdquo; step has expanded into two possible &ldquo;evaluate&rdquo; steps (&ldquo;A&rdquo; and &ldquo;B&rdquo;) but otherwise, it&rsquo;s the same overall structure.</p>
+
+<p>The difference is that now, we have two different control-flow paths for the function, based on an analysis of the input.</p>
+
+<p>An example in Swift:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">multiplyU32toU32</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nb">UInt32</span><span class="p">,</span> <span class="n">b</span><span class="p">:</span> <span class="nb">UInt32</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">UInt32</span><span class="p">?</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">result</span><span class="p">:</span> <span class="nb">UInt32</span><span class="p">?</span>
+   <span class="k">if</span> <span class="n">log2</span><span class="p">(</span><span class="nb">Double</span><span class="p">(</span><span class="n">a</span><span class="p">))</span> <span class="o">+</span> <span class="n">log2</span><span class="p">(</span><span class="nb">Double</span><span class="p">(</span><span class="n">b</span><span class="p">))</span> <span class="o">&lt;</span> <span class="mi">32</span> <span class="p">{</span>
+      <span class="n">result</span> <span class="p">=</span> <span class="n">a</span> <span class="o">*</span> <span class="n">b</span>
+   <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+      <span class="n">result</span> <span class="p">=</span> <span class="kc">nil</span>
+   <span class="p">}</span>
+   <span class="k">return</span> <span class="n">result</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This version of the multiply function guards against overflow by pre-checking the inputs and returning <code>nil</code> if it multiplication would overflow and only performing the multiplication if it would be safe.</p>
+
+<p>The two different control-flow paths are reflected in the result which is a &ldquo;sum&rdquo; type – an <code>Optional</code> which may be either <code>nil</code> or a <code>UInt32</code>.</p>
+
+<blockquote>
+<p>A <a href="https://en.wikipedia.org/wiki/Tagged_union"><strong>sum type</strong></a> is a <a href="https://en.wikipedia.org/wiki/Composite_data_type">composite</a> or <a href="https://en.wikipedia.org/wiki/Algebraic_data_type">algebraic type</a> where instances must conform to one type from a set of possible types. In Swift, this is usually implemented as an <code>enum</code>, like <code>Optional</code>.</p>
+</blockquote>
+
+<h2 id="errors-are-expectation-failures">Errors are expectation failures</h2>
+
+<p>The <code>multiplyU32toU32</code> function&rsquo;s behavioral expectation is that it will apply a multiplication and return the result. However, the function has a code path and a return type that bypass that functionality entirely.</p>
+
+<p>Depending on the value of input arguments, this function may fail to meet behavioral expectations. This leads us to the missing definition of an error:</p>
+
+<blockquote>
+<p>An <strong>error</strong> represents a failure to meet expectations (of arguments, state or other input) where those expectations are a predicate to meeting behavioral expectations (of the statement, function or program).</p>
+</blockquote>
+
+<p>There are different kinds of error. I&rsquo;ve previously discussed <a href="../../01/25/partial-functions-part-one-avoidance.html"><em>fatal</em> errors</a> which are failures of the programmer to meet expectations where the program chooses to abort rather than allow the behavioral expectations to fail.</p>
+
+<p>In this article, we&rsquo;re looking at <em>non-fatal</em> errors. They still represent an expectation failure that prevents the typical behavioral expectations of the function being met however, instead of an abort, the function avoids returning its expected result and instead, a different value (which doesn&rsquo;t depend on the failed expectation) is returned.</p>
+
+<h2 id="implications-of-errors">Implications of errors</h2>
+
+<p>It&rsquo;s a seemingly minor note but we don&rsquo;t generally expect we will fail to meet our expectations.</p>
+
+<p>While the <code>multiplyU32toU32</code> function has similar structure to the following function:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">absoluteValue</span><span class="p">(</span><span class="n">a</span><span class="p">:</span> <span class="nb">Int</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Int</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">result</span><span class="p">:</span> <span class="nb">Int</span>
+   <span class="k">if</span> <span class="n">a</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="p">{</span>
+      <span class="n">result</span> <span class="p">=</span> <span class="o">-</span><span class="n">a</span>
+   <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+      <span class="n">result</span> <span class="p">=</span> <span class="n">a</span>
+   <span class="p">}</span>
+   <span class="k">return</span> <span class="n">result</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The difference is that with <code>absoluteValue</code>, we <em>expect</em> we&rsquo;ll need to test both paths equally.</p>
+
+<p>When we call something an &ldquo;error&rdquo;, we&rsquo;re expecting to <em>avoid</em> the error wherever possible. For this reason, there&rsquo;s an instinct to leave the error path relatively untested – we don&rsquo;t expect it to occur as often. Even if this asymmetry of usage is true, it creates a higher risk for the less tested path.</p>
+
+<p>It should be clear that testing the internals of both <code>multiplyU32toU32</code> and <code>absoluteValue</code> should follow the same pattern: both branches should be equally exercised by tests. The only reason you should apply less rigorous testing to a path is if its <em>implementation</em> is much simpler.</p>
+
+<p>Usage frequency should not be used to dictate testing thoroughness (unless the expected frequency is &ldquo;never&rdquo;, in which case: maybe the path shouldn&rsquo;t exist at all).</p>
+
+<h2 id="impact-of-a-composite-type-on-the-caller">Impact of a composite type on the caller</h2>
+
+<p>Any composite type – like a sum type or an ad hoc equivalent that uses mutually exclusive separate values or even single scalars where different ranges reserved for communicating different behaviors – requires that the caller separate the different components and handle each appropriately. This requires either control flow constructs or functions that are aware of the nature of the composite.</p>
+
+<p>Returning a sum type increases the complexity for the caller. Efficient language constructs and functions that are aware-by-design of the sum type will mitigate some of this complexity increase but a sum type will never be as simple as a continuous scalar type.</p>
+
+<p>Swift has numerous language and library features for handling &ldquo;sum&rdquo; types (e.g. <code>switch</code> and <code>if let</code>) but this handling has a syntactic and mental overhead compared to non-sum type handling. There are other approaches that further reduce syntactic overhead by enclosing the actual handling inside the function (e.g. conditional unwrapping and <code>flatMap</code>) but even when the syntax is efficient, we must still consider the multiple behaviors that may be involves.</p>
+
+<h2 id="figure-3-a-non-pure-function">Figure 3: a non-pure function</h2>
+
+<p>We&rsquo;ve looked at &ldquo;pure errors&rdquo; but the majority of errors in imperative programming results from &ldquo;non-pure&rdquo; inputs.</p>
+
+<p>To see what that means, let&rsquo;s start with an error-free, non-pure function:</p>
+
+<p><img src="../../../../assets/blog/errors3.svg" alt="Figure 1: a non-pure function" /></p>
+
+<p>Structurally, it&rsquo;s not much different to a pure function. The &ldquo;prepare&rdquo; is now a &ldquo;fetch&rdquo; stage – implying an action to bring data in from outside – but the purpose is the same: get the required arguments for the function. The difference is in the details:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">secondsSince</span><span class="p">(</span><span class="n">previous</span><span class="p">:</span> <span class="n">Date</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Double</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">current</span> <span class="p">=</span> <span class="n">Date</span><span class="p">()</span>
+   <span class="kd">let</span> <span class="nv">result</span> <span class="p">=</span> <span class="n">current</span><span class="p">.</span><span class="n">timeIntervalSince</span><span class="p">(</span><span class="n">date</span><span class="p">:</span> <span class="n">previous</span><span class="p">)</span>
+   <span class="k">return</span> <span class="n">result</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Like the <code>multiply32to64</code> function under <a href="#figure-1-a-pure-function">&ldquo;Figure 1&rdquo;</a>, this function is an operation on two values. In this case however, while one of the operands (<code>previous</code>) is a function parameter, the other (<code>current</code>) pulls its value from the system clock inside the <code>Date</code> constructor. Since the clock is not a parameter to the function, this function is &ldquo;non-pure&rdquo;.</p>
+
+<h2 id="non-pure-statements">Non-pure statements</h2>
+
+<p>Technically a function is only non-pure by extension. Non-pure is really the property of a single statement. Most of the <code>secondsSince</code> function is pure and it is only the fetching of the current date:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">let</span> <span class="nv">current</span> <span class="p">=</span> <span class="n">Date</span><span class="p">()</span></code></pre></div>
+
+<p>that is non-pure. The diagram for &ldquo;non-pure&rdquo; could have been just the &ldquo;fetch&rdquo; step and nothing more. However, &ldquo;non-pure&rdquo; as a concept is not particularly interesting, it is the effect that non-pure dependencies have on our program that we want to consider – which is why it&rsquo;s important to always look at what follows any &ldquo;fetch&rdquo; or &ldquo;send&rdquo;.</p>
+
+<h2 id="impact-of-non-pure-functions-on-testing">Impact of non-pure functions on testing</h2>
+
+<p>Non-pure statements have implications for thread-safety, repeatability and determinism but in many cases, the biggest difficulty with non-pure functions is that they&rsquo;re difficult to test.</p>
+
+<p>In typical testing, we invoke a function with known arguments and test the result to ensure the function worked. With non-pure functions, controlling the arguments doesn&rsquo;t control the function.</p>
+
+<p>In the &ldquo;non-pure&rdquo; function diagram, how do we test the &ldquo;evaluate&rdquo; step is working correctly if we don&rsquo;t know the exact value constructed during the &ldquo;fetch&rdquo; step?</p>
+
+<p>We either need access to the other dependencies (sometimes singletons or other global state within our program can be pre-configured) or we need to be loose enough with our testing that guesses about the result will be true. In both cases, it adds complexity and reduces the robustness of testing.</p>
+
+<p>Alternately, we can move dependencies to the other side of the function interface (a process called &ldquo;dependency injection&rdquo;) which can stop the function being non-pure but adds interface complexity and (since it adds an additional layer of indirection) can impede performance.</p>
+
+<h2 id="figure-4-a-non-pure-error">Figure 4: a non-pure error</h2>
+
+<p>I&rsquo;ve looked at &ldquo;pure errors&rdquo; and &ldquo;non-pure functions&rdquo;; no surprises that the next step is a non-pure error:</p>
+
+<p><img src="../../../../assets/blog/errors4.svg" alt="Figure 1: a non-pure error" /></p>
+
+<p>In most respects, it is a combination of a &ldquo;pure error&rdquo; and a &ldquo;non-pure function&rdquo;. There&rsquo;s a &ldquo;sum&rdquo; return type, two paths through the function and a dependency that isn&rsquo;t part of the invocation arguments.</p>
+
+<p>Here&rsquo;s a simple example:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">var</span> <span class="nv">settings</span> <span class="p">=</span> <span class="nb">Dictionary</span><span class="p">&lt;</span><span class="nb">String</span><span class="p">,</span> <span class="nb">String</span><span class="o">&gt;</span><span class="p">()</span>
+<span class="kd">func</span> <span class="nf">formattedName</span><span class="p">()</span> <span class="p">-&gt;</span> <span class="nb">String</span><span class="p">?</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">result</span><span class="p">:</span> <span class="nb">String</span><span class="p">?</span>
+   <span class="k">if</span> <span class="kd">let</span> <span class="nv">firstName</span> <span class="p">=</span> <span class="n">settings</span><span class="p">[</span><span class="s">&#34;firstName&#34;</span><span class="p">],</span> <span class="n">secondName</span> <span class="p">=</span> <span class="n">settings</span><span class="p">[</span><span class="s">&#34;secondName&#34;</span><span class="p">]</span> <span class="p">{</span>
+      <span class="n">result</span> <span class="p">=</span> <span class="s">&#34;</span><span class="si">\(</span><span class="n">secondName</span><span class="si">)</span><span class="s">, </span><span class="si">\(</span><span class="n">firstName</span><span class="si">)</span><span class="s">&#34;</span>
+   <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+      <span class="n">result</span> <span class="p">=</span> <span class="kc">nil</span>
+   <span class="p">}</span>
+   <span class="k">return</span> <span class="n">result</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Like the <code>multiplyU32toU32</code> function, above, which checked an expectation and returned an error value of <code>nil</code> when the expectation was not met, this function checks that the &ldquo;firstName&rdquo; and &ldquo;secondName&rdquo; keys are present in the <code>settings</code> and returns <code>nil</code> when they&rsquo;re not.</p>
+
+<p>This example isn&rsquo;t very intimidating. The dependency is local (just a global variable in the same file) so its access can be viewed and controlled easily. It&rsquo;s unlikely to return <code>nil</code> in surprising ways.</p>
+
+<h2 id="external-state">External state</h2>
+
+<p>The most difficult to manage errors are those that depend on &ldquo;external&rdquo; state.</p>
+
+<blockquote>
+<p><strong>External state</strong>, in this case, is state that doesn&rsquo;t reside within your own process. It may mutate independently of your program, it may have behavior that is not fully declared and even when the behavior is broadly understood, the full complexity may be far beyond what a simple app wants to manage.</p>
+</blockquote>
+
+<p>Consider the following function:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">sizeOfFile</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">String</span><span class="p">)</span> <span class="kr">throws</span> <span class="p">-&gt;</span> <span class="nb">Int</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">attributes</span> <span class="p">=</span> <span class="k">try</span> <span class="n">FileManager</span><span class="p">.</span><span class="k">default</span><span class="p">.</span><span class="n">attributesOfItem</span><span class="p">(</span><span class="n">atPath</span><span class="p">:</span> <span class="n">path</span><span class="p">)</span>
+   <span class="kd">let</span> <span class="nv">result</span> <span class="p">=</span> <span class="p">(</span><span class="n">attributes</span><span class="p">[</span><span class="n">FileAttributeKey</span><span class="p">.</span><span class="n">size</span><span class="p">]</span> <span class="k">as</span><span class="p">?</span> <span class="nb">Int</span><span class="p">)</span> <span class="p">??</span> <span class="mi">0</span>
+   <span class="k">return</span> <span class="n">result</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This function attempts to get the size of a file at the specified path. It&rsquo;s not a complicated idea. Looking at this function, consider the following questions:</p>
+
+<ul>
+<li>How many ways can an attempt to get the attributes of a file fail?</li>
+<li>The <code>attributesOfItem(atPath:)</code> documentation simply states that attributes will be present – does it mean <em>all</em> attributes?</li>
+<li>Is it possible that <code>FileAttributeKey.size</code> will be missing from the attributes?</li>
+<li>Is returning <code>0</code> a sensible result (correct interpretation when <code>FileAttributeKey.size</code> is missing) or would a missing <code>FileAttributeKey.size</code> convey a different meaning?</li>
+</ul>
+
+<p>Unless you have access to the Foundation source code and the source code of the filesystem, you might not be able to answer <em>any</em> of these questions. Errors due to external state are a nightmare because there <em>aren&rsquo;t</em> clear answers. You can guess about likely errors and scenarios but it&rsquo;s almost impossible to know.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>It shouldn&rsquo;t be as difficult to find a definition for &ldquo;error&rdquo; as it is. It&rsquo;s not a complicated concept: an error is a failed expectation, of an input or another dependency, that leads to a failure to deliver on behavioral expectations.</p>
+
+<p>It&rsquo;s the common traits of an error that make them so difficult to manage:</p>
+
+<ul>
+<li>composite (requiring handling of multiple possibilities)</li>
+<li>unexpected (skewing testing and design considerations)</li>
+<li>non-pure (dramatically increasing difficulty of testing)</li>
+<li>external (preventing control or clear definition)</li>
+</ul>
+
+<p>I&rsquo;ve attempted to keep the contents of this article as simple as possible, focussing on definitions and the implicit difficulties but avoiding significant discussion about error handling or how to manage difficulties.</p>
+
+<p>I hope to refer back to this article in the future as I go through the different approaches used to manage errors, test error-prone functions, handle non-pure functions, handle externalities, reduce and hide complexity in error handling and use higher level abstractions to work with composite types in the same way as normal types.</p>
+
+		</div>
+	</article>
+</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../08/swift-wrapper-for-sysctl.html">Gathering system information in Swift with sysctl</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../27/on-delete.html">Breaking Swift with reference counted structs</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../../../feed.json">JSON</a>, <a href="../../../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

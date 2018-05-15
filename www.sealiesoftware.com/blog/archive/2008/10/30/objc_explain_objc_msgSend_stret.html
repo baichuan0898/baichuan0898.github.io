@@ -1,0 +1,159 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<!--
+Local Variables:
+sgml-default-dtd-file: "~/html-loose.ced"
+End:
+-->
+<html>
+  <head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+
+    <title>Hamster Emporium: [objc explain]: objc_msgSend_stret</title>
+    <link title="RSS 2.0" href="../../../../rss.xml.rss" type="application/rss+xml" rel="alternate">
+  </head>
+  <body bgcolor="#ffffff">
+    <table cellpadding="0" cellspacing="0">
+      <tr>
+	  <td valign="top" align="left">
+	    <a href="../../../../index.html"><img src="http://www.sealiesoftware.com/hamster.jpg" alt="" width="108" height="160"></a><br><br>
+	    <b>blog</b><br>
+	    <a href="../../../../index.html">recent</a><br>
+	    <a href="../../../index.html">archive</a><br>
+	    <a href="http://twitter.com/gparker">twitter</a><br>
+	    <br>
+	    <b>projects</b><br>
+	    <a href="http://www.apple.com/macosx/">Mac OS X</a><br>
+	    <a href="http://www.sealiesoftware.com/keyboard/index.html">Keyboard</a><br>
+	     &nbsp; <a href="http://www.sealiesoftware.com/keyboard/index.html">backlight</a><br>
+	    <a href="http://www.sealiesoftware.com/cscmenu/index.html">CSC Menu</a><br>
+	    <a href="http://www.sealiesoftware.com/valgrind/index.html">Valgrind</a><br>
+	    <a href="http://www.sealiesoftware.com/fringe/index.html">Fringe Player</a><br>
+	    <a href="http://www.sealiesoftware.com/pssh/index.html">pssh</a><br>
+	    <a href="http://www.sealiesoftware.com/peal/index.html">Peal</a><br>
+	    <a href="http://www.sealiesoftware.com/frankenmouse/index.html">Frankenmouse</a><br>
+	    <br>
+	  </td>
+	  <td>
+	    &nbsp; &nbsp;
+	  </td>
+	  <td valign="top">
+	      <h2>Hamster Emporium archive</h2>
+  <p>
+     &lt;&lt; &nbsp; <a href="../../11/16/objc_explain_objc_msgSend_fpret.html">[objc explain]: objc_msgSend_fpret</a> &nbsp; | &nbsp;  
+    <a href="../../../index.html">archive</a>
+     &nbsp; | &nbsp; <a href="../27/updated_Valgrind_for_Mac_OS_X.html">updated: Valgrind for Mac OS X</a> &nbsp; &gt;&gt; 
+  </p>
+  <table cellpadding="0" cellspacing="3">
+      <tr>
+	<td>
+	  <a href="objc_explain_objc_msgSend_stret.html"><img src="http://www.sealiesoftware.com/link.gif" width="14" height="16" border="0" alt="(link)"></a>
+	</td>
+	<td>
+	  <b><font size="+1">[objc explain]: objc_msgSend_stret</font></b> &nbsp; 
+	  <font size="-1">(<a href="objc_explain_objc_msgSend_stret.html">2008-10-30 10:28 PM</a>)</font>
+	</td>
+      </tr>
+      <tr>
+	<td>
+	  &nbsp;
+	</td>
+	<td>
+	        <p>
+	<code>objc_msgSend</code> is the Objective-C message
+	dispatcher. It's the function-calling function, using selector and
+	the receiver object's class to decide where to jump
+	to. <code>objc_msgSend_stret</code> is exactly the same, but for
+	methods that return values of struct types. Why does
+	<code>objc_msgSend_stret</code> exist?
+	Because of the machine-level guts of the C language require it,
+	and Objective-C methods are C functions if you tilt your head and
+	squint a bit.
+      </p>
+      <p>
+	On most processors, the first few parameters to a function are
+	passed in CPU registers, and return values are handed back in CPU
+	registers. Objective-C
+	methods do the same, but with <code>id self</code> and <code>SEL
+	_cmd</code> as the first two parameters. Here's a PowerPC example:
+	<pre>
+    -(int) method:(id)arg;
+        r3 = self
+        r4 = _cmd, @selector(method:)
+        r5 = arg
+	(on exit) r3 = returned int</pre>
+      </p>
+      <p>
+	CPU registers work fine for small return values like ints and
+	pointers, but structure values can be too big to fit. For structs,
+	the caller allocates stack space for the returned struct, 
+	passes the address of that storage to the function, and the
+	function writes its return value into that space. The address of
+	the struct is an implicit first parameter just like
+	<code>self</code> and <code>_cmd</code>:
+	<pre>
+    -(struct st) method:(id)arg;
+        r3 = &struct_var (in caller's stack frame)
+        r4 = self
+        r5 = _cmd, @selector(method:)
+        r6 = arg
+        (on exit) return value written into struct_var</pre>
+      </p>
+      <p>
+	Now consider <code>objc_msgSend</code>'s task. It uses
+	<code>_cmd</code> and <code>self->isa</code> to choose the
+	destination. But <code>self</code> and <code>_cmd</code> are in
+	different registers if the method will return a struct, and
+	<code>objc_msgSend</code> can't tell that in advance. Thus
+	<code>objc_msgSend_stret</code>: just like
+	<code>objc_msgSend</code>, but reading its values from different
+	registers. 
+      </p>
+      <p>
+	But there's a catch.
+      </p>
+      <p>
+	On most architectures, some small C structs are returned in registers
+	after all, instead of using the struct-address first parameter
+	that <code>objc_msgSend_stret</code> expects. If the struct type 
+	falls into this category, then <code>objc_msgSend</code> is used
+	instead. So the "struct return" part of
+	<code>objc_msgSend_stret</code> refers to the architecture's
+	definition of a stack-returned struct, which may not match C struct.
+      </p>
+      <p>
+	The rules for which struct types return in registers are always
+	arcane, sometimes insane. ppc32 is trivial: structs never return in
+	registers. i386 is straightforward: structs with
+	<code>sizeof</code> exactly equal to 1, 2, 4, or 8 return in
+	registers. x86_64 is more complicated, including rules for
+	returning floating-point struct fields in FPU registers, and
+	ppc64's rules and exceptions will make your head spin. The gory
+	details are documented in the <a
+	href="http://developer.apple.com/documentation/DeveloperTools/Conceptual/LowLevelABI">Mac
+	OS X ABI Guide</a>, though as usual if the documentation and the
+	compiler disagree then the documentation is wrong.
+      </p>
+      <p>
+	If you're calling <code>objc_msgSend</code> directly and need to
+	know whether to use <code>objc_msgSend_stret</code> for a
+	particular struct type, I recommend the empirical approach: write
+	a line of code that calls your method, compile it on each
+	architecture you care about, and look at the
+	assembly code to see which dispatch function the compiler
+	uses. 
+      </p>
+
+	  </td>
+      </tr>
+  </table>
+
+	  </td>
+	</tr>
+    </table>
+    <hr>
+    <img align="right" src="http://www.sealiesoftware.com/sealie.gif" alt="seal!" width="114" height="69">
+    Greg Parker<br>
+    <a href="mailto:gparker-www@sealiesoftware.com">gparker-www@sealiesoftware.com</a><br>
+    <a href="http://www.sealiesoftware.com/index.html">Sealie Software</a>
+  </body>
+</html>

@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>A drop-in fix for the problems with NSHost</title>
+  <meta name="description" content="As pointed out by Mike Ash in his recent Friday Q&amp;A 2009-11-13: Dangerous Cocoa Calls, &lt;code&gt;NSHost&lt;/code&gt; is not thread-safe for use outside of the main thread and due to potentially slow, synchronous network access is not really suitable for use on the main thread either. Fortunately, in Cocoa there are often ways to transparently fix classes that don&#39;t work as they should. In this post, I&#39;ll show you how you can transparently patch &lt;code&gt;NSHost&lt;/code&gt; using a drop-in solution and provide a non-blocking solution for &lt;code&gt;NSHost&lt;/code&gt; lookups." />
+
+  <meta name="twitter:title" content="A drop-in fix for the problems with NSHost"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/11/drop-in-fix-for-problems-with-nshost.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="As pointed out by Mike Ash in his recent Friday Q&amp;A 2009-11-13: Dangerous Cocoa Calls, &lt;code&gt;NSHost&lt;/code&gt; is not thread-safe for use outside of the main thread and due to potentially slow, synchronous network access is not really suitable for use on the main thread either. Fortunately, in Cocoa there are often ways to transparently fix classes that don&#39;t work as they should. In this post, I&#39;ll show you how you can transparently patch &lt;code&gt;NSHost&lt;/code&gt; using a drop-in solution and provide a non-blocking solution for &lt;code&gt;NSHost&lt;/code&gt; lookups."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="drop-in-fix-for-problems-with-nshost.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">A drop-in fix for the problems with NSHost</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-11-14">November 14, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/foundation.html">Foundation</a>, <a href="../../categories/fun-hacks.html">fun hacks</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>As pointed out by Mike Ash in his recent <a href="http://mikeash.com/?page=pyblog/friday-qa-2009-11-13-dangerous-cocoa-calls.html">Friday Q&A 2009-11-13: Dangerous Cocoa Calls</a>, <code>NSHost</code> is not thread-safe for use outside of the main thread and due to potentially slow, synchronous network access is not really suitable for use on the main thread either. Fortunately, in Cocoa there are often ways to transparently fix classes that don't work as they should. In this post, I'll show you how you can transparently patch <code>NSHost</code> using a drop-in solution and provide a non-blocking solution for <code>NSHost</code> lookups.</p></span>
+
+<span class="fullpost">
+<h2>NSHost</h2>
+<p><code><a href="http://developer.apple.com/mac/library/documentation/cocoa/reference/foundation/Classes/NSHost_Class/index.html">NSHost</a></code> is a class with a simple API that fetches the names or addresses of an internet host. You can use it to perform DNS lookups but one of the primary uses is to get the name and address of the current host.</p>
+
+<p>All calls to <code>NSHost</code> are synchronous &mdash; they block until the response is fetched. If a network error occurs, this could result in a 60 second delay before a timeout response occurs &mdash; definitely not something you want to do in your main thread.</p>
+
+<p>Unfortunately, according to <a href="http://developer.apple.com/Mac/library/documentation/Cocoa/Conceptual/Multithreading/ThreadSafetySummary/ThreadSafetySummary.html">Cocoa's Thread Safety Summary</a>, <code>NSHost</code> is not thread-safe &mdash; so we can't simply pass the functionality off to another thread.</p>
+
+<p>Does this mean you must revert to <code>NSHost</code>'s CoreFoundation equivalent, <code>CFHost</code>, which is explicitly thread-safe? Not necessarily.</p>
+
+<h2>The problems we need to fix</h2>
+
+<p>It is not the <code>NSHost</code> objects themselves that are the problem. <code>NSHost</code> objects are immutable once allocated and immutable objects are implicitly thread-safe for most purposes.</p>
+
+<p>The problem is the cache of <code>NSHost</code> objects maintained internally by <code>NSHost</code> when any of the lookups are called &mdash; access to this cache is unprotected from the perils of threading.</p>
+
+<p>In addition to this, we need to be able to perform <code>NSHost</code> lookups asynchronously.</p>
+
+<h2>Design of the solution</h2>
+
+<p>The key consideration in these changes will be a totally drop-in solution &mdash; <code>NSHost</code> will immediately and transparently become thread-safe. No further code will be required.</p>
+
+<p>The solution to the threading problem will be to create a corresponding category method for every class method of <code>NSHost</code> which wraps all calls to <code>NSHost</code> in a <code>@synchronized</code> section and then in the <code>load</code> method for the category, swizzle each of these corresponding methods into the place of the original method.</p>
+
+<p>The asynchronous invocations can then be handled like any other asynchronous operation &mdash; by spawning a new thread which will call back when complete.</p>
+
+<h2>Swizzling alternate implementations</h2>
+
+<p>If you don't know what I meant by "swizzle", what we need to do is replace the existing implementations of the <code>NSHost</code> class methods with our own implementations. The code for doing this is as follows:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">static</span> <span class="kt">void</span> <span class="nf">SwizzleClassMethods</span><span class="p">(</span><span class="kt">Class</span> <span class="k">class</span><span class="p">,</span> <span class="kt">SEL</span> <span class="n">firstSelector</span><span class="p">,</span> <span class="kt">SEL</span> <span class="n">secondSelector</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">Method</span> <span class="n">firstMethod</span> <span class="o">=</span> <span class="n">class_getClassMethod</span><span class="p">(</span><span class="k">class</span><span class="p">,</span> <span class="n">firstSelector</span><span class="p">);</span>
+    <span class="n">Method</span> <span class="n">secondMethod</span> <span class="o">=</span> <span class="n">class_getClassMethod</span><span class="p">(</span><span class="k">class</span><span class="p">,</span> <span class="n">secondSelector</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">firstMethod</span> <span class="o">||</span> <span class="o">!</span><span class="n">secondMethod</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">NSLog</span><span class="p">(</span><span class="s">@&#34;Unable to swizzle class methods for selectors %@ and %@ on class %@&#34;</span><span class="p">,</span>
+            <span class="n">NSStringFromSelector</span><span class="p">(</span><span class="n">firstSelector</span><span class="p">),</span>
+            <span class="n">NSStringFromSelector</span><span class="p">(</span><span class="n">secondSelector</span><span class="p">),</span>
+            <span class="n">NSStringFromClass</span><span class="p">(</span><span class="k">class</span><span class="p">));</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="n">method_exchangeImplementations</span><span class="p">(</span><span class="n">firstMethod</span><span class="p">,</span> <span class="n">secondMethod</span><span class="p">);</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Then, in the <code>load</code> method for our category...</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@implementation</span> <span class="nc">NSHost</span> <span class="nl">(ThreadSafety)</span>
+
+<span class="p">+</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">load</span>
+<span class="p">{</span>
+    <span class="n">SwizzleClassMethods</span><span class="p">(</span><span class="nb">self</span><span class="p">,</span> <span class="k">@selector</span><span class="p">(</span><span class="n">currentHost</span><span class="p">),</span> <span class="k">@selector</span><span class="p">(</span><span class="n">threadSafeCurrentHost</span><span class="p">));</span>
+    <span class="n">SwizzleClassMethods</span><span class="p">(</span><span class="nb">self</span><span class="p">,</span> <span class="k">@selector</span><span class="p">(</span><span class="nl">hostWithName</span><span class="p">:),</span> <span class="k">@selector</span><span class="p">(</span><span class="nl">threadSafeHostWithName</span><span class="p">:));</span>
+    <span class="n">SwizzleClassMethods</span><span class="p">(</span><span class="nb">self</span><span class="p">,</span> <span class="k">@selector</span><span class="p">(</span><span class="nl">hostWithAddress</span><span class="p">:),</span> <span class="k">@selector</span><span class="p">(</span><span class="nl">threadSafeHostWithAddress</span><span class="p">:));</span>
+    <span class="n">SwizzleClassMethods</span><span class="p">(</span><span class="nb">self</span><span class="p">,</span> <span class="k">@selector</span><span class="p">(</span><span class="n">isHostCacheEnabled</span><span class="p">),</span> <span class="k">@selector</span><span class="p">(</span><span class="n">threadSafeIsHostCacheEnabled</span><span class="p">));</span>
+    <span class="n">SwizzleClassMethods</span><span class="p">(</span><span class="nb">self</span><span class="p">,</span> <span class="k">@selector</span><span class="p">(</span><span class="nl">setHostCacheEnabled</span><span class="p">:),</span> <span class="k">@selector</span><span class="p">(</span><span class="nl">threadSafeSetHostCacheEnabled</span><span class="p">:));</span>
+    <span class="n">SwizzleClassMethods</span><span class="p">(</span><span class="nb">self</span><span class="p">,</span> <span class="k">@selector</span><span class="p">(</span><span class="n">flushHostCache</span><span class="p">),</span> <span class="k">@selector</span><span class="p">(</span><span class="n">threadSafeFlushHostCache</span><span class="p">));</span>
+    <span class="n">SwizzleClassMethods</span><span class="p">(</span><span class="nb">self</span><span class="p">,</span> <span class="k">@selector</span><span class="p">(</span><span class="n">_fixNSHostLeak</span><span class="p">),</span> <span class="k">@selector</span><span class="p">(</span><span class="n">threadSafe_fixNSHostLeak</span><span class="p">));</span>
+<span class="p">}</span>
+
+<span class="o">//</span> <span class="n">category</span> <span class="n">continues</span><span class="p">...</span></code></pre></div>
+
+<p>What this does is swaps in our new implementations, (e.g. <code>threadSafeCurrentHost</code>) in place of Apple's original implementation (e.g. <code>currentHost</code>). Once this is done, any call to <code>currentHost</code> will result in our new code getting executed. Similarly, the original code that we replaced is now reachable by calling <code>threadSafeCurrentHost</code>.</p>
+
+<p>The implementation of each of these thread-safe methods takes the form:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">+</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nf">threadSafeCurrentHost</span>
+<span class="p">{</span>
+    <span class="k">@synchronized</span><span class="p">(</span><span class="nb">self</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="p">[</span><span class="nb">self</span> <span class="n">threadSafeCurrentHost</span><span class="p">];</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This may look like the method is just calling itself but remember, after swizzling, the call to <code>threadSafeCurrentHost</code> will actually invoke the original <code>currentHost</code> code. So this method is actually running the original code but inside a <code>@synchronized</code> section to maintain thread safety.</p>
+
+<h2>Asynchronous lookup</h2>
+
+<p>The best way to perform an asynchronous lookup, now that <code>NSHost</code> will work in a thread-safe manner, is simply to perform the lookup in an <code>NSOperation</code> and have that operation call back when done.</p>
+
+<p>To do this, the ThreadSafety category also adds the methods:</p>
+
+<ul><li><code>currentHostInBackgroundForReceiver:selector:</code></li>
+<li><code>hostWithName:inBackgroundForReceiver:selector:</code></li>
+<li><code>hostWithAddress:inBackgroundForReceiver:selector:</code></li></ul>
+
+<p>to perform lookups and call back when done. These methods take the following form:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">+</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">hostWithName:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">name</span>
+    <span class="nf">inBackgroundForReceiver:</span><span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nv">receiver</span>
+    <span class="nf">selector:</span><span class="p">(</span><span class="kt">SEL</span><span class="p">)</span><span class="nv">receiverSelector</span>
+<span class="p">{</span>
+    <span class="p">[[</span><span class="nb">self</span> <span class="n">hostLookupQueue</span><span class="p">]</span>
+        <span class="nl">addOperation</span><span class="p">:</span>
+            <span class="p">[[</span><span class="n">HostLookupOperation</span> <span class="n">alloc</span><span class="p">]</span>
+                <span class="nl">initWithReceiver</span><span class="p">:</span><span class="n">receiver</span>
+                <span class="nl">receiverSelector</span><span class="p">:</span><span class="n">receiverSelector</span>
+                <span class="nl">receivingThread</span><span class="p">:[</span><span class="n">NSThread</span> <span class="n">currentThread</span><span class="p">]</span>
+                <span class="nl">lookupSelector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="nl">hostWithName</span><span class="p">:)</span>
+                <span class="nl">lookupParameter</span><span class="p">:</span><span class="n">name</span><span class="p">]];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>and the implementation of the <code>HostLookupOperation</code>'s <code>main</code> method is extremely simple:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">main</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="n">receiver</span>
+        <span class="nl">performSelector</span><span class="p">:</span><span class="n">receiverSelector</span>
+        <span class="nl">onThread</span><span class="p">:</span><span class="n">receivingThread</span>
+        <span class="nl">withObject</span><span class="p">:[</span><span class="n">NSHost</span> <span class="nl">performSelector</span><span class="p">:</span><span class="n">lookupSelector</span> <span class="nl">withObject</span><span class="p">:</span><span class="n">parameter</span><span class="p">]</span>
+        <span class="nl">waitUntilDone</span><span class="p">:</span><span class="nb">NO</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<h2>Conclusion</h2>
+
+<blockquote>You can <a href="../../assets/objc-era/NSHost_ThreadedAdditions.zip">download the complete code for <code>NSHost+ThreadedAdditions</code></a> (3kB).</blockquote>
+
+<p>The main advantage of this approach shown here is that you only need to add the files to your project &mdash; you do not need to add or change any other code to make this work.</p>
+
+<p>These additions provide reasonably good thread safety for <code>NSHost</code> as they channel all use of the class through the thread-safe wrapping methods. The limitation to this is that Apple could add further methods in the future that circumvent the <code>@synchonized</code> sections we've added and the thread safety would be breached until swizzled methods were added for these new methods.</p>
+
+<p>On the immutability of <code>NSHost</code> instances &mdash; technically, the private instance variables <code>names</code> and <code>addresses</code> of <code>NSHost</code> are allocated mutable but experimentally, I have verified that they are never mutated (in fact, there are no methods on <code>NSHost</code> that would do this). However, <code>localizedName</code>, available in Mac OS X 10.6, uses data from outside <code>NSHost</code> so might not be thread-safe.</p>
+
+<p>In reality, you can avoid all of this code and simply use the <code>CFHost</code> API to achieve the same benefits. This <code>ThreadedAdditions</code> category for <code>NSHost</code> is an effort to continue using the simpler API of <code>NSHost</code> and at the same time, to demonstrate that just because Apple's implementation of something is not thread-safe in its internal implementation, doesn't mean you can't make it thread-safe in the greater context of your whole program.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="creating-iphone-and-mac-icons-using_06.html">Creating iPhone and Mac icons using Inkscape (Part 2 of 2)</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="performance-tests-replacing-core-data.html">Performance tests: Replacing Core Data Key Paths</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

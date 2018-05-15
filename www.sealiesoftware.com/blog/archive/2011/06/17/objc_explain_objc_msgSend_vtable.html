@@ -1,0 +1,140 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<!--
+Local Variables:
+sgml-default-dtd-file: "~/html-loose.ced"
+End:
+-->
+<html>
+  <head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+
+    <title>Hamster Emporium: [objc explain]: objc_msgSend_vtable</title>
+    <link title="RSS 2.0" href="../../../../rss.xml.rss" type="application/rss+xml" rel="alternate">
+  </head>
+  <body bgcolor="#ffffff">
+    <table cellpadding="0" cellspacing="0">
+      <tr>
+	  <td valign="top" align="left">
+	    <a href="../../../../index.html"><img src="http://www.sealiesoftware.com/hamster.jpg" alt="" width="108" height="160"></a><br><br>
+	    <b>blog</b><br>
+	    <a href="../../../../index.html">recent</a><br>
+	    <a href="../../../index.html">archive</a><br>
+	    <a href="http://twitter.com/gparker">twitter</a><br>
+	    <br>
+	    <b>projects</b><br>
+	    <a href="http://www.apple.com/macosx/">Mac OS X</a><br>
+	    <a href="http://www.sealiesoftware.com/keyboard/index.html">Keyboard</a><br>
+	     &nbsp; <a href="http://www.sealiesoftware.com/keyboard/index.html">backlight</a><br>
+	    <a href="http://www.sealiesoftware.com/cscmenu/index.html">CSC Menu</a><br>
+	    <a href="http://www.sealiesoftware.com/valgrind/index.html">Valgrind</a><br>
+	    <a href="http://www.sealiesoftware.com/fringe/index.html">Fringe Player</a><br>
+	    <a href="http://www.sealiesoftware.com/pssh/index.html">pssh</a><br>
+	    <a href="http://www.sealiesoftware.com/peal/index.html">Peal</a><br>
+	    <a href="http://www.sealiesoftware.com/frankenmouse/index.html">Frankenmouse</a><br>
+	    <br>
+	  </td>
+	  <td>
+	    &nbsp; &nbsp;
+	  </td>
+	  <td valign="top">
+	      <h2>Hamster Emporium archive</h2>
+  <p>
+     &lt;&lt; &nbsp; <a href="../../../2012/2/29/objc_explain_return_value_of_message_to_nil.html">[objc explain]: return value of message to nil</a> &nbsp; | &nbsp;  
+    <a href="../../../index.html">archive</a>
+     &nbsp; | &nbsp; <a href="../../../2010/09/01/Dr_Gregory_Parker_Department_of_Diagnostic_Engineering.html">Dr. Gregory Parker, Department of Diagnostic Engineering</a> &nbsp; &gt;&gt; 
+  </p>
+  <table cellpadding="0" cellspacing="3">
+      <tr>
+	<td>
+	  <a href="objc_explain_objc_msgSend_vtable.html"><img src="http://www.sealiesoftware.com/link.gif" width="14" height="16" border="0" alt="(link)"></a>
+	</td>
+	<td>
+	  <b><font size="+1">[objc explain]: objc_msgSend_vtable</font></b> &nbsp; 
+	  <font size="-1">(<a href="objc_explain_objc_msgSend_vtable.html">2011-06-17 4:42 PM</a>)</font>
+	</td>
+      </tr>
+      <tr>
+	<td>
+	  &nbsp;
+	</td>
+	<td>
+	      <p>
+      <code>objc_msgSend_vtable</code> is a version
+      of <code>objc_msgSend</code> used to optimize a few of the most
+      commonly called methods. 
+    <p>
+      Most Objective-C methods are dispatched using a hash table lookup
+      inside <code>objc_msgSend</code>. On x86_64, a few selectors can be
+      dispatched using a C++-style virtual table: an array lookup, not a
+      hash table. 
+    <p>
+      The compiler knows which selectors are optimized by the runtime. It
+      compiles the call site differently,
+      calling <code>objc_msgSend_fixup</code> via a function pointer. At
+      runtime, <code>objc_msgSend_fixup</code> replaces the function
+      pointer with one of the <code>objc_msgSend_vtable</code> functions,
+      if the called selector is one of the optimized selectors. 
+    <p>
+      C++ vtables are notoriously fragile: the array offsets for each
+      virtual method are hardcoded into the generated code. Objective-C's
+      vtables are not fragile. Each vtable is built at runtime and updated
+      when method lists change. In theory even the set of optimized
+      methods could be changed. The non-fragile flexibility costs an extra
+      memory load during dispatch. 
+    <p>
+      Dispatch via vtable is faster than a hash table, but would consume
+      tremendous amounts of memory if used everywhere. Objective-C's
+      vtable implementation limits its use to a few selectors that are (1)
+      implemented everywhere, but (2) rarely overridden. That means most
+      classes share their superclass's vtable, which keeps memory costs
+      low. 
+    <p>
+      A crash in any <code>objc_msgSend_vtable</code> function should be
+      debugged exactly like a crash in <code>objc_msgSend</code>
+      itself. They both crash for all of the same reasons, like incorrect
+      memory management or memory smashers. 
+    <p>
+      Currently, the runtime uses sixteen
+      different <code>objc_msgSend_vtable</code> functions, one for each
+      slot in the sixteen-entry vtable. 
+    </p>
+    <table border=1 cellspacing=0 cellpadding=4>
+      <tr><td><code>objc_msgSend_vtable0</code><td><code>allocWithZone:</code>
+      <tr><td><code>objc_msgSend_vtable1</code><td><code>alloc</code>
+      <tr><td><code>objc_msgSend_vtable2</code><td><code>class</code>
+      <tr><td><code>objc_msgSend_vtable3</code><td><code>self</code>
+      <tr><td><code>objc_msgSend_vtable4</code><td><code>isKindOfClass:</code>
+      <tr><td><code>objc_msgSend_vtable5</code><td><code>respondsToSelector:</code>
+      <tr><td><code>objc_msgSend_vtable6</code><td><code>isFlipped</code>
+      <tr><td><code>objc_msgSend_vtable7</code><td><code>length</code>
+      <tr><td><code>objc_msgSend_vtable8</code><td><code>objectForKey:</code>
+      <tr><td><code>objc_msgSend_vtable9</code><td><code>count</code>
+      <tr><td><code>objc_msgSend_vtable10</code><td><code>objectAtIndex:</code>
+      <tr><td><code>objc_msgSend_vtable11</code><td><code>isEqualToString:</code>
+      <tr><td><code>objc_msgSend_vtable12</code><td><code>isEqual:</code>
+      <tr><td><code>objc_msgSend_vtable13</code><td><code>retain</code> (non-GC)<br><code>hash</code> (GC)
+      <tr><td><code>objc_msgSend_vtable14</code><td><code>release</code> (non-GC)<br><code>addObject:</code> (GC)
+      <tr><td><code>objc_msgSend_vtable15</code><td><code>autorelease</code> (non-GC)<br><code>countByEnumeratingWithState:objects:count:</code> (GC)
+    </table>
+    <p>
+       The vtable's contents differ for GC and non-GC, for obvious
+       reasons. <code>-isFlipped</code> is part of
+       NSView. <code>-countByEnumeratingWithState:objects:count:</code> is
+       the fast enumeration implementation, including <code>for (x in
+       y)</code>. Together these methods make up roughly 30-50% of calls
+       in typical Objective-C applications. 
+
+	  </td>
+      </tr>
+  </table>
+
+	  </td>
+	</tr>
+    </table>
+    <hr>
+    <img align="right" src="http://www.sealiesoftware.com/sealie.gif" alt="seal!" width="114" height="69">
+    Greg Parker<br>
+    <a href="mailto:gparker-www@sealiesoftware.com">gparker-www@sealiesoftware.com</a><br>
+    <a href="http://www.sealiesoftware.com/index.html">Sealie Software</a>
+  </body>
+</html>

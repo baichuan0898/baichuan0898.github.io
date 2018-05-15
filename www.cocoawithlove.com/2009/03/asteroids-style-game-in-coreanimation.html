@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>An Asteroids-style game in CoreAnimation, Part Three.</title>
+  <meta name="description" content="How would you write an arcade-style 2D game in CoreAnimation? I&#39;ll show you how to write a resolution independent, high-speed, model-view-controller designed, Asteroids-style arcade game using CoreAnimation as the screen renderer. In this third of four parts, I add the logic for the game and game objects and present the finished code for the project." />
+
+  <meta name="twitter:title" content="An Asteroids-style game in CoreAnimation, Part Three."/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/03/asteroids-style-game-in-coreanimation.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="How would you write an arcade-style 2D game in CoreAnimation? I&#39;ll show you how to write a resolution independent, high-speed, model-view-controller designed, Asteroids-style arcade game using CoreAnimation as the screen renderer. In this third of four parts, I add the logic for the game and game objects and present the finished code for the project."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="asteroids-style-game-in-coreanimation.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">An Asteroids-style game in CoreAnimation, Part Three.</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-03-01">March 1, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/coreanimation.html">CoreAnimation</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>How would you write an arcade-style 2D game in CoreAnimation? I'll show you how to write a resolution independent, high-speed, model-view-controller designed, Asteroids-style arcade game using CoreAnimation as the screen renderer. In this third of four parts, I add the logic for the game and game objects and present the finished code for the project.</p></span>
+
+<span class="fullpost">
+<h2>From renderer to game</h2>
+<p>In the <a href="../02/asteroids-style-game-in-coreanimation_22.html">previous post</a>, I presented a rendering system using CoreAnimation layers (<code>CALayer</code>). To complete the game, we now need to add the game logic.</p>
+
+<p>For this Asteroids-style game, the game logic will be very simple but will need to include the following components:</p>
+
+<ul><li>User control of the ship</li>
+<li>Shooting and shot/asteroid collision detection and destruction.</li>
+<li>Player/asteroid collision and a finite number of player "lives"</li>
+<li>Level logic, so that a new, harder level is started when the previous one is cleared.</li></ul>
+
+<p>With the game logic added, the code for the project will be complete.</p>
+
+<img src="../../assets/objc-era/quartzeroidspart3.png" width="379" height="232" />
+<p style="text-align:center;"><em>A screenshot of the game with shots and asteroid destruction.</em></p>
+
+<h2>User control</h2>
+
+<p>Most games treat keyboard input in a different manner to applications. Instead of reading <code>keyDown:</code> messages, including the <code>isARepeat</code> messages (whose delay and frequency are specified in the System Preferences), games simply want the state of specific keys at a given time. e.g. "Is the 'thrust' key pressed?"</p>
+
+<p>To provide the game with what it wants, I created a subclass of <code>NSView</code> to use as the <code>contentView</code> of the window. The sole purpose of this view subclass is to read key event messages passed to the window. When <code>keyDown:</code> messages are received, boolean values on the <code>GameData</code> object are set. When the <code>keyUp:</code> message is received, the boolean values are cleared. In this way, we store the keyboard state so we can read it in an asynchronous manner whenever it is needed.</p>
+
+<p>The implementation of the <code>keyDown:</code> method follows.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">keyDown:</span><span class="p">(</span><span class="n">NSEvent</span> <span class="o">*</span><span class="p">)</span><span class="nv">event</span>
+<span class="p">{</span>
+    <span class="n">NSString</span> <span class="o">*</span><span class="n">characters</span> <span class="o">=</span> <span class="p">[</span><span class="n">event</span> <span class="n">characters</span><span class="p">];</span>
+    <span class="k">if</span> <span class="p">([</span><span class="n">characters</span> <span class="n">length</span><span class="p">]</span> <span class="o">==</span> <span class="mi">1</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="p">[</span><span class="n">event</span> <span class="n">isARepeat</span><span class="p">])</span>
+    <span class="p">{</span>
+        <span class="k">const</span> <span class="n">NSInteger</span> <span class="n">ESCAPE_KEY_CODE</span> <span class="o">=</span> <span class="mi">27</span><span class="p">;</span>
+        
+        <span class="kt">unichar</span> <span class="n">character</span> <span class="o">=</span> <span class="p">[</span><span class="n">characters</span> <span class="nl">characterAtIndex</span><span class="p">:</span><span class="mi">0</span><span class="p">];</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">character</span> <span class="o">==</span> <span class="n">NSLeftArrowFunctionKey</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="p">[[</span><span class="n">GameData</span> <span class="n">sharedGameData</span><span class="p">]</span> <span class="nl">setLeftKeyDown</span><span class="p">:</span><span class="nb">YES</span><span class="p">];</span>
+        <span class="p">}</span>
+        <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">character</span> <span class="o">==</span> <span class="n">NSRightArrowFunctionKey</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="p">[[</span><span class="n">GameData</span> <span class="n">sharedGameData</span><span class="p">]</span> <span class="nl">setRightKeyDown</span><span class="p">:</span><span class="nb">YES</span><span class="p">];</span>
+        <span class="p">}</span>
+        <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">character</span> <span class="o">==</span> <span class="n">NSUpArrowFunctionKey</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="p">[[</span><span class="n">GameData</span> <span class="n">sharedGameData</span><span class="p">]</span> <span class="nl">setUpKeyDown</span><span class="p">:</span><span class="nb">YES</span><span class="p">];</span>
+        <span class="p">}</span>
+        <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">character</span> <span class="o">==</span> <span class="sa"></span><span class="sc">&#39; &#39;</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="p">[[</span><span class="n">GameData</span> <span class="n">sharedGameData</span><span class="p">]</span> <span class="nl">setShootKeyDown</span><span class="p">:</span><span class="nb">YES</span><span class="p">];</span>
+        <span class="p">}</span>
+        <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">character</span> <span class="o">==</span> <span class="n">ESCAPE_KEY_CODE</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="p">[</span><span class="n">gameController</span> <span class="nl">togglePause</span><span class="p">:</span><span class="nb">self</span><span class="p">];</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Notice that Apple provide constants for higher level keys (like the arrow keys) but you are expected to handle ASCII codes (like the Escape key) yourself. You can get these from the ASCII manual page (<code>man ascii</code> in a terminal window). Be careful to avoid the octal set &mdash; I have no idea how it earned first position in this file.</p>
+
+<p>To respond to these new keyboard flags, I will create a subclass of <code>GameObject</code> (the generic class representing an object in the game) named <code>PlayerObject</code> to handle the player's ship. The real purpose of this subclass will be to add game-logic related behaviors. The primary location for adding behaviors will be an override of the parent class' <code>updateWithTimeInterval:</code> that supplements the default behavior with player-specific movement and interaction.</p>
+
+<p>Here is the code to handle the "thrust" key (the up arrow):</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">if</span> <span class="p">([</span><span class="n">GameData</span> <span class="n">sharedGameData</span><span class="p">].</span><span class="n">upKeyDown</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kt">double</span> <span class="n">scaledAcceleration</span> <span class="o">=</span> <span class="n">timeInterval</span> <span class="o">*</span> <span class="n">PLAYER_ACCELERATION</span><span class="p">;</span>
+    <span class="kt">double</span> <span class="n">dX</span> <span class="o">=</span> <span class="n">speed</span> <span class="o">*</span> <span class="n">cos</span><span class="p">(</span><span class="n">trajectory</span><span class="p">)</span> <span class="o">+</span> <span class="n">scaledAcceleration</span> <span class="o">*</span> <span class="n">cos</span><span class="p">(</span><span class="n">angle</span> <span class="o">+</span> <span class="n">M_PI_2</span><span class="p">);</span>
+    <span class="kt">double</span> <span class="n">dY</span> <span class="o">=</span> <span class="n">speed</span> <span class="o">*</span> <span class="n">sin</span><span class="p">(</span><span class="n">trajectory</span><span class="p">)</span> <span class="o">+</span> <span class="n">scaledAcceleration</span> <span class="o">*</span> <span class="n">sin</span><span class="p">(</span><span class="n">angle</span> <span class="o">+</span> <span class="n">M_PI_2</span><span class="p">);</span>
+    
+    <span class="n">speed</span> <span class="o">=</span> <span class="n">sqrt</span><span class="p">(</span><span class="n">dX</span> <span class="o">*</span> <span class="n">dX</span> <span class="o">+</span> <span class="n">dY</span> <span class="o">*</span> <span class="n">dY</span><span class="p">);</span>
+    <span class="n">trajectory</span> <span class="o">=</span> <span class="n">acos</span><span class="p">(</span><span class="n">dX</span> <span class="o">/</span> <span class="n">speed</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">dY</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">trajectory</span> <span class="o">*=</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="k">if</span> <span class="p">(</span><span class="n">speed</span> <span class="o">&gt;</span> <span class="n">PLAYER_MAX_SPEED</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">speed</span> <span class="o">=</span> <span class="n">PLAYER_MAX_SPEED</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This code is some basic trigonometry to add the ship's current <code>speed</code>/<code>trajectory</code> vector to the new thrust vector, limiting the ship's maximum speed. The actual <code>x</code> and <code>y</code> of the ship is modified by invoking the <code>super</code> implementation (which applies this <code>speed</code> and <code>trajectory</code>).</p>
+
+<blockquote><strong>Model-view-controller design note</strong><br/>
+This approach to key control is not typical of an application. In an application, a user-interface controller chooses the target object and sends the keyboard control directly to that object. In this game, the user-interface sets keyboard state in a game-accessible location and game objects choose whether to incorporate that state into their own. This behavior is good for a game because it allows the game objects to choose their own interaction logic but games represent a special case in this regard.</blockquote>
+
+<h2>Firing shots</h2>
+
+<p>The other key aspect of user control in the game is the ability to fire shots.</p>
+
+<p>Once again, I will use a <code>GameObject</code> subclass to handle the shots. These <code>ShotObject</code>s will be created in the <code>PlayerObject</code>'s <code>updateWithTimeInterval:</code> method, since they will need to incorporate speed and trajectory information from the <code>PlayerObject</code>.</p>
+
+<p>The following code fires a shot when the user presses the 'shoot' key (spacebar).</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">ShotObject</span> <span class="o">*</span><span class="n">newShot</span> <span class="o">=</span>
+    <span class="p">[[</span><span class="n">ShotObject</span> <span class="n">alloc</span><span class="p">]</span>
+        <span class="nl">initWithX</span><span class="p">:</span><span class="n">x</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">width</span> <span class="o">*</span> <span class="n">cos</span><span class="p">(</span><span class="n">angle</span> <span class="o">+</span> <span class="n">M_PI_2</span><span class="p">)</span>
+        <span class="nl">y</span><span class="p">:</span><span class="n">y</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">height</span> <span class="o">*</span> <span class="n">sin</span><span class="p">(</span><span class="n">angle</span> <span class="o">+</span> <span class="n">M_PI_2</span><span class="p">)];</span>
+<span class="p">[[</span><span class="n">GameData</span> <span class="n">sharedGameData</span><span class="p">]</span>
+    <span class="nl">addGameObject</span><span class="p">:</span><span class="n">newShot</span>
+    <span class="nl">forKey</span><span class="p">:[[</span><span class="n">GameData</span> <span class="n">sharedGameData</span><span class="p">]</span> <span class="nl">keyForShotAtIndex</span><span class="p">:</span><span class="n">nextShotIndex</span><span class="p">]];</span>
+
+<span class="n">nextShotIndex</span> <span class="o">=</span> <span class="p">(</span><span class="n">nextShotIndex</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="n">PLAYER_MAX_SHOTS</span><span class="p">;</span>
+<span class="p">[[</span><span class="n">GameData</span> <span class="n">sharedGameData</span><span class="p">]</span>
+    <span class="nl">setGameDataObject</span><span class="p">:[</span><span class="n">NSNumber</span> <span class="nl">numberWithInteger</span><span class="p">:</span><span class="n">nextShotIndex</span><span class="p">]</span>
+    <span class="nl">forKey</span><span class="p">:</span><span class="n">GAME_DATA_NEXT_SHOT_INDEX_KEY</span><span class="p">];</span>
+
+<span class="kt">double</span> <span class="n">dX</span> <span class="o">=</span> <span class="n">speed</span> <span class="o">*</span> <span class="n">cos</span><span class="p">(</span><span class="n">trajectory</span><span class="p">)</span> <span class="o">+</span> <span class="n">PLAYER_SHOT_SPEED</span> <span class="o">*</span> <span class="n">cos</span><span class="p">(</span><span class="n">angle</span> <span class="o">+</span> <span class="n">M_PI_2</span><span class="p">);</span>
+<span class="kt">double</span> <span class="n">dY</span> <span class="o">=</span> <span class="n">speed</span> <span class="o">*</span> <span class="n">sin</span><span class="p">(</span><span class="n">trajectory</span><span class="p">)</span> <span class="o">+</span> <span class="n">PLAYER_SHOT_SPEED</span> <span class="o">*</span> <span class="n">sin</span><span class="p">(</span><span class="n">angle</span> <span class="o">+</span> <span class="n">M_PI_2</span><span class="p">);</span>
+<span class="kt">double</span> <span class="n">shotSpeed</span> <span class="o">=</span> <span class="n">sqrt</span><span class="p">(</span><span class="n">dX</span> <span class="o">*</span> <span class="n">dX</span> <span class="o">+</span> <span class="n">dY</span> <span class="o">*</span> <span class="n">dY</span><span class="p">);</span>
+<span class="kt">double</span> <span class="n">shotTrajectory</span> <span class="o">=</span> <span class="n">acos</span><span class="p">(</span><span class="n">dX</span> <span class="o">/</span> <span class="n">shotSpeed</span><span class="p">);</span>
+<span class="k">if</span> <span class="p">(</span><span class="n">dY</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">shotTrajectory</span> <span class="o">*=</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="n">newShot</span><span class="p">.</span><span class="n">speed</span> <span class="o">=</span> <span class="n">shotSpeed</span><span class="p">;</span>
+<span class="n">newShot</span><span class="p">.</span><span class="n">trajectory</span> <span class="o">=</span> <span class="n">shotTrajectory</span><span class="p">;</span>
+
+<span class="n">shotCooldown</span> <span class="o">=</span> <span class="n">PLAYER_SHOT_COOLDOWN</span><span class="p">;</span></code></pre></div>
+
+<p>The <code>initWithX:y:</code> line creates the <code>ShotObject</code>.</p>
+
+<p>The <code>addGameObject:forKey:</code> part adds it to the game. <code>GameObject</code>s are all stored by a single key in this game but I use the <code>keyForShotAtIndex:</code> to create this key from a prefix ("shot") and a suffix (the shot's index) so that I can extract information about the object from its key.</p>
+
+<p>This is a lazy approach to organizing game objects and any larger game would want to store its objects in a more metadata rich storage system. Better organizations might include:</p>
+
+<ul><li>metadata methods on each game object so you can query each object about what it is</li>
+<li>additionally storing game objects in dictionaries keyed by type or other essential category information</li>
+<li>storing game objects in richly indexed system like an SQLite database (which is then accessible by any column)</li></ul>
+
+<p>The <code>setGameDataObject:forKey:</code> line sets the number of shots that the player has fired in the <code>GameData</code>'s generic object storage. This will allow us to limit the number of shots fired by the player to <code>PLAYER_MAX_SHOTS</code>.</p>
+
+<p>The next code is some more trigonometry to apply the ship's speed and trajectory to the shot. Then finally the <code>shotCooldown</code> value is set. This is a simple counter (decremented on each <code>updateWithTimeInterval:</code>) which will prevent another shot being fired while it is greater than zero (allowing us to set the minimum time between shots).</p>
+
+<h2>Collisions</h2>
+
+<p>Last week's code contained a very simple main update loop that called the <code>updateWithInterval:</code> method on all <code>GameObject</code>s. This time, we expand the update loop to the following:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">updateLevel:</span><span class="p">(</span><span class="n">NSTimer</span> <span class="o">*</span><span class="p">)</span><span class="nv">aTimer</span>
+<span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">lastUpdate</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">frameDuration</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSDate</span> <span class="n">date</span><span class="p">]</span> <span class="nl">timeIntervalSinceDate</span><span class="p">:</span><span class="n">lastUpdate</span><span class="p">];</span>
+        <span class="p">[</span><span class="n">lastUpdate</span> <span class="k">release</span><span class="p">];</span>
+        <span class="n">lastUpdate</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSDate</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">];</span>
+    <span class="p">}</span>
+    <span class="k">else</span>
+    <span class="p">{</span>
+        <span class="n">frameDuration</span> <span class="o">=</span> <span class="n">GAME_UPDATE_DURATION</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="n">NSArray</span> <span class="o">*</span><span class="n">allKeys</span> <span class="o">=</span> <span class="p">[</span><span class="n">gameObjects</span> <span class="n">allKeys</span><span class="p">];</span>
+    <span class="k">for</span> <span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="n">gameObjectKey</span> <span class="k">in</span> <span class="n">allKeys</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="n">gameObjects</span> <span class="nl">willChangeValueForKey</span><span class="p">:</span><span class="n">gameObjectKey</span><span class="p">];</span>
+        <span class="n">GameObject</span> <span class="o">*</span><span class="n">gameObject</span> <span class="o">=</span> <span class="p">[</span><span class="n">gameObjects</span> <span class="nl">objectForKey</span><span class="p">:</span><span class="n">gameObjectKey</span><span class="p">];</span>
+    
+        <span class="k">if</span> <span class="p">([</span><span class="n">gameObject</span> <span class="n">collide</span><span class="p">])</span>
+        <span class="p">{</span>
+            <span class="p">[</span><span class="n">gameObjects</span> <span class="nl">removeObjectForKey</span><span class="p">:</span><span class="n">gameObjectKey</span><span class="p">];</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+    <span class="k">for</span> <span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="n">gameObjectKey</span> <span class="k">in</span> <span class="n">allKeys</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">GameObject</span> <span class="o">*</span><span class="n">gameObject</span> <span class="o">=</span> <span class="p">[</span><span class="n">gameObjects</span> <span class="nl">objectForKey</span><span class="p">:</span><span class="n">gameObjectKey</span><span class="p">];</span>
+        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">gameObject</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="p">[</span><span class="n">gameObjects</span> <span class="nl">didChangeValueForKey</span><span class="p">:</span><span class="n">gameObjectKey</span><span class="p">];</span>
+            <span class="k">continue</span><span class="p">;</span>
+        <span class="p">}</span>
+        
+        <span class="k">if</span> <span class="p">([</span><span class="n">gameObject</span> <span class="nl">updateWithTimeInterval</span><span class="p">:</span><span class="n">frameDuration</span><span class="p">])</span>
+        <span class="p">{</span>
+            <span class="p">[</span><span class="n">gameObjects</span> <span class="nl">removeObjectForKey</span><span class="p">:</span><span class="n">gameObjectKey</span><span class="p">];</span>
+        <span class="p">}</span>
+        <span class="p">[</span><span class="n">gameObjects</span> <span class="nl">didChangeValueForKey</span><span class="p">:</span><span class="n">gameObjectKey</span><span class="p">];</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>We time the duration between updates ourselves, even though we ask the <code>NSTimer</code> to invoke us every 0.03 seconds. This allows us to keep the animation as smooth as possible even if the timer is delayed or frames start taking longer than 0.03 seconds to complete.</p>
+
+<p>After this, we iterate over all the <code>GameObject</code>s twice: once to process collisions and once to update positions. The reason for this separation is to ensure that all of the game objects are at the same moment in time when we process them for collisions &mdash; if we processed collisions during the update of positions then everything already updated for position would be 1 frame ahead of objects not yet processed when collisions are tested.</p>
+
+<p>I chose to perform collisions before the update so that the collision applies to what the user can currently see (rather than what they will see after CoreAnimation updates).</p>
+
+<p>Performing collisions is very simple &mdash; especially in this game since I'm only performing bounding box collisions. The collision code in <code>ShotObject</code> which tests for collisions between shots and asteroids follows.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nf">collide</span>
+<span class="p">{</span>
+    <span class="n">NSString</span> <span class="o">*</span><span class="n">collision</span> <span class="o">=</span> <span class="p">[[[</span><span class="n">GameData</span> <span class="n">sharedGameData</span><span class="p">]</span>
+            <span class="nl">collideObjectsWithKeyPrefix</span><span class="p">:</span><span class="n">GAME_ASTEROID_KEY_BASE</span>
+            <span class="nl">withObjectForKey</span><span class="p">:</span><span class="n">keyInGameData</span><span class="p">]</span>
+        <span class="n">anyObject</span><span class="p">];</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">collision</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="n">AsteroidObject</span> <span class="nl">spawnNewAsteroidsReplacing</span><span class="p">:</span><span class="n">collision</span><span class="p">];</span>
+        <span class="k">return</span> <span class="nb">YES</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="nb">NO</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Once again, I'm using the prefix metadata in my game object keys to select asteroids for collisions.</p>
+
+<p>The collision code lives on the <code>GameData</code> class.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">NSSet</span> <span class="o">*</span><span class="p">)</span><span class="nf">collideObjectsWithKeyPrefix:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">prefix</span> <span class="nf">withObjectForKey:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">testObjectKey</span>
+<span class="p">{</span>
+    <span class="n">GameObject</span> <span class="o">*</span><span class="n">testObject</span> <span class="o">=</span> <span class="p">[</span><span class="n">gameObjects</span> <span class="nl">objectForKey</span><span class="p">:</span><span class="n">testObjectKey</span><span class="p">];</span>
+    <span class="n">NSMutableSet</span> <span class="o">*</span><span class="n">result</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSMutableSet</span> <span class="n">set</span><span class="p">];</span>
+    
+    <span class="n">NSRect</span> <span class="n">testRect</span> <span class="o">=</span> <span class="n">NSMakeRect</span><span class="p">(</span>
+        <span class="n">testObject</span><span class="p">.</span><span class="n">x</span> <span class="o">-</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">testObject</span><span class="p">.</span><span class="n">width</span><span class="p">,</span>
+        <span class="n">testObject</span><span class="p">.</span><span class="n">y</span> <span class="o">-</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">testObject</span><span class="p">.</span><span class="n">height</span><span class="p">,</span>
+        <span class="n">testObject</span><span class="p">.</span><span class="n">width</span><span class="p">,</span>
+        <span class="n">testObject</span><span class="p">.</span><span class="n">height</span><span class="p">);</span>
+    
+    <span class="k">for</span> <span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="n">gameObjectKey</span> <span class="k">in</span> <span class="n">gameObjects</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">if</span> <span class="p">([</span><span class="n">gameObjectKey</span> <span class="nl">isEqualToString</span><span class="p">:</span><span class="n">testObjectKey</span><span class="p">]</span> <span class="o">||</span>
+            <span class="p">[</span><span class="n">gameObjectKey</span> <span class="nl">rangeOfString</span><span class="p">:</span><span class="n">prefix</span><span class="p">].</span><span class="n">location</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="k">continue</span><span class="p">;</span>
+        <span class="p">}</span>
+        
+        <span class="n">GameObject</span> <span class="o">*</span><span class="n">gameObject</span> <span class="o">=</span> <span class="p">[</span><span class="n">gameObjects</span> <span class="nl">objectForKey</span><span class="p">:</span><span class="n">gameObjectKey</span><span class="p">];</span>
+        <span class="n">NSRect</span> <span class="n">gameRect</span> <span class="o">=</span> <span class="n">NSMakeRect</span><span class="p">(</span>
+            <span class="n">gameObject</span><span class="p">.</span><span class="n">x</span> <span class="o">-</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">gameObject</span><span class="p">.</span><span class="n">width</span><span class="p">,</span>
+            <span class="n">gameObject</span><span class="p">.</span><span class="n">y</span> <span class="o">-</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">gameObject</span><span class="p">.</span><span class="n">height</span><span class="p">,</span>
+            <span class="n">gameObject</span><span class="p">.</span><span class="n">width</span><span class="p">,</span>
+            <span class="n">gameObject</span><span class="p">.</span><span class="n">height</span><span class="p">);</span>
+        
+        <span class="k">if</span> <span class="p">(</span><span class="n">NSIntersectsRect</span><span class="p">(</span><span class="n">gameRect</span><span class="p">,</span> <span class="n">testRect</span><span class="p">))</span>
+        <span class="p">{</span>
+            <span class="p">[</span><span class="n">result</span> <span class="nl">addObject</span><span class="p">:</span><span class="n">gameObjectKey</span><span class="p">];</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+    
+    <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This code creates a bounding rectangle from the <code>GameObject</code> specified by the <code>testObjectKey</code> and collides it with all objects stored by keys starting with <code>prefix</code> that aren't the <code>testObject</code> itself.</p>
+
+<p>This code returns the whole set of colliding objects &mdash; overkill since the game only ever uses one at a time &mdash; but functional and easily fast enough for our purposes.</p>
+
+<h2>Tying it all together</h2>
+
+<p>We can control the ship, shoot and hit asteroids. There's a bit more that's in the game that you can see if you want:</p>
+
+<ul><li>The shots animate through 5 frames and expire after a fixed amount of time. I chose to store the current animation frame in the game data and handle the animation there (instead of in the view like the asteroid animation was in the last post). I wanted to show that animation state could be part of the game data if it is data-related (this animation isn't really data-related so I have some regrets).</li>
+<li>The asteroids start at random locations in a ring around the player for each level and spawn 3 smaller asteroids when shot, each of which travels in a random direction with a random rotation.</li></ul>
+
+<p>Instead of dwelling on that, I'll jump to the last part of the game logic: the game (including lives) and the levels.</p>
+
+<p>I want the following behaviors in the game:</p>
+
+<ul><li>The player begins with 3 lives at level 1.</li>
+<li>Each level starts with a "Prepare for level X..." message for a few seconds before displaying the contents of the level and starting normal play.</li>
+<li>Every time the player loses a life (collides with an asteroid) the game displays an "X lives remaining..." message for a few seconds before positioning the player in the middle of the screen and starting normal play again.</li>
+<li>When the number of lives hits zero, a "Game Over" message is displayed and the game is stopped.</li></ul>
+
+<p>The data containing the number of lives and the current level are just objects in the <code>gameData</code> dictionary. Creating a new level creates (3 + levelNumber) asteroids and places the player in the center. The messages are just a string, set using a specific <code>GAME_DATA_MESSAGE_KEY</code>, also on the <code>gameData</code> dictionary. These values are displayed by using bindings to connect them to ordinary <code>NSTextField</code>s in the window.</p>
+
+<p>More interesting is that the game needs to change its underlying behavior when the player dies or a new level begins.</p>
+
+<p>The solution I chose is to maintain two different update loops for the two basic behaviors. The <code>updateLevel:</code> method I've already shown is the "normal" update method. A second update method named <code>readyCountdown:</code> will be used to do nothing (not update the <code>GameObject</code>s) for a few seconds while a message is displayed, before returning to the regular update method.</p>
+
+<p>Along with <code>newGame</code>, <code>newLevel</code> and <code>endGame</code> methods, the game now has the ability to transition between different gameplay states.</p>
+
+<h2>Conclusion</h2>
+
+<blockquote><a href="../../assets/objc-era/Quartzeroids2Part3.zip">Download the complete, finished game Quartzeroids2.zip</a> (239 kB).</blockquote>
+
+<p>With the window and design from the first part, the rendering and layers from the second part and now the game logic, the game is complete. Download it, build it, play it and be underwhelmed by its simplicity.</p>
+
+<p>In the final part, I'll present analysis of CoreAnimation's utility as a game rendering engine. I'll look at some features of CoreAnimation that I didn't use, including features that impacted negatively on performance. I'll also look at how CoreAnimation performance changes as the number of render objects is increased.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../02/asteroids-style-game-in-coreanimation_22.html">An Asteroids-style game in CoreAnimation, Part Two.</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="asteroids-style-game-in-coreanimation_08.html">An Asteroids-style game in CoreAnimation, Part Four.</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

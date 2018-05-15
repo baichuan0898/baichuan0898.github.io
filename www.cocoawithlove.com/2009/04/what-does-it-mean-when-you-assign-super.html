@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>What does it mean when you assign [super init] to self?</title>
+  <meta name="description" content="One of the strangest pieces of common syntax in Objective-C is the line &lt;code&gt;self = [super init];&lt;/code&gt;. Without any explanation, this arrangement raises a few questions. Does this line set the &lt;code&gt;self&lt;/code&gt; value for the instance? Is &lt;code&gt;self&lt;/code&gt; just a variable like any other? If so, why have it at all? I&#39;ll address each of these questions and show how the compiler converts uses of &lt;code&gt;self&lt;/code&gt; and method invocations." />
+
+  <meta name="twitter:title" content="What does it mean when you assign [super init] to self?"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/04/what-does-it-mean-when-you-assign-super.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="One of the strangest pieces of common syntax in Objective-C is the line &lt;code&gt;self = [super init];&lt;/code&gt;. Without any explanation, this arrangement raises a few questions. Does this line set the &lt;code&gt;self&lt;/code&gt; value for the instance? Is &lt;code&gt;self&lt;/code&gt; just a variable like any other? If so, why have it at all? I&#39;ll address each of these questions and show how the compiler converts uses of &lt;code&gt;self&lt;/code&gt; and method invocations."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="what-does-it-mean-when-you-assign-super.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">What does it mean when you assign [super init] to self?</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-04-18">April 18, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/objective-c.html">Objective-C</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>One of the strangest pieces of common syntax in Objective-C is the line <code>self = [super init];</code>. Without any explanation, this arrangement raises a few questions. Does this line set the <code>self</code> value for the instance? Is <code>self</code> just a variable like any other? If so, why have it at all? I'll address each of these questions and show how the compiler converts uses of <code>self</code> and method invocations.</p></span>
+
+<span class="fullpost">
+<h2>Converting a method invocation</h2>
+<p>The first step to understanding the <code>self</code> parameter is to look at how the compiler converts a standard method invocation.</p>
+
+<p>When you type the following:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">MyClass</span> <span class="o">*</span><span class="n">myObject</span> <span class="o">=</span> <span class="p">[[</span><span class="n">MyClass</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithString</span><span class="p">:</span><span class="s">@&#34;someString&#34;</span><span class="p">];</span></code></pre></div>
+
+<p>The compiler converts this into function calls that look like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">class</span> <span class="n">myClass</span> <span class="o">=</span> <span class="n">objc_getClass</span><span class="p">(</span><span class="sa"></span><span class="s">&#34;MyClass&#34;</span><span class="p">);</span>
+<span class="kt">SEL</span> <span class="n">allocSelector</span> <span class="o">=</span> <span class="k">@selector</span><span class="p">(</span><span class="n">alloc</span><span class="p">);</span>
+<span class="n">MyClass</span> <span class="o">*</span><span class="n">myObject1</span> <span class="o">=</span> <span class="n">objc_msgSend</span><span class="p">(</span><span class="n">myClass</span><span class="p">,</span> <span class="n">allocSelector</span><span class="p">);</span>
+
+<span class="kt">SEL</span> <span class="n">initSelector</span> <span class="o">=</span> <span class="k">@selector</span><span class="p">(</span><span class="nl">initWithString</span><span class="p">:);</span>
+<span class="n">MyClass</span> <span class="o">*</span><span class="n">myObject2</span> <span class="o">=</span> <span class="n">objc_msgSend</span><span class="p">(</span><span class="n">myObject1</span><span class="p">,</span> <span class="n">initSelector</span><span class="p">,</span> <span class="s">@&#34;someString&#34;</span><span class="p">);</span></code></pre></div>
+
+<p>The compiler has slightly more efficient means of getting the <code>class</code> and <code>SEL</code> values but if you look at assembly code, you will see <code>objc_msgSend</code> calls for every method invocation.</p>
+
+<h2>So what is "self"?</h2>
+
+<p>Every method that you declare has two hidden parameters: <code>self</code> and <code>_cmd</code>.</p>
+
+<p>The following method:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nf">initWithString:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">aString</span><span class="p">;</span></code></pre></div>
+
+<p>is converted by the compiler to the following function call:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">id</span> <span class="nf">initWithString</span><span class="p">(</span><span class="kt">id</span> <span class="nb">self</span><span class="p">,</span> <span class="kt">SEL</span> <span class="n">_cmd</span><span class="p">,</span> <span class="n">NSString</span> <span class="o">*</span><span class="n">aString</span><span class="p">);</span></code></pre></div>
+
+<p>The reality is that <code>self</code> is simply a hidden parameter on every method. Like any other parameter, it receives its value from the function invocation.</p>
+
+<p>Yes, <code>_cmd</code> is also a hidden parameter on every method that you can access if you choose. In reality, there are few uses for the <code>_cmd</code> parameter except in <a href="../../2008/03/supersequent-implementation.html">obscure cases</a>.</p>
+
+<p>You can experiment with this by eliminating <code>objc_msgSend</code> and invoking the function for a method directly. Instead of calling:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">[</span><span class="n">myObject</span> <span class="nl">someMethodWithParameter</span><span class="p">:</span><span class="n">someValue</span><span class="p">];</span></code></pre></div>
+
+<p>You can reach your method implementation directly by recreating the work done by <code>objc_msgSend</code>.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">SEL</span> <span class="n">methodSelector</span> <span class="o">=</span> <span class="k">@selector</span><span class="p">(</span><span class="nl">someMethodWithParameter</span><span class="p">:);</span>
+<span class="kt">IMP</span> <span class="n">someMethodFunction</span> <span class="o">=</span> <span class="n">class_getMethodImplementation</span><span class="p">([</span><span class="n">myObject</span> <span class="k">class</span><span class="p">],</span> <span class="n">methodSelector</span><span class="p">);</span>
+<span class="n">someMethodFunction</span><span class="p">(</span><span class="n">myObject</span><span class="p">,</span> <span class="n">methodSelector</span><span class="p">,</span> <span class="n">someValue</span><span class="p">);</span></code></pre></div>
+
+<p>The only reason why <code>self</code> has a value on the inside of the <code>someMethodWithParameter:</code> implementation is because the pointer <code>myObject</code> is passed as the first parameter into <code>someMethodFunction</code>. If you pass a different value as this first parameter, then <code>self</code> will have a different value on the inside of the method.</p>
+
+<p>If you pass a value of a different class, you have a good chance of crashing the program. The following section explains why.</p>
+
+<h2>Why have a "self" parameter at all?</h2>
+
+<p>A method needs to know what data to act upon. The <code>self</code> parameter tells the class the data to act upon and so is essential to object oriented programming.</p>
+
+<p>This statement may seem a little strange, since you can easily implement a method without using the <code>self</code> parameter by name. The reality is that the compiler uses the <code>self</code> parameter to resolve any reference to an instance variable inside a method.</p>
+
+<p>If you had a class defined like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@interface</span> <span class="nc">MyClass</span> : <span class="nc">NSObject</span>
+<span class="p">{</span>
+    <span class="n">NSInteger</span> <span class="n">value</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setValueToZero</span><span class="p">;</span>
+<span class="k">@end</span></code></pre></div>
+
+<p>then the method:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setValueToZero</span>
+<span class="p">{</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>is converted by the compiler into:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">void</span> <span class="nf">setValueToZero</span><span class="p">(</span><span class="kt">id</span> <span class="nb">self</span><span class="p">,</span> <span class="kt">SEL</span> <span class="n">_cmd</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="nb">self</span><span class="o">-&gt;</span><span class="n">value</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>So <code>self</code> is essential for accessing any instance variables, even if you never literally type "<code>self</code>".</p>
+
+<h2>So does self already have a value when init is called?</h2>
+
+<p>If you remember back at the start, I said that the <code>initWithString:</code> part of a typical <code>[[MyClass alloc] initWithString:@"someString"]</code> invocation is converted into an <code>objc_msgSend</code> call:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">MyClass</span> <span class="o">*</span><span class="n">myObject2</span> <span class="o">=</span> <span class="n">objc_msgSend</span><span class="p">(</span><span class="n">myObject1</span><span class="p">,</span> <span class="n">initSelector</span><span class="p">,</span> <span class="s">@&#34;someString&#34;</span><span class="p">);</span></code></pre></div>
+
+<p>So by the time we get to the inside of the method, <code>self</code> already has a value; its value is <code>myObject1</code> (i.e. the allocated object, as returned from the <code>[MyClass alloc]</code> call. This is essential because without it, the <code>super</code> invocation wouldn't be possible &mdash; the <code>self</code> value is used by the compiler to send the invocation:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">[</span><span class="nb">super</span> <span class="n">init</span><span class="p">];</span></code></pre></div>
+
+<p>becomes:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">objc_msgSendSuper</span><span class="p">(</span><span class="nb">self</span><span class="p">,</span> <span class="k">@selector</span><span class="p">(</span><span class="n">init</span><span class="p">));</span></code></pre></div>
+
+<p>Yes, <code>self</code> already has a value when your initializer starts. In fact, it is almost guaranteed to be the correct, final value.</p>
+
+<h2>So why assign the value returned from [super init] to self?</h2>
+
+<p>Looking at a typical initializer method:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nf">initWithString:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">aString</span>
+<span class="p">{</span>
+    <span class="nb">self</span> <span class="o">=</span> <span class="p">[</span><span class="nb">super</span> <span class="n">init</span><span class="p">];</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nb">self</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">instanceString</span> <span class="o">=</span> <span class="p">[</span><span class="n">aString</span> <span class="k">retain</span><span class="p">];</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="nb">self</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Why do we assign <code>[super init]</code> to self here?</p>
+
+<p>The textbook reason is because <code>[super init]</code> is permitted to do one of three things:</p>
+
+<ol><li>Return its own receiver (the <code>self</code> pointer doesn't change) with inherited instance values initialized.</li>
+<li>Return a different object with inherited instance values initialized.</li>
+<li>Return <code>nil</code>, indicating failure.</li></ol>
+
+<p>In the first case, the assignment has no effect on <code>self</code> and the <code>instanceString</code> is set on in the original object (the line <code>instanceString = [aString retain];</code> could have been the first line of the method and the result would be the same).</p>
+
+<p>In the third case, the initialization has failed. <code>self</code> is set to <code>nil</code>, no further action is taken and <code>nil</code> is returned.</p>
+
+<p>The rationale for assigning to <code>self</code> is associated with the second case: if the returned object is different, we want the:
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc">        <span class="n">instanceString</span> <span class="o">=</span> <span class="p">[</span><span class="n">aString</span> <span class="k">retain</span><span class="p">];</span></code></pre></div>
+
+<p>which gets converted to</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc">        <span class="nb">self</span><span class="o">-&gt;</span><span class="n">instanceString</span> <span class="o">=</span> <span class="p">[</span><span class="n">aString</span> <span class="k">retain</span><span class="p">];</span></code></pre></div>
+
+<p>to act on the correct value, so we have to change the value of <code>self</code> to point to this new object.</p>
+
+<h2>It's almost never required to initialize self</h2>
+
+<p>So the rationale for assigning to <code>self</code> is that the <code>[super init]</code> could return a different object and should initialize that different object instead of the old (likely invalid) object.</p>
+
+<p>The question to consider is then: when would <code>[super init]</code> return a different object?</p>
+
+<p>The answer is that it will return different objects in one of the following situations:</p>
+
+<ul><li>Singleton object (always returns the singleton instead of any subsequent allocation)</li>
+<li>Other unique objects (<code>[NSNumber numberWithInteger:0]</code> always returns the global "zero" object)</li>
+<li>Class clusters substitute private subclasses when you initialize an instance of the superclass.</li>
+<li>Classes which choose to reallocate the same (or compatible) class based on parameters passed into the initializer.</ul>
+
+<p>In all but the final case, continuing to initialize the returned object if it changes is a mistake &mdash; the returned object is already completely initialized and isn't necessary related to your class anymore.</p>
+
+<p>So the list of three things that <code>[super init]</code> is permitted to return can now be expanded to four by splitting the "Return a different object" point into two:</p>
+
+<ol><li>Return its own receiver (the <code>self</code> pointer doesn't change) with inherited instance values initialized.</li>
+<li>Return an object of the same class, requiring further initialization.</li>
+<li>Return a different object that is already completely initialized.</li>
+<li>Return <code>nil</code>, indicating failure.</li></ol>
+
+<p>In this list, we now have two cases (2 and 3) which are incompatible. The typical "assign <code>[super init]</code> to <code>self</code>" initializer handles cases 1, 2 and 4.</p>
+
+<p>An <code>init</code> approach to handle cases 1, 3 and 4 would actually be:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nf">initWithString:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">aString</span>
+<span class="p">{</span>
+    <span class="kt">id</span> <span class="n">result</span> <span class="o">=</span> <span class="p">[</span><span class="nb">super</span> <span class="n">init</span><span class="p">];</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nb">self</span> <span class="o">==</span> <span class="n">result</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">instanceString</span> <span class="o">=</span> <span class="p">[</span><span class="n">aString</span> <span class="k">retain</span><span class="p">];</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>So class clusters, singletons and unique objects all use case 3, putting dozens of Cocoa classes in this category. I'm only aware of <code>NSManagedObject</code> that uses case 2. Curiously then, while case 3 is overwhelmingly more common, initializers that support 1, 2 and 4 but are incompatible with case 3 have become the standard. 
+
+<h2>Conclusion</h2>
+
+<blockquote><em>Update</em>: I have rewritten this conclusion to reflect the fact that I'm not actually suggesting you should stop using "assign <code>[super init]</code> to <code>self</code>" initializers. Thank you to everyone who invented creative ways to tell me I was wrong about this implication.</blockquote> 
+
+<p>You don't <em>need</em> to assign <code>[super init]</code> to <code>self</code> to make most classes work. In some obscure cases, it is actually the wrong thing to do.</p>
+
+<p>So why do we continue to assign to <code>self</code>? It's the traditional template for an initializer, and although it's wrong in some cases, it is right in other cases which have been written to expect this approach.</p>
+
+<p>Further to this is the consideration that class clusters and other classes likely to return unrelated or different, fully initialized objects from their init methods are not supposed to be subclassed in a normal way &mdash; making code which favors them less relevant.</p>
+
+<p>The number of cases where <code>super</code> returns an unrelated object are so small that they can easily be dealt with on a case-by-case basis &mdash; a class will normally make it very clear when its initializers might return something other than the receiver or <code>nil</code>.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="showing-message-over-iphone-keyboard.html">Showing a &#34;Loading...&#34; message over the iPhone  keyboard</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="easy-custom-uitableview-drawing.html">Easy custom UITableView drawing</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

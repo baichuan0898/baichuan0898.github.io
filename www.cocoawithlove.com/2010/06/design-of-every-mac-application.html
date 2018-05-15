@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>The design of every Mac application</title>
+  <meta name="description" content="I was recently asked by a reader if I used any modelling program to model the classes and relationships in my Mac applications. The answer is no, I don&#39;t model the application side of my programs. The reason for this is not because applications are always small and simple. The reason is that all applications have approximately the same design &amp;mdash; eventually everything in a well-designed application becomes intuitive." />
+
+  <meta name="twitter:title" content="The design of every Mac application"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2010/06/design-of-every-mac-application.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="I was recently asked by a reader if I used any modelling program to model the classes and relationships in my Mac applications. The answer is no, I don&#39;t model the application side of my programs. The reason for this is not because applications are always small and simple. The reason is that all applications have approximately the same design &amp;mdash; eventually everything in a well-designed application becomes intuitive."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="design-of-every-mac-application.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="118px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">The design of every Mac application</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2010-06-22">June 22, 2010</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/object-oriented-design.html">object-oriented design</a>, <a href="../../categories/uikit.html">UIKit</a>, <a href="../../categories/appkit.html">AppKit</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>I was recently asked by a reader if I used any modelling program to model the classes and relationships in my Mac applications. The answer is no, I don't model the application side of my programs. The reason for this is not because applications are always small and simple. The reason is that all applications have approximately the same design &mdash; eventually everything in a well-designed application becomes intuitive.</p></span>
+
+<span class="fullpost">
+
+<h2>Ontology</h2>
+<p>It would be a mis-statement to claim that all applications have the same design but it is accurate (although more confusing) to state that all well-designed applications share a very high degree of ontological similarity.</p>
+
+<p><a href="http://en.wikipedia.org/wiki/Ontology_(information_science)">Ontology</a> is a pretty obscure word so it might be a good idea to explain it here. I'm going to use an analogy...</p>
+
+<p>When you have a lot of items, it's helpful to classify them into a structure to understand how they relate to each other. For example: all living species on Earth are classifed into Domain, Kingdom, Phylum, Class, Order, Family, Genus and Species. We often just talk about animal or plant "species" but the classification system has many more levels (in fact, there are many more levels in-between these simple names that I've listed). The classification of living things is an example of a "taxonomy" (classifying things into a single hierarchy).</p>
+
+<p>Similarly, every class in a well-designed application can be classified. But the classification of an application isn't a simple tree structure &mdash; there are many different connections. And the connections aren't simply of heredity &mdash; there are subclasses, view hierarchies, event hierarchies, control hierarchies and more.</p>
+
+<p>When each classified element may have more than one position in the tree, and when different connections may have different semantic meanings and the overall organization isn't a simple tree but it's more of a big ball of wibbly-wobbly, interconnected stuff &mdash; that's an ontology.</p>
+
+<h2>The ontology of an application</h2>
+
+<p>Due to the interconnected, non-simple structure of ontologies, it's difficult to give a simple diagram that fully models one. Instead, I'm just going to list the broad categories of classes that you find in an application and simply discuss how they actually interconnect.</p>
+
+<div style="border-style:solid;border-width:1px;margin-left:-60px;margin-right:-60px;height:670px;"><img src="../../assets/objc-era/ApplicationOntology.png" width="696" height="668" /></div>
+
+<p style="text-align:center"><em>The basic categories of class in an application ontology.</em></p>
+
+<p>This diagram describes pretty much every class type you're likely to see in an application. In a well designed project, these are the names of the Groups in the class tree.</p>
+
+<p>Where did I get this list? I've really just transcribed the Groups from some of my larger projects. If you're interested, I consider a large project to be approximately a couple hundred classes. The largest I've ever let a project get is just over 400 classes. Normally, as a project gets near that size, I break it apart into multiple sub-projects. Generally, in a break apart like this, the "application" stays where it is and the "document" or "job handler" components get spun out into their own projects.</p>
+
+<p>Breaking a huge project into pieces offers lots of advantages: it makes building faster, forces better abstraction and interfaces and makes testing easier (because the interface between components is a great place for system tests). The drawback is that the build process and version management can get a little trickier but once the project becomes that big, you normally have a good process in place to handle that complexity.</p>
+
+<blockquote><strong>Applications on other platforms</strong>: While applications on different operating systems share much in common, the description here applies most accurately to Cocoa Mac applications. The needs of interacting with different application frameworks and delivering different features to users on different platforms ultimately effect the ontological structure of the application's classes.</blockquote>
+
+<h3>Application initiation, top level control, configuration</h3>
+
+<p>In a Cocoa program, this includes the main.c file and your App Delegate. In a Cocoa Mac document-based application, this also includes the NSDocumentController.</p>
+
+<p>These classes perform startup and top-level handling and shouldn't do anything else.</p>
+
+<p>A good indication of a hastily or poorly written application is when other functionality gets implemented in one of these classes. Since these classes are almost always present and are accessible at the top level, it's easy to be lazy and shove functionality into them because the functionality doesn't seem to fit elsewhere.</p>
+
+<h3>View and event hierarchies for primary workflow</h3>
+
+<p>This includes your primary <code>NSDocument</code> subclass, your NSWindowContorllers, NSViewControllers, UIViewControllers and the primary (used for displaying the main document) NSViews or UIViews.</p>
+
+<p>In a simple application that does more browsing than processing, this will be the bulk of the project. Fortunately, the view hierarchy is typically highly structured. Controllers at the top and nested views all the way down.</p>
+
+<p>New communication between view elements should go through the top controller of any hierarchy or should through connections established by a higher level of the hierarchy. Views talk to corresponding document objects but the correspondence should be entirely established by the controllers.</p>
+
+<p>The view and event hierarchies are generally similar; the few differences there are likely to be will rarely cause a problem.</p>
+
+<h3>View and event hierarchies for secondary workflows</h3>
+
+<p>An example of a secondary workflow would be the downloading interface in a web browser &mdash; a fully contained user-interface that runs in a different view or window. It also includes complicated popup/modal or other interfaces like the "Get Info" interface in the Mac OS X Finder or the "Add to Playlist" functionality in the iPod app on the iPhone.</p>
+
+<p>These tend to run like separate little programs within the greater application and you should write them as such. While they may share some views and data with the rest of the program, they generally use their own controllers to manage the workflow and as such should not simply be lumped in with the classes from the main workflow.</p>
+
+<h3>Data processing and handling</h3>
+
+<p>This is your "document" (or "model" in MVC parlance). In a basic application, the document may be vanishingly small (a single array of objects or even a single object). For the largest applications though, the document is generally the majority of the program.</p>
+
+<p>Generally, the document includes an interface at the top level that connects it to the structure of the rest of the program &mdash; since the elements within the document should be as ignorant of the structure of the rest of the program as possible. This connective interface is sometimes rolled into the <code>NSDocument</code> class on the Mac (which is also the controller of the document's view hierarchy). That's not too bad (they're both controllers) but in larger programs, the connecting controller for the document's view and the document's model may end up being different classes.</p>
+
+<p>Below the interface there is normally some form of management or coordination to handle caching, saving, memory and other issues related to the runtime state but not necessarily the persistent state of the document. This is the role that the <code>NSManagedObjectContext</code> performs for a document implemented using Core Data.</p>
+
+<p>Since the document is the part of a program that is not inherently designed following "application" rules, it does not necessarily follow an application ontology. For this reason, you may need to keep diagrams to understand the structure of highly complex document model. Fortunately, if you're using Core Data or another persistence framework for storing your model, you probably already have a diagram of your model.</p>
+
+<h3>Activity/job handling and execution</h3>
+
+<p>This is a category that unfortunately gets left out of many MVC discussions.</p>
+
+<p>A functional pipeline fulfils a similar role to the document but instead of exposing data storage and manipulation to the user, exposes actions and behaviors.</p>
+
+<p>An example would be a web server. If you push the "Start Server" button in your user interface, that button is not connected to a document but to a top level controller that starts the server. That top-level controller is the interface to a functional pipeline.</p>
+
+<p>In many respects, a functional pipeline should be treated like a document &mdash; connect it to views in the same way (through controllers that link values to display) and manage it in the same way (through a top level interface that exposes functionality to the rest of the program).</p>
+
+<h3>Preferences, styles and filesystem integration</h3>
+
+<p>This layer is largely filled with singletons; independent components that manage a small set of data that can be accessed at will from anywhere in the program.</p>
+
+<p>These types of classes tend to drive Dependency Injection enthusiast Unit Testers crazy because they follow a state-machine rather than a command-pattern (state machines are very hard to unit test).</p>
+
+<p>Settings management is an essential component of larger programs. Basic storage provided by <code>NSUserDefaults</code> becomes insufficient once different parts of the program need to coordinate access to the same settings.</p>
+
+<p>A styles controller is really just a way of accessing the same fonts, colors and other elements that make your program look consistent.</p>
+
+<h3>Custom views and control elements</h3>
+
+<p>This level is the storage bin for controls and views that are not tied to a specific workflow but (like the Styles Controller) are reused through the program to give a consistent aesthetic and set of behaviors to the use.</p>
+
+<p>Single purpose views generally live along with the workflow that uses them. For this reason, as a program goes, you may continuously generalize your single use views and move them out of a workflow into this more general section.</p>
+
+<p>This level of the application ontology also tends to be the first so far that contains concrete classes that may be brought in from outside the program. While your view controllers or document may include reusable abstract classes, the concrete implementations are normally specific to your program. Custom controls however are easily used in concrete form across a range of different applications.</p>
+
+<h3>Programming and testing facilities and integration</h3>
+
+<p>This is the cluster of classes that the user should never see (with the possible exception of Error dialogs). Many of the debugging and testing classes simply don't appear in release builds.</p>
+
+<p>Why would kludges, hacks and bug work-arounds appear here instead of closer to the classes they affect? Because they are parts of your code that the developer needs to keep a close eye on and should be able to disable easily in the event that they no longer apply. For these reasons, you should keep them from directly polluting your real code.</p>
+
+<h3>Drawing, processing, extensions and patches</h3>
+
+<p>These are the type of class that I've shared many times in this blog: handy tricks for accessing or achieving something with little or no dependency on the rest of your application.</p>
+
+<p>While this occupies just a single level of the diagram, in a medium sized program, these classes could be more than half the total classes in the program &mdash; little tools, tricks, reusable code and behaviors you like to carry from program to program.</p>
+
+<p>Fortunately, the large number of these classes rarely makes the program more complex &mdash; they have no significant connections to the rest of the program. The only difficulty tends to be cleaning them out when they're no longer used.</p>
+
+<h2>Scalability</h2>
+
+<p>In many situations, the size of a program increases complexity and makes it harder to understand.</p>
+
+<p>For the "application" side of a program (not including the "document"), greater size actually tends to force the program to behave more regularly and fit the categories I've discussed better.</p>
+
+<p>In smaller applications, classes tend to be more multi-functional, spanning many of these categories. As an application grows, classes tend to become more single-functional so they fit the standard categories better.</p>
+
+<p>The "document" &mdash; and to a lesser extent, functional workflows &mdash; tend to be the exception to this scalability rule, since they don't adhere to a common ontology. You will probably want to model and document your document.</p>
+
+<h2>Conclusion</h2>
+
+<p>Applications are a relatively narrow domain within programming overall &mdash; they need to perform specific functions and tend to perform those functions in similar ways.</p>
+
+<p>This similarity leads them to be structure similarly, to interconnect in similar ways; to share a common ontology.</p>
+
+<p>While the pattern may not be obvious when looking at a large program for the first time, or if you're continuously looking at hastily-constructed, small-to-medium sized projects, applications are structurally simple.</p>
+
+<p>I've drawn a distinction in this post between applications and other types of programs &mdash; even between the application part of a program and the non-application parts of a program. Obviously, non-application parts of an application will likely not follow the ontology of an application.</p>
+
+<p>While a badly designed, badly organized project can escape many of the traits you'd normally expect from an application, the mechanics of hooking into a framework like Cocoa and required steps to implement application-like features still dictate a structure that is hard to escape.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="sorting-nsmutablearray-with-random.html">Sorting an NSMutableArray with a random comparison method</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="assign-retain-copy-pitfalls-in-obj-c.html">Assign, retain, copy: pitfalls in Obj-C property accessors</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

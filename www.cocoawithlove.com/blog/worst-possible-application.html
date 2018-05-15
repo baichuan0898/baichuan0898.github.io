@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>The worst possible application</title>
+  <meta name="description" content="In an effort to explain what effects application design patterns have on code, I deliberately write an application using the worst possible application design pattern, in the hope that obvious mistakes will reveal the benefits of using better patterns." />
+
+  <meta name="twitter:title" content="The worst possible application"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/blog/worst-possible-application.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="In an effort to explain what effects application design patterns have on code, I deliberately write an application using the worst possible application design pattern, in the hope that obvious mistakes will reveal the benefits of using better patterns."/>
+
+  <link rel="icon" href="../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../css/main.css" />
+  <link rel="canonical" href="worst-possible-application.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../index.html"><img class="heartandcup" src="../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../about/index.html">about</a>
+        <a class="page-link" href="../archive/index.html">archive</a>
+        <a class="page-link" href="../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">The worst possible application</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2017-10-20">October 20, 2017</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../tags/app-design.html">app-design</a>
+		 
+	</div>
+</header>
+
+
+<main role="main">
+	<article itemscope itemtype="http://schema.org/BlogPosting">
+		<div class="post-content" itemprop="articleBody">
+			
+
+<p>In this article, I deliberately try to write the worst possible application by breaking the primary rule of application design: keep the model and view separate.</p>
+
+<p>The purpose is to try to answer a question clearly: what direct effect does an application design pattern have on code? In an otherwise simple, clean implementation, will an application have any obvious flaws if I follow the worst possible application design pattern? Will it get dramatically better if I switch back to a more common pattern?</p>
+
+<nav id="TableOfContents"><span class="toc-heading">Contents</span>
+<ul>
+<li>
+<ul>
+<li><a href="#a-topic-of-contradictions">A topic of contradictions</a></li>
+<li><a href="#seeking-out-disaster">Seeking out disaster</a></li>
+<li><a href="#unseparated">Unseparated</a></li>
+<li><a href="#there-s-an-app-for-that">There&rsquo;s an app for that</a></li>
+<li><a href="#a-quick-summary-of-the-app">A quick summary of the app</a></li>
+<li><a href="#breaking-all-the-rules">Breaking all the rules</a>
+<ul>
+<li><a href="#1-model-must-be-encapsulated-and-must-not-reference-the-view-or-application-framework">1. Model must be encapsulated and must not reference the view or application framework</a></li>
+<li><a href="#2-the-model-interface-must-expose-actions-not-primitive-data-operations">2. The Model interface must expose actions, not primitive data operations</a></li>
+<li><a href="#3-updates-may-occur-only-in-response-to-change-notifications-from-the-model">3. Updates may occur only in response to change notifications from the Model</a></li>
+</ul></li>
+<li><a href="#how-horrible-is-the-result">How horrible is the result?</a></li>
+<li><a href="#properly-separated-model-view-controller">Properly separated Model-View-Controller</a></li>
+<li><a href="#what-does-the-comparison-reveal">What does the comparison reveal?</a>
+<ul>
+<li><a href="#i-m-a-liar">I&rsquo;m a liar</a></li>
+<li><a href="#the-model-as-an-abstraction">The Model as an abstraction</a></li>
+<li><a href="#leaky-and-bad-abstractions">Leaky and bad abstractions</a></li>
+<li><a href="#application-design-patterns-are-potentially-useless">Application design patterns are potentially useless</a></li>
+</ul></li>
+<li><a href="#conclusion">Conclusion</a>
+<ul>
+<li><a href="#looking-forward">Looking forward</a></li>
+</ul></li>
+</ul></li>
+</ul>
+</nav>
+
+<h2 id="a-topic-of-contradictions">A topic of contradictions</h2>
+
+<p>It is really difficult to make an unambiguously true statement when talking about application design patterns. The problem is that there&rsquo;s a huge distance between the vague, high-level descriptions provided by application design patterns and the specific details of an application implementation. This distance creates a situation where almost anything can be true in the implementation, despite the intentions of the application design pattern.</p>
+
+<p>Out of frustration, with the entire field of application architecture, I decided to take a different approach: deliberately write an app using the worst possible application design pattern. Perhaps if I made some serious mistakes, they would have dramatic, visible effects and I could start to build a foundation for talking about application design patterns in a clear and unambiguous manner.</p>
+
+<h2 id="seeking-out-disaster">Seeking out disaster</h2>
+
+<p>What&rsquo;s the worst possible application design pattern?</p>
+
+<p>I deliberately devised 5 scenarios that I felt seriously undermined the typical Cocoa Model-View-Controller pattern and discussed them with 4 different Cocoa programmers that I work with, presenting each scenario as though I had encountered it in a real app, to see which mistake people thought was the worst.</p>
+
+<p>Here are the scenarios I presented:</p>
+
+<blockquote>
+<p>The app has a 4500 line <code>UIViewController</code> and changing any method seems to break the behavior of every child view.</p>
+</blockquote>
+
+<p>It was pointed out that this isn&rsquo;t a design pattern mistake as much as an implementation issue. While it is common – to the point of cliché – it can be handled through standard refactoring and decomposition steps.</p>
+
+<blockquote>
+<p>The Model contains blocks of CoreGraphics drawing code which are passed through to the View as a closure for rendering.</p>
+</blockquote>
+
+<p>A few people bought into the premise that this could be a valid approach; maybe it doesn&rsquo;t seem different enough to passing around SVG data. I still think it has untapped potential as one of the worst ideas imaginable.</p>
+
+<blockquote>
+<p>The Model holds references to each of the app&rsquo;s Controllers and when a value changes the Model directly invokes refresh on Controllers it knows to be dependent on the changed value.</p>
+</blockquote>
+
+<p>This evoked some actual groans. It might be the most mind bogglingly stupid of the scenarios that I presented but much of that stupidity derives from how simple the solution is (set up proper observers/notifications).</p>
+
+<blockquote>
+<p>The app has 3 separate Models and it&rsquo;s the View Controller&rsquo;s responsibility to keep them all in sync.</p>
+</blockquote>
+
+<p>If you tell people that you&rsquo;re coordinating data from 3 different web services in a single View Controller, suddenly it seems like a real-world problem and people start suggesting practical solutions; not nearly terrible enough.</p>
+
+<p>I decided the winner was the only application architectural mistake where:</p>
+
+<ul>
+<li>nobody tried to tell me the problem could be fixed with a simple refactoring</li>
+<li>nobody bought into the idea that you should ever write an app this way</li>
+</ul>
+
+<p>Drumroll&hellip;</p>
+
+<blockquote>
+<p>There&rsquo;s no separate Model in the app. Data is stored in whatever View requires it and the Controllers coordinate changes and communication between Views.</p>
+</blockquote>
+
+<p>I think this is one of the least exciting mistakes (after the totally banal &ldquo;massive view controller&rdquo;) but after decades of having Model-View-Controller drummed into our collective minds, &ldquo;Failure to separate the Model and View&rdquo; is widely agreed to be the worst possible mistake in application design.</p>
+
+<p>Very well then, let&rsquo;s make it happen!</p>
+
+<h2 id="unseparated">Unseparated</h2>
+
+<p>What does &ldquo;Failure to separate the Model and View&rdquo; mean?</p>
+
+<p>Unfortunately, like everything else in application design patterns, it&rsquo;s difficult to get a concrete answer. Prominent authors have written <a href="https://martinfowler.com/eaaDev/SeparatedPresentation.html">whole articles on this type of separation</a> without giving a single clear rule.</p>
+
+<p>I&rsquo;m going to use the following rules for a <strong>separated Model and View</strong>:</p>
+
+<ol>
+<li>A Model interface must cleanly encapsulate all application state and must not reference any view or application frameworks.</li>
+<li>Non-Model components may invoke mutating actions on the Model interface but the interface must present these as requests to perform an action, not primitive data operations.</li>
+<li>After performing an action on the Model interface, a non-Model component must not immediately update or refresh any non-Model state. Updates dependent on Model data may occur only in response to change notifications from the Model.</li>
+</ol>
+
+<p>&ldquo;Failure to separate the Model and View&rdquo; will be defined as breaking one or more of these rules.</p>
+
+<p>It might not be immediately clear why I&rsquo;ve chosen all of these three rules but in short: it forces the Model to be walled off from the rest of the app and forces the rest of the app to avoid assuming how the Model works.</p>
+
+<blockquote>
+<p><strong>Spoilers:</strong> This article will eventually discuss &ldquo;leaky abstractions&rdquo;. Avoiding leaky abstractions is the real reason why it&rsquo;s so important for the non-Model components to carefully avoid assuming how the internals of the Model work.</p>
+</blockquote>
+
+<h2 id="there-s-an-app-for-that">There&rsquo;s an app for that</h2>
+
+<p>It turns out that I&rsquo;ve already shared an example of a program that lacked Model and View separation. A few months ago, I <a href="porting-from-macos8-to-sierra.html">shared my &ldquo;Mines&rdquo; code from nearly 20 years ago</a>. However the use of 90s era Classic MacOS C++ in that implementation gets in the way of a proper in-depth discussion. So I took a couple hours and implemented a streamlined version as an Swift iOS app.</p>
+
+<p>I present the end result, totally devoid of any Model separation, <a href="https://github.com/mattgallagher/CwlWorstPossibleApplication">Mines for iOS</a>:</p>
+
+<p><img src="../assets/blog/mines_screenshot.png" alt="Figure 1: Mines" />
+<figcaption>Mines for iOS</figcaption></p>
+
+<p>That seems about right: the worst possible application is a Minesweeper clone.</p>
+
+<h2 id="a-quick-summary-of-the-app">A quick summary of the app</h2>
+
+<p>The app&rsquo;s content is the minefield. I&rsquo;ve used 100 squares (intended to be presented in a 10 by 10 grid). Each square potentially contains one of the 15 mines, randomly distributed on new game and each square starts covered but can be manually flagged or uncovered.</p>
+
+<p>There&rsquo;s no other data <em>required</em> by the app but I&rsquo;ve chosen to cache the number of adjacent mines for each square and the number of non-mine squares remaining to be uncovered before the game is considered &ldquo;won&rdquo;. The app includes a &ldquo;Flag mode&rdquo; slider but its value is considered &ldquo;transient view-state&rdquo; and it is omitted from the Model.</p>
+
+<p>If the app had a separate Model, it would include:</p>
+
+<ul>
+<li>The 100 squares, each with <code>isMine</code>, <code>adjacent</code> and <code>covered</code> values</li>
+<li>The <code>nonMineSquaresRemaining</code> count</li>
+<li>Functions to generate the squares for a new game (including <code>isMine</code> distribution and <code>adjacent</code> counts).</li>
+<li>A function to handle clicking on a square (which might uncover or flag the square and might need to update the <code>nonMineSquaresRemaining</code> count).</li>
+</ul>
+
+<p>Of course, the app doesn&rsquo;t have a separate Model because that would be too sensible.</p>
+
+<h2 id="breaking-all-the-rules">Breaking all the rules</h2>
+
+<p>Let&rsquo;s look at what horrible things I&rsquo;ve done by comparing against the rules I gave for a properly separated Model.</p>
+
+<h3 id="1-model-must-be-encapsulated-and-must-not-reference-the-view-or-application-framework">1. Model must be encapsulated and must not reference the view or application framework</h3>
+
+<p>Each of the <code>SquareView</code> objects (instances of <code>UIButton</code>) which represent the tiles in the game contains the following properties:</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">var</span> <span class="nv">covering</span><span class="p">:</span> <span class="n">Covering</span> <span class="p">=</span> <span class="p">.</span><span class="n">covered</span>
+<span class="kd">var</span> <span class="nv">isMine</span><span class="p">:</span> <span class="nb">Bool</span> <span class="p">=</span> <span class="kc">false</span>
+<span class="kd">var</span> <span class="nv">adjacent</span><span class="p">:</span> <span class="nb">Int8</span> <span class="p">=</span> <span class="mi">0</span></code></pre></div>
+<p>This is not a cached representation of state store in another location, this is the <em>only</em> representation of the minefield, spread across the 100 different <code>UIButton</code> subclass instances used to display the minefield.</p>
+
+<p>It&rsquo;s as big a violation of rule 1 as possible.</p>
+
+<h3 id="2-the-model-interface-must-expose-actions-not-primitive-data-operations">2. The Model interface must expose actions, not primitive data operations</h3>
+
+<p>The primary change that occurs during the game is updating state when a square is tapped. How does this change occur?</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="c1">// In a function on the GameViewController...</span>
+<span class="n">squareViews</span><span class="p">[</span><span class="n">index</span><span class="p">].</span><span class="n">covering</span> <span class="p">=</span> <span class="p">.</span><span class="n">uncovered</span></code></pre></div>
+<p>In short: when a <code>SquareView</code> is tapped, it sends its action to the <code>GameViewController</code> which maintains an array of the <code>SquareView</code> buttons that comprise the minefield. The <code>GameViewController</code> reaches directly into the affected <code>SquareView</code> and directly edits its <code>covering</code> property.</p>
+
+<p>It&rsquo;s as big a violation of rule 2 as possible.</p>
+
+<h3 id="3-updates-may-occur-only-in-response-to-change-notifications-from-the-model">3. Updates may occur only in response to change notifications from the Model</h3>
+
+<p>Here&rsquo;s the code invoked when you click on a mine:</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="k">if</span> <span class="n">squareView</span><span class="p">.</span><span class="n">isMine</span> <span class="p">{</span>
+   <span class="n">squareView</span><span class="p">.</span><span class="n">covering</span> <span class="p">=</span> <span class="p">.</span><span class="n">uncovered</span>
+   <span class="n">nonMineSquaresRemaining</span> <span class="p">=</span> <span class="o">-</span><span class="mi">1</span>
+   <span class="n">refreshSquaresToClear</span><span class="p">()</span>
+   <span class="n">squareView</span><span class="p">.</span><span class="n">setNeedsDisplay</span><span class="p">()</span>
+   <span class="k">return</span>
+<span class="p">}</span></code></pre></div>
+<p>When the <code>GameViewController</code> changes either the <code>covering</code> property on a <code>SquareView</code> or the <code>nonMineSquaresRemaining</code> value on itself, it must also call either <code>setNeedsUpdate</code> on the <code>SquareView</code> or <code>refreshSquaresToClear</code> on itself to force a refresh.</p>
+
+<p>It&rsquo;s as big a violation of rule 3 as possible.</p>
+
+<h2 id="how-horrible-is-the-result">How horrible is the result?</h2>
+
+<p>The <code>GameViewController</code> feels like two completely different classes smashed together – it&rsquo;s clearly doing too many things.</p>
+
+<p>And the <code>SquareView</code> (a <code>UIButton</code> subclass) contains <code>init(fromDictionary:)</code> and <code>toDictionary()</code> functions to aid serialization and deserialization during <code>UIStateRestoration</code> – an assignment of responsibility that seems hilariously misplaced.</p>
+
+<p>But the app isn&rsquo;t a complete mess. The underlying logic remains clear and simple and none of the work seems laborious or chaotic.</p>
+
+<p>I wanted a horror show but there&rsquo;s nothing particularly horrific here. Maybe this experiment isn&rsquo;t working.</p>
+
+<h2 id="properly-separated-model-view-controller">Properly separated Model-View-Controller</h2>
+
+<p>Perhaps I need a more direct comparison with a more typical Model-View-Controller implementation to really highlight what&rsquo;s wrong here.</p>
+
+<p>For this implementation, <a href="https://github.com/mattgallagher/CwlWorstPossibleApplication/tree/separated">please look at the &ldquo;separated&rdquo; branch in the repository</a>.</p>
+
+<p>In this version,  <code>Square</code> and <code>Game</code> are new types in the new <a href="https://github.com/mattgallagher/CwlWorstPossibleApplication/blob/separated/CwlWorstPossibleApplication/Game.swift">Game.swift file</a>. <code>Game</code> is the interface to the Model, its only mutating function is <code>tapSquare</code> and changes must be observed through the <code>Game.changed</code> notification.</p>
+
+<p><code>Square</code> contains the game-related data members that were previously on <code>SquareView</code> and <code>Game</code> contains the game-related data members that were previously on <code>GameViewController</code>:</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">struct</span> <span class="nc">Square</span><span class="p">:</span> <span class="n">Codable</span> <span class="p">{</span>
+   <span class="kd">var</span> <span class="nv">covering</span><span class="p">:</span> <span class="n">Covering</span> <span class="p">=</span> <span class="p">.</span><span class="n">covered</span>
+   <span class="kd">var</span> <span class="nv">isMine</span><span class="p">:</span> <span class="nb">Bool</span> <span class="p">=</span> <span class="kc">false</span>
+   <span class="kd">var</span> <span class="nv">adjacent</span><span class="p">:</span> <span class="nb">Int8</span> <span class="p">=</span> <span class="mi">0</span>
+<span class="p">}</span>
+
+<span class="kd">class</span> <span class="nc">Game</span><span class="p">:</span> <span class="n">Codable</span> <span class="p">{</span>
+   <span class="kd">private</span><span class="p">(</span><span class="kr">set</span><span class="p">)</span> <span class="kd">var</span> <span class="nv">squares</span><span class="p">:</span> <span class="nb">Array</span><span class="p">&lt;</span><span class="n">Square</span><span class="o">&gt;</span>
+   <span class="kd">private</span><span class="p">(</span><span class="kr">set</span><span class="p">)</span> <span class="kd">var</span> <span class="nv">nonMineSquaresRemaining</span><span class="p">:</span> <span class="nb">Int</span>
+<span class="p">}</span></code></pre></div>
+<p>The <code>SquareView</code> still contains the data it needs to draw itself but this data is now merely a <em>copy</em> of the corresponding <code>Square</code> value from the <code>Game</code> object.</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">class</span> <span class="nc">SquareView</span><span class="p">:</span> <span class="n">UIButton</span> <span class="p">{</span>
+   <span class="kd">var</span> <span class="nv">square</span><span class="p">:</span> <span class="n">Square</span> <span class="p">{</span> <span class="kr">didSet</span> <span class="p">{</span> <span class="n">setNeedsDisplay</span><span class="p">()</span> <span class="p">}</span> <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+<p>In addition to moving data members around, the following functions from <code>GameViewController</code> were all moved to the <code>Game</code> class:</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">loadGame</span><span class="p">(</span><span class="n">newSquareViews</span><span class="p">:</span> <span class="nb">Array</span><span class="p">&lt;</span><span class="n">SquareView</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">remaining</span><span class="p">:</span> <span class="nb">Int</span><span class="p">)</span>
+<span class="kd">func</span> <span class="nf">newMineField</span><span class="p">(</span><span class="n">mineCount</span><span class="p">:</span> <span class="nb">Int</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Array</span><span class="p">&lt;</span><span class="n">SquareView</span><span class="o">&gt;</span> <span class="p">{</span>
+<span class="kd">func</span> <span class="nf">uncover</span><span class="p">(</span><span class="n">squareViews</span><span class="p">:</span> <span class="nb">Array</span><span class="p">&lt;</span><span class="n">SquareView</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">index</span><span class="p">:</span> <span class="nb">Int</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Int</span> <span class="p">{</span>
+<span class="kd">func</span> <span class="nf">iterateAdjacent</span><span class="p">(</span><span class="n">squareViews</span><span class="p">:</span> <span class="nb">Array</span><span class="p">&lt;</span><span class="n">SquareView</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">index</span> <span class="n">n</span><span class="p">:</span> <span class="nb">Int</span><span class="p">,</span>
+   <span class="n">process</span><span class="p">:</span> <span class="p">(</span><span class="nb">Array</span><span class="p">&lt;</span><span class="n">SquareView</span><span class="o">&gt;</span><span class="p">,</span> <span class="nb">Int</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="p">())</span> <span class="p">{</span></code></pre></div>
+<p>And the button action method on <code>GameViewController</code>:</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kr">@objc</span> <span class="kd">func</span> <span class="nf">squareTapped</span><span class="p">(</span><span class="kc">_</span> <span class="n">sender</span><span class="p">:</span> <span class="nb">Any</span><span class="p">?)</span></code></pre></div>
+<p>has its contents moved to the <code>tapSquare</code> function on the <code>Game</code> class (this function is still called from the <code>squareTapped</code> function on <code>GameViewController</code>).</p>
+
+<p>Since the <code>SquareView</code> no longer contains the primary representation of the data, the <code>toDictionary()</code> and <code>init(fromDictionary:)</code> functions it contained are gone. The new <code>Game</code> instance is compliant with Swift <code>Codable</code> so serialization happens automatically on the Model.</p>
+
+<p>Finally, view updates are handled by making the <code>GameViewController</code> observe changes on the <code>Game</code>.</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="n">NotificationCenter</span><span class="p">.</span><span class="k">default</span><span class="p">.</span><span class="n">addObserver</span><span class="p">(</span><span class="kc">self</span><span class="p">,</span> <span class="n">selector</span><span class="p">:</span> <span class="k">#selector</span><span class="p">(</span><span class="n">gameChanged</span><span class="p">(</span><span class="kc">_</span><span class="p">:)),</span>
+   <span class="n">name</span><span class="p">:</span> <span class="n">Game</span><span class="p">.</span><span class="n">changed</span><span class="p">,</span> <span class="n">object</span><span class="p">:</span> <span class="n">newGame</span><span class="p">)</span></code></pre></div>
+<h2 id="what-does-the-comparison-reveal">What does the comparison reveal?</h2>
+
+<p>There are a handful of minor functionality changes but <strong>the biggest change is that code has moved around</strong>.</p>
+
+<p>At first glance, that seems fairly underwhelming – fixing the worst mistake in application design merely involves moving some code around. Surely a little code organization isn&rsquo;t really that important?</p>
+
+<h3 id="i-m-a-liar">I&rsquo;m a liar</h3>
+
+<p>Before I answer why this is important, I should also be more honest. While &ldquo;moving some code around&rdquo; is the superficial effect, there was more work involved. Specifically:</p>
+
+<ul>
+<li>I identified the Model data</li>
+<li>I identified all functions that acted purely on Model data</li>
+<li>I created a system of notifications for outputting the Model data</li>
+<li>I ensured that the functions and notifications provided a simple way to interact with the Model</li>
+<li>I implemented an interface around this entire concept.</li>
+</ul>
+
+<p>It&rsquo;s difficult to see all of this work from a side-by-side analysis though because <strong>I had already done most of it in the unseparated version of the app</strong>. The idea of separating a Model is so ingrained in my head that I had created a de facto Model even when trying to avoid it.</p>
+
+<p>To highlight this instinctive separation, I reordered the functions on the <code>GameViewController</code>. <a href="https://github.com/mattgallagher/CwlWorstPossibleApplication/blob/master/CwlWorstPossibleApplication/GameViewController.swift">Look at GameViewController.swift in the unseparated version of the Mines app</a> and you&rsquo;ll see that everything above line 101 of the <code>GameViewController</code> is strictly Model code. It isn&rsquo;t separated out into another class but it isn&rsquo;t directly mingled with view code either.</p>
+
+<p>Even while writing this article, when I gave a &ldquo;A quick summary of the app&rdquo;, I spent the entire time describing the <em>Model</em>, even though the app didn&rsquo;t technically have a Model at that point.</p>
+
+<p>So yes, the code comparison mostly shows moving code around but that&rsquo;s really just making the organization reflect what I&rsquo;d already written – a de facto (if mingled and obscured) abstraction of the game&rsquo;s data and logic.</p>
+
+<h3 id="the-model-as-an-abstraction">The Model as an abstraction</h3>
+
+<p>The separated Model implementation of the app clarifies the abstraction offered by the Model and strictly enforces it.</p>
+
+<p>By abstraction, I mean that the <code>Game</code> interface performs a lot of hidden work internally but externally it appears quite simple. It exposes two non-private functions – <code>init</code> and <code>tapSquare</code> – that match the two sole means of interaction available to the user during the game (starting a new game and tapping on a square). The output from the <code>Game</code> is the minefield state communicated through the <code>Game.changed</code> notification.</p>
+
+<p>The <code>Game</code> abstraction simplifies 100 lines of code to construct and maintain the game down to 2 actions and 1 output. While there&rsquo;s some work to correctly observe the notification output (roughly 10 lines in the <code>GameViewController</code>), this abstraction still represents a significant code size and complexity reduction from the perspective of the <code>GameViewController</code>.</p>
+
+<p>This is the importance of having a Model in your application design pattern: it allows you to reduce complexity by:</p>
+
+<ul>
+<li>reducing steps required in the rest of the program</li>
+<li>removing the need to ensure correctness from the rest of the program</li>
+<li>removing the need for action locations to know about state observing locations</li>
+</ul>
+
+<p>It&rsquo;s important to have the Model be a freely chosen abstraction because the Controller and View are not. <code>UIViewController</code> and <code>UIView</code> subclasses are collections of functionality, largely dictated by the implementation constraints and requirements of the UIKit framework. They&rsquo;re not free to model an arbitrary abstraction. The Model is valuable because it is an application framework independent component.</p>
+
+<h3 id="leaky-and-bad-abstractions">Leaky and bad abstractions</h3>
+
+<p>I&rsquo;ve already argued that there was a de facto Model abstraction being used <em>before</em> I officially separated the Model. However, an abstraction only works to reduce complexity when steps are taken to avoid outside components assuming its inner workings – the de facto abstraction offered no real hiding or shielding of its implementation.</p>
+
+<p>When outside components assume the inner workings of an abstraction, we call the abstraction a &ldquo;leaky&rdquo; abstraction. If there are <em>no</em> hidden workings of the interface then it isn&rsquo;t really an abstraction at all.</p>
+
+<p>For example, imagine that when I separated the Model, I hadn&rsquo;t moved all the functions into the <code>Game</code> structure, I merely moved the data members and exposed them as mutable properties:</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">class</span> <span class="nc">Game</span><span class="p">:</span> <span class="n">Codable</span> <span class="p">{</span>
+   <span class="kd">var</span> <span class="nv">squares</span><span class="p">:</span> <span class="nb">Array</span><span class="p">&lt;</span><span class="n">Square</span><span class="o">&gt;</span>
+   <span class="kd">var</span> <span class="nv">nonMineSquaresRemaining</span><span class="p">:</span> <span class="nb">Int</span>
+<span class="p">}</span></code></pre></div>
+<p>If this was the entire Model definition, all of the work to maintain it would remain on the <code>GameViewController</code>, exactly as before. This non-abstracted Model interface wouldn&rsquo;t offer any benefit to the program.</p>
+
+<h3 id="application-design-patterns-are-potentially-useless">Application design patterns are potentially useless</h3>
+
+<p>This is why I have problems unambiguously discussing application design patterns. A Model <em>should</em> provide an abstraction, it <em>should</em> reduce complexity and improve locality of your code and logic. But whether it actually helps is dependent on your implementation. If you choose a useless abstraction for your Model then there&rsquo;s potentially no benefit to having it separated.</p>
+
+<p>Application design patterns don&rsquo;t provide implementations, they merely suggest some components – which on their own are completely useless. It&rsquo;s the programmer&rsquo;s responsibility to use good abstractions where possible for these components. Following a good application design pattern <em>should</em> lead to good abstractions but it doesn&rsquo;t just magically happen.</p>
+
+<p>A useful way to think about application design patterns is as a thought experiment which challenges us to explain our program from different perspectives. An application design pattern poses the question: if you were forced to route updates or actions in your program through an interface between these components, how would you explain your program&rsquo;s state and behavior at that boundary? The question encourages an abstraction of the requirements and available options at a specific vantage point. Whether considering that perspective leads to a clean, simple abstraction of your program&rsquo;s behavior will determine whether that application design pattern is beneficial for your program.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>Depending on your Model abstraction, either of the following might be true:</p>
+
+<ol>
+<li><p>Separating the Model from the View mostly just moves code around.</p></li>
+
+<li><p>Separating the Model from the View reduces overall implementation complexity through careful abstraction, better separation of concerns, better code locality and simpler propagation of data dependencies.</p></li>
+</ol>
+
+<p>In fact, both of these statements could be descriptions of the <em>same</em> program, as in the case of the <a href="https://github.com/mattgallagher/CwlWorstPossibleApplication">Mines app</a>.</p>
+
+<p>Writing an application without a separated Model is considered the worst application design, not because it immediately leads to disaster but because it indicates that you&rsquo;ve never tried to clearly isolate what your program <em>does</em>. We don&rsquo;t write applications because we love constructing views and controllers – these are merely a means to an end. We write applications to present our Model, perform actions on it and view the results.</p>
+
+<p>The worst possible application design is one that doesn&rsquo;t understand what the app <em>is</em> and obscures its own nature by scattering it around arbitrarily.</p>
+
+<h3 id="looking-forward">Looking forward</h3>
+
+<p>The Model-View-Controller pattern typically describes the Model as containing all the data in the application and the View as a mere a display of that data. However, there is often data that affects the display of a View – like scroll state, navigation state or uncommitted data entry fields – that exists only in the View and not in the Model, in apparent violation of the Model-View-Controller principles.</p>
+
+<p>In the next article, I&rsquo;ll look at what happens when we require this view-state to pass through its own Model and how this view-state can drive the entire application.</p>
+
+		</div>
+	</article>
+</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="cwllayout.html">CwlLayout: a Swift wrapper around Auto Layout</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="view-state-driven-applications.html">View-state driven applications</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../feed.json">JSON</a>, <a href="../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

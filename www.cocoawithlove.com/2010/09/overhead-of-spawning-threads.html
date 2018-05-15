@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>The overhead of spawning threads (a performance experiment)</title>
+  <meta name="description" content="In this post, I take a casual look at the relative performance overheads handling tasks in different ways: performing all tasks in the main thread, sending tasks to a single worker thread, spawning new threads for every task, and using Grand Central Dispatch (GCD). This won&#39;t be a particularly advanced investigation, simply a quick overview of simplicity versus performance in job management." />
+
+  <meta name="twitter:title" content="The overhead of spawning threads (a performance experiment)"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2010/09/overhead-of-spawning-threads.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="In this post, I take a casual look at the relative performance overheads handling tasks in different ways: performing all tasks in the main thread, sending tasks to a single worker thread, spawning new threads for every task, and using Grand Central Dispatch (GCD). This won&#39;t be a particularly advanced investigation, simply a quick overview of simplicity versus performance in job management."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="overhead-of-spawning-threads.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">The overhead of spawning threads (a performance experiment)</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2010-09-14">September 14, 2010</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>In this post, I take a casual look at the relative performance overheads handling tasks in different ways: performing all tasks in the main thread, sending tasks to a single worker thread, spawning new threads for every task, and using Grand Central Dispatch (GCD). This won't be a particularly advanced investigation, simply a quick overview of simplicity versus performance in job management.</p></span>
+
+<span class="fullpost">
+<h2>Introduction</h2>
+
+<p>I have a number of projects that need to support Mac OS X Leopard and iOS 3.x, so these projects cannot use libdispatch (aka Grand Central Dispatch).</p>
+
+<p>In these GCD-free situations, I was curious to know what was the difference in overhead between properly setting up dedicated CFRunLoop-based worker threads and using a more haphazard spawn-a-new-NSThread-for-every-task approach. This post presents the results of that investigation.</p>
+
+<p>I also included GCD results to compare with these traditional Cocoa threading approaches. There should be no surprises that GCD is much faster than any of the other threaded approaches. However there is also some interesting information regarding GCD queue configurations that can affect performance on different computers.</p>
+
+<h2>Test setup</h2>
+
+<p>The test is relatively straightforward:</p>
+
+<ul><li>A number of job queues need to run.</li>
+<li>Each queue runs a number of jobs serially.</li>
+<li>The complete set of jobs are not known in advance &mdash; as each job completes, it adds the next job to the queue.</li></ul>
+
+<p>In the code, I've called the number of jobs that run on each queue "iterations" because there is actually only one job object per queue and it adds itself back to the queue as the next job.</p>
+
+<p>The jobs themselves have no work to perform (other than decrementing the iteration count). The purpose here is purely to test the overhead of different job queuing and management approaches.</p>
+
+<h2>Queue implementations</h2>
+
+<h3>SingleThreadedQueue</h3>
+
+<p>The single threaded queue simply adds all jobs to an NSMutableArray and runs them in the current thread in the order added.</p>
+
+<p>This test involves no worker thread at all and is really the "control" case.</p>
+
+<p>Running all the jobs involves looping until the queue is empty and running one job per iteration.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">queueJob:</span><span class="p">(</span><span class="n">Job</span> <span class="o">*</span><span class="p">)</span><span class="nv">aJob</span>
+<span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">jobQueue</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">jobQueue</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSMutableArray</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">];</span>
+        <span class="p">[</span><span class="n">jobQueue</span> <span class="nl">addObject</span><span class="p">:</span><span class="n">aJob</span><span class="p">];</span>
+        
+        <span class="k">while</span> <span class="p">([</span><span class="n">jobQueue</span> <span class="n">count</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="n">Job</span> <span class="o">*</span><span class="n">nextJob</span> <span class="o">=</span> <span class="p">[</span><span class="n">jobQueue</span> <span class="nl">objectAtIndex</span><span class="p">:</span><span class="mi">0</span><span class="p">];</span>
+            <span class="p">[</span><span class="n">jobQueue</span> <span class="nl">removeObjectAtIndex</span><span class="p">:</span><span class="mi">0</span><span class="p">];</span> 
+            <span class="p">[</span><span class="n">nextJob</span> <span class="nl">performIterationAndRequeueInJobRunner</span><span class="p">:</span><span class="nb">self</span><span class="p">];</span>
+        <span class="p">}</span>
+        
+        <span class="p">[</span><span class="n">jobQueue</span> <span class="k">release</span><span class="p">];</span>
+        <span class="n">jobQueue</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="k">else</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="n">jobQueue</span> <span class="nl">addObject</span><span class="p">:</span><span class="n">aJob</span><span class="p">];</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The <code>if (!jobQueue)</code> condition around the other work exists to avoid recursion on the stack when the <code>performIterationAndRequeueInJobRunner:</code> method invokes <code>queueJob:</code> again to queue the next job.</p>
+
+<h3>RunLoopQueue</h3>
+
+<p>Running a dedicated worker thread is involves creating and starting an <code>NSThread</code> but then once the thread is started, you can add jobs to it with <code>performSelector:</code></p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">queueJob:</span><span class="p">(</span><span class="n">Job</span> <span class="o">*</span><span class="p">)</span><span class="nv">aJob</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="n">aJob</span>
+        <span class="nl">performSelector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="nl">performIterationAndRequeueInJobRunner</span><span class="p">:)</span>
+        <span class="nl">onThread</span><span class="p">:</span><span class="n">runLoopThread</span> 
+        <span class="nl">withObject</span><span class="p">:</span><span class="nb">self</span>
+        <span class="nl">waitUntilDone</span><span class="p">:</span><span class="nb">NO</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<h3>DetachThreadQueue</h3>
+
+<p>The main point here is that we create a new thread for every job. We also need to have a thread entry point that puts an <code>NSAutoreleasePool</code> up (or other thread context that we may require) and runs the actual job itself.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">queueJob:</span><span class="p">(</span><span class="n">Job</span> <span class="o">*</span><span class="p">)</span><span class="nv">aJob</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="n">NSThread</span> <span class="nl">detachNewThreadSelector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="nl">threadEntry</span><span class="p">:)</span>
+        <span class="nl">toTarget</span><span class="p">:</span><span class="nb">self</span> <span class="nl">withObject</span><span class="p">:</span> <span class="n">aJob</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">threadEntry:</span><span class="p">(</span><span class="n">Job</span> <span class="o">*</span><span class="p">)</span><span class="nv">aJob</span>
+<span class="p">{</span>
+    <span class="n">NSAutoreleasePool</span> <span class="o">*</span><span class="n">pool</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSAutoreleasePool</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">aJob</span> <span class="nl">performIterationAndRequeueInJobRunner</span><span class="p">:</span><span class="nb">self</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">pool</span> <span class="k">release</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<h3>DetachThreadWithVerificationQueue</h3>
+
+<p>However, when experimenting with this test, I ran into an issue I'd never encountered before: the Mac OS X thread limit. According to the command line function <code>sysctl kern.maxfiles</code> my thread limit is around 12288 for the whole operating system (the limit is RAM dependent) &mdash; you do have to be pretty reckless to use them all but it's not impossible.</p>
+
+<p>The annoying point here is that you don't get an error when <code>NSThread</code> fails to start an actual thread &mdash; instead, the thread never starts and you're left wondering why nothing happened.</p>
+
+<p>So I introduced a little extra code to ensure that the thread started correctly. This code passes an NSCondition into the detached thread and if this condition isn't signalled within 10 seconds, it is assumed that the thread failed to launch.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">queueJob:</span><span class="p">(</span><span class="n">Job</span> <span class="o">*</span><span class="p">)</span><span class="nv">aJob</span>
+<span class="p">{</span>
+    <span class="n">NSCondition</span> <span class="o">*</span><span class="n">startedCondition</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSCondition</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">];</span>
+    <span class="n">NSDictionary</span> <span class="o">*</span><span class="n">threadParameters</span> <span class="o">=</span>
+        <span class="p">[</span><span class="n">NSDictionary</span> <span class="nl">dictionaryWithObjectsAndKeys</span><span class="p">:</span>
+            <span class="n">aJob</span><span class="p">,</span> <span class="s">@&#34;job&#34;</span><span class="p">,</span>
+            <span class="n">startedCondition</span><span class="p">,</span> <span class="s">@&#34;condition&#34;</span><span class="p">,</span>
+        <span class="nb">nil</span><span class="p">];</span>
+    
+    <span class="p">[</span><span class="n">startedCondition</span> <span class="n">lock</span><span class="p">];</span>
+    
+    <span class="p">[</span><span class="n">NSThread</span> <span class="nl">detachNewThreadSelector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="nl">threadEntry</span><span class="p">:)</span>
+        <span class="nl">toTarget</span><span class="p">:</span><span class="nb">self</span> <span class="nl">withObject</span><span class="p">:</span><span class="n">threadParameters</span><span class="p">];</span>
+    
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="p">[</span><span class="n">startedCondition</span> <span class="nl">waitUntilDate</span><span class="p">:[</span><span class="n">NSDate</span> <span class="nl">dateWithTimeIntervalSinceNow</span><span class="p">:</span><span class="mf">10.0</span><span class="p">]])</span>
+    <span class="p">{</span>
+        <span class="n">NSLog</span><span class="p">(</span><span class="s">@&#34;Thread creation failed.&#34;</span><span class="p">);</span>
+        <span class="p">[</span><span class="n">aJob</span> <span class="n">killJob</span><span class="p">];</span>
+    <span class="p">}</span>
+    
+    <span class="p">[</span><span class="n">startedCondition</span> <span class="n">unlock</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">startedCondition</span> <span class="k">release</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">threadEntry:</span><span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nv">threadParameters</span>
+<span class="p">{</span>
+    <span class="n">NSAutoreleasePool</span> <span class="o">*</span><span class="n">pool</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSAutoreleasePool</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">];</span>
+    <span class="n">NSCondition</span> <span class="o">*</span><span class="n">startedCondition</span> <span class="o">=</span> <span class="p">[</span><span class="n">threadParameters</span> <span class="nl">objectForKey</span><span class="p">:</span><span class="s">@&#34;condition&#34;</span><span class="p">];</span>
+    <span class="n">Job</span> <span class="o">*</span><span class="n">aJob</span> <span class="o">=</span> <span class="p">[</span><span class="n">threadParameters</span> <span class="nl">objectForKey</span><span class="p">:</span><span class="s">@&#34;job&#34;</span><span class="p">];</span>
+    
+    <span class="p">[</span><span class="n">startedCondition</span> <span class="n">lock</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">startedCondition</span> <span class="n">signal</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">startedCondition</span> <span class="n">unlock</span><span class="p">];</span>
+    
+    <span class="p">[</span><span class="n">aJob</span> <span class="nl">performIterationAndRequeueInJobRunner</span><span class="p">:</span><span class="nb">self</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">pool</span> <span class="k">release</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<h3>GCD Dedicated Queue</h3>
+
+<p>Once you've created a queue using <code>dispatch_queue_create</code>, sending a job to it is very simple:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">queueJob:</span><span class="p">(</span><span class="n">Job</span> <span class="o">*</span><span class="p">)</span><span class="nv">aJob</span>
+<span class="p">{</span>
+   <span class="n">dispatch_async</span><span class="p">(</span><span class="n">queue</span><span class="p">,</span> <span class="o">^</span><span class="p">{</span>
+      <span class="p">[</span><span class="n">aJob</span> <span class="nl">performIterationAndRequeueInJobRunner</span><span class="p">:</span><span class="nb">self</span><span class="p">];</span>
+   <span class="p">});</span>
+<span class="p">}</span></code></pre></div>
+
+<h3>DispatchGlobalConcurrentQueue</h3>
+
+<p>The implementation of queueJob is identical here, the only difference is that the queue is obtained using <code>dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0)</code>.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">queueJob:</span><span class="p">(</span><span class="n">Job</span> <span class="o">*</span><span class="p">)</span><span class="nv">aJob</span>
+<span class="p">{</span>
+   <span class="n">dispatch_async</span><span class="p">(</span><span class="n">queue</span><span class="p">,</span> <span class="o">^</span><span class="p">{</span>
+      <span class="p">[</span><span class="n">aJob</span> <span class="nl">performIterationAndRequeueInJobRunner</span><span class="p">:</span><span class="nb">self</span><span class="p">];</span>
+   <span class="p">});</span>
+<span class="p">}</span></code></pre></div>
+
+<h2>Results</h2>
+
+<p>My computer is a 4 core Mac Pro with HyperThreading. This is particularly relevant for these tests because it should be able to support 8 threads in hardware. Let's see how it goes.</p>
+
+<p>In the following table of timing results, the following abbreviations are used:</p>
+
+<ul>
+<li>Single &mdash; SingleThreadedQueue</li>
+<li>RunLoop &mdash; RunLoopQueue</li>
+<li>Detach &mdash; DetachThreadQueue</li>
+<li>Detach w/ Ver. &mdash; DetachThreadWithVerificationQueue</li>
+<li>GCD-DQ &mdash; DispatchDedicatedQueue</li>
+<li>GCD-GCQ &mdash; DispatchGlobalConcurrentQueue</li>
+</ul>
+<table>
+<thead><tr><td>Configuration</td><td> Single </td><td> RunLoop </td><td> Detach </td><td>Detach&nbsp;w/&nbsp;Ver.</td><td>GCD-DQ</td><td> GCD-GCQ </td></tr></thead>
+<tr><td>1 Queue,<br/>100k iterations</td><td> 0.035990 </td><td> 0.776727 </td><td> 6.356978 </td><td> 7.166419 </td><td> 0.052294 </td><td> 0.102622 </td></tr>
+<tr><td>4 Queues,<br/>25k iterations</td><td> 0.036177 </td><td> 0.243689 </td><td> 4.513922 </td><td> 4.643964 </td><td> 0.038666 </td><td> 0.044127 </td></tr>
+<tr><td>8 Queues,<br/>12.5k iterations</td><td> 0.036134 </td><td> 0.199367 </td><td> 13.750981 </td><td> 11.947684 </td><td> 0.025748 </td><td> 0.046173 </td></tr>
+<tr><td>16 Queues,<br/>6.25k iterations</td><td> 0.036132 </td><td> 0.200769 </td><td> 40.493681 </td><td> 30.934207 </td><td> 0.025616 </td><td> 0.046114 </td></tr>
+</table>
+<p>All times are in seconds. Iterations are per queue (total iterations is always 100,000).</p>
+
+<p>Visually comparing all except the Detach Thread approaches:</p>
+
+<img src="../../assets/objc-era/chart1.png" width="550" height="335" />
+
+<p>The vertical axis is in seconds.</p>
+
+<p>I deliberately cut the top of the graph off but the RunLoop version took 0.776727 in the first test &mdash; more than three times above the top of this graph.</p>
+
+<img src="../../assets/objc-era/chart2.png" width="476" height="321" />
+
+<p>I've placed the Detach Thread approaches on their own graph because they're more than an order of magnitude slower. Again, the vertical axis is in seconds.</p>
+
+<h2>Analysis</h2>
+
+<p>Since these tests were intended to test job queue overhead, and the SingleThreadedQueue had no threading overhead and only need to perform <code>NSArray</code> operations, it is unsurprising that it was generally the fastest &mdash; except in the 8 and 16 queue cases where the DispatchDedicatedQueue was faster (likely because the little overhead it actually has is absorbed by the multiple cores in my computer).</p>
+
+<p>My computer can run 8 threads in hardware. This likely explains why 8 queues is the optimum number of RunLoops to spawn and GCD dedicated queues. However &mdash; the GCD global concurrent queue never used all 8 possible threads (it peaked at 59% total CPU usage which is approximately 4 threads used), so it peaked in performance at 4 concurrent queues.</p>
+
+<p>The DetachThread queues actually used twice as many threads as queues (the previous and next jobs' queues are both present at the same time) so these queues peaked at 4 queues. Interestingly, the "with verification" version started to exceed the performance of the "without" version after 4 queues &mdash; I suspect this is because the mutex used in the verification actually reduced the active thread count slightly.</p>
+
+<p>Clearly, detaching threads has a very high overhead &mdash; around 1 second per 12,000 threads spawned. This isn't going to be  an issue if you're only spawning 20 or 30 threads but spawning hundreds or thousands is a complete waste of time &mdash; and it only gets worse as the number of active threads at any given time increases.</p>
+
+<h2>Conclusion</h2>
+
+<blockquote>You can download the code used in this post <a href="../../assets/objc-era/ThreadingOverheads.zip">ThreadingOverheads.zip</a> (14kb)</blockquote>
+
+<p>While it is valid to detach new threads for infrequent tasks (as many as dozens per second), the overhead on a completely new thread is non-trivial so if your tasks are small and numerous, a solution that reuses threads is pretty important. Even the overhead of a RunLoop solution (which was the traditional worker thread approach in Cocoa prior to GCD) is noticeable once the number of tasks reaches the tens of thousands.</p>
+
+<p>It is easy to see why Apple chose to introduce Grand Central Dispatch &mdash; it lowers the overhead on job queues by an order of magnitude relative to a typical RunLoop-based worker thread &mdash; and they're easier to create and use as well.</p> 
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="substituting-local-data-for-remote.html">Substituting local data for remote UIWebView requests</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="minimalist-cocoa-programming.html">Minimalist Cocoa programming</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

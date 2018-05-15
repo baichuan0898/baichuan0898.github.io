@@ -1,0 +1,263 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<!--
+Local Variables:
+sgml-default-dtd-file: "~/html-loose.ced"
+End:
+-->
+<html>
+  <head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+
+    <title>Hamster Emporium: [objc explain]: So you crashed in objc_msgSend()</title>
+    <link title="RSS 2.0" href="../../../../rss.xml.rss" type="application/rss+xml" rel="alternate">
+  </head>
+  <body bgcolor="#ffffff">
+    <table cellpadding="0" cellspacing="0">
+      <tr>
+	  <td valign="top" align="left">
+	    <a href="../../../../index.html"><img src="http://www.sealiesoftware.com/hamster.jpg" alt="" width="108" height="160"></a><br><br>
+	    <b>blog</b><br>
+	    <a href="../../../../index.html">recent</a><br>
+	    <a href="../../../index.html">archive</a><br>
+	    <a href="http://twitter.com/gparker">twitter</a><br>
+	    <br>
+	    <b>projects</b><br>
+	    <a href="http://www.apple.com/macosx/">Mac OS X</a><br>
+	    <a href="http://www.sealiesoftware.com/keyboard/index.html">Keyboard</a><br>
+	     &nbsp; <a href="http://www.sealiesoftware.com/keyboard/index.html">backlight</a><br>
+	    <a href="http://www.sealiesoftware.com/cscmenu/index.html">CSC Menu</a><br>
+	    <a href="http://www.sealiesoftware.com/valgrind/index.html">Valgrind</a><br>
+	    <a href="http://www.sealiesoftware.com/fringe/index.html">Fringe Player</a><br>
+	    <a href="http://www.sealiesoftware.com/pssh/index.html">pssh</a><br>
+	    <a href="http://www.sealiesoftware.com/peal/index.html">Peal</a><br>
+	    <a href="http://www.sealiesoftware.com/frankenmouse/index.html">Frankenmouse</a><br>
+	    <br>
+	  </td>
+	  <td>
+	    &nbsp; &nbsp;
+	  </td>
+	  <td valign="top">
+	      <h2>Hamster Emporium archive</h2>
+  <p>
+     &lt;&lt; &nbsp; <a href="../28/Valgrind_for_Mac_OS_X_some_assembly_required.html">Valgrind for Mac OS X (some assembly required)</a> &nbsp; | &nbsp;  
+    <a href="../../../index.html">archive</a>
+     &nbsp; | &nbsp; <a href="../16/objc_explain_Exceptions_and_autorelease_pools.html">[objc explain]: Exceptions and autorelease pools</a> &nbsp; &gt;&gt; 
+  </p>
+  <table cellpadding="0" cellspacing="3">
+      <tr>
+	<td>
+	  <a href="objc_explain_So_you_crashed_in_objc_msgSend.html"><img src="http://www.sealiesoftware.com/link.gif" width="14" height="16" border="0" alt="(link)"></a>
+	</td>
+	<td>
+	  <b><font size="+1">[objc explain]: So you crashed in objc_msgSend()</font></b> &nbsp; 
+	  <font size="-1">(<a href="objc_explain_So_you_crashed_in_objc_msgSend.html">2008-09-22 02:02 PM</a>)</font>
+	</td>
+      </tr>
+      <tr>
+	<td>
+	  &nbsp;
+	</td>
+	<td>
+	        <p>
+	So you crashed in <code>objc_msgSend()</code>. Now what?
+      </p>
+      <p>
+	Most likely, you sent a message to an already-freed
+	object. Or maybe your pointer is perfectly correct, but
+	someone else mangled the object's contents - perhaps a buffer
+	overrun in a nearby allocation, or use of a dangling pointer that once
+	pointed to the memory now occupied by your object. Occasionally
+	<code>objc_msgSend()</code> crashes because a memory error smashed
+	the runtime's own data structures, but usually the trouble is in
+	the receiver object itself.
+      </p>
+      <p>
+	Whether you're in the debugger or looking at a crash log, you can
+	recover more information about the crash than just the backtrace. 
+      </p>
+      <h4>Receiver and selector registers</h4>
+      <p>
+	<code>objc_msgSend()</code> stores the receiver object and the
+	selector in CPU registers while it works. These values can help 
+	diagnose the problem.
+      </p>
+      <p>
+	The register names differ based on architecture and the 
+	<code>objc_msgSend()</code> variant used. This list is correct for
+	Mac OS X Leopard and will probably remain correct for Snow
+	Leopard. 
+	<table border=1 cellspacing=0 cellpadding=4>
+	  <th><td align=center colspan=2><code>objc_msgSend</code><br><code>objc_msgSend_fpret</code></td>
+	    <td align=center colspan=2><code>objc_msgSend_stret</code></td></th>
+	  <tr><td align=center>&nbsp;</td><td align=center><code>receiver</code></td><td align=center><code>SEL</code></td><td align=center><code>receiver</code></td><td align=center><code>SEL</code></td></tr>
+	  <tr><td>i386</td><td align=center>eax*</td><td align=center>ecx</td>
+	    <td align=center>eax*</td><td align=center>ecx</td></tr>
+	  <tr><td>x86_64</td><td align=center>rdi</td><td align=center>rsi</td>
+	    <td align=center>rsi</td><td align=center>rdx</td></tr>
+	  <tr><td>ppc</td><td align=center>r3</td><td align=center>r4</td>
+	    <td align=center>r4</td><td align=center>r5</td></tr>
+	  <tr><td>ppc64</td><td align=center>r3</td><td align=center>r4</td>
+	    <td align=center>r4</td><td align=center>r5</td></tr>
+	  <tr><td>arm</td><td align=center>r0</td><td align=center>r1</td>
+	    <td align=center>r1</td><td align=center>r2</td></tr>
+	  <tr><td>arm64</td><td align=center>x0</td><td align=center>x1</td>
+	    <td align=center>&mdash;</td><td align=center>&mdash;</td></tr>
+	</table>
+	* i386 note: The receiver is in eax for most crashes, but not
+	all. If you manage to get far into <code>objc_msgSend()</code>
+	before falling over, then eax will have some other value.
+      </p>
+      <h4>Interpreting the receiver and invalid address</h4>
+      <p>
+	You can use the receiver's address and the invalid address that
+	caused the crash to get some hints about the underlying
+	problem. In a crash log, the receiver's address is in the Thread
+	State using the register name in the table above, and the invalid
+	address is listed at the top (usually something like
+	<code>KERN_PROTECTION_FAILURE at &lt;invalid address&gt;</code>).
+	In the debugger
+	console, the invalid address is printed when the program stops,
+	and you can print the receiver's address using the register name
+	in the table above.
+	<pre>
+    Program received signal EXC_BAD_ACCESS, Could not access memory.
+    Reason: KERN_PROTECTION_FAILURE at address: 0x00000001
+    0x00090ec4 in objc_msgSend ()
+    (gdb) p/x $eax
+    $1 = 0x1</pre>
+	My test program crashed at <code>[(id)1 release]</code>. In real
+	crashes, these values are typically more interesting.
+      </p>
+      <p>
+	Usually, one of two things happens. The receiver address 
+	itself is bogus, and the invalid address is the same value (or 16
+	or 32 bytes away). Or the receiver address is reasonable, and the
+	invalid address is the receiver's <code>isa</code> pointer. The
+	latter 
+	is what usually happens if you try to use an already-deallocated
+	object or someone else clobbered your valid object.
+      </p>
+      <p>
+	Look for special values like these in your crashes. Also look for
+	nearby values; on some architectures, an invalid <code>isa</code>
+	will cause a crash at <code>isa+16</code> or <code>isa+32</code>
+	instead.
+	<dl>
+	  <dt>Not divisble by 16 - misaligned</dt>
+	  <dd><code>malloc()</code> returns 16-byte aligned blocks. If
+	    your receiver isn't 16-byte aligned, it probably never was a
+	    valid object pointer.</dd>
+	  <dt>Top two and bottom two bits all set - malloc free list</dt>
+	  <dd>After a block is freed, the memory allocator may write free
+	    list pointers into it. If you use a freed object after this,
+	    you'll see an <code>isa</code> pointer with the top two and
+	    bottom two bits all set.</dd>
+	  <dt>All bits inverted - GC free list</dt>
+	  <dd>Like the malloc free list case above, but caused by the
+	    garbage collector instead. In this case <code>address</code>
+	    looks bad, but <code>~address</code> is more reasonable.</dd>
+	  <dt>0xa1b1c1d3 - CF container</dt>
+	  <dd>CoreFoundation containers use this value for deleted or
+	    empty items. Perhaps a freed object has been re-allocated as a
+	    container, or someone used a freed container that has been
+	    re-allocated as your object, or you read your pointer from a
+	    container that was simultaneously changed by some other thread 
+	    and you don't have the right locks in place.</dd>
+	  <dt>ASCII text</dt>
+	  <dd>Perhaps a freed object has been re-allocated as a string, or
+	    someone 
+	    used a freed string that has been re-allocated as your object,
+	    or some string operation has a buffer overrun. Use <a
+	      href="http://www.sealiesoftware.com/asciify.c">asciify</a> to print these quickly in both
+	    endians. This one looks URL-related, for example:
+	    <pre>
+% asciify 0x2e777777
+###.www###
+###www.###</pre>
+	  </dd>
+	</dl>
+	</p>
+      <h4>Interrogating the selector</h4>
+      <p>
+	Compiler optimization means the call site pointed to by the
+	second frame in the backtrace might not be the call that actually 
+	crashed. It's possible that call succeeded, and then that method
+	made a <i>tail call</i> which was the one that crashed. Because of
+	tail call optimization, the intermediate frame would be missing
+	from the backtrace. We can use the selector register to determine
+	what the real crashing call was.
+      </p>
+      <p>
+	A selector is a pointer to a unique C string. This may change in
+	future OS versions, but for now it's handy for debugging. If you
+	have crashed in a debugger, open the debugger console and run
+	this, substituting the correct <code>SEL</code> register from the
+	table above:
+	<pre>
+    (gdb) x/s $ecx
+    0xa1029: "release"</pre>
+      </p>
+      <p>
+	Snow Leopard's crash reporter adds selector names to crash logs
+	for you:
+	<pre>
+    Application Specific Information:
+    objc_msgSend() selector name: release</pre>
+	Otherwise, retrieving the selector name from just a crash log is
+	difficult and doesn't always work. Until you have Snow Leopard,
+	cross your fingers and try this.
+	<ol>
+	  <li>From the crash log's Thread State, find the
+	    <code>SEL</code>'s value using the register name in the table
+	    above.
+	    <pre>
+    ecx: 0x000a1029</pre>
+	  </li>
+	  <li>From the crash log's Binary Images, find the image whose
+	    address range includes the <code>SEL</code>'s value. This will
+	    often be either the application itself or <code>libobjc.A.dylib</code>. If no
+	    image spans that address, give up.
+	    <br><code>&nbsp; &nbsp; 0x8b000 - &nbsp; 0x106ff7 &nbsp;libobjc.A.dylib ??? (???) <9b5973b7fa88f9aab7885530c7b278dd> /usr/lib/libobjc.A.dylib</code></li>
+	  <li>Find a copy of the image that matches the one in the crash
+	    log. Use the UUID to verify the match.
+	    <pre>
+    % dwarfdump -u /usr/lib/libobjc.A.dylib
+    UUID: 26650299-C6EA-B1C8-52D6-072AC874D400 (ppc) /usr/lib/libobjc.A.dylib
+    UUID: 9B5973B7-FA88-F9AA-B788-5530C7B278DD (i386) /usr/lib/libobjc.A.dylib
+    UUID: D2A4E8E1-3C1C-E0D9-2249-125B6DD621F8 (x86_64) /usr/lib/libobjc.A.dylib</pre>
+	    This crash matches my installed <code>libobjc.A.dylib</code> for i386. If
+	    it's a 
+	    system library, you may need the image from the OS version
+	    listed in the crash log. If it's your application, you did
+	    keep a copy of every version you shipped, right?
+	    <pre>
+</pre>
+	  </li>
+	  <li>Calculate the <code>SEL</code>'s offset into the image.
+	    <pre>
+    0xa1029 - 0x8b000 = 0x16029</pre>
+	  </li>
+	  <li>Print the C string in the image at that offset. Remember to
+	  specify the correct architecture.
+	    <pre>
+    % otool -v -arch i386 -s __TEXT __cstring /usr/lib/libobjc.A.dylib | grep 16029
+    00016029  release
+	    </pre>
+	  </li>
+	</ol>
+      </p>
+
+	  </td>
+      </tr>
+  </table>
+
+	  </td>
+	</tr>
+    </table>
+    <hr>
+    <img align="right" src="http://www.sealiesoftware.com/sealie.gif" alt="seal!" width="114" height="69">
+    Greg Parker<br>
+    <a href="mailto:gparker-www@sealiesoftware.com">gparker-www@sealiesoftware.com</a><br>
+    <a href="http://www.sealiesoftware.com/index.html">Sealie Software</a>
+  </body>
+</html>

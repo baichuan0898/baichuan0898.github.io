@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Key Value Information</title>
+  <meta name="description" content="NSKeyValueCoding is used throughout Cocoa (Bindings, Core Data, Collections and more) but despite being a dynamic way of connecting to an object, it doesn&#39;t provide dynamic information about its own operation &amp;mdash; which keys an object supports or the custom methods used to get and set values. This post will look at how NSKeyValueCoding works and show you how to get supported keys and their methods for any class or object." />
+
+  <meta name="twitter:title" content="Key Value Information"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2008/07/key-value-information.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="NSKeyValueCoding is used throughout Cocoa (Bindings, Core Data, Collections and more) but despite being a dynamic way of connecting to an object, it doesn&#39;t provide dynamic information about its own operation &amp;mdash; which keys an object supports or the custom methods used to get and set values. This post will look at how NSKeyValueCoding works and show you how to get supported keys and their methods for any class or object."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="key-value-information.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Key Value Information</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2008-07-27">July 27, 2008</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/foundation.html">Foundation</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>NSKeyValueCoding is used throughout Cocoa (Bindings, Core Data, Collections and more) but despite being a dynamic way of connecting to an object, it doesn't provide dynamic information about its own operation &mdash; which keys an object supports or the custom methods used to get and set values. This post will look at how NSKeyValueCoding works and show you how to get supported keys and their methods for any class or object.</p></span>
+
+<span class="fullpost">
+<h2>Previously on "Fundamentals of Cocoa Programming"...</h2>
+
+<p>Key Value Coding is a way of getting and setting data on an object. Key Value Coding means that you use a generic method on the object to ask it to get or set a value for a specific name (the "key"). By using a generic method on the object, Key Value Coding abstracts away the mechanics of how the value for the "key" is obtained or set on the object.</p>
+
+<p>Key Value Coding is about connection logic; it does not normally perform the work of retrieving or changing values (normal getter and setter methods to do this). Instead, it defines how to invoke the getter and setter methods in an abstract way.</p>
+
+<p>It is particularly useful in at least 5 situations situations:</p>
+<ul>
+<li>It reduces the appearance of an object to that of simple data storage &mdash; whether or not it is actually simple under the hood (e.g. <span class="monospace">NSManagedObject</span>).</li>
+<li>It provides a simple interface for flexibly dealing with variable numbers of named values (e.g. <span class="monospace">NSDictionary</span>).</li>
+<li>It removes the need to know the specific object type that you're dealing with &mdash; such as the generic connecting of objects in user-interface bindings.</li>
+<li>Allows easy chaining of access operations through "key paths" and provides operators for dealing with collections of data accessed in this way.</li>
+<li>Generic access to data makes possible other services such as <span class="monospace">NSKeyValueObserving</span>.</li></ul>
+
+<p>It does (most) of this through two basic methods:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nf">valueForKey:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">key</span>
+<span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setValue:</span><span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nv">value</span> <span class="nf">forKey:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">key</span></code></pre></div>
+
+<p>which are defined in the <span class="monospace"><a href="http://developer.apple.com/documentation/Cocoa/Reference/Foundation/Protocols/NSKeyValueCoding_Protocol/Reference/Reference.html">NSKeyValueCoding</a></span> informal protocol (implicitly implemented by all <span class="monospace">NSObject</span>s).</p>
+
+<h2>How does it work?</h2>
+
+<p>Once you start asking how anything works, you immediately plunge into a gray area. <a href="http://developer.apple.com/documentation/Cocoa/Reference/Foundation/Protocols/NSKeyValueCoding_Protocol/Reference/Reference.html">The documentation</a> at least tells us this:</p>
+
+<ul><li>The default implementation will invoke the <span class="monospace">-(id)&lt;key&gt;</span> or <span class="monospace">-(void)set&lt;key&gt;:</span> methods, if they exist, to perform the work. There are a few other method names tried if these can't be found.</li>
+<li>If no method is found, any instance variable with the same name as the key will be automatically accessed (unless this feature is explicitly disabled for the class).</li>
+<li>If no matching instance variable is found either, the <span class="monospace">-(id)valueForUndefinedKey:(NSString *)key</span> method is invoked which raises an <span class="monospace">NSUndefinedKeyException</span> by default.</li>
+</ul>
+
+<p>Distilling this information down, you can (in most cases) presume that key value coding will work for any "key" on any class that supports the methods 
+<span class="monospace">-(id)&lt;key&gt;</span> and <span class="monospace">-(void)set&lt;key&gt;:</span>, or has an attribute named "key". Sometimes overrides <span class="monospace">valueForUndefinedKey:</span> will support other keys too but that is highly implementation specific. Most other key and object combinations will throw an <span class="monospace">NSUndefinedKeyException</span>.</p>
+
+<h2>Definitive answers</h2>
+
+<p>Key Value Coding is all about dynamic connections, simplifying and abstracting &mdash; so it seems reasonable that you may eventually find a situation where you want to get a value from an object but you need to check at runtime if it supports the key for the value you want.</p>
+
+<p>Unfortunately, the many fallback options for key lookup and the possibility of overrideable methods like <span class="monospace">valueForUndefinedKey:</span> mean that there is no specific property you can read that will reveal if a key is supported.</p>
+
+<p>In the most general sense, there is only one way of determining if an object supports a given key:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">BOOL</span> <span class="n">supportsSomeKey</span> <span class="o">=</span> <span class="nb">YES</span><span class="p">;</span>
+<span class="k">@try</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="n">object</span> <span class="nl">valueForKey</span><span class="p">:</span><span class="n">somekey</span><span class="p">];</span>
+<span class="p">}</span>
+<span class="k">@catch</span> <span class="p">(</span><span class="n">NSException</span> <span class="o">*</span><span class="n">e</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">if</span> <span class="p">([[</span><span class="n">e</span> <span class="n">name</span><span class="p">]</span> <span class="nl">isEqualTo</span><span class="p">:</span><span class="n">NSUndefinedKeyException</span><span class="p">])</span>
+    <span class="p">{</span>
+        <span class="n">supportsSomeKey</span> <span class="o">=</span> <span class="nb">NO</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>If it throws an <span class="monospace">NSUndefinedKeyException</span>, then it's not happy with the key.</p>
+
+<h2>More detailed but less definitive answers</h2>
+
+<p>If you consider deliberately triggering exceptions to be a crime against programming or you wanted different information about how the value is accessed for a given key, then a different approach may be required.</p>
+
+<p>Depending on your circumstances, you may simply want to perform the lookups that <span class="monospace">NSKeyValueCoding</span> itself likely performs &mdash; i.e. build the different accessor method names from the "key" name, convert this to a <span class="monospace">SEL</span> and ask the class or object if it handles the selector.</p>
+
+<p>This is exactly the approach I took in a piece of code I was playing with recently. My code used Core Data's <span class="monospace">NSManagedObject</span> and wanted to inspect generic <span class="monospace">NSManagedObject</span>s to see if I had written custom accessor methods (as distinct from the automatically generated accessor methods) for specific keys. I was able to use the following method:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">+</span> <span class="p">(</span><span class="kt">SEL</span><span class="p">)</span><span class="nf">getterSelectorForKey:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">key</span>
+<span class="p">{</span>
+    <span class="n">NSString</span> <span class="o">*</span><span class="n">capitalizedKey</span> <span class="o">=</span>
+        <span class="p">[[[</span><span class="n">key</span> <span class="nl">substringToIndex</span><span class="p">:</span><span class="mi">1</span><span class="p">]</span> <span class="n">uppercaseString</span><span class="p">]</span>
+            <span class="nl">stringByAppendingString</span><span class="p">:[</span><span class="n">key</span> <span class="nl">substringFromIndex</span><span class="p">:</span><span class="mi">1</span><span class="p">]];</span>
+
+    <span class="n">NSString</span> <span class="o">*</span><span class="n">getString</span> <span class="o">=</span> <span class="p">[</span><span class="s">@&#34;get&#34;</span> <span class="nl">stringByAppendingString</span><span class="p">:</span><span class="n">capitalizedKey</span><span class="p">];</span>
+    <span class="kt">SEL</span> <span class="n">getSelector</span> <span class="o">=</span> <span class="n">NSSelectorFromString</span><span class="p">(</span><span class="n">getString</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">([</span><span class="nb">self</span> <span class="nl">instancesRespondToSelector</span><span class="p">:</span><span class="n">getSelector</span><span class="p">])</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="n">getSelector</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="kt">SEL</span> <span class="n">plainSelector</span> <span class="o">=</span> <span class="n">NSSelectorFromString</span><span class="p">(</span><span class="n">key</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">([</span><span class="nb">self</span> <span class="nl">instancesRespondToSelector</span><span class="p">:</span><span class="n">plainSelector</span><span class="p">])</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="n">plainSelector</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="n">NSString</span> <span class="o">*</span><span class="n">isString</span> <span class="o">=</span> <span class="p">[</span><span class="s">@&#34;is&#34;</span> <span class="nl">stringByAppendingString</span><span class="p">:</span><span class="n">capitalizedKey</span><span class="p">];</span>
+    <span class="kt">SEL</span> <span class="n">isSelector</span> <span class="o">=</span> <span class="n">NSSelectorFromString</span><span class="p">(</span><span class="n">isString</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">([</span><span class="nb">self</span> <span class="nl">instancesRespondToSelector</span><span class="p">:</span><span class="n">isSelector</span><span class="p">])</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="n">isSelector</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="k">return</span> <span class="nb">nil</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>in an <span class="monospace">NSManagedObject</span> category to lookup any custom written accessor for a specified key &mdash; this method simply follows the lookup path described in the documentation to find an accessor method if it exists.</p>
+
+<p>The above method is able to differentiate between a custom accessor and Core Data's automatically generated accessors because it is invoked on the class. Core Data's automatically generated accessors only exist on object instances (the class doesn't have them in its list of instance methods), so the above method will only return the custom compiled methods for which I was searching.</p>
+
+<p>You could use a similar approach to get the other types of method used in key value coding, i.e.:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">+</span> <span class="p">(</span><span class="kt">SEL</span><span class="p">)</span><span class="nf">setterSelectorForKey:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">key</span><span class="p">;</span>
+<span class="p">+</span> <span class="p">(</span><span class="kt">SEL</span><span class="p">)</span><span class="nf">addObjectSelectorForKey:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">key</span><span class="p">;</span>
+<span class="p">+</span> <span class="p">(</span><span class="kt">SEL</span><span class="p">)</span><span class="nf">removeObjectSelectorForKey:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">key</span><span class="p">;</span>
+<span class="p">+</span> <span class="p">(</span><span class="kt">SEL</span><span class="p">)</span><span class="nf">countOfSelectorForKey:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">key</span><span class="p">;</span>
+<span class="p">+</span> <span class="p">(</span><span class="kt">SEL</span><span class="p">)</span><span class="nf">objectInAtIndexForKey:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">key</span><span class="p">;</span></code></pre></div>
+
+<p>Similarly, if you were interested in key value coding that may access instance variables directly, you could use <span class="monospace">class_getClassVariable</span> to get any instance variables with the same name as the key.</p> 
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="better-integration-for-nsviewcontroller.html">Better integration for NSViewController and NSView</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../08/string-philosophies-char-arrays.html">String philosophies: char arrays, std::string and NSString</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Substituting local data for remote UIWebView requests</title>
+  <meta name="description" content="In this post, I&#39;ll show you how you can load a webpage in a UIWebView in iOS while using a modified NSURLCache to substitute local copies of resources within the webpage for the remote copies referred to by the actual page." />
+
+  <meta name="twitter:title" content="Substituting local data for remote UIWebView requests"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2010/09/substituting-local-data-for-remote.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="In this post, I&#39;ll show you how you can load a webpage in a UIWebView in iOS while using a modified NSURLCache to substitute local copies of resources within the webpage for the remote copies referred to by the actual page."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="substituting-local-data-for-remote.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Substituting local data for remote UIWebView requests</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2010-09-06">September 6, 2010</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/uikit.html">UIKit</a>, <a href="../../categories/webkit.html">WebKit</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>In this post, I'll show you how you can load a webpage in a UIWebView in iOS while using a modified NSURLCache to substitute local copies of resources within the webpage for the remote copies referred to by the actual page.</p></span><span class="fullpost"><h2>Introduction</h2><p>Normally if you're writing an iOS app with network connectivity, you'll want to put a native iOS interface on all data received over the network.</p><p>However, there are always scheduling and other constraints on a project that limit what you can implement and sometimes you may simply choose to show a regular, webpage to the user.</p><p>If you choose to take this approach, it is best to make sure the web interface feels as smooth as possible. One of the steps you can take to ensure this is to include local copies of all image and other non-updating resources within the application itself.</p><p>To use a local resource in an iOS webpage loaded from a remote location, either the remote page must refer to the local resource in some way (e.g. through a custom URL scheme) or you must swap a local location in place of a remote locations.</p><p>In this post, I'll look at how we can substitute a local resource when the webpage contains references to remote resources.</p><h2>NSURLCache</h2><p>On the Mac, you could use a range of different approaches in the <code>WebViewDelegate</code> to do this, including implementing <code>webView:resource:willSendRequest:redirectResponse:fromDataSource:</code> to substitute one <code>NSURLRequest</code> for another. Unfortunately, the <code>UIWebViewDelegate</code> in iOS is not nearly as capable so we need to do this another way.</p><p>Fortunately, there is one point you can hook into that is invoked for (almost) every request: the <code>NSURLCache</code>.</p><p>Normally, very little is actually cached in the <code>NSURLCache</code>, particularly on older iOS devices where the cache size is downright miniscule. Even if you use the <code>setMemoryCapacity:</code> method to increase the size of the cache, it seems significantly less likely to store resources than the NSURLCache on the Mac.</p><p>Of course that doesn't matter in this case, since we're going to subclass <code>NSURLCache</code> and implement our own version that will be guaranteed to hold all the resources we need and won't need pre-caching (all the resources will be there before the program is started).</p><h2>cachedResponseForRequest:</h2><p>The only important method we need to override is <code>cachedResponseForRequest:</code>. This will allow us to examine every request before it is sent and return local data if we prefer.</p><p>For this code, I'll use a dictionary that maps remote URLs to local file names in the Resources folder of the application bundle. If any request is made for the specified URLs, the contents of the local file will be returned instead.</p><p>So given the following dictionary containing a single path for substitution:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">NSDictionary</span> <span class="o">*</span><span class="p">)</span><span class="nf">substitutionPaths</span>
+<span class="p">{</span>
+    <span class="k">return</span>
+        <span class="p">[</span><span class="n">NSDictionary</span> <span class="nl">dictionaryWithObjectsAndKeys</span><span class="p">:</span>
+            <span class="s">@&#34;fakeGlobalNavBG.png&#34;</span><span class="p">,</span>
+            <span class="s">@&#34;http://images.apple.com/global/nav/images/globalnavbg.png&#34;</span><span class="p">,</span>
+        <span class="nb">nil</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The following <code>cachedResponseForRequest:</code> implementation will substitute the contents of the <code>fakeGlobalNavBG.png</code> file in the Resources folder any time the URL <code>http://images.apple.com/global/nav/images/globalnavbg.png</code> is requested.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">NSCachedURLResponse</span> <span class="o">*</span><span class="p">)</span><span class="nf">cachedResponseForRequest:</span><span class="p">(</span><span class="n">NSURLRequest</span> <span class="o">*</span><span class="p">)</span><span class="nv">request</span>
+<span class="p">{</span>
+    <span class="c1">// Get the path for the request
+</span><span class="c1"></span>    <span class="n">NSString</span> <span class="o">*</span><span class="n">pathString</span> <span class="o">=</span> <span class="p">[[</span><span class="n">request</span> <span class="n">URL</span><span class="p">]</span> <span class="n">absoluteString</span><span class="p">];</span>
+    
+    <span class="c1">// See if we have a substitution file for this path
+</span><span class="c1"></span>    <span class="n">NSString</span> <span class="o">*</span><span class="n">substitutionFileName</span> <span class="o">=</span> <span class="p">[[</span><span class="nb">self</span> <span class="n">substitutionPaths</span><span class="p">]</span> <span class="nl">objectForKey</span><span class="p">:</span><span class="n">pathString</span><span class="p">];</span>
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">substitutionFileName</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="c1">// No substitution file, return the default cache response
+</span><span class="c1"></span>        <span class="k">return</span> <span class="p">[</span><span class="nb">super</span> <span class="nl">cachedResponseForRequest</span><span class="p">:</span><span class="n">request</span><span class="p">];</span>
+    <span class="p">}</span>
+    
+    <span class="c1">// If we&#39;ve already created a cache entry for this path, then return it.
+</span><span class="c1"></span>    <span class="n">NSCachedURLResponse</span> <span class="o">*</span><span class="n">cachedResponse</span> <span class="o">=</span> <span class="p">[</span><span class="n">cachedResponses</span> <span class="nl">objectForKey</span><span class="p">:</span><span class="n">pathString</span><span class="p">];</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">cachedResponse</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="n">cachedResponse</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="c1">// Get the path to the substitution file
+</span><span class="c1"></span>    <span class="n">NSString</span> <span class="o">*</span><span class="n">substitutionFilePath</span> <span class="o">=</span>
+        <span class="p">[[</span><span class="n">NSBundle</span> <span class="n">mainBundle</span><span class="p">]</span>
+            <span class="nl">pathForResource</span><span class="p">:[</span><span class="n">substitutionFileName</span> <span class="n">stringByDeletingPathExtension</span><span class="p">]</span>
+            <span class="nl">ofType</span><span class="p">:[</span><span class="n">substitutionFileName</span> <span class="n">pathExtension</span><span class="p">]];</span>
+    <span class="n">NSAssert</span><span class="p">(</span><span class="n">substitutionFilePath</span><span class="p">,</span>
+        <span class="s">@&#34;File %@ in substitutionPaths didn&#39;t exist&#34;</span><span class="p">,</span> <span class="n">substitutionFileName</span><span class="p">);</span>
+    
+    <span class="c1">// Load the data
+</span><span class="c1"></span>    <span class="n">NSData</span> <span class="o">*</span><span class="n">data</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSData</span> <span class="nl">dataWithContentsOfFile</span><span class="p">:</span><span class="n">substitutionFilePath</span><span class="p">];</span>
+    
+    <span class="c1">// Create the cacheable response
+</span><span class="c1"></span>    <span class="n">NSURLResponse</span> <span class="o">*</span><span class="n">response</span> <span class="o">=</span>
+        <span class="p">[[[</span><span class="n">NSURLResponse</span> <span class="n">alloc</span><span class="p">]</span>
+            <span class="nl">initWithURL</span><span class="p">:[</span><span class="n">request</span> <span class="n">URL</span><span class="p">]</span>
+            <span class="nl">MIMEType</span><span class="p">:[</span><span class="nb">self</span> <span class="nl">mimeTypeForPath</span><span class="p">:</span><span class="n">pathString</span><span class="p">]</span>
+            <span class="nl">expectedContentLength</span><span class="p">:[</span><span class="n">data</span> <span class="n">length</span><span class="p">]</span>
+            <span class="nl">textEncodingName</span><span class="p">:</span><span class="nb">nil</span><span class="p">]</span>
+        <span class="n">autorelease</span><span class="p">];</span>
+    <span class="n">cachedResponse</span> <span class="o">=</span>
+        <span class="p">[[[</span><span class="n">NSCachedURLResponse</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithResponse</span><span class="p">:</span><span class="n">response</span> <span class="nl">data</span><span class="p">:</span><span class="n">data</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span>
+    
+    <span class="c1">// Add it to our cache dictionary for subsequent responses
+</span><span class="c1"></span>    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">cachedResponses</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">cachedResponses</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSMutableDictionary</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">];</span>
+    <span class="p">}</span>
+    <span class="p">[</span><span class="n">cachedResponses</span> <span class="nl">setObject</span><span class="p">:</span><span class="n">cachedResponse</span> <span class="nl">forKey</span><span class="p">:</span><span class="n">pathString</span><span class="p">];</span>
+    
+    <span class="k">return</span> <span class="n">cachedResponse</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<h2>Setting our cache as the shared cache</h2><p>A <code>UIWebView</code> will try to use the current <code>+[NSURLCache sharedURLCache]</code>. To get our code called, you'll need to create an instance of our <code>NSURLCache</code> subclass and invoke <code>+[NSURLCache setSharedURLCache:]</code>.</p><p>A big warning here: once you set a new web cache, you probably want to leave it set until your program exits.</p><p>When the <code>UIWebView</code> requests resources from your <code>NSURLCache</code>, it assumes that the <code>NSURLCache</code> retains the <code>NSCachedURLResponse</code>. If you release the <code>NSCachedURLResponse</code> while any <code>UIWebView</code> is using it, it will probably crash your app.</p><p>Unfortunately, it is pretty hard to force WebKit to let go of its references &mdash; it can hold onto them indefinitely in some cases. Until WebKit itself chooses to invoke <code>removeCachedResponseForRequest:</code> to tell you that you can throw away the resource you must hold onto it.</p><p>What this means is that you should only have one <code>NSURLCache</code> in your program. Set it in your <code>application:didFinishLaunchingWithOptions:</code> method and never remove it.</p><h2>A limitation...</h2><p>Obviously, if you're overriding the cache to substitute local data, it will only work if the request actually looks at the cache.</p><p>This means that if the URL is requested with <code>requestWithURL:cachePolicy:timeoutInterval:</code> with a cache policy of <code>NSURLRequestReloadIgnoringCacheData</code>, the the request will bypass this local substitution.</p><p>By default, <code>NSURLRequest</code>s have a cache policy of <code>NSURLRequestUseProtocolCachePolicy</code>. The HTTP cache policy is pretty complicated and while I've never actually seen a normal <code>NSURLRequest</code> actually bypass the cache, the number of rules involved create a situation where it seems like it may be possible in some situations. Your app should not misbehave if this were to happen for some reason.</p><h2>The LocalSubstitutionCache sample app</h2><blockquote>You can download the <a href="../../assets/objc-era/LocalSubstitutionCache.zip">LocalSubstitutionCache.zip</a> (66kb) sample project</blockquote><p>Here's a small screenshot of today's <a href="http://www.apple.com">http://www.apple.com</a> running in a <code>UIWebView</code>:</p><img src="../../assets/objc-era/screenshot.png" width="320" height="175" /><h2>Conclusion</h2><p>The purpose of this work is to allow <code>UIWebView</code>s to feel more responsive and a bit more like native user-interfaces.</p><p>In reality, a <code>UIWebView</code> will never feel as responsive or integrated as a native user-interface but sometimes making one screen of your app a remote webpage is a big enough saving in developer resources that you're prepared to make the sacrifice in user quality. Making sure as many resources as possible are stored locally will help make any negative impact on user quality as minor as possible.</p></span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../08/alternative-objective-c-object.html">Alternative Objective-C object allocation for large arrays</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="overhead-of-spawning-threads.html">The overhead of spawning threads (a performance experiment)</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

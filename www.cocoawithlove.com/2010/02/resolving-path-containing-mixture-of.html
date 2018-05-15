@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Resolving a path containing a mixture of aliases and symlinks</title>
+  <meta name="description" content="Resolving symlinks in a path is very easy in Cocoa (it can be done in a single statement) but aliases require more work. Additionally the commands for resolving symlinks and aliases are incompatible with each other &amp;mdash; meaning that you can resolve a path containing symlinks or aliases but not a mixture of the two. In this post, I present a category on &lt;code&gt;NSString&lt;/code&gt; that will allow you to resolve a path containing any combination of symlinks or aliases as simply as resolving symlinks alone." />
+
+  <meta name="twitter:title" content="Resolving a path containing a mixture of aliases and symlinks"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2010/02/resolving-path-containing-mixture-of.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Resolving symlinks in a path is very easy in Cocoa (it can be done in a single statement) but aliases require more work. Additionally the commands for resolving symlinks and aliases are incompatible with each other &amp;mdash; meaning that you can resolve a path containing symlinks or aliases but not a mixture of the two. In this post, I present a category on &lt;code&gt;NSString&lt;/code&gt; that will allow you to resolve a path containing any combination of symlinks or aliases as simply as resolving symlinks alone."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="resolving-path-containing-mixture-of.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Resolving a path containing a mixture of aliases and symlinks</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2010-02-21">February 21, 2010</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/foundation.html">Foundation</a>, <a href="../../categories/standard-c.html">Standard C</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>Resolving symlinks in a path is very easy in Cocoa (it can be done in a single statement) but aliases require more work. Additionally the commands for resolving symlinks and aliases are incompatible with each other &mdash; meaning that you can resolve a path containing symlinks or aliases but not a mixture of the two. In this post, I present a category on <code>NSString</code> that will allow you to resolve a path containing any combination of symlinks or aliases as simply as resolving symlinks alone.</p></span><span class="fullpost"><h2>Introduction</h2><p>When Apple introduced <a href="http://en.wikipedia.org/wiki/Alias_(Mac_OS)">alias files</a> in <a href="http://en.wikipedia.org/wiki/System_7_(Macintosh)">System 7</a>, they were the only way of referencing another file in the filesystem. Sure, other operating systems already had <a href="http://en.wikipedia.org/wiki/Symbolic_link">symlinks</a> but there was little likelihood of the two needing to interact since System 7 had almost no interoperability with Unix filesystems (despite the existence of <a href="http://en.wikipedia.org/wiki/A/UX">A/UX</a>).</p><p>Alias files are a great way of referencing other files because they can continue to track their target if it moves. Aliases store both the path of their target and the <a href="http://en.wikipedia.org/wiki/Inode">inode</a> plus volume identifier of their target. This means that they won't break if the file at their target path moves, unlike a symlink which will break if the target moves (since a symlink is just a path). In fact, symlinks will often break if the symlink file itself moves since symlinks are normally relative paths.</p><p>Aliases do have some annoying traits. In their current incarnation, they insist on storing the thumbnail and metadata of data of their target, resulting in a file which may be hundreds of kilobytes (or more) of entirely redundant data &mdash; especially annoying if you have thousands of aliases. Despite this, they are normally a good, general-purpose way of linking files in the filesystem.</p><p>As a "user-exposed" feature (unlike symlinks which are largely hidden from novice users) they are also common. It's unfortunate then that they're so annoying to deal with in Cocoa.</p><h2>Resolving aliases</h2><p>Resolving a symlink is easy:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSString</span> <span class="o">*</span><span class="n">resolvedPath</span> <span class="o">=</span> <span class="p">[</span><span class="n">path</span> <span class="n">stringByResolvingSymlinksInPath</span><span class="p">];</span></code></pre></div>
+
+<p>Theoretically, you only need one command to resolve an alias:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">OSErr</span> <span class="n">err</span> <span class="o">=</span> <span class="n">FSResolveAliasFile</span><span class="p">(</span>
+    <span class="o">&amp;</span><span class="n">fsRef</span><span class="p">,</span> <span class="n">resolveAliasChains</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">targetIsFolder</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">wasAliased</span><span class="p">);</span></code></pre></div>
+
+<p>Unfortunately, the <code>FSRef</code> here is a campy 1990's throwback (the 90's are now two decades ago) and in Cocoa programming, you rarely have or want an <code>FSRef</code> for a file. This means that you need to convert your <code>NSString</code> to an <code>FSRef</code> and then convert the result back to an <code>NSString</code> when you're done.</p><p>Apple's Low Level File Management Topics include <a href="http://developer.apple.com/mac/library/documentation/Cocoa/Conceptual/LowLevelFileMgmt/Articles/ResolvingAliases.html">an approach for resolving an alias from an <code>NSString</code> path</a> which demonstrates this procedure. While I use an implementation derived from this in my solution, Apple's original implementation suffers from the following problems:</p><ul><li>The <code>CFURLGetFSRef</code> function used to convert a <code>CFURL</code> into an <code>FSRef</code> will fail if the path contains an alias at anywhere other than the last path component.</li><li>While <code>CFURLGetFSRef</code> will follow symlinks in the URL to create the <code>FSRef</code>, no part of this code will actually return a resolved symlink, so that part will require a separate step.</li><li>The function <code>FSResolveAliasFile</code> will present a user dialog if the alias points to a volume which is not mounted. While potentially desirable in a user application, this is undesirable in all other cases.</li></ul><p>This final point is not too difficult &mdash; we'll replace <code>FSResolveAliasFile</code> with <code>FSResolveAliasFileWithMountFlags</code> which allows us to disable the user dialog using the flags. But the remaining two points will require a little more work to address.</p><p>As a further comment about usage of <code>FSResolveAliasFileWithMountFlags</code>: aliases that point to other aliases are exceedingly rare (if you try to create an alias to an alias in the Finder, the Finder will make the second alias point directly to the target) so I pass <code>false</code> for <code>resolveAliasChains</code> to optimize for the unchained case and handle the unusual case of chained aliases at a different level in the code.</p><h2>Breaking it down into solvable components</h2><p>We can resolve paths that contain any number of symlinks and we can resolve a path that contains an alias but we can't do both at once.</p><p>The solution is therefore straightforward:</p><ol><li>break the path down into components</li><li>build the components together, iteratively resolving aliases or symlinks at each level</li><li>implement code for resolving the symlink or alias as efficiently as possible for the bottom level of this scenario</li></ol><p>Each of these points will then be a different tier in a three level solution.</p><p>My solution will contain two requirements:</p><ul><li>The initial path must be resolvable to an absolute path using <code>-[NSString stringByStandardizingPath]</code></li><li>The path contained within a symlink file will not include any aliases or symlinks except as the final string component (no recursive parsing)</li></ul><p>This second point is mostly a theoretical limitation since it is nearly impossible to generate a symlink with an alias or other symlink as a non-final path component (you'd have to create the symlink file manually).</p><h2>Top level</h2><p>The top level of the solution is simply an iteration over path components which then invokes the iterative link resolution.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="c1">// Break into components.
+</span><span class="c1"></span><span class="n">NSArray</span> <span class="o">*</span><span class="n">pathComponents</span> <span class="o">=</span> <span class="p">[</span><span class="n">path</span> <span class="n">pathComponents</span><span class="p">];</span>
+
+<span class="c1">// First component (&#34;/&#34;) needs no resolution; we only need to handle subsequent
+</span><span class="c1">// components.
+</span><span class="c1"></span><span class="n">NSString</span> <span class="o">*</span><span class="n">resolvedPath</span> <span class="o">=</span> <span class="p">[</span><span class="n">pathComponents</span> <span class="nl">objectAtIndex</span><span class="p">:</span><span class="mi">0</span><span class="p">];</span>
+<span class="n">pathComponents</span> <span class="o">=</span>
+    <span class="p">[</span><span class="n">pathComponents</span> <span class="nl">subarrayWithRange</span><span class="p">:</span><span class="n">NSMakeRange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="p">[</span><span class="n">pathComponents</span> <span class="n">count</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)];</span>
+
+<span class="c1">// Process all remaining components.
+</span><span class="c1"></span><span class="k">for</span> <span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="n">component</span> <span class="k">in</span> <span class="n">pathComponents</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">resolvedPath</span> <span class="o">=</span> <span class="p">[</span><span class="n">resolvedPath</span> <span class="nl">stringByAppendingPathComponent</span><span class="p">:</span><span class="n">component</span><span class="p">];</span>
+    <span class="n">resolvedPath</span> <span class="o">=</span> <span class="p">[</span><span class="n">resolvedPath</span> <span class="n">stringByIterativelyResolvingSymlinkOrAlias</span><span class="p">];</span>
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">resolvedPath</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="nb">nil</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>I haven't shown the code which resolves the path to an absolute path or fails but the assumption that it begins with a "/" is valid.</p><h2>Middle level</h2><p>The middle level of the solution iterates over a path where only the final component could be a symlink or alias and resolves it until the result is neither an alias nor symlink.</p><p>For efficiency, this does two things in an unusual way:</p><ul><li>I use <code>lstat</code> instead of <code>-[NSFileManager attributesOfItemAtPath:error]</code> since I only need the <code>st_mode</code> field, and <code>NSFileManager</code> invokes <code>lstat</code> internally anyway.</li><li>I use my own <code>-[NSString stringByConditionallyResolvingSymlink]</code> method instead of <code>- [NSString stringByResolvingSymlinksInPath]</code> since I know that only the final component requires resolution (I've already done the work for earlier components).</li></ul>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nf">stringByIterativelyResolvingSymlinkOrAlias</span>
+<span class="p">{</span>
+    <span class="n">NSString</span> <span class="o">*</span><span class="n">path</span> <span class="o">=</span> <span class="nb">self</span><span class="p">;</span>
+    <span class="n">NSString</span> <span class="o">*</span><span class="n">aliasTarget</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
+    <span class="k">struct</span> <span class="n">stat</span> <span class="n">fileInfo</span><span class="p">;</span>
+    
+    <span class="c1">// Use lstat to determine if the file is a directory or symlink
+</span><span class="c1"></span>    <span class="k">if</span> <span class="p">(</span><span class="n">lstat</span><span class="p">([[</span><span class="n">NSFileManager</span> <span class="n">defaultManager</span><span class="p">]</span>
+        <span class="nl">fileSystemRepresentationWithPath</span><span class="p">:</span><span class="n">path</span><span class="p">],</span> <span class="o">&amp;</span><span class="n">fileInfo</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="nb">nil</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="c1">// While the file is a symlink or resolves as an alias, keep iterating.
+</span><span class="c1"></span>    <span class="k">while</span> <span class="p">(</span><span class="n">S_ISLNK</span><span class="p">(</span><span class="n">fileInfo</span><span class="p">.</span><span class="n">st_mode</span><span class="p">)</span> <span class="o">||</span>
+        <span class="p">(</span><span class="o">!</span><span class="n">S_ISDIR</span><span class="p">(</span><span class="n">fileInfo</span><span class="p">.</span><span class="n">st_mode</span><span class="p">)</span> <span class="o">&amp;&amp;</span>
+            <span class="p">(</span><span class="n">aliasTarget</span> <span class="o">=</span> <span class="p">[</span><span class="n">path</span> <span class="n">stringByConditionallyResolvingAlias</span><span class="p">])</span> <span class="o">!=</span> <span class="nb">nil</span><span class="p">))</span>
+    <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">S_ISLNK</span><span class="p">(</span><span class="n">fileInfo</span><span class="p">.</span><span class="n">st_mode</span><span class="p">))</span>
+        <span class="p">{</span>
+            <span class="c1">// Resolve the symlink component in the path
+</span><span class="c1"></span>            <span class="n">NSString</span> <span class="o">*</span><span class="n">symlinkPath</span> <span class="o">=</span> <span class="p">[</span><span class="n">path</span> <span class="n">stringByConditionallyResolvingSymlink</span><span class="p">];</span>
+            <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">symlinkPath</span><span class="p">)</span>
+            <span class="p">{</span>
+                <span class="k">return</span> <span class="nb">nil</span><span class="p">;</span>
+            <span class="p">}</span>
+            <span class="n">path</span> <span class="o">=</span> <span class="n">symlinkPath</span><span class="p">;</span>
+        <span class="p">}</span>
+        <span class="k">else</span>
+        <span class="p">{</span>
+            <span class="c1">// Or use the resolved alias result
+</span><span class="c1"></span>            <span class="n">path</span> <span class="o">=</span> <span class="n">aliasTarget</span><span class="p">;</span>
+        <span class="p">}</span>
+
+        <span class="c1">// Use lstat again to prepare for the next iteration
+</span><span class="c1"></span>        <span class="k">if</span> <span class="p">(</span><span class="n">lstat</span><span class="p">([[</span><span class="n">NSFileManager</span> <span class="n">defaultManager</span><span class="p">]</span>
+            <span class="nl">fileSystemRepresentationWithPath</span><span class="p">:</span><span class="n">path</span><span class="p">],</span> <span class="o">&amp;</span><span class="n">fileInfo</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="n">path</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
+            <span class="k">continue</span><span class="p">;</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+    
+    <span class="k">return</span> <span class="n">path</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The <code>stringByConditionallyResolvingAlias</code> method returns <code>nil</code> if the path exists but isn't an alias, allowing this function to double as both a test for whether the path is an alias as well as the resolution of that alias. I could use a similar approach to test and resolve symlinks (since I have also implemented a <code>stringByConditionallyResolvingSymlink</code> method) but I don't do this for aforementioned efficiency reasons: it would cause an extra fetch of the filesystem metadata which is the main bottleneck of the whole procedure.</p><h2>Bottom level</h2><p>The bottom level is then just the implementation of the <code>stringByConditionallyResolvingAlias</code> and <code>stringByCondictionallyResolvingSymlink</code>. The first is just a modification of Apple's code to address the issues I've already discussed &mdash; you can see the final product by downloading the code. The second method looks like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nf">stringByConditionallyResolvingSymlink</span>
+<span class="p">{</span>
+    <span class="c1">// Get the path that the symlink points to
+</span><span class="c1"></span>    <span class="n">NSString</span> <span class="o">*</span><span class="n">symlinkPath</span> <span class="o">=</span>
+        <span class="p">[[</span><span class="n">NSFileManager</span> <span class="n">defaultManager</span><span class="p">]</span>
+            <span class="nl">destinationOfSymbolicLinkAtPath</span><span class="p">:</span><span class="nb">self</span>
+            <span class="nl">error</span><span class="p">:</span><span class="nb">NULL</span><span class="p">];</span>
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">symlinkPath</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">return</span> <span class="nb">nil</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="p">[</span><span class="n">symlinkPath</span> <span class="nl">hasPrefix</span><span class="p">:</span><span class="s">@&#34;/&#34;</span><span class="p">])</span>
+    <span class="p">{</span>
+        <span class="c1">// For relative path symlinks (common case), resolve the relative
+</span><span class="c1"></span>        <span class="c1">// components
+</span><span class="c1"></span>        <span class="n">symlinkPath</span> <span class="o">=</span>
+            <span class="p">[[</span><span class="nb">self</span> <span class="n">stringByDeletingLastPathComponent</span><span class="p">]</span>
+                <span class="nl">stringByAppendingPathComponent</span><span class="p">:</span><span class="n">symlinkPath</span><span class="p">];</span>
+        <span class="n">symlinkPath</span> <span class="o">=</span> <span class="p">[</span><span class="n">symlinkPath</span> <span class="n">stringByStandardizingPath</span><span class="p">];</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">symlinkPath</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Hooray, I finally used <code>NSFileManager</code> in a post about files! Yes, once again it's probably just a wrapper around the C function <code>readlink</code> that I could invoke for myself but the fact that the <code>NSFileManager</code> method handles the nasty business of buffer allocation, sizing and string conversion is more than enough reason to forego the lower level function.</p><h2>Conclusion</h2><blockquote>You can download <a href="../../assets/objc-era/NSString+SymlinksAndAliases.zip">NSString+SymLinksAndAliases.zip</a> (3kb) which contains all the code discussed in this post (plus a few other related methods) as a category on <code>NSString</code>.</blockquote><p>Usage of the category is as simple as importing the header and writing:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSString</span> <span class="o">*</span><span class="n">fullyResolvedPath</span> <span class="o">=</span> <span class="p">[</span><span class="n">somePath</span> <span class="n">stringByResolvingSymlinksAndAliases</span><span class="p">];</span></code></pre></div>
+
+<p>The <code>fullyResolvedPath</code> will either contain the destination (as an absolute and fully resolved path) or it will be <code>nil</code> (if the path can't be fully resolved because it doesn't exist or can't be read for some reason).</p><p>I've tried to keep this code efficient by keeping the number of filesystem calls low. The code will certainly handle at least a few thousand alias resolutions per second on my computer but I haven't pushed it much harder than that.</p><p>Of course, if you're an iPhone programmer, all of this is a waste of time since the iPhone doesn't publicly expose <code>FSRef</code> (although <code>CFURLGetFSRef</code> exists to generate a pointer which is totally unusable). In fact, I'm not sure aliases are possible on the iPhone anyway.</p></span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="differences-between-core-data-and.html">The differences between Core Data and a Database</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="streamtome-20-is-out-and-cocoa-with.html">StreamToMe 2.0 is out (and Cocoa With Love is 2 years old).</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

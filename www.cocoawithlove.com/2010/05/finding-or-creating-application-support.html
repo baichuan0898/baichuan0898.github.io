@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Finding or creating the application support directory</title>
+  <meta name="description" content="A simple post this week but one which optimizes a common task: locating the application support directory for the current application, creating it if it doesn&#39;t exist. The result makes accessing the current application&#39;s support directory a single line and provides a structure for locating and creating folders at other standard locations with similar ease." />
+
+  <meta name="twitter:title" content="Finding or creating the application support directory"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2010/05/finding-or-creating-application-support.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="A simple post this week but one which optimizes a common task: locating the application support directory for the current application, creating it if it doesn&#39;t exist. The result makes accessing the current application&#39;s support directory a single line and provides a structure for locating and creating folders at other standard locations with similar ease."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="finding-or-creating-application-support.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Finding or creating the application support directory</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2010-05-06">May 6, 2010</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/foundation.html">Foundation</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>A simple post this week but one which optimizes a common task: locating the application support directory for the current application, creating it if it doesn't exist. The result makes accessing the current application's support directory a single line and provides a structure for locating and creating folders at other standard locations with similar ease.</p></span>
+
+
+
+<span class="fullpost"><h2>The Application Support Directory</h2><p>On the Mac, the correct location to store persistent user-related files for your application is in a directory with the same name as your application in the Application Support directory for the current user.</p><p>As an example, if the current user "person" runs an application named "ExampleApp" it would store such files in the following location:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="o">/</span><span class="n">Users</span><span class="o">/</span><span class="n">person</span><span class="o">/</span><span class="n">Library</span><span class="o">/</span><span class="n">Application</span> <span class="n">Support</span><span class="o">/</span><span class="n">ExampleApp</span><span class="o">/</span></code></pre></div>
+
+<p>On iPhone OS devices, the running application gets its own copy of the Library directory, so you could write files wherever you choose within this. However, I use the same code on both platforms for consistency and there is no real penalty in doing this. For an iPhone OS device then, the path to the application support directory would look like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="o">/</span><span class="n">User</span><span class="o">/</span><span class="n">Applications</span><span class="o">/</span><span class="mi">12345678</span><span class="o">-</span><span class="n">AAAA</span><span class="o">-</span><span class="n">BBBB</span><span class="o">-</span><span class="n">CCCC</span><span class="o">-</span><span class="mo">01234567</span><span class="mi">89</span><span class="n">AB</span><span class="o">/</span><span class="n">Library</span><span class="o">/</span><span class="n">Application</span> <span class="n">Support</span><span class="o">/</span><span class="n">ExampleApp</span><span class="o">/</span></code></pre></div>
+
+<p>where <code>12345678-AAAA-BBBB-CCCC-0123456789AB</code> is whatever UUID has been assigned to your application.</p><blockquote>The application support directory is only for user-related persistent <em>files</em>. If you want to store user-related preferences, it is generally better to can store them in the <a href="http://developer.apple.com/mac/library/documentation/cocoa/reference/Foundation/Classes/NSUserDefaults_Class/Reference/Reference.html">NSUserDefaults</a>.</blockquote><h2>Getting paths correctly</h2><p>The correct way to get the path to the Application Support directory is to use the <code>NSSearchPathForDirectoriesInDomains</code> function passing <code>NSApplicationSupportDirectory</code> for the search path and <code>NSUserDomainMask</code> for the domain.</p><p>This can be done in one line but on its own, it is only ever part of the solution.</p><p>While <code>NSSearchPathForDirectoriesInDomains</code> can return a path to the Application Support directory, it does not guarantee that the application support directory exists. For an iPhone OS device, it almost certainly won't exist the first time you run the application.</p><p>Further, we need to append the name of the current application to this path and create this application-specific subdirectory if needed.</p><p>Finally, we need to handle all of this in a way that is tolerant of errors including failure to create the directory or existence of files where we need a directory to go.</p><p>A simple idea &mdash; get the application support directory &mdash; turns out to be a multi-step operation.</p><h2>Design of the solution</h2><p>The solution that I use in many of my applications is based around a method with the following declaration:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nf">findOrCreateDirectory:</span><span class="p">(</span><span class="n">NSSearchPathDirectory</span><span class="p">)</span><span class="nv">searchPathDirectory</span>
+    <span class="nf">inDomain:</span><span class="p">(</span><span class="n">NSSearchPathDomainMask</span><span class="p">)</span><span class="nv">domainMask</span>
+    <span class="nf">appendPathComponent:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">appendComponent</span>
+    <span class="nf">error:</span><span class="p">(</span><span class="n">NSError</span> <span class="o">**</span><span class="p">)</span><span class="nv">errorOut</span></code></pre></div>
+
+<p>This is a flexible method that can be used for resolving/creating a directory/subdirectory at any standard location searchable by <code>NSSearchPathForDirectoriesInDomains</code>.</p><p>The first two parameters are the parameters passed to <code>NSSearchPathForDirectoriesInDomains</code>, the third parameter is a subpath to append to the result from <code>NSSearchPathForDirectoriesInDomains</code> (which we can use to append the current application's name to get our application specific subdirectory). The final parameter is used to return information about any of the three errors that can occur (no path found, file exists at directory location or unable to create directories).</p><p>I further supplement this with a convenience method to invoke this with all the appropriate parameters for creating the application support directory:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nf">applicationSupportDirectory</span></code></pre></div>
+
+<p>On error, this method simply logs any error result using <code>NSLog</code>.</p><p>In my solution, both of these methods are part of a category on <code>NSFileManager</code>. There is no technical requirement that it be a category on <code>NSFileManager</code> but these methods do use <code>NSFileManager</code> internally and do share the same goals of providing access to directories within the filesystem. Further refinements could also add a URL version based on the NSFileManager method <code>-URLsForDirectory:inDomains:</code> which would make the association less arbitrary.</p><h2>Implementation</h2><p>I've omitted the creation of the error objects for space but otherwise the implementation is as follows:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nf">findOrCreateDirectory:</span><span class="p">(</span><span class="n">NSSearchPathDirectory</span><span class="p">)</span><span class="nv">searchPathDirectory</span>
+    <span class="nf">inDomain:</span><span class="p">(</span><span class="n">NSSearchPathDomainMask</span><span class="p">)</span><span class="nv">domainMask</span>
+    <span class="nf">appendPathComponent:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">appendComponent</span>
+    <span class="nf">error:</span><span class="p">(</span><span class="n">NSError</span> <span class="o">**</span><span class="p">)</span><span class="nv">errorOut</span>
+<span class="p">{</span>
+    <span class="c1">// Search for the path
+</span><span class="c1"></span>    <span class="n">NSArray</span><span class="o">*</span> <span class="n">paths</span> <span class="o">=</span> <span class="n">NSSearchPathForDirectoriesInDomains</span><span class="p">(</span>
+        <span class="n">searchPathDirectory</span><span class="p">,</span>
+        <span class="n">domainMask</span><span class="p">,</span>
+        <span class="nb">YES</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">([</span><span class="n">paths</span> <span class="n">count</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="c1">// *** creation and return of error object omitted for space
+</span><span class="c1"></span>        <span class="k">return</span> <span class="nb">nil</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="c1">// Normally only need the first path
+</span><span class="c1"></span>    <span class="n">NSString</span> <span class="o">*</span><span class="n">resolvedPath</span> <span class="o">=</span> <span class="p">[</span><span class="n">paths</span> <span class="nl">objectAtIndex</span><span class="p">:</span><span class="mi">0</span><span class="p">];</span>
+    
+    <span class="k">if</span> <span class="p">(</span><span class="n">appendComponent</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">resolvedPath</span> <span class="o">=</span> <span class="p">[</span><span class="n">resolvedPath</span>
+            <span class="nl">stringByAppendingPathComponent</span><span class="p">:</span><span class="n">appendComponent</span><span class="p">];</span>
+    <span class="p">}</span>
+    
+    <span class="c1">// Create the path if it doesn&#39;t exist
+</span><span class="c1"></span>    <span class="n">NSError</span> <span class="o">*</span><span class="n">error</span><span class="p">;</span>
+    <span class="kt">BOOL</span> <span class="n">success</span> <span class="o">=</span> <span class="p">[</span><span class="nb">self</span>
+        <span class="nl">createDirectoryAtPath</span><span class="p">:</span><span class="n">resolvedPath</span>
+        <span class="nl">withIntermediateDirectories</span><span class="p">:</span><span class="nb">YES</span>
+        <span class="nl">attributes</span><span class="p">:</span><span class="nb">nil</span>
+        <span class="nl">error</span><span class="p">:</span><span class="o">&amp;</span><span class="n">error</span><span class="p">];</span>
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">success</span><span class="p">)</span> 
+    <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">errorOut</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="o">*</span><span class="n">errorOut</span> <span class="o">=</span> <span class="n">error</span><span class="p">;</span>
+        <span class="p">}</span>
+        <span class="k">return</span> <span class="nb">nil</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="c1">// If we&#39;ve made it this far, we have a success
+</span><span class="c1"></span>    <span class="k">if</span> <span class="p">(</span><span class="n">errorOut</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="o">*</span><span class="n">errorOut</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">resolvedPath</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>I've noted that we "<code>Normally only need the first path</code>". If you pass multiple values ORed together for the domain mask (e.g. <code>NSUserDomainMask | NSLocalDomainMask</code>) then this assumption will not be true. If your program needs to handle multiple directories in this way, you'll need to add appropriate handling of multiple results.</p><p>Finally, we have the implementation of the <code>applicationSupportDirectory</code> method:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nf">applicationSupportDirectory</span>
+<span class="p">{</span>
+    <span class="n">NSString</span> <span class="o">*</span><span class="n">executableName</span> <span class="o">=</span>
+        <span class="p">[[[</span><span class="n">NSBundle</span> <span class="n">mainBundle</span><span class="p">]</span> <span class="n">infoDictionary</span><span class="p">]</span> <span class="nl">objectForKey</span><span class="p">:</span><span class="s">@&#34;CFBundleExecutable&#34;</span><span class="p">];</span>
+    <span class="n">NSError</span> <span class="o">*</span><span class="n">error</span><span class="p">;</span>
+    <span class="n">NSString</span> <span class="o">*</span><span class="n">result</span> <span class="o">=</span>
+        <span class="p">[</span><span class="nb">self</span>
+            <span class="nl">findOrCreateDirectory</span><span class="p">:</span><span class="n">NSApplicationSupportDirectory</span>
+            <span class="nl">inDomain</span><span class="p">:</span><span class="n">NSUserDomainMask</span>
+            <span class="nl">appendPathComponent</span><span class="p">:</span><span class="n">executableName</span>
+            <span class="nl">error</span><span class="p">:</span><span class="o">&amp;</span><span class="n">error</span><span class="p">];</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">error</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">NSLog</span><span class="p">(</span><span class="s">@&#34;Unable to find or create application support directory:</span><span class="se">\n</span><span class="s">%@&#34;</span><span class="p">,</span> <span class="n">error</span><span class="p">);</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>As you can see, it pulls the application name out of the main bundle's <code>infoDictionary</code> and uses this to create the Application Support directory.</p><p>The end result is that you can get the path to the application support directory with the following line:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSString</span> <span class="o">*</span><span class="n">path</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSFileManager</span> <span class="n">defaultManager</span><span class="p">]</span> <span class="n">applicationSupportDirectory</span><span class="p">];</span></code></pre></div>
+
+<h2>Conclusion</h2><blockquote>You can download the complete category here: <a href="../../assets/objc-era/NSFileManager_DirectoryLocations.zip">NSFileManager_DirectoryLocations.zip</a> (6kb)</blockquote><p>I like it when a task that can be unambiguously described in a simple sentence ("Get the path to the application support directory.") is correspondingly achieved in a single line.</p><p>The code presented in this post implements a simple set of steps but since I need to do this in most applications, it is one of my most commonly used categories.</p></span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../04/porting-mac-program-to-windows-using.html">Porting a Mac program to Windows using The Cocotron</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="look-at-how-malloc-works-on-mac.html">A look at how malloc works on the Mac</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

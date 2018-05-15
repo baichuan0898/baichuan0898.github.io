@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Design patterns for safe timer usage</title>
+  <meta name="description" content="I look at usage patterns around timers including some problematic approaches that can make refactoring more difficult, cause strange bugs and otherwise create problems for maintainability." />
+
+  <meta name="twitter:title" content="Design patterns for safe timer usage"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/blog/2016/07/30/timer-problems.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="I look at usage patterns around timers including some problematic approaches that can make refactoring more difficult, cause strange bugs and otherwise create problems for maintainability."/>
+
+  <link rel="icon" href="../../../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../../../css/main.css" />
+  <link rel="canonical" href="timer-problems.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../../../index.html"><img class="heartandcup" src="../../../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../../../about/index.html">about</a>
+        <a class="page-link" href="../../../../archive/index.html">archive</a>
+        <a class="page-link" href="../../../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Design patterns for safe timer usage</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2016-07-30">July 30, 2016</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../../../tags/asynchrony.html">asynchrony</a>
+		 
+	</div>
+</header>
+
+
+<main role="main">
+	<article itemscope itemtype="http://schema.org/BlogPosting">
+		<div class="post-content" itemprop="articleBody">
+			
+
+<p>Timers can be a surprisingly tricky tool to use correctly.</p>
+
+<p>Deferred invocations and single fire timers are simple enough to get working but they vary between an unmaintainable anti-pattern that should never be used and a construct highly prone to subtle ordering problems between control and handler contexts.</p>
+
+<p>Join me for a look at bugs and potential maintenance issues involving timers.</p>
+
+<nav id="TableOfContents"><span class="toc-heading">Contents</span>
+<ul>
+<li>
+<ul>
+<li><a href="#purpose-of-a-timer">Purpose of a timer</a></li>
+<li><a href="#deferred-invocations">Deferred invocations</a></li>
+<li><a href="#cancellable-timer">Cancellable timer</a></li>
+<li><a href="#ignoring-cancelled-timers">Ignoring cancelled timers</a></li>
+<li><a href="#a-timer-with-generation-count">A timer with generation count</a></li>
+<li><a href="#a-single-queue-synchronized-timer">A single queue, synchronized timer</a></li>
+<li><a href="#external-requirements">External requirements</a></li>
+<li><a href="#usage">Usage</a></li>
+<li><a href="#conclusion">Conclusion</a>
+<ul>
+<li><a href="#looking-forward">Looking forward</a></li>
+</ul></li>
+</ul></li>
+</ul>
+</nav>
+
+<h2 id="purpose-of-a-timer">Purpose of a timer</h2>
+
+<p>The problems with timers often start before any code is written.</p>
+
+<p>Timers have a conceptual problem: their <em>interface</em> makes them look like their purpose is to delay a function to some time in the future. Technically, delaying a function is what they do but it is never their <em>purpose</em>.</p>
+
+<div class="aside">By contrast, periodic timers don't necessarily have such a clearly defined purpose. A periodic timer might continuously update the same resource, might create or delete a discrete resource each time or might perform ephemeral work without a persistent resource.</div>
+
+<p>The purpose of a single fire timer is to perform end-of-lifetime operations for a temporary resource. Session timers delete the session when they elapse. Timeouts close idle connections. User interface timers delete view elements or reset view state. Timers for calendar events move the event from pending to elapsed.</p>
+
+<p>Occasionally, you might see timers that <em>look</em> like a delay without an underlying temporary resource. The worst of these are delays in the hope that the delayed function might be invoked <em>after</em> some precondition occurs. Hoping that independent code will complete within a specific time period is the worst kind of <a href="https://en.wikipedia.org/wiki/Coupling_(computer_programming)">coupling</a> (and is almost always ingoring a notification that could trigger it properly).</p>
+
+<p>But even in this undesirable delay-only scenario, <em>the delay state is itself is a temporary resource</em>. All states should be clearly represented as values in your data – allowing composability, testing and debugging of the state – and this type of state is no exception.</p>
+
+<p>I am stressing this purpose of timers since it leads to the following expectations:</p>
+
+<ol>
+<li>a timer should always be closely tied to an associated temporary resource</li>
+<li>changes to either the timer or its associated temporary resource must resolve synchronously with the other (even when they don&rsquo;t always <em>occur</em> synchronously)</li>
+</ol>
+
+<p>Most problems around timers involve failure to meet one of these expectations.</p>
+
+<h2 id="deferred-invocations">Deferred invocations</h2>
+
+<p>Using libdispatch, the simplest form of timer is <code>DispatchQueue.asyncAfter</code>. This is a form of &ldquo;deferred invocation&rdquo; that simply delays a function but returns no reference and therefore offers no possibility for cancellation.</p>
+
+<p>A basic <code>after</code> invocation might look something like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="n">DispatchQueue</span><span class="p">.</span><span class="n">global</span><span class="p">().</span><span class="n">asyncAfter</span><span class="p">(</span><span class="n">deadline</span><span class="p">:</span> <span class="n">DispatchTime</span><span class="p">.</span><span class="n">now</span><span class="p">()</span> <span class="o">+</span> <span class="p">.</span><span class="n">seconds</span><span class="p">(</span><span class="mi">10</span><span class="p">))</span> <span class="p">{</span>
+   <span class="c1">// Some deferred code</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Deferred invocations are sometimes useful for quickly probing and tesing scenarios during debug investigations but they are simply <strong>too prone to problems to be safely used in a deployed program</strong>.</p>
+
+<p>Let&rsquo;s look at the most obvious situation where a deferred invocation will cause problems:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">class</span> <span class="nc">Parent</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">queue</span> <span class="p">=</span> <span class="n">DispatchQueue</span><span class="p">(</span><span class="n">label</span><span class="p">:</span> <span class="s">&#34;&#34;</span><span class="p">)</span>
+   <span class="kd">var</span> <span class="nv">temporaryChild</span><span class="p">:</span> <span class="n">Child</span><span class="p">?</span> <span class="p">=</span> <span class="kc">nil</span>
+   
+   <span class="kd">func</span> <span class="nf">createChild</span><span class="p">()</span> <span class="p">{</span>
+      <span class="n">queue</span><span class="p">.</span><span class="n">sync</span> <span class="p">{</span>
+         <span class="c1">// Construct a new, temporary value</span>
+         <span class="n">temporaryChild</span> <span class="p">=</span> <span class="n">Child</span><span class="p">()</span>
+         
+         <span class="c1">// Schedule cleanup after a 10 seconds</span>
+         <span class="kd">let</span> <span class="nv">t</span> <span class="p">=</span> <span class="n">DispatchTime</span><span class="p">.</span><span class="n">now</span><span class="p">()</span> <span class="o">+</span> <span class="n">DispatchTimeInterval</span><span class="p">.</span><span class="n">seconds</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+         <span class="n">DispatchQueue</span><span class="p">.</span><span class="n">global</span><span class="p">().</span><span class="n">asyncAfter</span><span class="p">(</span><span class="n">deadline</span><span class="p">:</span> <span class="n">t</span><span class="p">)</span> <span class="p">{</span> <span class="p">[</span><span class="kr">weak</span> <span class="kc">self</span><span class="p">]</span> <span class="k">in</span>
+            <span class="k">guard</span> <span class="kd">let</span> <span class="nv">s</span> <span class="p">=</span> <span class="kc">self</span> <span class="k">else</span> <span class="p">{</span> <span class="k">return</span> <span class="p">}</span>
+            
+            <span class="c1">// Delete the value when invoked</span>
+            <span class="n">s</span><span class="p">.</span><span class="n">queue</span><span class="p">.</span><span class="n">sync</span> <span class="p">{</span> <span class="n">s</span><span class="p">.</span><span class="n">temporaryChild</span> <span class="p">=</span> <span class="kc">nil</span> <span class="p">}</span>
+         <span class="p">}</span>
+      <span class="p">}</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>When the <code>temporaryChild</code> is created, a deferred invocation is scheduled to remove it after <code>10.0</code> seconds but this deferred invocation does not share the same lifetime as the <code>temporaryChild</code>.</p>
+
+<p>It should be easy to see how this goes wrong: call <code>createChild</code> twice and the first deferred invocation will delete the second <code>temporaryChild</code>.</p>
+
+<p>I consider <code>after</code> to be unusable in deployed code due to its potential for causing maintenance problems; you can make it work but the result is highly fragile. Small changes to code <em>outside</em> the immediate scope of the timer can break its behavior. Worse: when it breaks, it might continue to <em>look</em> like it works and might pass your automated testing unless you hit the exact timing pattern required to cause problems.</p>
+
+<p><strong>Don&rsquo;t use deferred invocations outside of debug investigations.</strong></p>
+
+<h2 id="cancellable-timer">Cancellable timer</h2>
+
+<p>A cancellable timer is not much more difficult than a deferred invocation.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">public</span> <span class="kd">extension</span> <span class="nc">DispatchSource</span> <span class="p">{</span>
+   <span class="kd">public</span> <span class="kd">class</span> <span class="nc">func</span> <span class="n">singleTimer</span><span class="p">(</span><span class="n">interval</span><span class="p">:</span> <span class="n">DispatchTimeInterval</span><span class="p">,</span> <span class="n">leeway</span><span class="p">:</span>
+      <span class="n">DispatchTimeInterval</span> <span class="p">=</span> <span class="p">.</span><span class="n">nanoseconds</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">handler</span><span class="p">:</span> <span class="p">@</span><span class="n">escaping</span> <span class="p">()</span> <span class="p">-&gt;</span> <span class="nb">Void</span><span class="p">)</span> <span class="p">-&gt;</span>
+      <span class="n">DispatchSourceTimer</span> <span class="p">{</span>
+      <span class="kd">let</span> <span class="nv">result</span> <span class="p">=</span> <span class="n">DispatchSource</span><span class="p">.</span><span class="n">makeTimerSource</span><span class="p">(</span><span class="n">queue</span><span class="p">:</span> <span class="n">DispatchQueue</span><span class="p">.</span><span class="n">global</span><span class="p">())</span>
+      <span class="n">result</span><span class="p">.</span><span class="n">setEventHandler</span><span class="p">(</span><span class="n">handler</span><span class="p">:</span> <span class="n">handler</span><span class="p">)</span>
+      <span class="n">result</span><span class="p">.</span><span class="n">scheduleOneshot</span><span class="p">(</span><span class="n">deadline</span><span class="p">:</span> <span class="n">DispatchTime</span><span class="p">.</span><span class="n">now</span><span class="p">()</span> <span class="o">+</span> <span class="n">interval</span><span class="p">,</span> <span class="n">leeway</span><span class="p">:</span> <span class="n">leeway</span><span class="p">)</span>
+      <span class="n">result</span><span class="p">.</span><span class="n">resume</span><span class="p">()</span>
+      <span class="k">return</span> <span class="n">result</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The returned <code>DispatchSourceTimer</code> will <em>automatically</em> cancel the timer if it is released, so we immediately have a much safer design.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">class</span> <span class="nc">Parent</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">queue</span> <span class="p">=</span> <span class="n">DispatchQueue</span><span class="p">(</span><span class="n">label</span><span class="p">:</span> <span class="s">&#34;&#34;</span><span class="p">)</span>
+   <span class="kd">var</span> <span class="nv">temporaryChild</span><span class="p">:</span> <span class="p">(</span><span class="n">child</span><span class="p">:</span> <span class="n">Child</span><span class="p">,</span> <span class="n">timer</span><span class="p">:</span> <span class="n">DispatchSourceTimer</span><span class="p">)?</span> <span class="p">=</span> <span class="kc">nil</span>
+   
+   <span class="kd">func</span> <span class="nf">createChild</span><span class="p">()</span> <span class="p">{</span>
+      <span class="n">queue</span><span class="p">.</span><span class="n">sync</span> <span class="p">{</span>
+         <span class="c1">// Construct a new child</span>
+         <span class="kd">let</span> <span class="nv">c</span> <span class="p">=</span> <span class="n">Child</span><span class="p">()</span>
+         
+         <span class="c1">// Schedule deletion</span>
+         <span class="kd">let</span> <span class="nv">t</span> <span class="p">=</span> <span class="n">DispatchSource</span><span class="p">.</span><span class="n">singleTimer</span><span class="p">(</span><span class="n">interval</span><span class="p">:</span> <span class="p">.</span><span class="n">seconds</span><span class="p">(</span><span class="mi">10</span><span class="p">))</span> <span class="p">{</span> <span class="p">[</span><span class="kr">weak</span> <span class="kc">self</span><span class="p">]</span> <span class="k">in</span>
+            <span class="k">guard</span> <span class="kd">let</span> <span class="nv">s</span> <span class="p">=</span> <span class="kc">self</span> <span class="k">else</span> <span class="p">{</span> <span class="k">return</span> <span class="p">}</span>
+            
+            <span class="c1">// Delete the child when invoked</span>
+            <span class="n">s</span><span class="p">.</span><span class="n">queue</span><span class="p">.</span><span class="n">sync</span> <span class="p">{</span> <span class="n">s</span><span class="p">.</span><span class="n">temporaryChild</span> <span class="p">=</span> <span class="kc">nil</span> <span class="p">}</span>
+         <span class="p">}</span>
+         
+         <span class="c1">// Tie the child and timer together</span>
+         <span class="n">temporaryChild</span> <span class="p">=</span> <span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+      <span class="p">}</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The lifetime of the timer is tied to the lifetime of the resource that it manipulates and the previous problem is solved.</p>
+
+<p><strong>But we still have a critical flaw in this code.</strong></p>
+
+<h2 id="ignoring-cancelled-timers">Ignoring cancelled timers</h2>
+
+<p>In all the <code>Parent</code> examples, access to the <code>temporaryChild</code> was protected by using <code>queue.sync</code> as a mutex. However, there&rsquo;s an important lesson here about mutexes: <strong>the mutex alone is not enough to make the code thread safe</strong>.</p>
+
+<p>Consider the following order of events:</p>
+
+<ol>
+<li>A child is created using <code>createChild()</code></li>
+<li>10 seconds later, the handler is invoked on the <code>DispatchQueue.global()</code> concurrent queue</li>
+<li>The handler starts but does not yet enter <code>s.queue.sync</code></li>
+<li>While that is happening, the <code>createChild()</code> function is called again, entering the queue, creating a new child and new timer and exiting the queue.</li>
+<li>The handler from step 3 – which was associated with the old, already deleted child – finally enters <code>s.queue.sync</code> and deletes the <em>new</em> child.</li>
+</ol>
+
+<p>A previous timer has deleted the new child. Oops.</p>
+
+<p>We&rsquo;re back to the problem where the timer is not correctly tied to the appropriate child. Any scenario where handler control or execution occurs outside the mutex can create a mismatch between the mutex&rsquo;s version of sequential and the timer&rsquo;s version of sequential. Since we only care about the <em>mutex&rsquo;s</em> version of sequential, we need to ignore timer handlers that are not the most recent timer handler applied under the mutex. This involves changing the timer&rsquo;s construction so that the handler takes a parameter that we can use to distinguish out-of-date timers.</p>
+
+<p>One way this is sometimes done is to pass a reference to the <code>timer</code> itself into the handler function. This requires re-writing the previous <code>DispatchSource.singleTimer</code> function:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">public</span> <span class="kd">extension</span> <span class="nc">DispatchSource</span> <span class="p">{</span>
+   <span class="c1">// Similar to before but we pass an instance of the timer to the handler function</span>
+   <span class="kd">public</span> <span class="kd">class</span> <span class="nc">func</span> <span class="n">singleTimer</span><span class="p">(</span><span class="n">interval</span><span class="p">:</span> <span class="n">DispatchTimeInterval</span><span class="p">,</span> <span class="n">handler</span><span class="p">:</span>
+      <span class="p">@</span><span class="n">escaping</span> <span class="p">(</span><span class="n">DispatchSource</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Void</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="n">DispatchSourceTimer</span> <span class="p">{</span>
+      <span class="kd">let</span> <span class="nv">result</span> <span class="p">=</span> <span class="n">DispatchSource</span><span class="p">.</span><span class="n">makeTimerSource</span><span class="p">(</span><span class="n">queue</span><span class="p">:</span> <span class="n">DispatchQueue</span><span class="p">.</span><span class="n">global</span><span class="p">())</span>
+      
+      <span class="c1">// Some minor juggling with the timer instance to avoid creating a retain cycle</span>
+      <span class="kd">let</span> <span class="nv">res</span> <span class="p">=</span> <span class="n">result</span> <span class="k">as</span><span class="o">!</span> <span class="n">DispatchSource</span>
+      <span class="n">result</span><span class="p">.</span><span class="n">setEventHandler</span> <span class="p">{</span> <span class="p">[</span><span class="kr">weak</span> <span class="n">res</span><span class="p">]</span> <span class="k">in</span>
+         <span class="k">guard</span> <span class="kd">let</span> <span class="nv">r</span> <span class="p">=</span> <span class="n">res</span> <span class="k">else</span> <span class="p">{</span> <span class="k">return</span> <span class="p">}</span>
+         <span class="n">handler</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+      <span class="p">}</span>
+      
+      <span class="n">result</span><span class="p">.</span><span class="n">scheduleOneshot</span><span class="p">(</span><span class="n">deadline</span><span class="p">:</span> <span class="n">DispatchTime</span><span class="p">.</span><span class="n">now</span><span class="p">()</span> <span class="o">+</span> <span class="n">interval</span><span class="p">)</span>
+      <span class="n">result</span><span class="p">.</span><span class="n">resume</span><span class="p">()</span>
+      <span class="k">return</span> <span class="n">result</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>and then you can use the new <code>timer</code> construction like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">class</span> <span class="nc">Parent</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">queue</span> <span class="p">=</span> <span class="n">DispatchQueue</span><span class="p">(</span><span class="n">label</span><span class="p">:</span> <span class="s">&#34;&#34;</span><span class="p">)</span>
+   <span class="kd">var</span> <span class="nv">temporaryChild</span><span class="p">:</span> <span class="p">(</span><span class="n">child</span><span class="p">:</span> <span class="n">Child</span><span class="p">,</span> <span class="n">timer</span><span class="p">:</span> <span class="n">DispatchSourceTimer</span><span class="p">)?</span> <span class="p">=</span> <span class="kc">nil</span>
+   
+   <span class="kd">func</span> <span class="nf">createChild</span><span class="p">()</span> <span class="p">{</span>
+      <span class="n">queue</span><span class="p">.</span><span class="n">sync</span> <span class="p">{</span>
+         <span class="c1">// Construct a new child</span>
+         <span class="kd">let</span> <span class="nv">c</span> <span class="p">=</span> <span class="n">Child</span><span class="p">()</span>
+         
+         <span class="c1">// Schedule deletion</span>
+         <span class="kd">let</span> <span class="nv">t</span> <span class="p">=</span> <span class="n">DispatchSource</span><span class="p">.</span><span class="n">singleTimer</span><span class="p">(</span><span class="n">interval</span><span class="p">:</span> <span class="p">.</span><span class="n">seconds</span><span class="p">(</span><span class="mi">10</span><span class="p">))</span> <span class="p">{</span>
+            <span class="p">[</span><span class="kr">weak</span> <span class="kc">self</span><span class="p">]</span> <span class="p">(</span><span class="n">t</span><span class="p">:</span> <span class="n">DispatchSource</span><span class="p">)</span> <span class="k">in</span>
+            <span class="k">guard</span> <span class="kd">let</span> <span class="nv">s</span> <span class="p">=</span> <span class="kc">self</span> <span class="k">else</span> <span class="p">{</span> <span class="k">return</span> <span class="p">}</span>
+            <span class="n">s</span><span class="p">.</span><span class="n">queue</span><span class="p">.</span><span class="n">sync</span> <span class="p">{</span>
+               <span class="c1">// Verify the identity of the timer</span>
+               <span class="k">guard</span> <span class="kd">let</span> <span class="nv">childTimer</span> <span class="p">=</span> <span class="n">s</span><span class="p">.</span><span class="n">temporaryChild</span><span class="p">?.</span><span class="n">timer</span><span class="p">,</span>
+                  <span class="n">t</span> <span class="p">===</span> <span class="p">(</span><span class="n">childTimer</span> <span class="k">as</span> <span class="nb">AnyObject</span><span class="p">)</span> <span class="k">else</span> <span class="p">{</span>
+                  <span class="k">return</span>
+               <span class="p">}</span>
+               <span class="n">s</span><span class="p">.</span><span class="n">temporaryChild</span> <span class="p">=</span> <span class="kc">nil</span>
+            <span class="p">}</span>
+         <span class="p">}</span>
+         
+         <span class="c1">// Tie the child and timer together</span>
+         <span class="n">temporaryChild</span> <span class="p">=</span> <span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+      <span class="p">}</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Our handler function now verifies it is still the &ldquo;current&rdquo; timer and aborts if it isn&rsquo;t.</p>
+
+<h2 id="a-timer-with-generation-count">A timer with generation count</h2>
+
+<p>The code now <em>mostly</em> works but there&rsquo;s a situation it doesn&rsquo;t handle: <em>rescheduled</em> timers.</p>
+
+<p>A rescheduled timer is one where we needed to extend the deadline for the timer. An example is an idle timer (e.g. a sleep timer or a timeout timer). For an idle timer, each new activity should reset the timer to its full duration.</p>
+
+<p>The problem with rescheduling is that it sets a new deadline for the timer but the underyling timer instance remains the same. If a handler is in the middle of invocation while we&rsquo;re changing the deadline, the handler invocation for the old deadline will still succeed since it has the same timer identity.</p>
+
+<p>To ignore cancelled timers <em>and</em> rescheduled timers, we can instead use a &ldquo;generation&rdquo; count. A generation count is just an arbitrary <code>Int</code> parameter, passed to the <code>DispatchSource.singleTimer</code> on construction and when rescheduled. This value is then passed through to the handler when invoked. As before with the timer&rsquo;s identity, we can verify the generation count but it has the added advantage that we can change the value on rescheduling, not just creation.</p>
+
+<p>It&rsquo;s very flexible and effective but it adds an additional layer of complexity at each point so the code size is almost <em>double</em> that of the original cancellable timer example:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">public</span> <span class="kd">extension</span> <span class="nc">DispatchSource</span> <span class="p">{</span>
+   <span class="c1">// Similar to before but we pass a user-supplied Int to the handler function</span>
+   <span class="kd">public</span> <span class="kd">class</span> <span class="nc">func</span> <span class="n">singleTimer</span><span class="p">(</span><span class="n">interval</span><span class="p">:</span> <span class="n">DispatchTimeInterval</span><span class="p">,</span> <span class="n">parameter</span><span class="p">:</span> <span class="nb">Int</span><span class="p">,</span>
+      <span class="n">handler</span><span class="p">:</span> <span class="p">@</span><span class="n">escaping</span> <span class="p">(</span><span class="n">parameter</span><span class="p">:</span> <span class="nb">Int</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Void</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="n">DispatchSourceTimer</span> <span class="p">{</span>
+      <span class="kd">let</span> <span class="nv">result</span> <span class="p">=</span> <span class="n">DispatchSource</span><span class="p">.</span><span class="n">makeTimerSource</span><span class="p">(</span><span class="n">queue</span><span class="p">:</span> <span class="n">DispatchQueue</span><span class="p">.</span><span class="n">global</span><span class="p">())</span>
+      <span class="n">result</span><span class="p">.</span><span class="n">scheduleOneshot</span><span class="p">(</span><span class="n">interval</span><span class="p">:</span> <span class="n">interval</span><span class="p">,</span> <span class="n">parameter</span><span class="p">:</span> <span class="n">parameter</span><span class="p">,</span> <span class="n">handler</span><span class="p">:</span> <span class="n">handler</span><span class="p">)</span>
+      <span class="n">result</span><span class="p">.</span><span class="n">resume</span><span class="p">()</span>
+      <span class="k">return</span> <span class="n">result</span>
+   <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kd">public</span> <span class="kd">extension</span> <span class="nc">DispatchSourceTimer</span> <span class="p">{</span>
+   <span class="c1">// An overload of scheduleOneshot that updates the handler function with a new</span>
+   <span class="c1">// user-supplied parameter when it changes the expiry deadline</span>
+   <span class="kd">public</span> <span class="kd">func</span> <span class="nf">scheduleOneshot</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">(</span><span class="n">parameter</span><span class="p">:</span> <span class="n">T</span><span class="p">,</span> <span class="n">interval</span><span class="p">:</span> <span class="n">DispatchTimeInterval</span><span class="p">,</span>
+      <span class="n">leeway</span><span class="p">:</span> <span class="n">DispatchTimeInterval</span> <span class="p">=</span> <span class="p">.</span><span class="n">nanoseconds</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">handler</span><span class="p">:</span> <span class="p">@</span><span class="n">escaping</span> <span class="p">(</span><span class="n">T</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Void</span><span class="p">)</span> <span class="p">{</span>
+      <span class="n">suspend</span><span class="p">()</span>
+      <span class="n">setEventHandler</span> <span class="p">{</span> <span class="n">handler</span><span class="p">(</span><span class="n">parameter</span><span class="p">)</span> <span class="p">}</span>
+      <span class="n">scheduleOneshot</span><span class="p">(</span><span class="n">deadline</span><span class="p">:</span> <span class="n">DispatchTime</span><span class="p">.</span><span class="n">now</span><span class="p">()</span> <span class="o">+</span> <span class="n">interval</span><span class="p">,</span> <span class="n">leeway</span><span class="p">:</span> <span class="n">leeway</span><span class="p">)</span>
+      <span class="n">resume</span><span class="p">()</span>
+   <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kd">class</span> <span class="nc">Parent</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">queue</span> <span class="p">=</span> <span class="n">DispatchQueue</span><span class="p">(</span><span class="n">label</span><span class="p">:</span> <span class="s">&#34;&#34;</span><span class="p">)</span>
+   <span class="kd">var</span> <span class="nv">generation</span><span class="p">:</span> <span class="nb">Int</span> <span class="p">=</span> <span class="mi">0</span>
+   <span class="kd">var</span> <span class="nv">temporaryChild</span><span class="p">:</span> <span class="p">(</span><span class="n">child</span><span class="p">:</span> <span class="n">Child</span><span class="p">,</span> <span class="n">timer</span><span class="p">:</span> <span class="n">DispatchSourceTimer</span><span class="p">)?</span> <span class="p">=</span> <span class="kc">nil</span>
+   
+   <span class="kd">func</span> <span class="nf">createChild</span><span class="p">()</span> <span class="p">{</span>
+      <span class="n">queue</span><span class="p">.</span><span class="n">sync</span> <span class="p">{</span>
+         <span class="c1">// Construct a new child</span>
+         <span class="kd">let</span> <span class="nv">c</span> <span class="p">=</span> <span class="n">Child</span><span class="p">()</span>
+         
+         <span class="c1">// Increment the generation</span>
+         <span class="n">generation</span> <span class="o">+=</span> <span class="mi">1</span>
+
+         <span class="c1">// Schedule deletion</span>
+         <span class="kd">let</span> <span class="nv">t</span> <span class="p">=</span> <span class="n">DispatchSource</span><span class="p">.</span><span class="n">singleTimer</span><span class="p">(</span><span class="n">interval</span><span class="p">:</span> <span class="p">.</span><span class="n">seconds</span><span class="p">(</span><span class="mi">10</span><span class="p">),</span> <span class="n">parameter</span><span class="p">:</span>
+            <span class="n">generation</span><span class="p">)</span> <span class="p">{</span> <span class="p">[</span><span class="kr">weak</span> <span class="kc">self</span><span class="p">]</span> <span class="n">p</span> <span class="k">in</span>
+            <span class="k">guard</span> <span class="kd">let</span> <span class="nv">s</span> <span class="p">=</span> <span class="kc">self</span> <span class="k">else</span> <span class="p">{</span> <span class="k">return</span> <span class="p">}</span>
+            <span class="n">s</span><span class="p">.</span><span class="n">timerHandler</span><span class="p">(</span><span class="n">parameter</span><span class="p">:</span> <span class="n">p</span><span class="p">)</span>
+         <span class="p">}</span>
+         
+         <span class="c1">// Tie the child and timer together</span>
+         <span class="n">temporaryChild</span> <span class="p">=</span> <span class="p">(</span><span class="n">c</span><span class="p">,</span> <span class="n">t</span><span class="p">)</span>
+      <span class="p">}</span>
+   <span class="p">}</span>
+   
+   <span class="kd">func</span> <span class="nf">resetChildTimer</span><span class="p">()</span> <span class="p">{</span>
+      <span class="n">queue</span><span class="p">.</span><span class="n">sync</span> <span class="p">{</span>
+         <span class="k">guard</span> <span class="n">temporaryChild</span> <span class="p">==</span> <span class="kc">nil</span> <span class="k">else</span> <span class="p">{</span> <span class="k">return</span> <span class="p">}</span>
+         
+         <span class="c1">// Increment the generation</span>
+         <span class="n">generation</span> <span class="o">+=</span> <span class="mi">1</span>
+         
+         <span class="c1">// Reschedule the timer</span>
+         <span class="kc">self</span><span class="p">.</span><span class="n">temporaryChild</span><span class="p">?.</span><span class="n">timer</span><span class="p">.</span><span class="n">scheduleOneshot</span><span class="p">(</span><span class="n">interval</span><span class="p">:</span> <span class="p">.</span><span class="n">seconds</span><span class="p">(</span><span class="mi">10</span><span class="p">),</span> <span class="n">parameter</span><span class="p">:</span>
+            <span class="n">generation</span><span class="p">)</span> <span class="p">{</span> <span class="p">[</span><span class="kr">weak</span> <span class="kc">self</span><span class="p">]</span> <span class="n">p</span> <span class="k">in</span>
+            <span class="k">guard</span> <span class="kd">let</span> <span class="nv">s</span> <span class="p">=</span> <span class="kc">self</span> <span class="k">else</span> <span class="p">{</span> <span class="k">return</span> <span class="p">}</span>
+            <span class="n">s</span><span class="p">.</span><span class="n">timerHandler</span><span class="p">(</span><span class="n">parameter</span><span class="p">:</span> <span class="n">p</span><span class="p">)</span>
+         <span class="p">}</span>
+      <span class="p">}</span>
+   <span class="p">}</span>
+
+   <span class="c1">// Since we&#39;re changing the handler each time, it helps to have a shared</span>
+   <span class="c1">// function to create the handler</span>
+   <span class="kd">func</span> <span class="nf">timerHandler</span><span class="p">(</span><span class="n">parameter</span><span class="p">:</span> <span class="nb">Int</span><span class="p">)</span> <span class="p">{</span>
+      <span class="n">queue</span><span class="p">.</span><span class="n">sync</span> <span class="p">{</span>
+         <span class="k">guard</span> <span class="n">parameter</span> <span class="p">==</span> <span class="n">generation</span> <span class="k">else</span> <span class="p">{</span> <span class="k">return</span> <span class="p">}</span>
+         <span class="n">temporaryChild</span> <span class="p">=</span> <span class="kc">nil</span>
+      <span class="p">}</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<h2 id="a-single-queue-synchronized-timer">A single queue, synchronized timer</h2>
+
+<p>Our simple handler now contains a <em>lot</em> of code and a significant amount of this exists purely so we can ignore invalid results. When available a better option is to prevent invalid results from occurring at all by ensuring that the timer is scheduled on the same context used as a mutex around the timer and associated temporary resource.</p>
+
+<p>A <code>DispatchSourceTimer</code> offers a way to do this by ensuring that the timer is scheduled on the same queue that we use as a mutex around our data. For this, let&rsquo;s redo the <code>DispatchSource.singleTimer</code> function <em>again</em>:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">public</span> <span class="kd">extension</span> <span class="nc">DispatchSource</span> <span class="p">{</span>
+   <span class="c1">// Similar to before but the scheduling queue is passed as a parameter</span>
+   <span class="kd">public</span> <span class="kd">class</span> <span class="nc">func</span> <span class="n">singleTimer</span><span class="p">(</span><span class="n">interval</span><span class="p">:</span> <span class="n">DispatchTimeInterval</span><span class="p">,</span> <span class="n">leeway</span><span class="p">:</span>
+      <span class="n">DispatchTimeInterval</span> <span class="p">=</span> <span class="p">.</span><span class="n">nanoseconds</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">queue</span><span class="p">:</span> <span class="n">DispatchQueue</span><span class="p">,</span> <span class="n">handler</span><span class="p">:</span> <span class="p">@</span><span class="n">escaping</span> <span class="p">()</span>
+      <span class="p">-&gt;</span> <span class="nb">Void</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="n">DispatchSourceTimer</span> <span class="p">{</span>
+      <span class="c1">// Use the specified queue</span>
+      <span class="kd">let</span> <span class="nv">result</span> <span class="p">=</span> <span class="n">DispatchSource</span><span class="p">.</span><span class="n">makeTimerSource</span><span class="p">(</span><span class="n">queue</span><span class="p">:</span> <span class="n">queue</span><span class="p">)</span>
+      <span class="n">result</span><span class="p">.</span><span class="n">setEventHandler</span><span class="p">(</span><span class="n">handler</span><span class="p">:</span> <span class="n">handler</span><span class="p">)</span>
+
+      <span class="c1">// Unlike previous example, no specialized scheduleOneshot required</span>
+      <span class="n">result</span><span class="p">.</span><span class="n">scheduleOneshot</span><span class="p">(</span><span class="n">deadline</span><span class="p">:</span> <span class="n">DispatchTime</span><span class="p">.</span><span class="n">now</span><span class="p">()</span> <span class="o">+</span> <span class="n">interval</span><span class="p">,</span> <span class="n">leeway</span><span class="p">:</span> <span class="n">leeway</span><span class="p">)</span>
+      <span class="n">result</span><span class="p">.</span><span class="n">resume</span><span class="p">()</span>
+      <span class="k">return</span> <span class="n">result</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>and the <code>Parent</code> class can now be dramatically simplified:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">class</span> <span class="nc">Parent</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">queue</span> <span class="p">=</span> <span class="n">DispatchQueue</span><span class="p">(</span><span class="n">label</span><span class="p">:</span> <span class="s">&#34;&#34;</span><span class="p">)</span>
+   <span class="kd">var</span> <span class="nv">temporaryChild</span><span class="p">:</span> <span class="p">(</span><span class="n">child</span><span class="p">:</span> <span class="n">Child</span><span class="p">,</span> <span class="n">timer</span><span class="p">:</span> <span class="n">DispatchSourceTimer</span><span class="p">)?</span> <span class="p">=</span> <span class="kc">nil</span>
+   
+   <span class="kd">func</span> <span class="nf">createChild</span><span class="p">()</span> <span class="p">{</span>
+      <span class="n">queue</span><span class="p">.</span><span class="n">sync</span> <span class="p">{</span>
+         <span class="kd">let</span> <span class="nv">t</span> <span class="p">=</span> <span class="n">DispatchSource</span><span class="p">.</span><span class="n">singleTimer</span><span class="p">(</span><span class="n">interval</span><span class="p">:</span> <span class="p">.</span><span class="n">seconds</span><span class="p">(</span><span class="mi">10</span><span class="p">),</span> <span class="n">queue</span><span class="p">:</span> <span class="n">queue</span><span class="p">)</span> <span class="p">{</span>
+            <span class="p">[</span><span class="kr">weak</span> <span class="kc">self</span><span class="p">]</span> <span class="k">in</span>
+            <span class="kc">self</span><span class="p">?.</span><span class="n">temporaryChild</span> <span class="p">=</span> <span class="kc">nil</span>
+         <span class="p">}</span>
+         <span class="n">temporaryChild</span> <span class="p">=</span> <span class="p">(</span><span class="n">Child</span><span class="p">(),</span> <span class="n">t</span><span class="p">)</span>
+      <span class="p">}</span>
+   <span class="p">}</span>
+
+   <span class="kd">func</span> <span class="nf">resetChildTimer</span><span class="p">()</span> <span class="p">{</span>
+      <span class="n">queue</span><span class="p">.</span><span class="n">sync</span> <span class="p">{</span>
+         <span class="n">temporaryChild</span><span class="p">?.</span><span class="n">timer</span><span class="p">.</span><span class="n">scheduleOneshot</span><span class="p">(</span><span class="n">deadline</span><span class="p">:</span> <span class="n">DispatchTime</span><span class="p">.</span><span class="n">now</span><span class="p">()</span> <span class="o">+</span> <span class="p">.</span><span class="n">seconds</span><span class="p">(</span><span class="mi">10</span><span class="p">))</span>
+      <span class="p">}</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>It&rsquo;s dramatically cleaner and simpler than the previous example, while equally thread safe.</p>
+
+<p>This timer usage pattern isn&rsquo;t <em>always</em> possible – in these cases, the previous &ldquo;generation count&rdquo; approach should be used instead. This includes cases where you might choose to use a different type of mutex around your data (possibly a faster mutex as I discussed in <a href="../../06/02/threads-and-mutexes.html">Mutexes and closure capture in Swift</a>). In other APIs, it might not be possible to use a scheduling queue as a sychronous mutex (an example is <code>boost::asio</code> in C++ where the <code>io_service::strand</code> class used to serialize jobs can&rsquo;t be invoked in a guaranteed synchronous manner).</p>
+
+<h2 id="external-requirements">External requirements</h2>
+
+<p>The problem with both the &ldquo;generation count&rdquo; and the &ldquo;single-queue synchronized&rdquo; patterns for using a timer is that they both have external requirements.</p>
+
+<p>What do I mean by an external requirement? I mean that these design patterns have requirements that are not part of any function parameter. Specifically, both require a mutex around the timer and mutations to its associated temporary resource or they risk falling out of synchronization.</p>
+
+<p>Ideally, we would have an interface that avoids <em>any</em> external requirements or preconditions – if you fulfill the type requirements of the interface, then your usage of the interface is valid.</p>
+
+<p>In narrow scenarios, this is possible. The most straightforward approach is to wrap the value, the timer <em>and</em> the mutex in a single interface that ensures the requirements are met. For example:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">public</span> <span class="kd">class</span> <span class="nc">TimeLimitedContainer</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="p">{</span>
+   <span class="kd">var</span> <span class="nv">possibleValue</span><span class="p">:</span> <span class="n">T</span><span class="p">?</span>
+   <span class="kd">let</span> <span class="nv">timer</span><span class="p">:</span> <span class="n">DispatchSourceTimer</span>
+   <span class="kd">let</span> <span class="nv">queue</span><span class="p">:</span> <span class="n">DispatchQueue</span>
+  
+   <span class="kd">public</span> <span class="kd">init</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="n">T</span><span class="p">,</span> <span class="n">interval</span><span class="p">:</span> <span class="n">DispatchTimeInterval</span><span class="p">)</span> <span class="p">{</span>
+      <span class="kc">self</span><span class="p">.</span><span class="n">possibleValue</span> <span class="p">=</span> <span class="kc">nil</span>
+      <span class="kc">self</span><span class="p">.</span><span class="n">queue</span> <span class="p">=</span> <span class="n">DispatchQueue</span><span class="p">(</span><span class="n">label</span><span class="p">:</span> <span class="s">&#34;&#34;</span><span class="p">)</span>
+      <span class="kc">self</span><span class="p">.</span><span class="n">timer</span> <span class="p">=</span> <span class="n">DispatchSource</span><span class="p">.</span><span class="n">singleTimer</span><span class="p">(</span><span class="n">queue</span><span class="p">:</span> <span class="n">queue</span><span class="p">)</span>
+      
+      <span class="kc">self</span><span class="p">.</span><span class="n">timer</span><span class="p">.</span><span class="n">setEventHandler</span><span class="p">(</span><span class="n">handler</span><span class="p">:</span> <span class="p">{</span> <span class="p">[</span><span class="kr">weak</span> <span class="kc">self</span><span class="p">]</span> <span class="k">in</span> <span class="kc">self</span><span class="p">?.</span><span class="n">possibleValue</span> <span class="p">=</span> <span class="kc">nil</span> <span class="p">})</span>
+      <span class="kc">self</span><span class="p">.</span><span class="n">timer</span><span class="p">.</span><span class="n">scheduleOneshot</span><span class="p">(</span><span class="n">deadline</span><span class="p">:</span> <span class="n">DispatchTime</span><span class="p">.</span><span class="n">now</span><span class="p">()</span> <span class="o">+</span> <span class="n">interval</span><span class="p">)</span>
+      <span class="kc">self</span><span class="p">.</span><span class="n">timer</span><span class="p">.</span><span class="n">resume</span><span class="p">()</span>
+   <span class="p">}</span>
+   
+   <span class="kd">public</span> <span class="kd">var</span> <span class="nv">value</span><span class="p">:</span> <span class="n">T</span><span class="p">?</span> <span class="p">{</span>
+      <span class="kd">var</span> <span class="nv">result</span><span class="p">:</span> <span class="n">T</span><span class="p">?</span> <span class="p">=</span> <span class="kc">nil</span>
+      <span class="n">queue</span><span class="p">.</span><span class="n">sync</span> <span class="p">{</span> <span class="n">result</span> <span class="p">=</span> <span class="n">possibleValue</span> <span class="p">}</span>
+      <span class="k">return</span> <span class="n">result</span>
+   <span class="p">}</span>
+
+   <span class="kd">public</span> <span class="kd">func</span> <span class="nf">resetTimer</span><span class="p">(</span><span class="n">interval</span><span class="p">:</span> <span class="n">DispatchTimeInterval</span><span class="p">)</span> <span class="p">{</span>
+      <span class="n">queue</span><span class="p">.</span><span class="n">sync</span> <span class="p">{</span>
+         <span class="n">timer</span><span class="p">.</span><span class="n">scheduleOneshot</span><span class="p">(</span><span class="n">deadline</span><span class="p">:</span> <span class="n">DispatchTime</span><span class="p">.</span><span class="n">now</span><span class="p">()</span> <span class="o">+</span> <span class="n">interval</span><span class="p">)</span>
+      <span class="p">}</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The problem with this is that it limits the actual action that can be performed at the end of the timer: in this case, all it does is sets an <code>Optional</code> to <code>nil</code>. In most cases, that&rsquo;s simply not useful enough. Changes over time usually require a notification to be broadcast and possibly some kind of refresh or reprocessing operation so that other objects in memory can adjust to the new value. This change propagation might need to occur under the same mutex or under separate mutexes in a way that avoids deadlocks.</p>
+
+<p>While you <em>could</em> make the <code>possibleValue</code> member an <code>OnDelete</code> struct (like I described in <a href="../../03/27/on-delete.html">Breaking Swift with reference counted structs</a>) and then use the <code>OnDelete</code> handler to perform <em>any</em> kind of action when this occurs, this is just reverting back to behaving like a bare timer. You would have another arbitrary layer of abstraction around the underlying timer but the end result is a timer that triggers a simple handler when it fires.</p>
+
+<p>To handle a series of cascading change propagations, moving in and out of locks while remaining thread safe would require sweeping changes throughout the whole program. In that scenario, there <em>are</em> ways to hide timers within the interface of the larger framework. How that&rsquo;s done ends up being specific to the change propagation framework.</p>
+
+<p>Without a thread safe change propagation framework, <strong>the best option is simply to endure the external requirement on timer usage</strong> since it allows you to perform change propagation from your <code>Parent</code> object as appropriate.</p>
+
+<h2 id="usage">Usage</h2>
+
+<blockquote>
+<p>The code for this article can be found in the <a href="https://github.com/mattgallagher/CwlUtils/blob/swift3-prerelease/CwlUtils/CwlDispatch.swift?ts=3">CwlDispatch.swift</a> file of the <a href="https://github.com/mattgallagher/CwlUtils/tree/swift3-prerelease">swift3-prerelease branch</a> of <a href="https://github.com/mattgallagher/CwlUtils">mattgallagher/CwlUtils</a>. I&rsquo;ll merge this into master when Swift 3 becomes final.</p>
+</blockquote>
+
+<p>The amount of reusable code in this article is fairly small – my aim was to focus on the required patterns <em>around</em> the code. In any case, the <a href="https://github.com/mattgallagher/CwlUtils/blob/swift3-prerelease/CwlUtils/CwlDispatch.swift?ts=3">CwlDispatch.swift file in the CwlUtils repository</a> contains two implementations of both <code>singleTimer</code> and <code>periodicTimer</code> that represent single fire and periodic versions of the &ldquo;generation count&rdquo; and &ldquo;single queue synchronous&rdquo; <code>timer</code> implementations shown in this file.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>There&rsquo;s a popular design principle which states: <a href="https://en.wikipedia.org/wiki/You_aren%27t_gonna_need_it">&ldquo;You ain&rsquo;t gonna need it&rdquo;</a>, implying that you should focus solely on your current requirements and you shouldn&rsquo;t worry about future problems if your code works in the present. There&rsquo;s some value in the principle but when dealing with problems that are difficult to test, a different level of caution and future proofing is required.</p>
+
+<p>Timers have a nasty tendency to <em>look</em> like they&rsquo;re working but then break when barely related (or even <em>unrelated</em>) code changes slightly. Since automated testing tends to follow a narrow range of timing patterns, it may fail to uncover timing bugs and you can end up with serious issues in your program without any tests failing. It&rsquo;s best to take a few simple steps to ensure your timers are safe under a range of usage modalities from the outset – even if you don&rsquo;t think you need cancellation or rescheduling for your timers.</p>
+
+<p>For every timer:</p>
+
+<ul>
+<li>Clearly identify the associated &ldquo;temporary resource&rdquo; for every timer and ensure changes to timer and resource occur under a common mutex.</li>
+<li>All timers should be cancellable and their lifetime should be limited to that of any associated temporary resources.</li>
+<li>Timer handler invocations from cancelled or rescheduled timers are impossible or have no effect.</li>
+</ul>
+
+<p>You should obey these requirements even when you don&rsquo;t think you need cancellation or rescheduling.</p>
+
+<p>I showed two different ways that these requirements can be satisfied: a &ldquo;generation count&rdquo; pattern and a &ldquo;single queue synchronized&rdquo; pattern for timer usage.</p>
+
+<p>The latter is the more syntactically efficient and involves the following steps:</p>
+
+<ol>
+<li>Store the timer and its associated temporary resource together in a compound value.</li>
+<li>Use a <code>DispatchQueue</code> as a mutex around the timer and its associated temporary resource</li>
+<li>Schedule the timer on the same <code>DispatchQueue</code></li>
+</ol>
+
+<p>The alternative &ldquo;generation count&rdquo; pattern avoided the requirement on <code>DispatchQueue</code> as a mutex and avoided any constraint on the scheduled queue for the timer. However, it still requires <em>some</em> kind of mutex and adds the additional requirement of tracking the generation count. It also tends to be significantly more verbose.</p>
+
+<p>Sadly, both patterns represent an ongoing nuisance since both have an external requirement on a mutex in the surrounding scope – something that is difficult to confirm with a <code>precondition</code> or other check.</p>
+
+<h3 id="looking-forward">Looking forward</h3>
+
+<p>Designing thread safe code involving timers in an asynchronous environment without <em>any</em> external requirements would require a more opinionated approach to change management throughout your program. This is definitely a topic I&rsquo;ll revisit in the future.</p>
+
+		</div>
+	</article>
+</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../12/type-checker-issues.html">Exponential time complexity in the Swift type checker</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../../08/21/result-types-part-one.html">Values and errors, part 1: &#39;Result&#39; in Swift</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../../../feed.json">JSON</a>, <a href="../../../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

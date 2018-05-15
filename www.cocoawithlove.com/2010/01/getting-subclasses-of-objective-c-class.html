@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Getting the subclasses of an Objective-C class</title>
+  <meta name="description" content="Getting the full list of subclasses for a class is a fairly simple task but it requires some uncommon runtime functions which can make the process more difficult. In this post, I look at how a Class is defined in Objective-C and two completely different ways of working out the subclasses." />
+
+  <meta name="twitter:title" content="Getting the subclasses of an Objective-C class"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2010/01/getting-subclasses-of-objective-c-class.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Getting the full list of subclasses for a class is a fairly simple task but it requires some uncommon runtime functions which can make the process more difficult. In this post, I look at how a Class is defined in Objective-C and two completely different ways of working out the subclasses."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="getting-subclasses-of-objective-c-class.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Getting the subclasses of an Objective-C class</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2010-01-11">January 11, 2010</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/objective-c.html">Objective-C</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>Getting the full list of subclasses for a class is a fairly simple task but it requires some uncommon runtime functions which can make the process more difficult. In this post, I look at how a Class is defined in Objective-C and two completely different ways of working out the subclasses.</p></span>
+
+<span class="fullpost">
+<h2>Introduction</h2>
+<p>Given the high level of reflection and introspection in the Objective-C runtime, you might expect that you would simply find a <code>class_getSubclasses(Class parentClass)</code> in the Objective-C Runtime API but no such function exists.</p>
+
+<p>There are a few possible reasons why this function might have been omitted &mdash; dynamic class creation and loading, threading and locking concerns, historical omissions in the <code>class_t</code> structure, premature optimization considerations or even an attempt to deliberately guide programmers away from certain designs &mdash; but the result is that you must work out the subclasses for yourself.</p>
+
+<p>Note: fetching the subclasses of a class is an unusual thing to do and is usually done as an after-the-fact change to an API you don't control or as a debug-only introspection or hack. Generally, designs where subclasses explicitly register themselves work better than trying to find subclasses at runtime. For example, in my <a href="../../2009/07/simple-extensible-http-server-in-cocoa.html">Simple, Extensible HTTP Server</a>, every <code>HTTPResponseHandler</code> must include:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">+</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">load</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="n">HTTPResponseHandler</span> <span class="nl">registerHandler</span><span class="p">:</span><span class="nb">self</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>which allows subclasses of <code>HTTPResponseHandler</code> that "opt-in" to be discovered by the parent when it is looking for a handler to handle a request.</p>
+
+<p>Fetching subclasses is then used in situations where you can't include a <code>load</code> method like this or you can justify not wanting to do this (e.g. debug-only verification code which checks that all <code>HTTPResponseHandlers</code> you've written actually do register themselves).</p>
+
+<h2>Filter the list of all classes</h2>
+
+<p>The traditional definition of a class in Objective-C looks like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">struct</span> <span class="n">objc_class</span> <span class="p">{</span>
+    <span class="kt">Class</span> <span class="n">isa</span><span class="p">;</span>
+    <span class="kt">Class</span> <span class="n">super_class</span><span class="p">;</span>
+    <span class="k">const</span> <span class="kt">char</span> <span class="o">*</span><span class="n">name</span><span class="p">;</span>
+    <span class="kt">long</span> <span class="n">version</span><span class="p">;</span>
+    <span class="kt">long</span> <span class="n">info</span><span class="p">;</span>
+    <span class="kt">long</span> <span class="n">instance_size</span><span class="p">;</span>
+    <span class="k">struct</span> <span class="n">objc_ivar_list</span> <span class="o">*</span><span class="n">ivars</span><span class="p">;</span>
+    <span class="k">struct</span> <span class="n">objc_method_list</span> <span class="o">**</span><span class="n">methodLists</span><span class="p">;</span>
+    <span class="k">struct</span> <span class="n">objc_cache</span> <span class="o">*</span><span class="n">cache</span><span class="p">;</span>
+    <span class="k">struct</span> <span class="n">objc_protocol_list</span> <span class="o">*</span><span class="n">protocols</span><span class="p">;</span>
+<span class="p">};</span></code></pre></div>
+
+<p>Classes contain pointers to their superclass but contain no pointer to subclasses.</p>
+
+<p>Since there is no specific function to access the subclasses, the only approach using public APIs is to get the list of all classes in the runtime and test each one to see if it is a subclass of the class in question.</p>
+
+<p>If this sounds like a heavy-handed approach, you're probably right. In Mac OS X 10.6.2, there are 527 classes in Foundation alone and 1966 in the Cocoa framework. This doesn't include all the classes your project will add, plus classes in other frameworks. Of course, interrogating all of these only takes a millisecond or two but it's still not something you should do in a tight loop &mdash; if you need to repeatedly use the list of subclasses for a class, you'll want to cache it somewhere.</p>
+
+<p>Fetching all the classes in the runtime is pretty simple:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">int</span> <span class="n">numClasses</span> <span class="o">=</span> <span class="n">objc_getClassList</span><span class="p">(</span><span class="nb">NULL</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+<span class="kt">Class</span> <span class="o">*</span><span class="n">classes</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+
+<span class="n">classes</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="kt">Class</span><span class="p">)</span> <span class="o">*</span> <span class="n">numClasses</span><span class="p">);</span>
+<span class="n">numClasses</span> <span class="o">=</span> <span class="n">objc_getClassList</span><span class="p">(</span><span class="n">classes</span><span class="p">,</span> <span class="n">numClasses</span><span class="p">);</span>
+
+<span class="c1">// do something with classes
+</span><span class="c1"></span>
+<span class="n">free</span><span class="p">(</span><span class="n">classes</span><span class="p">);</span></code></pre></div>
+
+<p>The question is then: how do we determine which classes are actually subclasses of some parent class?</p>
+
+<p>The intuitive approach would be to use the <code>isSubclassOfClass:</code> method:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSMutableArray</span> <span class="o">*</span><span class="n">result</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSMutableArray</span> <span class="n">array</span><span class="p">];</span>
+<span class="k">for</span> <span class="p">(</span><span class="n">NSInteger</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">numClasses</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">if</span> <span class="p">([</span><span class="n">classes</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="nl">isSubclassOfClass</span><span class="p">:</span><span class="n">parentClass</span><span class="p">])</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="n">result</span> <span class="nl">addObject</span><span class="p">:</span><span class="n">classes</span><span class="p">[</span><span class="n">i</span><span class="p">]];</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Unfortunately, we can't do this because when considering all classes in the runtime, the method <code>isSubclassOfClass:</code> may not be present on all of them (since <code>isSubclassOfClass:</code> is an <code>NSObject</code> method).</p>
+
+<p>The problem here is that many of the methods that are commonly considered to be implemented by all classes, are actually implemented by <code>NSObject</code> or in an implementation of the <code>NSObject</code> protocol. Some classes, like <code>_NSZombie_</code> or <code>NSProxy</code> don't derive from <code>NSObject</code> and even if they do implement the <code>NSObject</code> protocol, may do so in unpredictable ways (<code>_NSZombie_</code> throws an exception for any method and <code>NSProxy</code> forwards many of these methods to its target instead of responding for itself).</p>
+
+<p>So instead of invoking any methods on arbitrary classes we must use the runtime functions. We use <code>class_getSuperclass()</code> to find out the class' superclass and compare this to the <code>parentClass</code>. This gives the complete solution:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSArray</span> <span class="o">*</span><span class="nf">ClassGetSubclasses</span><span class="p">(</span><span class="kt">Class</span> <span class="n">parentClass</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="kt">int</span> <span class="n">numClasses</span> <span class="o">=</span> <span class="n">objc_getClassList</span><span class="p">(</span><span class="nb">NULL</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+    <span class="kt">Class</span> <span class="o">*</span><span class="n">classes</span> <span class="o">=</span> <span class="nb">NULL</span><span class="p">;</span>
+
+    <span class="n">classes</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="k">sizeof</span><span class="p">(</span><span class="kt">Class</span><span class="p">)</span> <span class="o">*</span> <span class="n">numClasses</span><span class="p">);</span>
+    <span class="n">numClasses</span> <span class="o">=</span> <span class="n">objc_getClassList</span><span class="p">(</span><span class="n">classes</span><span class="p">,</span> <span class="n">numClasses</span><span class="p">);</span>
+    
+    <span class="n">NSMutableArray</span> <span class="o">*</span><span class="n">result</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSMutableArray</span> <span class="n">array</span><span class="p">];</span>
+    <span class="k">for</span> <span class="p">(</span><span class="n">NSInteger</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">numClasses</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="kt">Class</span> <span class="n">superClass</span> <span class="o">=</span> <span class="n">classes</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+        <span class="k">do</span>
+        <span class="p">{</span>
+            <span class="n">superClass</span> <span class="o">=</span> <span class="n">class_getSuperclass</span><span class="p">(</span><span class="n">superClass</span><span class="p">);</span>
+        <span class="p">}</span> <span class="k">while</span><span class="p">(</span><span class="n">superClass</span> <span class="o">&amp;&amp;</span> <span class="n">superClass</span> <span class="o">!=</span> <span class="n">parentClass</span><span class="p">);</span>
+        
+        <span class="k">if</span> <span class="p">(</span><span class="n">superClass</span> <span class="o">==</span> <span class="nb">nil</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="k">continue</span><span class="p">;</span>
+        <span class="p">}</span>
+        
+        <span class="p">[</span><span class="n">result</span> <span class="nl">addObject</span><span class="p">:</span><span class="n">classes</span><span class="p">[</span><span class="n">i</span><span class="p">]];</span>
+    <span class="p">}</span>
+
+    <span class="n">free</span><span class="p">(</span><span class="n">classes</span><span class="p">);</span>
+    
+    <span class="k">return</span> <span class="n">result</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<h2>The fast and dirty hack approach</h2>
+
+<p>The function I just gave is the correct approach to use in a program. But I wouldn't feel like I'd made an interesting post if I didn't also show a completely different, totally unsafe approach too.</p>
+
+<p>This approach will require the Objective-C Runtime 2.0 (that's the one used in Mac OS X 64-bit and on the iPhone). In the new version of the runtime, a class actually contains a direct link to its subclasses.</p>
+
+<p>From <a href="http://opensource.apple.com/source/objc4/objc4-437/runtime/objc-runtime-new.h">objc-runtime-new.h in Apple's opensource repository</a>, a class is declared as follows:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">typedef</span> <span class="k">struct</span> <span class="n">class_t</span> <span class="p">{</span>
+    <span class="k">struct</span> <span class="n">class_t</span> <span class="o">*</span><span class="n">isa</span><span class="p">;</span>
+    <span class="k">struct</span> <span class="n">class_t</span> <span class="o">*</span><span class="n">superclass</span><span class="p">;</span>
+    <span class="n">Cache</span> <span class="n">cache</span><span class="p">;</span>
+    <span class="kt">IMP</span> <span class="o">*</span><span class="n">vtable</span><span class="p">;</span>
+    <span class="n">class_rw_t</span> <span class="o">*</span><span class="n">data</span><span class="p">;</span>
+<span class="p">}</span> <span class="n">class_t</span><span class="p">;</span></code></pre></div>
+
+<p>with the <code>class_rw_t</code> struct definition:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">typedef</span> <span class="k">struct</span> <span class="n">class_rw_t</span> <span class="p">{</span>
+    <span class="n">uint32_t</span> <span class="n">flags</span><span class="p">;</span>
+    <span class="n">uint32_t</span> <span class="n">version</span><span class="p">;</span>
+
+    <span class="k">const</span> <span class="n">class_ro_t</span> <span class="o">*</span><span class="n">ro</span><span class="p">;</span>
+    
+    <span class="k">struct</span> <span class="n">method_list_t</span> <span class="o">**</span><span class="n">methods</span><span class="p">;</span>
+    <span class="k">struct</span> <span class="n">chained_property_list</span> <span class="o">*</span><span class="n">properties</span><span class="p">;</span>
+    <span class="k">struct</span> <span class="n">protocol_list_t</span> <span class="o">**</span> <span class="n">protocols</span><span class="p">;</span>
+
+    <span class="k">struct</span> <span class="n">class_t</span> <span class="o">*</span><span class="n">firstSubclass</span><span class="p">;</span>
+    <span class="k">struct</span> <span class="n">class_t</span> <span class="o">*</span><span class="n">nextSiblingClass</span><span class="p">;</span>
+<span class="p">}</span> <span class="n">class_rw_t</span><span class="p">;</span></code></pre></div>
+
+<p>This means that we can traverse along the <code>firstSubclass</code> and <code>nextSiblingClass</code> members to reach all of the subclasses of a parent class without needing to read every class in the runtime.</p>
+
+<p>A depth-first recursive traversal then gives the full list of subclasses for a class:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">typedef</span> <span class="kt">void</span> <span class="o">*</span><span class="n">Cache</span><span class="p">;</span>
+<span class="cp">#import &#34;objc-runtime-new.h&#34;
+</span><span class="cp"></span>
+<span class="kt">void</span> <span class="nf">AddSubclassesToArray</span><span class="p">(</span><span class="kt">Class</span> <span class="n">parentClass</span><span class="p">,</span> <span class="n">NSMutableArray</span> <span class="o">*</span><span class="n">subclasses</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">struct</span> <span class="n">class_t</span> <span class="o">*</span><span class="n">internalRep</span> <span class="o">=</span> <span class="p">(</span><span class="k">struct</span> <span class="n">class_t</span> <span class="o">*</span><span class="p">)</span><span class="n">parentClass</span><span class="p">;</span>
+    
+    <span class="c1">// Traverse depth first
+</span><span class="c1"></span>    <span class="kt">Class</span> <span class="n">subclass</span> <span class="o">=</span> <span class="p">(</span><span class="kt">Class</span><span class="p">)</span><span class="n">internalRep</span><span class="o">-&gt;</span><span class="n">data</span><span class="o">-&gt;</span><span class="n">firstSubclass</span><span class="p">;</span>
+    <span class="k">while</span> <span class="p">(</span><span class="n">subclass</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="n">subclasses</span> <span class="nl">addObject</span><span class="p">:</span><span class="n">subclass</span><span class="p">];</span>
+        <span class="n">AddSubclassesToArray</span><span class="p">(</span><span class="n">subclass</span><span class="p">,</span> <span class="n">subclasses</span><span class="p">);</span>
+    
+        <span class="c1">// Then traverse breadth-wise
+</span><span class="c1"></span>        <span class="k">struct</span> <span class="n">class_t</span> <span class="o">*</span><span class="n">subclassInternalRep</span> <span class="o">=</span> <span class="p">(</span><span class="k">struct</span> <span class="n">class_t</span> <span class="o">*</span><span class="p">)</span><span class="n">subclass</span><span class="p">;</span>
+        <span class="n">subclass</span> <span class="o">=</span> <span class="p">(</span><span class="kt">Class</span><span class="p">)</span><span class="n">subclassInternalRep</span><span class="o">-&gt;</span><span class="n">data</span><span class="o">-&gt;</span><span class="n">nextSiblingClass</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>However, while highly efficient compared to traversing the whole list of classes, this approach cannot be safely used. According to <a href="http://opensource.apple.com/source/objc4/objc4-437/runtime/objc-runtime-new.m">objc-runtime-new.m</a>, all access to the <code>data</code> member of a <code>class_t</code> must be protected by the <code>runtimeLock</code> &mdash; which is inaccessible outside the runtime library itself.</p>
+
+<p>Since the lock is inaccessible, it means that this approach cannot be made safe, since any thread (including threads automatically started by Cocoa) could cause you to crash.</p>
+
+<p>It was a fun experiment and I hope that Apple include a function to do this safely in the future.</p>
+
+<h2>Conclusion</h2>
+
+<p>The runtime provides no simple method to access the subclasses of a class &mdash; even in the newer version of the runtime where this data is actually stored in the class' data structure.</p>
+
+<p>Filtering out classes from the list of all classes presents some interesting problems due to the classes in the runtime which don't derive from <code>NSObject</code>. Ultimately though, once you're aware of the limitations of using the full class list, getting subclasses is fairly simple.</p>
+
+<p>Even though it isn't data you normally need, it would be nice if Apple had decided to offer access to the subclass data in the new version of the runtime. It is more efficient and allows the list to be generated in sorted order if required.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="high-quality-in-software-development.html">Quality control in application development without unit testing</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="what-is-meta-class-in-objective-c.html">What is a meta-class in Objective-C?</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

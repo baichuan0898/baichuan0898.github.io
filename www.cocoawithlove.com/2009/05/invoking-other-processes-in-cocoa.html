@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Invoking other processes in Cocoa</title>
+  <meta name="description" content="Invoking other processes is a good way to handle some low-level tasks on the Mac. I&#39;ll show you some simple ways to invoke processes and parse their outputs in Cocoa apps as well as some advanced tricks like running a process with administrator privileges." />
+
+  <meta name="twitter:title" content="Invoking other processes in Cocoa"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/05/invoking-other-processes-in-cocoa.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Invoking other processes is a good way to handle some low-level tasks on the Mac. I&#39;ll show you some simple ways to invoke processes and parse their outputs in Cocoa apps as well as some advanced tricks like running a process with administrator privileges."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="invoking-other-processes-in-cocoa.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Invoking other processes in Cocoa</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-05-04">May 4, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/appkit.html">AppKit</a>, <a href="../../categories/foundation.html">Foundation</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>Invoking other processes is a good way to handle some low-level tasks on the Mac. I'll show you some simple ways to invoke processes and parse their outputs in Cocoa apps as well as some advanced tricks like running a process with administrator privileges.</p></span>
+
+<span class="fullpost">
+<h2>The Sample Application: Open File Killer</h2>
+<p>Have you ever tried to empty the Trash, only to be told that some process has one of the files open so Trash can't delete it now?</p>
+
+<p>This week's sample application solves that problem. Drag a file onto Open File Killer and it will tell you all the processes that have the file open and lets you kill them if needed.</p>
+
+<img src="../../assets/objc-era/openfilekiller.png" width="482" height="300" />
+
+<h2>How Open File Killer works</h2>
+
+<p>This program invokes two other processes to perform its work:</p>
+
+<ul><li>lsof - to find the processes that have the specified file open</li>
+<li>sh - run with administrator privileges to send a SIGKILL to processes</li></ul>
+
+<blockquote>Be careful when using the "Kill process" button &mdash; arbitrarily killing system processes can be dangerous to data and system stability so use with caution.</blockquote>
+
+<h2>Starting another process with NSTask</h2>
+
+<p>You can launch other applications using <code>NSWorkspace</code>'s <code>launchApplication:</code> and they will appear as though you launched them from the Finder. To run processes that are not applications, you will typically use <code>NSTask</code> instead.</p>
+
+<p><code>NSTask</code> does provide the convenience method <code>launchedTaskWithLaunchPath:arguments:</code> to launch another process in one line, however this method does not allow access to the launched task's standard output, which we'll need to get results from <code>lsof</code>.</p>
+
+<p>Reading output from <code>NSTask</code> requires setting up <code>NSPipe</code>s and reading from the <code>NSFileHandle</code> for each pipe. Since all this can be a bit verbose, we'll create a reusable method with the following prototype:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">+</span> <span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nf">stringByLaunchingPath:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">processPath</span>
+    <span class="nf">withArguments:</span><span class="p">(</span><span class="n">NSArray</span> <span class="o">*</span><span class="p">)</span><span class="nv">arguments</span>
+    <span class="nf">error:</span><span class="p">(</span><span class="n">NSError</span> <span class="o">**</span><span class="p">)</span><span class="nv">error</span></code></pre></div>
+
+<p>This is similar to <code>launchedTaskWithLaunchPath:arguments:</code> but returns the standard out as a string and returns standard error in the <code>userInfo</code> property of the <code>NSError</code> under the key <code>@"standardError"</code>.</p>
+
+<p>Excluding the error handling parts, the implementation of this method is as follows:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSTask</span> <span class="o">*</span><span class="n">task</span> <span class="o">=</span> <span class="p">[[[</span><span class="n">NSTask</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span>
+
+<span class="p">[</span><span class="n">task</span> <span class="nl">setLaunchPath</span><span class="p">:</span><span class="n">processPath</span><span class="p">];</span>
+<span class="p">[</span><span class="n">task</span> <span class="nl">setArguments</span><span class="p">:</span><span class="n">arguments</span><span class="p">];</span>
+<span class="p">[</span><span class="n">task</span> <span class="nl">setStandardOutput</span><span class="p">:[</span><span class="n">NSPipe</span> <span class="n">pipe</span><span class="p">]];</span>
+<span class="p">[</span><span class="n">task</span> <span class="nl">setStandardError</span><span class="p">:[</span><span class="n">NSPipe</span> <span class="n">pipe</span><span class="p">]];</span>
+
+<span class="n">TaskOutputReader</span> <span class="o">*</span><span class="n">outputReader</span> <span class="o">=</span> <span class="p">[[</span><span class="n">TaskOutputReader</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithTask</span><span class="p">:</span><span class="n">task</span><span class="p">];</span>
+
+<span class="n">NSString</span> <span class="o">*</span><span class="n">outputString</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
+<span class="n">NSString</span> <span class="o">*</span><span class="n">errorString</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
+
+<span class="p">[</span><span class="n">outputReader</span> <span class="n">launchTaskAndRunSynchronous</span><span class="p">];</span>
+
+<span class="n">outputString</span> <span class="o">=</span>
+    <span class="p">[[[</span><span class="n">NSString</span> <span class="n">alloc</span><span class="p">]</span>
+        <span class="nl">initWithData</span><span class="p">:[</span><span class="n">outputReader</span> <span class="n">standardOutputData</span><span class="p">]</span>
+        <span class="nl">encoding</span><span class="p">:</span><span class="n">NSUTF8StringEncoding</span><span class="p">]</span>
+    <span class="n">autorelease</span><span class="p">];</span>
+<span class="n">errorString</span> <span class="o">=</span>
+    <span class="p">[[[</span><span class="n">NSString</span> <span class="n">alloc</span><span class="p">]</span>
+        <span class="nl">initWithData</span><span class="p">:[</span><span class="n">outputReader</span> <span class="n">standardErrorData</span><span class="p">]</span>
+        <span class="nl">encoding</span><span class="p">:</span><span class="n">NSUTF8StringEncoding</span><span class="p">]</span>
+    <span class="n">autorelease</span><span class="p">];</span>
+
+<span class="p">[</span><span class="n">outputReader</span> <span class="k">release</span><span class="p">];</span></code></pre></div>
+
+<p>The <code>TaskOutputReader</code> is a simple class that invokes <code>launch</code> on the task and runs the current <code>NSRunLoop</code>, reading from the standardOut and standardError of the task until the task terminates.</p>
+
+<p>The strangest part to me is the <code>NSPipe</code> part &mdash; <code>NSPipe</code> is an opaque class (you can't do anything directly to it) that only works with <code>NSTask</code> and allows you to subsequently invoke <code>fileHandleForReading</code>/<code>fileHandleForWriting</code>. To me, it really seems as though <code>NSPipe</code> shouldn't exist at all and any Unix-level pipes and file descriptors should be created on demand when you invoke <code>standardOutput</code>.</p>
+
+<p>Anyway, that's why I always use a convenience method to wrap it all up. The only reason why you shouldn't use a convenience method like this is if you want progressive output updates (like line-by-line log file output) or two-way communication (command and response) since you can't simply block a return to the calling function these cases.</p>
+
+<h2>Parsing text</h2>
+
+<p>So we can use the <code>stringByLaunchingPath:withArguments:error:</code> method to launch <code>lsof</code> and pass the path of the file.</p>
+
+<p>The result from <code>lsof</code> looks something like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">COMMAND</span>   <span class="n">PID</span> <span class="n">USER</span>   <span class="n">FD</span>   <span class="n">TYPE</span> <span class="n">DEVICE</span> <span class="n">SIZE</span><span class="o">/</span><span class="n">OFF</span>    <span class="n">NODE</span> <span class="n">NAME</span>
+<span class="n">Preview</span> <span class="mi">78180</span> <span class="n">matt</span>  <span class="n">txt</span>    <span class="n">REG</span>   <span class="mi">14</span><span class="p">,</span><span class="mi">2</span>    <span class="mi">52889</span> <span class="mi">1233935</span> <span class="o">/</span><span class="n">Users</span><span class="o">/</span><span class="n">matt</span><span class="o">/</span><span class="n">Downloads</span><span class="o">/</span><span class="mo">002</span><span class="n">dfwtw</span><span class="p">.</span><span class="n">jpg</span></code></pre></div>
+
+<p>We need to parse this result and extract the information that is useful to us: the first two columns of the second row. I know, there are arguments to <code>lsof</code> that will produce more "computer-readable" output but when done right, parsing this output should be easier than reading man-page documentation.</p>
+
+<p>The base Cocoa classes do no really handle sophisticated text parsing on their own. There is no regular expression library by default (get yourself a copy of <a href="http://www8.ocn.ne.jp/%7esonoisa/OgreKit/index.html">OgreKit</a> or <a href="http://regexkit.sourceforge.net/">RegexKit</a> to do that) and while <code>NSString</code> has a few manipulation methods, many of the chop, split, tokenize and line-at-a-time handling functions and operators that are common in scripting languages, do not appear in Cocoa.</p>
+
+<p>You can guess at the reason behind some of these decisions. I would suggest that you're not supposed to store structured data in pure text strings in a language with sophisticated <em>real</em> data structures, so Cocoa doesn't try to make it easier for you.</p>
+
+<p>Another reason would be that C-based languages are more about giving you the basic building blocks to make efficient solutions over any domain, not about giving you already-domain-specific pre-canned solutions. AppKit/UIKit are obvious exceptions where complete, domain-specific solutions are given but in those cases, the solution domain for "application framework" is already fixed (Mac OS X/iPhone), so they are not really narrowing the potential solutions.</p>
+
+<p>The result though, is that any project requiring text handling will likely need to implement a few simple text handling methods. You can get quite practised at using the "basic building blocks" to write small parser methods to handle data that comes from plain text sources like <code>lsof</code>'s output.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">NSArray</span> <span class="o">*</span><span class="p">)</span><span class="nf">arrayBySeparatingIntoParagraphs</span>
+<span class="p">{</span>
+    <span class="n">NSUInteger</span> <span class="n">length</span> <span class="o">=</span> <span class="p">[</span><span class="nb">self</span> <span class="n">length</span><span class="p">];</span>
+    <span class="n">NSUInteger</span> <span class="n">paraStart</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">NSUInteger</span> <span class="n">paraEnd</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">NSUInteger</span> <span class="n">contentsEnd</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    <span class="n">NSMutableArray</span> <span class="o">*</span><span class="n">array</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSMutableArray</span> <span class="n">array</span><span class="p">];</span>
+    <span class="n">NSRange</span> <span class="n">currentRange</span><span class="p">;</span>
+    <span class="k">while</span> <span class="p">(</span><span class="n">paraEnd</span> <span class="o">&lt;</span> <span class="n">length</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="nb">self</span>
+            <span class="nl">getParagraphStart</span><span class="p">:</span><span class="err">¶</span><span class="n">Start</span>
+            <span class="nl">end</span><span class="p">:</span><span class="err">¶</span><span class="n">End</span>
+            <span class="nl">contentsEnd</span><span class="p">:</span><span class="o">&amp;</span><span class="n">contentsEnd</span>
+            <span class="nl">forRange</span><span class="p">:</span><span class="n">NSMakeRange</span><span class="p">(</span><span class="n">paraEnd</span><span class="p">,</span> <span class="mi">0</span><span class="p">)];</span>
+        <span class="n">currentRange</span> <span class="o">=</span> <span class="n">NSMakeRange</span><span class="p">(</span><span class="n">paraStart</span><span class="p">,</span> <span class="n">contentsEnd</span> <span class="o">-</span> <span class="n">paraStart</span><span class="p">);</span>
+        <span class="p">[</span><span class="n">array</span> <span class="nl">addObject</span><span class="p">:[</span><span class="nb">self</span> <span class="nl">substringWithRange</span><span class="p">:</span><span class="n">currentRange</span><span class="p">]];</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">array</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>You might ask about this function: "Why not just use the existing <code>componentsSeparatedByString:</code> and pass <code>@"\n"</code> as the string?"</p>
+
+<p>The answer is largely because it is recommended that you don't assume <code>\n</code> is the paragraph separator in case the paragraph separator is a Windows line-feed (<code>\r\n</code>) or an old <code>Mac OS 9</code> carriage return (<code>\r</code>). Okay, irrelevant here but this method can be used <em>anywhere</em> where you need to break an <code>NSString</code> into paragraphs.</p>
+
+<p>Also, if you needed to optimize your code, <code>getParagraphStart:end:contentsEnd:forRange:</code> allows you to parse each line inside the  loop, avoiding the need to create the array of lines at all. This is something that the upcoming "blocks" feature of Objective-C will make much easier since you'll be able to pass the block for the inside of the loop as a parameter to the method.</p>
+
+<p>You might also be curious about the difference between a "paragraph" and a "line", especially since the method <code>getLineStart:end:contentsEnd:forRange:</code> also exists. The difference is minor &mdash; lines also break on the rarely seen Unicode line-break character (sometimes used to represent HTML's <code>&lt;br&gt;</code>). In this case, it doesn't really matter.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="n">NSArray</span> <span class="o">*</span><span class="p">)</span><span class="nf">tokensSeparatedByCharactersInSet:</span><span class="p">(</span><span class="n">NSCharacterSet</span> <span class="o">*</span><span class="p">)</span><span class="nv">separator</span>
+<span class="p">{</span>
+    <span class="n">NSScanner</span> <span class="o">*</span><span class="n">scanner</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSScanner</span> <span class="nl">scannerWithString</span><span class="p">:</span><span class="nb">self</span><span class="p">];</span>
+    <span class="n">NSMutableArray</span> <span class="o">*</span><span class="n">array</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSMutableArray</span> <span class="n">array</span><span class="p">];</span>
+    <span class="k">while</span> <span class="p">(</span><span class="o">!</span><span class="p">[</span><span class="n">scanner</span> <span class="n">isAtEnd</span><span class="p">])</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="n">scanner</span> <span class="nl">scanCharactersFromSet</span><span class="p">:</span><span class="n">separator</span> <span class="nl">intoString</span><span class="p">:</span><span class="nb">nil</span><span class="p">];</span>
+
+        <span class="n">NSString</span> <span class="o">*</span><span class="n">component</span><span class="p">;</span>
+        <span class="k">if</span> <span class="p">([</span><span class="n">scanner</span> <span class="nl">scanUpToCharactersFromSet</span><span class="p">:</span><span class="n">separator</span> <span class="nl">intoString</span><span class="p">:</span><span class="o">&amp;</span><span class="n">component</span><span class="p">])</span>
+        <span class="p">{</span>
+            <span class="p">[</span><span class="n">array</span> <span class="nl">addObject</span><span class="p">:</span><span class="n">component</span><span class="p">];</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">array</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This method extracts runs of characters not in the separator character set from runs of characters that are. It differs from <code>componentsSeparatedByCharactersInSet:</code> because it treats runs of separator characters as single elements and never outputs empty tokens.</p>
+
+<p>If we pass <code>[NSCharacterSet whitespaceCharacterSet]</code> into this method, it will break the string up by blocks of whitespace, allowing us to extract the columns of text from a row of the <code>lsof</code> output (where the rows are extracted using the <code>arrayBySeparatingIntoParagraphs</code> method).</p>
+
+<blockquote>This method isn't used in the sample app anymore. It didn't handle application names with spaces in them. I've replaced it with an approach that extracts the columns from the <code>lsof</code> output by character index using <code>substringWithRange:</code> and then uses the <code>stringByTrimmingCharactersInSet:</code> method to remove whitespace from the end. I'll leave the method in the post &mdash; it is still useful, just not in this case.</blockquote>
+
+<p>In this way we can parse the output of <code>lsof</code> and get the names and process IDs of any process that has a given file path open.</p>
+
+<h2>Running with elevated privileges</h2>
+
+<p>For killing tasks, I wanted to run with administrator privileges, so that any process could be killed.</p>
+
+<p>To make the design as consistent as possible, I created a method that would invoke a process with different privileges that looked as much like the <code>NSTask</code> method as possible:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">+</span> <span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nf">stringByLaunchingPath:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">processPath</span>
+    <span class="nf">withArguments:</span><span class="p">(</span><span class="n">NSArray</span> <span class="o">*</span><span class="p">)</span><span class="nv">arguments</span>
+    <span class="nf">authorization:</span><span class="p">(</span><span class="n">SFAuthorization</span> <span class="o">*</span><span class="p">)</span><span class="nv">authorization</span>
+    <span class="nf">error:</span><span class="p">(</span><span class="n">NSError</span> <span class="o">**</span><span class="p">)</span><span class="nv">error</span></code></pre></div>
+
+<p>This method then works the same as the previous method except it requires an <code>SFAuthorization</code> object and it will not return standard error in the <code>NSError</code> object.</p>
+
+<p>Creating the authorization object is quite simple:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">authorization</span> <span class="o">=</span> <span class="p">[</span><span class="n">SFAuthorization</span> <span class="n">authorization</span><span class="p">];</span>
+<span class="kt">BOOL</span> <span class="n">result</span> <span class="o">=</span>
+    <span class="p">[</span><span class="n">authorization</span>
+        <span class="nl">obtainWithRights</span><span class="p">:</span><span class="nb">NULL</span>
+        <span class="nl">flags</span><span class="p">:</span><span class="n">kAuthorizationFlagExtendRights</span>
+        <span class="nl">environment</span><span class="p">:</span><span class="nb">NULL</span>
+        <span class="nl">authorizedRights</span><span class="p">:</span><span class="nb">NULL</span>
+<span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">result</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">NSLog</span><span class="p">(</span><span class="s">@&#34;SFAuthorization error: %@&#34;</span><span class="p">,</span> <span class="p">[</span><span class="n">error</span> <span class="n">localizedDescription</span><span class="p">]);</span> 
+    <span class="k">return</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This is an authorization object for launching another process with administrator rights (<code>kAuthorizationFlagExtendRights</code>) and no other options set. When used, this will prompt the user for an administrator password.</p>
+
+<p>Running the administrator rights process is then handled with:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">OSErr</span> <span class="n">processError</span> <span class="o">=</span>
+    <span class="n">AuthorizationExecuteWithPrivileges</span><span class="p">(</span>
+        <span class="p">[</span><span class="n">authorization</span> <span class="n">authorizationRef</span><span class="p">],</span>
+        <span class="p">[</span><span class="n">processPath</span> <span class="n">UTF8String</span><span class="p">],</span>
+        <span class="n">kAuthorizationFlagDefaults</span><span class="p">,</span>
+        <span class="p">(</span><span class="kt">char</span> <span class="o">*</span><span class="k">const</span> <span class="o">*</span><span class="p">)</span><span class="n">argv</span><span class="p">,</span>
+        <span class="o">&amp;</span><span class="n">processOutput</span><span class="p">);</span></code></pre></div>
+
+<p>The C-style <code>argv</code> array is a bit annoying to create from an Objective-C <code>NSArray</code> of <code>NSStrings</code> and using <code>fread</code> to read the output from <code>processOutput</code> is also a pain but once the input and output data wrangling is done, this can work as simply as the <code>NSTask</code>-based invocation.</p>
+
+<blockquote><strong>Warning:</strong> running with elevated privileges is <em>dangerous</em>. Don't do this casually in your code, think about it first. And as a user of programs, don't enter your administrator password unless you trust the program you're running (be careful of potential malware and trojans).</blockquote>
+
+<h2>Other things that make an application</h2>
+
+<p>The application in this week's post contains a number of features that aren't relevant to this post but are interesting and useful nevertheless. These include:</p>
+
+<ul><li><strong>Drag and drop of files onto the view</strong> using <code>draggingEntered:</code>, <code>draggingExited:</code> and <code>performDragOperation:</code> to handle the drag and drawing a highlighting rect to indicate drag focus using <code>NSSetFocusRingStyle</code> and <code>bezierPathWithRect:</code>. See the <code>FileDragReceivingView</code> that I've set as the <code>contentView</code> of the window.</li>
+<li><strong>Opening files from the Finder/Dock without NSDocument</strong> using the <code>NSApplication</code> delegate method <code>application:openFiles:</code> and an "any" <code>DocumentType</code> listed in the <code>Info.plist</code> file.</li></ul>
+
+<p>And oh, how I miss <code>NSArrayController</code> and bindings on <code>NSTableView</code> when I'm working on the iPhone. They make populating a table of results so much easier.</p>
+
+<h2>Conclusion</h2>
+
+<blockquote>You can download the complete <a href="../../assets/objc-era/OpenFileKiller.zip">Open File Killer project</a> (70kB).</blockquote>
+
+<p>The default process-launching and string-handling in Cocoa are not heavily geared towards command-line shell style invocation and handling but it doesn't take much to create a few wrapper methods that will make this a lot easier.</p>
+
+<p>Mac OS X has lots of standard in/out based executables: POSIX, BSD, Mac OS X Admin Tools, Developer Tools and any number of open source tools that you might load through package managers or other means. That's a lot of functionality available to your program and, when done right, using these tools should be as simple as invoking a method on a class.</p>
+
+<p>The sample application shows this in action. The code in <code>KillerController</code> is more verbose than an equivalent application in a scripting language might be but verbose compared to another language does not equal worse. The Objective-C code is not significantly more complex than a typical scripting language performing the same tasks (the verbosity is mostly word and operator length plus formatting, not extra operators and commands), yet it is fast, handles errors gracefully and integrates smoothly into the user-interface.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../04/easy-custom-uitableview-drawing.html">Easy custom UITableView drawing</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="variable-argument-lists-in-cocoa.html">Variable argument lists in Cocoa</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

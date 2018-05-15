@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Objective-C 2.0: Fast enumeration clarifications</title>
+  <meta name="description" content="Fast enumeration in Objective-C 2.0 is a doubly useful addition: it results in code that looks better and runs faster. Its documentation though, still contains a few points which are ambiguous or misleading. Here are some clarifications that I&#39;ve uncovered." />
+
+  <meta name="twitter:title" content="Objective-C 2.0: Fast enumeration clarifications"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2008/05/fast-enumeration-clarifications.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Fast enumeration in Objective-C 2.0 is a doubly useful addition: it results in code that looks better and runs faster. Its documentation though, still contains a few points which are ambiguous or misleading. Here are some clarifications that I&#39;ve uncovered."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="fast-enumeration-clarifications.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Objective-C 2.0: Fast enumeration clarifications</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2008-05-15">May 15, 2008</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/objective-c.html">Objective-C</a>, <a href="../../categories/foundation.html">Foundation</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>Fast enumeration in Objective-C 2.0 is a doubly useful addition: it results in code that looks better and runs faster. Its documentation though, still contains a few points which are ambiguous or misleading. Here are some clarifications that I've uncovered.</p></span>
+
+<span class="fullpost">
+
+<h2>Things you should already know</h2>
+
+<p>In case you've never heard of it, fast enumeration is an addition in Objective-C 2.0 which allows you to turn an Objective-C 1.0 <span class="monospace">NSSet</span> (or other collection) enumeration from:
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSSet</span> <span class="o">*</span><span class="n">objectSet</span> <span class="o">=</span> <span class="o">&lt;</span><span class="cp">#setaccess#&gt;;
+</span><span class="cp"></span><span class="n">NSEnumerator</span> <span class="o">*</span><span class="n">enumerator</span> <span class="o">=</span> <span class="p">[</span><span class="n">objectSet</span> <span class="n">objectEnumerator</span><span class="p">];</span>
+<span class="kt">id</span> <span class="n">setObject</span><span class="p">;</span>
+<span class="k">while</span> <span class="p">((</span><span class="n">setObject</span> <span class="o">=</span> <span class="p">[</span><span class="n">enumerator</span> <span class="n">nextObject</span><span class="p">])</span> <span class="o">!=</span> <span class="nb">nil</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="o">&lt;</span><span class="cp">#!loopcontents#&gt;
+</span><span class="cp"></span><span class="p">}</span></code></pre></div>
+
+<p>to:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">for</span> <span class="p">(</span><span class="kt">id</span> <span class="n">setObject</span> <span class="k">in</span> <span class="o">&lt;</span><span class="cp">#setaccess#&gt;)
+</span><span class="cp"></span><span class="p">{</span>
+    <span class="o">&lt;</span><span class="cp">#!loopcontents#&gt;
+</span><span class="cp"></span><span class="p">}</span></code></pre></div>
+
+<p>Your code will also run faster because the internal implementation reduces message send overhead and increases pipelining potential.</p>
+
+<p>The resulting syntax is more aesthetic and better reflects the programmer's intent. Faster and better looking, it's like a sports car for nerds (without the higher sticker price or jokes about mid-life crises).</p>
+
+<h2>Documentation Clarifications</h2>
+
+<h3>How do you enumerate backwards? Or enumerate dictionary objects instead of keys?</h3>
+
+<p>Apple have noted throughout the Cocoa documentation that you can use Fast Enumeration instead of NSEnumerator in Mac OS X 10.5. In the documentation for <span class="monospace">-[NSArray reverseObjectEnumerator]</span> they have stated: "On Mac OS X v10.5 and later, it is more efficient to use the fast enumeration protocol".</p>
+
+<p>This statement may seem a little puzzling, since Fast Enumeration does not let you choose the enumeration direction. What Apple mean in this case though, is that you can use the reverse NSEnumerator object itself for Fast Enumeration. Just get the reverse object enumerator and pass it in as though it were the collection.</p>
+
+<p>Like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">for</span> <span class="p">(</span><span class="kt">id</span> <span class="n">object</span> <span class="k">in</span> <span class="p">[</span><span class="n">someArray</span> <span class="n">reverseObjectEnumerator</span><span class="p">])</span></code></pre></div>
+
+<p>The latest downloadable XCode Documentation Set still omits the fact that <span class="monospace">NSEnumerator</span> actually implements <span class="monospace">NSFastEnumeration</span>. The <a href="http://developer.apple.com/documentation/Cocoa/Reference/Foundation/Classes/NSEnumerator_Class/Reference/Reference.html">documentation for NSEnumerator at developer.apple.com</a> has finally fixed this omission and it is in the Mac OS X 10.5 header files, so the above code is actually valid syntax.</p>
+
+<p>This will then work for any NSEnumerator returning method, including NSDictionary's <span class="monospace">objectEnumerator</span>.
+
+<h3>Will the "collection" expression code be invoked each time?</h3>
+
+<p>In the above case, you may wonder if <span class="monospace">-[NSArray reverseObjectEnumerator]</span> would be run on every iteration of the loop &mdash; potentially slowing down the code. Not very serious in this case but what if your code looked like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">for</span> <span class="p">(</span><span class="kt">id</span> <span class="n">object</span> <span class="k">in</span> <span class="p">[</span><span class="n">someObject</span> <span class="n">generateArrayInTimeConsumingCode</span><span class="p">])</span></code></pre></div>
+
+<p>In a normal C <span class="monospace">for</span> loop, you would expect the <span class="monospace">for</span> expression to be evaluated on every iteration. The <a href="http://developer.apple.com/documentation/Cocoa/Conceptual/ObjectiveC/Articles/chapter_7_section_1.html">Objective-C 2.0 Programming Language: Fast Enumeration</a> page implies that it would be evaluated on every invocation of <span class="monospace">countByEnumeratingWithState:objects:count:</span> (every handful of iterations).</p>
+
+<p>By using a test class that implements its own <span class="monospace">countByEnumeratingWithState:objects:count:</span>, I was able to determine that <em>neither</em> is the case. The "collection" expression is only evaluated once, when the <span class="monospace">for</span> loop begins. This is the best case, since you can safely put an expensive function in the "collection" expression without impacting upon the per-iteration performance of the loop.</p>
+
+<h3>Must the data returned be object pointers ("id"s)?</h3>
+
+<p>No. The compiler generates no code that reads from the data returned, so it doesn't care.</p>
+
+<p>Even though the pointer to enumeration data is declared as:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">id</span> <span class="o">*</span><span class="n">itemsPtr</span><span class="p">;</span></code></pre></div>
+
+<p>you can return an array of any data you want, provided it is contained in a pointer-sized array. For example, pointers to <span class="monospace">struct</span>s is okay, as are <span class="monospace">char</span> values (provided they are spaced <span class="monospace">sizeof(id)</span> apart).</p>
+
+<h3>What happens to Fast Enumeration code in 10.4?</h3>
+
+<p>The documentation clearly states that Fast Enumeration will not work in Mac OS X 10.4 and the compiler will give you warnings if you try to compile it.</p>
+
+<p>But that's not completely true.</p>
+
+<p>If you compile against the Mac OS X 10.5 SDK libraries but set your minimum required OS to Mac OS X 10.4, you will get warnings that "<span class="monospace">for...in</span>" constructs aren't supported. Within certain bounds though, you can ignore these warnings.</p>
+
+<p>For Fast Enumeration of your own classes, "<span class="monospace">for...in</span>" constructs will work under 10.4 without modification.</>
+
+<p>Two potentially serious issues exist with attempting to run Fast Enumeration code under 10.4:</p>
+
+<ul><li>None of the Cocoa classes in Mac OS X 10.4 implement the NSFastEnumeration protocol, so you would need to dynamically load <span class="monospace">countByEnumeratingWithState:objects:count:</span> methods of your own design into them at runtime when running under Mac OS X 10.4.</li>
+<li>The <span class="monospace">objc_enumerationMutation</span> function doesn't exist under 10.4, so if you mutate a collection while iterating, you won't throw an exception, you'll crash.</ul>
+
+<p>Obviously, you shouldn't do it unless you have a strong compelling case but the option is there if you're prepared to shoulder the extra effort.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="square-root-numerical-fun-with.html">Square Root: Numerical fun with NSDecimalNumber</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="implementing-countbyenumeratingwithstat.html">Implementing countByEnumeratingWithState:objects:count:</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

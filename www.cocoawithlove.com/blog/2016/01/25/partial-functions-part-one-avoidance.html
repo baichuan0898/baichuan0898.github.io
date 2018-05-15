@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Partial functions in Swift, Part 1: Avoidance</title>
+  <meta name="description" content="Partial functions (functions with preconditions) are a risky design choice. You probably have a few in your program, even if you haven&#39;t clearly identified them. Learn how to recognize them, learn about their risks, learn to avoid them and learn why you might choose to use them anyway." />
+
+  <meta name="twitter:title" content="Partial functions in Swift, Part 1: Avoidance"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/blog/2016/01/25/partial-functions-part-one-avoidance.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Partial functions (functions with preconditions) are a risky design choice. You probably have a few in your program, even if you haven&#39;t clearly identified them. Learn how to recognize them, learn about their risks, learn to avoid them and learn why you might choose to use them anyway."/>
+
+  <link rel="icon" href="../../../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../../../css/main.css" />
+  <link rel="canonical" href="partial-functions-part-one-avoidance.html" />
+
+  <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML.js"></script>
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../../../index.html"><img class="heartandcup" src="../../../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../../../about/index.html">about</a>
+        <a class="page-link" href="../../../../archive/index.html">archive</a>
+        <a class="page-link" href="../../../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Partial functions in Swift, Part 1: Avoidance</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2016-01-25">January 25, 2016</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../../../tags/fundamentals.html">fundamentals</a>, <a href="../../../../tags/mathematics.html">mathematics</a>
+		 
+	</div>
+</header>
+
+
+<main role="main">
+	<article itemscope itemtype="http://schema.org/BlogPosting">
+		<div class="post-content" itemprop="articleBody">
+			
+
+<p>For my first proper article since returning to Cocoa with Love, I want to talk about &ldquo;partial functions&rdquo; (functions with preconditions).</p>
+
+<p>It&rsquo;s an unusual topic for an app programming blog since, outside of API design or Design by Contract, preconditions are not widely discussed. This isn&rsquo;t because our functions are precondition-free. Instead, it&rsquo;s because we tend to test applications in such a narrow way that we never consider the entire range of values that can be passed to our functions. Our functions may have lots of implicit preconditions (including dependencies on broader program state) that we&rsquo;ve never considered or that we never document (so are easy to violate during subsequent changes).</p>
+
+<p>Ultimately, consideration of preconditions and how to avoid partial functions is the consideration of whether our programs work reliably across the whole range of possible scenarios.</p>
+
+<nav id="TableOfContents"><span class="toc-heading">Contents</span>
+<ul>
+<li>
+<ul>
+<li><a href="#background-type-requirements-versus-runtime-expectations">Background: type requirements versus runtime expectations</a></li>
+<li><a href="#background-preconditions">Background: preconditions</a></li>
+<li><a href="#background-preconditions-in-swift">Background: preconditions in Swift</a></li>
+<li><a href="#partial-functions">Partial functions</a></li>
+<li><a href="#hidden-partial-functions">Hidden partial functions</a></li>
+<li><a href="#the-problem-with-partial-functions">The problem with partial functions</a></li>
+<li><a href="#avoid-partial-functions-and-use-total-functions-instead">Avoid partial functions and use total functions instead</a></li>
+<li><a href="#failable-construction-non-failable-usage">Failable construction, non-failable usage</a></li>
+<li><a href="#other-approaches-for-avoiding-partial-functions">Other approaches for avoiding partial functions</a>
+<ul>
+<li><a href="#change-the-return-type">Change the return type</a></li>
+<li><a href="#change-the-behavior">Change the behavior</a></li>
+<li><a href="#keep-dependent-components-together">Keep dependent components together</a>
+<ul>
+<li><a href="#minor-aside-complaint-about-how-swift-string-indexes-work">Minor aside/complaint about how Swift String indexes work</a></li>
+</ul></li>
+<li><a href="#change-the-design">Change the design</a></li>
+</ul></li>
+<li><a href="#what-are-the-reasons-for-writing-partial-functions">What are the reasons for writing partial functions?</a>
+<ul>
+<li><a href="#aesthetics">Aesthetics</a></li>
+<li><a href="#internal-functions-with-simple-conditions">Internal functions with simple conditions</a></li>
+<li><a href="#method-overrides">Method overrides</a></li>
+<li><a href="#effectively-unreachable-code-paths">Effectively unreachable code paths</a></li>
+<li><a href="#forced-correctness">Forced correctness</a></li>
+<li><a href="#logic-tests">Logic tests</a></li>
+</ul></li>
+<li><a href="#conclusion">Conclusion</a></li>
+</ul></li>
+</ul>
+</nav>
+
+<h2 id="background-type-requirements-versus-runtime-expectations">Background: type requirements versus runtime expectations</h2>
+
+<p>Every function has two categories of requirements:</p>
+
+<ol>
+<li><strong>Type requirements</strong>: a function must accept arguments and return a result as specified by its type signature. The compiler enforces the type requirements, ensuring both caller and function meet the requirements.</li>
+<li><strong>Runtime expectations</strong>: a description of what the function will achieve by its conclusion. Ensuring runtime expectations are met is the role of the function&rsquo;s programmer (and testing).</li>
+</ol>
+
+<p>What happens when these two categories of requirements conflict?</p>
+
+<p>Let&rsquo;s consider a function that converts an <code>Int</code> to a <code>Bool</code> (those are the type requirements). Rather than use the C rule of <code>0</code> is <code>false</code> and anything else is <code>true</code>, this function will be strict: <code>0</code> is <code>false</code> and only <code>1</code> may be converted to <code>true</code> (that&rsquo;s the runtime expectation).</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">toBool</span><span class="p">(</span><span class="kc">_</span> <span class="n">x</span><span class="p">:</span> <span class="nb">Int</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Bool</span> <span class="p">{</span>
+   <span class="k">if</span> <span class="n">x</span> <span class="p">==</span> <span class="mi">0</span> <span class="p">{</span>
+      <span class="k">return</span> <span class="kc">false</span>
+   <span class="p">}</span> <span class="k">else</span> <span class="k">if</span> <span class="n">x</span> <span class="p">==</span> <span class="mi">1</span> <span class="p">{</span>
+      <span class="k">return</span> <span class="kc">true</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This function satisfies the runtime expectations: <code>0</code> becomes <code>false</code> and <code>1</code> becomes <code>true</code> but the compiler will highlight the closing <code>}</code> character with the error message:</p>
+
+<blockquote>
+<p>Missing return in a function expected to return &lsquo;Bool&rsquo;</p>
+</blockquote>
+
+<p>The compiler knows that we haven&rsquo;t handled every possible value of <code>x</code> and the function can skip over the two <code>if</code> conditions and reach the end without returning a value (a violation of type requirements).</p>
+
+<p>We could change the function to handle every possible value of <code>x</code>:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">toBool</span><span class="p">(</span><span class="kc">_</span> <span class="n">x</span><span class="p">:</span> <span class="nb">Int</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Bool</span> <span class="p">{</span>
+   <span class="k">if</span> <span class="n">x</span> <span class="p">==</span> <span class="mi">0</span> <span class="p">{</span>
+      <span class="k">return</span> <span class="kc">false</span>
+   <span class="p">}</span>
+   <span class="k">return</span> <span class="kc">true</span>
+<span class="p">}</span></code></pre></div>
+
+<p>but now we&rsquo;re converting values like <code>-1</code> to <code>true</code> in violation of the runtime expectations.</p>
+
+<p>This is a conflict between type requirements and runtime expectations.</p>
+
+<h2 id="background-preconditions">Background: preconditions</h2>
+
+<p>The conflict occurs because the runtime expectations imply an additional requirement that is not part of the type requirements. We call this additional requirement a <strong>precondition</strong>. In our simple <code>toBool</code> example, the precondition is that the value of <code>x</code> must be <code>0</code> or <code>1</code>.</p>
+
+<div class="aside">This article mostly discusses preconditions on parameters (since it is easier in simple examples). However many preconditions depend on broader program state. For example, if you need to initialize a module before invoking its methods, that's a precondition. If you need to start a server before making requests, that's a precondition. If you're only allowed to set a value once on an object, that's a precondition.</div>
+
+<p>That&rsquo;s simple enough to say but there&rsquo;s a problem: the precondition isn&rsquo;t known to the compiler so it is possible to accidentally violate the precondition at runtime. What should a function do if the precondition is not met?</p>
+
+<p>The only safe option is to trigger a fatal error (abort the program).</p>
+
+<p>This might not sound &ldquo;safe&rdquo; but it&rsquo;s the only approach that prevents something potentially worse. If a function fails to meet runtime expectations and actually returns, this means anything dependent on the function is now in an indeterminate state. Once the program is in an indeterminate state, any branch could go the wrong way, any action could be wrong. Maybe <code>toBool</code> was trying to answer the question &ldquo;Do you want to delete everything on your hard disk?&rdquo; Maybe <code>toBool</code> was trying to determine if the program should exit a loop but now it&rsquo;s stuck in the loop, allocating more memory until the whole computer grinds to a halt.</p>
+
+<p>We also want to abort the program because it draws attention to the exact location where the programming error occurred – rather than forcing us to look at subsequent symptoms and try to trace the symptoms back to where the program went awry. A fatal error simplifies debugging and ensures that when an error occurs, it&rsquo;s likely to be caught and reported.</p>
+
+<h2 id="background-preconditions-in-swift">Background: preconditions in Swift</h2>
+
+<p>So we need to enforce the precondition by triggering a fatal error if it is not satisfied. Swift has a function named <code>precondition</code> which, unsurprisingly, does exactly that: tests a condition and triggers a fatal error if the condition is <code>false</code>. Our function then becomes:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">toBool</span><span class="p">(</span><span class="kc">_</span> <span class="n">x</span><span class="p">:</span> <span class="nb">Int</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Bool</span> <span class="p">{</span>
+   <span class="bp">precondition</span><span class="p">(</span><span class="n">x</span> <span class="p">==</span> <span class="mi">0</span> <span class="o">||</span> <span class="n">x</span> <span class="p">==</span> <span class="mi">1</span><span class="p">,</span> <span class="s">&#34;This function can only convert 0 or 1 to Bool&#34;</span><span class="p">)</span>
+   <span class="k">if</span> <span class="n">x</span> <span class="p">==</span> <span class="mi">0</span> <span class="p">{</span>
+      <span class="k">return</span> <span class="kc">false</span>
+   <span class="p">}</span>
+   <span class="cm">/* x == 1 */</span>
+   <span class="k">return</span> <span class="kc">true</span>
+<span class="p">}</span></code></pre></div>
+
+<blockquote>
+<p><strong>Terminology note</strong>: I&rsquo;ll refer to the <code>precondition</code> function for most of this article (since its role is unambiguous) but numerous other functions may be similarly used to directly (or indirectly, though a child funcion) trigger a fatal error including <code>assert</code>, <code>assertionFailure</code>, <code>precondition</code>, <code>preconditionFailure</code>, <code>fatalError</code> or other standard library functions that use &ldquo;trap&rdquo; intrinsics like <code>Builtin.int_trap</code> or <code>Builtin.condfail</code>.</p>
+</blockquote>
+
+<p>Now, all of this might seem a little obstinate. I&rsquo;ve deliberately chosen type requirements and runtime expectations that conflict and I&rsquo;ve refused to change either, forcing the use of <code>precondition</code>. You might think no one would ever design a function this way of that you&rsquo;d never use a function like this.</p>
+
+<p>The reality is that nearly every Swift program uses this type of function indirectly through Swift standard library functions that contain similar <code>precondition</code> checks. Most common in Swift are the <code>Array</code> subcript operator (which has a precondition that the index be in-bounds), the force-unwrap operator <code>!</code> on the Swift <code>Optional</code> type (which has a precondition that <code>self</code> be non-<code>nil</code>), any use of the <code>ImplicitlyUnwrappedOptional</code> type (which similarly has a precondition that <code>self</code> be non-<code>nil</code>) and the default integer operators and conversions (which trigger fatal errors on overflow).</p>
+
+<p>There&rsquo;s another kind of precondition you may have in your code: functions that may misbehave, non-fatally, when certain implicit, unchecked requirements are not met. This is an extremely difficult point to keep under control but you need to consider whether any of your functions have implicit, unchecked requirements and add <code>precondition</code> checks to document the requirements and ensure that you don&rsquo;t accidentally violate them in the future.</p>
+
+<h2 id="partial-functions">Partial functions</h2>
+
+<p>A <code>precondition</code> is used to enforce the requirement that a function may be invoked only for a <em>partial</em> subset of the total set of values that would be valid according to the function&rsquo;s type signature. That leads us to the mathematical term &ldquo;<em>partial</em> function&rdquo;.</p>
+
+<p><em>The next paragraph is going to be math jargon. It&rsquo;s important to use the correct terminology. It&rsquo;s not so bad; hold your breath if you&rsquo;d like.</em></p>
+
+<p>In mathematics, a <strong><a href="https://en.wikipedia.org/wiki/Partial_function">partial function</a></strong> is a function constructed to map values from a <strong>domain</strong> (set of possible input values) to a <strong>codomain</strong> (set of possible output values) where the function is <strong>undefined</strong> (no appropriate mapping exists) for one or more values in the input domain. The subset of inputs values where the partial function is actually defined is called the <strong>domain of definition</strong>. Functions that are defined for all possible inputs are called <strong>total functions</strong>.</p>
+
+<p>A simple example of a partial function in mathematics is <em>division</em>. A mathematical function that divides 5 by any real number:</p>
+
+<div class="centeredmath">
+  <math>
+   <mrow>
+     <mi>f</mi><mo>:</mo><mo>&reals;</mo><mo>&rarr;</mo><mo>&reals;</mo>
+     <mtext>&nbsp;&nbsp;where&nbsp;&nbsp;</mtext>
+     <mi>f</mi><mo>:</mo><mi>x</mi><mo>&map;</mo><mfrac><mrow><mn>5</mn></mrow><mrow><mi>x</mi></mrow></mfrac>
+   </mrow>
+  </math>
+</div>
+     
+
+<p>is undefined for x = 0 because there is no sensible way to divide by zero in typical mathematics.</p>
+
+<p>If implemented in Swift, due to the &ldquo;undefined&rdquo; case, we use <code>precondition</code> to enforce the requirement that the function may be invoked only within the &ldquo;domain of definition&rdquo;:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">divideFive</span><span class="p">(</span><span class="n">by</span> <span class="n">x</span><span class="p">:</span> <span class="n">Real</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="n">Real</span> <span class="p">{</span>
+   <span class="bp">precondition</span><span class="p">(</span><span class="n">x</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span>
+   <span class="k">return</span> <span class="mi">5</span> <span class="o">/</span> <span class="n">x</span>
+<span class="p">}</span></code></pre></div>
+
+<h2 id="hidden-partial-functions">Hidden partial functions</h2>
+
+<p>Now there isn&rsquo;t a <code>Real</code> type in the Swift standard library. We do have <code>Double</code> but Swift&rsquo;s <code>Double</code> doesn&rsquo;t actually work this way (see &ldquo;<a href="#change-the-behavior">Change the behavior</a>&rdquo; below). However, Swift does work this way if we swap <code>Int</code> for <code>Real</code>:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">divideFive</span><span class="p">(</span><span class="n">by</span> <span class="n">x</span><span class="p">:</span> <span class="nb">Int</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Int</span> <span class="p">{</span>
+   <span class="k">return</span> <span class="mi">5</span> <span class="o">/</span> <span class="n">x</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Where did the <code>precondition</code> go? It&rsquo;s still there. We don&rsquo;t need to write <code>precondition</code> because it&rsquo;s part of the <code>/</code> operator. The infix <code>/</code> operator for <code>Int</code> uses &ldquo;checked&rdquo; division in Swift (implemented in the standard library as <code>_overflowChecked</code>) so it will trigger a fatal error if it is invoked with <code>0</code> as its second argument. This occurs because the <code>Int</code> type in Swift, as with ℝ (reals) in the math example above, has no sensible way to handle division by zero.</p>
+
+<p>The following is another example of a partial function because it may trigger a fatal error based on the value of parameter <code>someArrayIndex</code>:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">someArrayFunction</span><span class="p">(</span><span class="kc">_</span> <span class="n">at</span><span class="p">:</span> <span class="nb">Int</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="n">Element</span> <span class="p">{</span>
+   <span class="k">return</span> <span class="n">myArray</span><span class="p">[</span><span class="n">at</span><span class="p">]</span>
+<span class="p">}</span></code></pre></div>
+
+<p>And so is this, since it may trigger a fatal error based on the state of <code>self</code>:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">struct</span> <span class="nc">someStructWithAnOptionalMember</span> <span class="p">{</span>
+   <span class="kd">var</span> <span class="nv">optionalSomeType</span><span class="p">:</span> <span class="n">SomeType</span><span class="p">?</span>
+   <span class="kd">func</span> <span class="nf">accessor</span><span class="p">()</span> <span class="p">-&gt;</span> <span class="n">SomeType</span> <span class="p">{</span>
+      <span class="k">return</span> <span class="n">optionalSomeType</span><span class="o">!</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<h2 id="the-problem-with-partial-functions">The problem with partial functions</h2>
+
+<p>How did I know that the infix <code>/</code> operator for <code>Int</code> uses &ldquo;checked&rdquo; division in Swift and will cause a fatal error if it is invoked with <code>0</code> as its second argument?</p>
+
+<p>The only way to know is to check the documentation. <a href="https://developer.apple.com/library/ios/documentation/Swift/Conceptual/Swift_Programming_Language/AdvancedOperators.html">The Swift Programming Language</a> describes the requirements of division as:</p>
+
+<blockquote>
+<p>arithmetic operators in Swift do not overflow by default. Overflow behavior is trapped and reported as an error.</p>
+</blockquote>
+
+<p>It&rsquo;s up to the reader to either know (or experiment and find out) that this means that the division operator will write a failure message to standard out and abort the program if you ever pass <code>0</code> as the second argument to integer division.</p>
+
+<p>This makes partial functions terrifyingly dependent on documentation and testing (two areas worryingly prone to lapses):</p>
+
+<ol>
+<li>A partial function&rsquo;s requirements must be clearly documented</li>
+<li>Users of the function must read and understand the documentation</li>
+<li>Tests must exercise a wide range to confirm usage remains correctly inside required bounds in all cases</li>
+</ol>
+
+<div class="aside">The biggest risk with partial functions is misbehavior in a deployed build. A corollary is that they don't cause as many problems for testing code. In tests we want to fail early and often. Use of <code>Array</code> subscript operators, <code>Optional</code> force-unwrap <code>!</code> and other convenient-but-severe partial functions in testing code is okay.</div>
+
+<p>Let&rsquo;s assume points 1 and 2 are satisfied (or at least noticed during debugging). We still need to satisfy point 3.</p>
+
+<p>Unfortunately: debugging and testing are unlikely to check all scenarios in a non-trivial program. Debugging and testing excel at validating specific scenarios but unless your tests are extremely thorough, it&rsquo;s likely your users will be able to get one of your functions into a state you never tested. If your program uses partial functions, this leaves you expsed to potential runtime failure.</p>
+
+<h2 id="avoid-partial-functions-and-use-total-functions-instead">Avoid partial functions and use total functions instead</h2>
+
+<p>Partial functions should be avoided because:</p>
+
+<ul>
+<li>they have requirements that the compiler cannot verify</li>
+<li>they can pass your testing but still cause fatal errors after deployment if different data is encountered</li>
+</ul>
+
+<p>Let me be clear: it is not the <em>checking</em> of preconditions that should be avoided. Absolutely, if your function has preconditions, you should check them immediately or face rendering your program &ldquo;indeterminate&rdquo;.</p>
+
+<p>The problem is the <em>existence</em> of preconditions.</p>
+
+<p>A function is partial if it has preconditions. We want to design our functions as &ldquo;total functions&rdquo; that have no preconditions. This means that we need a sensible result for every possible input value.</p>
+
+<p>Let&rsquo;s revisting the mathematical function that divides 5 by any real number. Previously we defined it as a partial function that was undefined for <code>x = 0</code>. Let&rsquo;s write it as a total function:</p>
+
+<div class="centeredmath">
+  <math>
+   <mrow>
+     <mi>f</mi><mo>:</mo><mo>X</mo><mo>&rarr;</mo><mo>&reals;</mo>
+     <mtext>&nbsp;&nbsp;where&nbsp;</mtext>
+     <mo>X</mo><mo>=</mo><mfenced open="{" close="}" separators=":"><mrow><mi>x</mi><mo>&#x2208;</mo><mo>&reals;</mo></mrow><mrow><mi>x</mi><mo>&#x2260;</mo><mn>0</mn></mrow></mfenced>
+     <mtext>,&nbsp;&nbsp;</mtext>
+     <mi>f</mi><mo>:</mo><mi>x</mi><mo>&map;</mo><mfrac><mrow><mn>5</mn></mrow><mrow><mi>x</mi></mrow></mfrac>
+   </mrow>
+  </math>
+</div>
+
+<p>To explain this in a more programmer-friendly way: we&rsquo;ve changed the type signature of the function. Instead of accepting any &ldquo;Real&rdquo; as an input, I&rsquo;ve defined a new type <code>X</code> that can be any value in the Reals except zero. Now, the function is defined for every possible value in <code>X</code> and the function is a total function.</p>
+
+<p>A rough equivalent in Swift would be:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">struct</span> <span class="nc">NonZeroInt</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">value</span><span class="p">:</span> <span class="nb">Int</span>
+   <span class="kd">init</span><span class="p">?(</span><span class="n">fromInt</span><span class="p">:</span> <span class="nb">Int</span><span class="p">)</span> <span class="p">{</span>
+      <span class="k">guard</span> <span class="n">fromInt</span> <span class="o">!=</span> <span class="mi">0</span> <span class="k">else</span> <span class="p">{</span> <span class="k">return</span> <span class="kc">nil</span> <span class="p">}</span>
+      <span class="n">value</span> <span class="p">=</span> <span class="n">fromInt</span>
+   <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kd">func</span> <span class="nf">divideFive</span><span class="p">(</span><span class="n">by</span> <span class="n">x</span><span class="p">:</span> <span class="n">NonZeroInt</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Int</span> <span class="p">{</span>
+   <span class="k">return</span> <span class="mi">5</span> <span class="o">/</span> <span class="n">x</span><span class="p">.</span><span class="n">value</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The runtime requirement in <code>divideFiveBy</code> is gone and instead we have a new type, <code>NonZeroInt</code> that satisfies the requirement at compile-time.</p>
+
+<p>You might be able to see why <a href="#partial-functions">I mentioned, above</a>, that it&rsquo;s important to think about <code>precondition</code> as subtracting values from the total set of valid values according to the type signature. We can avoid a <code>precondition</code> by defining a new type where those <code>precondition</code>-excluded-values are avoided by design in the new type.</p>
+
+<h2 id="failable-construction-non-failable-usage">Failable construction, non-failable usage</h2>
+
+<div class="aside">It's uncommon to see the term "partial function" used in imperative languages like Swift but it's a common term <a href="https://wiki.haskell.org/Partial_functions">in functional languages like Haskell</a>, Unsurprisingly, Haskell has pages on <a href="https://wiki.haskell.org/Avoiding_partial_functions">avoiding partial functions</a>, too.</div>
+
+<p>In the previous example, we created a new type, <code>NonZeroInt</code>, but the constructor for this new type can fail (return a <code>nil</code> instead of a value). In some sense, we&rsquo;ve simply taken the burden of ensuring correctness from the call location of <code>divideFiveBy</code> and put it somewhere else. However, this change has helped for two reasons:</p>
+
+<ol>
+<li>the compiler will ensure that we check the <code>NonZeroInt?(fromInt:)</code> return result</li>
+<li>we&rsquo;re validating the value at its construction, not when it is used</li>
+</ol>
+
+<p>The first point stops the function being a partial function but the second point is just as interesting.</p>
+
+<p>Ideally, we shouldn&rsquo;t construct <code>NonZeroInt</code> from an <code>Int</code> immediately before passing into <code>divideFiveBy</code>, instead we should never have the <code>Int</code> at all; the <code>NonZeroInt</code> should be constructed at the source. Maybe the source is a settings file, maybe the source is user-input, maybe the source is a network connection; in any case, as soon as the value comes into existence, we immediately know if it&rsquo;s valid or invalid. In the invalid case, we can report the input as the source of the problem. This is a huge improvement over carrying an invalid <code>0</code> value <code>Int</code> for an unknown time until it is finally passed to the function <code>divideFiveBy</code> which has no idea about the origin of its parameters.</p>
+
+<p>Think about the path of data through your program as a pipeline: if your data won&rsquo;t fit through the whole pipeline, reject it at the <em>start</em> rather than letting it cause problems in the middle. Ideally, construction should be the only scenario that can fail and every use case should be a &ldquo;total function&rdquo;.</p>
+
+<h2 id="other-approaches-for-avoiding-partial-functions">Other approaches for avoiding partial functions</h2>
+
+<p>Avoiding a partial function involves making the type requirements and the runtime expectations agree.</p>
+
+<p>Defining a new, more specific type that encapsulates the runtime expectations&rsquo; complete requirements for the data is the conceptually best approach to addressing the problem. As I explained, it pushes any checks on data back to the construction point which is the best place to handle error conditions.</p>
+
+<p>However, there are plenty of cases where it&rsquo;s not the most practical option:</p>
+
+<ul>
+<li>it may be algorithmically difficult to determine the constraints for the data ahead-of-time</li>
+<li>you might not have access at construction-time to state information required to check validity</li>
+<li>maybe you don&rsquo;t have control over the design of earlier stages in the data pipeline</li>
+<li>maybe you construct data in a lot of places but only use it in one place so it&rsquo;s simpler to change the usage location instead of the construction location</li>
+</ul>
+
+<p>Fortunately, there are plenty of other options.</p>
+
+<h3 id="change-the-return-type">Change the return type</h3>
+
+<p>The simplest solution to making any partial function into a total function is to change the type signature to include room in the return type to communicate a failure condition. Instead of needing to trigger a fatal error, we can communicate the condition back to the caller and the caller can choose how to handle the result.</p>
+
+<p>Swift&rsquo;s <code>Optional</code> is ideal for this as we can show with our <code>toBool</code> function:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">toBool</span><span class="p">(</span><span class="kc">_</span> <span class="n">x</span><span class="p">:</span> <span class="nb">Int</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Bool</span><span class="p">?</span> <span class="p">{</span>
+   <span class="k">switch</span> <span class="n">x</span> <span class="p">{</span>
+   <span class="k">case</span> <span class="mi">0</span><span class="p">:</span> <span class="k">return</span> <span class="kc">false</span>
+   <span class="k">case</span> <span class="mi">1</span><span class="p">:</span> <span class="k">return</span> <span class="kc">true</span>
+   <span class="k">default</span><span class="p">:</span> <span class="kc">nil</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>An example of this in the Swift standard library is the subscript operator on <code>Dictionary</code>. Unlike the subscript on <code>Array</code>, the <code>Dictionary</code> version returns an <code>Element?</code>. This means that you <em>are</em> allowed to look up a key that doesn&rsquo;t exist.</p>
+
+<p>I personally like to use the following extension on <code>CollectionType</code> to allow this type of <code>Optional</code> returning access for <code>Array</code> or other <code>CollectionType</code>s:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">extension</span> <span class="nc">CollectionType</span> <span class="p">{</span>
+   <span class="c1">/// Returns the element at the specified index iff it is within bounds, otherwise nil.</span>
+   <span class="kd">public</span> <span class="kd">func</span> <span class="nf">at</span><span class="p">(</span><span class="kc">_</span> <span class="n">index</span><span class="p">:</span> <span class="n">Index</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="n">Generator</span><span class="p">.</span><span class="n">Element</span><span class="p">?</span> <span class="p">{</span>
+      <span class="k">return</span> <span class="bp">indices</span><span class="p">.</span><span class="bp">contains</span><span class="p">(</span><span class="n">index</span><span class="p">)</span> <span class="p">?</span> <span class="kc">self</span><span class="p">[</span><span class="n">index</span><span class="p">]</span> <span class="p">:</span> <span class="kc">nil</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The name <code>at</code> in this case is borrowed from a function in C++ that accesses the value if it exists or throws an exception if it does not. A Swift <code>throws</code> function would be closer to the C++ implementation but returning an <code>Optional</code> is more in line with the pattern established by <code>Dictionary</code> and is syntactically tighter for this use-case.</p>
+
+<p>However, using Swift&rsquo;s error handling mechanism is also a valid way of making a function total, if you&rsquo;d prefer it:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">enum</span> <span class="nc">ArtithmeticError</span> <span class="p">{</span> <span class="k">case</span> <span class="n">DivideByZero</span> <span class="p">}</span>
+<span class="kd">func</span> <span class="nf">divideFive</span><span class="p">(</span><span class="n">by</span> <span class="n">x</span><span class="p">:</span> <span class="nb">Int</span><span class="p">)</span> <span class="kr">throws</span> <span class="p">-&gt;</span> <span class="nb">Int</span> <span class="p">{</span>
+   <span class="k">switch</span> <span class="n">x</span> <span class="p">{</span>
+   <span class="k">case</span> <span class="mi">0</span><span class="p">:</span> <span class="k">throw</span> <span class="n">ArtithmeticError</span><span class="p">.</span><span class="n">DivideByZero</span>
+   <span class="k">default</span><span class="p">:</span> <span class="k">return</span> <span class="mi">5</span> <span class="o">/</span> <span class="n">x</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>In Objective-C, exceptions were (usually) used to indicate unrecoverable situations (i.e. partial functions). However, Swift <code>throws</code> are meant to be caught; in fact they <em>must</em> be caught. Therefore throwing an <code>Error</code> in Swift is really just offering a different return type – semantically similar to returning an <code>Optional</code> despite the syntactic differences.</p>
+
+<h3 id="change-the-behavior">Change the behavior</h3>
+
+<p>Depending on context, it might make sense to change the runtime expectations so that every input is mapped to a valid output. In the first example, if we had used the C language&rsquo;s definition of a <code>Bool</code> (anything that isn&rsquo;t zero is <code>true</code>) then our <code>toBool</code> function would never have needed a precondition.</p>
+
+<p>We can also change the behavior of the <code>divideFiveBy</code> function to do something not-entirely-accurate but which may be valid, depending on expected usage:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">divideFive</span><span class="p">(</span><span class="n">by</span> <span class="n">x</span><span class="p">:</span> <span class="nb">Int</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Int</span> <span class="p">{</span>
+   <span class="k">switch</span> <span class="n">x</span> <span class="p">{</span>
+   <span class="k">case</span> <span class="mi">0</span><span class="p">:</span> <span class="k">return</span> <span class="nb">Int</span><span class="p">.</span><span class="bp">max</span>
+   <span class="k">default</span><span class="p">:</span> <span class="k">return</span> <span class="mi">5</span> <span class="o">/</span> <span class="n">x</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This mirrors the Swift standard library&rsquo;s division operator for <code>Double</code>:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">divideFive</span><span class="p">(</span><span class="n">by</span> <span class="n">x</span><span class="p">:</span> <span class="nb">Double</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Double</span> <span class="p">{</span>
+   <span class="k">return</span> <span class="mi">5</span> <span class="o">/</span> <span class="n">x</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Unlike the version from <code>Int</code> to <code>Int</code>, this function is a total function, not a partial function.</p>
+
+<p>The <code>/</code> operator for <code>Double</code> will return <code>Double.infinity</code> (IEEE 754 &ldquo;positive infinity&rdquo;) if invoked with <code>x == 0</code> which isn&rsquo;t really true in a mathematical sense but is sufficient that you can work out what happened. Of course, the problem with this type of behavior change is that it might obscure the &ldquo;basically an error&rdquo; status of the result (for example: you should be handling the zero denominator rather than attempting to scale a drawing by &ldquo;+infinity&rdquo;).</p>
+
+<h3 id="keep-dependent-components-together">Keep dependent components together</h3>
+
+<p>A common reason for partial functions is that you&rsquo;re using two pieces of data that need to agree with each other (like an <code>Array</code> and a subscript index) but you create and store them separately so they are not naturally kept in agreement – they might even be created separately and could be out of agreement from their construction.</p>
+
+<p>We can avoid preconditions on separate data being in sync by holding the required data in a single data structure that ensures the requirement.</p>
+
+<p>The following alternative approach to indexes into an <code>Array</code> ensures the index remains valid at all times by keeping a reference to the <code>Array</code> and preventing transformations to the <code>index</code> that would make it invalid.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">enum</span> <span class="nc">AlwaysValidArrayIndexError</span><span class="p">:</span> <span class="n">Error</span> <span class="p">{</span> <span class="k">case</span> <span class="n">NoAcceptableIndex</span> <span class="p">}</span>
+<span class="kd">struct</span> <span class="nc">AlwaysValidArrayIndex</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="p">{</span>
+   <span class="c1">// Store the array and the index (preventing them falling out-of-sync</span>
+   <span class="kd">let</span> <span class="nv">array</span><span class="p">:</span> <span class="nb">Array</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;</span>
+   <span class="kd">let</span> <span class="nv">index</span><span class="p">:</span> <span class="nb">Int</span>
+
+   <span class="c1">// Construct from an array (note: this captures a copy</span>
+   <span class="kd">init</span><span class="p">(</span><span class="n">firstIndexInArray</span> <span class="n">a</span><span class="p">:</span> <span class="nb">Array</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">)</span> <span class="kr">throws</span> <span class="p">{</span>
+      <span class="k">guard</span> <span class="o">!</span><span class="n">a</span><span class="p">.</span><span class="bp">isEmpty</span> <span class="k">else</span> <span class="p">{</span> <span class="k">throw</span> <span class="n">AlwaysValidArrayIndexError</span><span class="p">.</span><span class="n">NoAcceptableIndex</span> <span class="p">}</span>
+      <span class="n">array</span> <span class="p">=</span> <span class="n">a</span>
+      <span class="n">index</span> <span class="p">=</span> <span class="n">array</span><span class="p">.</span><span class="n">startIndex</span>
+   <span class="p">}</span>
+   
+   <span class="c1">// Internally construct a new version from its components</span>
+   <span class="kd">private</span> <span class="kd">init</span><span class="p">(</span><span class="n">array</span><span class="p">:</span> <span class="nb">Array</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">index</span><span class="p">:</span> <span class="nb">Int</span><span class="p">)</span> <span class="p">{</span>
+      <span class="kc">self</span><span class="p">.</span><span class="n">array</span> <span class="p">=</span> <span class="n">array</span>
+      <span class="kc">self</span><span class="p">.</span><span class="n">index</span> <span class="p">=</span> <span class="n">index</span>
+   <span class="p">}</span>
+
+   <span class="c1">// Safely advance the index or throw an error</span>
+   <span class="kd">func</span> <span class="nf">validIndex</span><span class="p">(</span><span class="n">after</span><span class="p">:</span> <span class="n">AlwaysValidArrayIndex</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;</span><span class="p">)</span> <span class="kr">throws</span> <span class="p">-&gt;</span> <span class="n">AlwaysValidArrayIndex</span><span class="p">&lt;</span><span class="n">T</span><span class="o">&gt;</span> <span class="p">{</span>
+      <span class="kd">let</span> <span class="nv">next</span> <span class="p">=</span> <span class="n">array</span><span class="p">.</span><span class="n">index</span><span class="p">(</span><span class="n">after</span><span class="p">:</span> <span class="n">after</span><span class="p">.</span><span class="n">index</span><span class="p">)</span>
+      <span class="k">guard</span> <span class="n">next</span> <span class="o">!=</span> <span class="n">array</span><span class="p">.</span><span class="n">endIndex</span> <span class="k">else</span> <span class="p">{</span> <span class="k">throw</span> <span class="n">AlwaysValidArrayIndexError</span><span class="p">.</span><span class="n">NoAcceptableIndex</span> <span class="p">}</span>
+      <span class="k">return</span> <span class="n">AlwaysValidArrayIndex</span><span class="p">(</span><span class="n">array</span><span class="p">:</span> <span class="n">array</span><span class="p">,</span> <span class="n">index</span><span class="p">:</span> <span class="n">next</span><span class="p">)</span>
+   <span class="p">}</span>
+
+   <span class="c1">// Access the guaranteed to be safe index</span>
+   <span class="kd">func</span> <span class="nf">elementAtIndex</span><span class="p">()</span> <span class="p">-&gt;</span> <span class="n">T</span> <span class="p">{</span>
+      <span class="k">return</span> <span class="n">array</span><span class="p">[</span><span class="n">index</span><span class="p">]</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<h4 id="minor-aside-complaint-about-how-swift-string-indexes-work">Minor aside/complaint about how Swift String indexes work</h4>
+
+<p>Sadly, despite storing the <code>_StringCore</code> internally and therefore being able to ensure validity at all times, <code>String</code> indexes let you hit fatal errors by advancing past the end (rather than a more graceful <code>nil</code>) and even worse: don&rsquo;t themselves access characters but instead need to be passed back into the subscript on a <code>String</code>. This second problem lets the <code>String.CharacterView.Index</code> and <code>String</code> be out-of-sync again (since you can use an index from one <code>String</code> on a different <code>String</code>), leading to potential fatal errors (for out-of-range accesses) or invalid Unicode as produced by this example where an index from &ldquo;Unrelated string&rdquo; is used to access an invalid offset in an Emoji string:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">let</span> <span class="nv">characterView1</span> <span class="p">=</span> <span class="s">&#34;👿👿&#34;</span><span class="p">.</span><span class="n">characters</span>
+<span class="kd">let</span> <span class="nv">invalidIndex</span> <span class="p">=</span> <span class="s">&#34;Unrelated string&#34;</span><span class="p">.</span><span class="n">characters</span><span class="p">.</span><span class="n">index</span><span class="p">(</span><span class="n">after</span><span class="p">:</span> <span class="n">characterView1</span><span class="p">.</span><span class="n">startIndex</span><span class="p">)</span>
+<span class="bp">print</span><span class="p">(</span><span class="n">characterView1</span><span class="p">[</span><span class="n">invalidIndex</span><span class="p">])</span>
+
+<span class="c1">// Output will not be the &#39;n&#39; in &#34;Unrelated&#34; or the second &#34;Imp&#34; Emoji.</span>
+<span class="c1">// Instead we get the Unicode invalid character marker &#39;�&#39;.</span></code></pre></div>
+
+<p>I hope these problems are addressed in future changes to the Swift standard library (even a basic <code>precondition</code> failure when using indexes with the wrong string would be preferrable).</p>
+
+<h3 id="change-the-design">Change the design</h3>
+
+<p>A final way to avoid partial functions is to avoid design patterns where they are common. This means: use the library functions and features that are total functions. If we restrict our programming to total functions then our functions are more likely to be total functions too.</p>
+
+<p>Easy examples include using <code>for x in</code>, <code>map</code> and <code>filter</code> to perform most of the needed work on an <code>Array</code> without using the subscript. Similarly as an alternative to <code>Optional</code>&rsquo;s force unwrap, you can always use <code>if let</code>, <code>switch</code> and <code>flatMap</code> and avoid any potential fatal errors.</p>
+
+<h2 id="what-are-the-reasons-for-writing-partial-functions">What are the reasons for writing partial functions?</h2>
+
+<p>I&rsquo;ve used a lot of words to say &ldquo;partial functions are bad&rdquo;. I also shown multiple ways to avoid them.</p>
+
+<p>Why do partial functions exist at all? There&rsquo;s a few reasons. I don&rsquo;t agree with them all.</p>
+
+<h3 id="aesthetics">Aesthetics</h3>
+
+<p>The biggest reason for partial functions is aesthetics: the interface designer didn&rsquo;t really want to define a new type, return an <code>Optional</code> or declare a function as <code>throws</code>.</p>
+
+<p>To illustrate this claim, there&rsquo;s a number of partial functions in the Swift standard library that are designed to look like traditional operators from C while transparently adding safety checks where memory unsafe behavior could have occurred in C. This includes <code>Array</code> subscripts, <code>ImplicitlyUnwrappedOptional</code> and overflowable arithmetic; these are designed to <em>look</em> like their C equivalents while applying runtime checks internally. There&rsquo;s a historical/social expectation: people expect an array index to return a non-<code>Optional</code>. People expect that they can forcibly unwrap <code>Optional</code> if they want. People don&rsquo;t want the syntactic overhead of dealing with overflows for most arithmetic.</p>
+
+<p>The choice to use <code>precondition</code> rather than return an <code>Optional</code> (or another alternative) is risky and crash prone but that&rsquo;s how humans work sometimes.</p>
+
+<h3 id="internal-functions-with-simple-conditions">Internal functions with simple conditions</h3>
+
+<p>Preconditions involving multiple values being in-sync or methods on an object being invoked in a given order take additional work to avoid. For our internal functions – where we are the only people who need to learn and obey any preconditions – the amount of work to avoid the precondition might not be worth the effort, particularly if the precondition is simple and obvious and we&rsquo;re sure we won&rsquo;t accidentally violate it.</p>
+
+<p>Just make certain to use <code>precondition</code> to explicitly check, rather than run the risk of accidentally violating the precondition later.</p>
+
+<h3 id="method-overrides">Method overrides</h3>
+
+<p>If an overrideable method is required by the superclass to do something (e.g. invoke <code>super</code>), we often need to rely on <code>precondition</code> or other similar tests to ensure the requirement occurs.</p>
+
+<p>This is really a limitation of how object-oriented programming composes interfaces: subclasses are fully in control and the superclass only receives control when the subclass yields it. If the superclass wants to place requirements on the subclass, it can only do that checking the requirement after-the-fact (a &ldquo;postcondition&rdquo; but technically still implemented using <code>precondition</code>).</p>
+
+<h3 id="effectively-unreachable-code-paths">Effectively unreachable code paths</h3>
+
+<p>The actual conditions required to reach some code paths are so convoluted that they&rsquo;re basically unreachable. This sometimes occurs when checking the results of functions: we feel obliged to check all error results but we might not be able to design a test case to actually reach the failure path. Rather than write a recovery attempter that we can&rsquo;t test, we may place a <code>preconditionFailure</code> or a <code>fatalError</code> in the path to confirm out belief that the branch is unreachable.</p>
+
+<p>Examples where this is appropriate include handling memory allocation failure return paths from certain C functions. On a modern system, a memory allocation failure is usually impossible (the OS will kill the process before <code>malloc</code> fails) so writing code to test and handle this situation is a poor use of our time.</p>
+
+<h3 id="forced-correctness">Forced correctness</h3>
+
+<p>In some cases interface designers <em>want</em> haphazard users of their functions to see failures. There&rsquo;s an argument that programming defensively against careless users of your function encourages poor programming and prevents users understanding what they&rsquo;re doing wrong; instead, we should force bad programmers to confront their mistakes.</p>
+
+<p>I think this argument is more valid in languages like C where returning an <code>int</code> error condition is frequently ignored by the user so a fatal error is more attention grabbing. In Swift, I think this approach is inappropriate. Users can&rsquo;t ignore <code>Optional</code> or <code>throws</code> in Swift and will learn their mistakes from a returned &ldquo;invalid argument&rdquo; <code>Error</code> just as well as they&rsquo;d learn from a <code>precondition</code> failure – in fact, better, since users might not be aware of the existence of possible <code>precondition</code> failures but the syntactic overhead for <code>throws</code> is unavoidable so it&rsquo;s possible that a never-before-seen failure will still be handled correctly at runtime.</p>
+
+<p>Truly haphazard programmers are likely to handle <code>Optional</code> and <code>throws</code> results by using force-unwrap or <code>try!</code> in Swift so they&rsquo;re going to see fatal errors anyway.</p>
+
+<h3 id="logic-tests">Logic tests</h3>
+
+<p>The <code>assert</code> function is commonly used to test &ldquo;soft&rdquo; postconditions (where a <code>false</code> result is not a critical failure) and other program logic.</p>
+
+<p>If you&rsquo;re unaware, <code>assert</code> works like <code>precondition</code> in Debug builds (compiled with &lsquo;-Onone&rsquo;) but does nothing in Release builds (compiled with &lsquo;-O&rsquo;). This split behavior complicates the practical implications but ultimately <code>assert</code> is still used to fatally test conditions in Debug builds so its usage in a function is still equivalent to a partial function.</p>
+
+<p>Ultimately, <code>assert</code> treads a weird line between a <code>precondition</code> that isn&rsquo;t properly tested in Release builds (leaving you open to indeterminate behavior) and a logic test that should be in your testing code and not in your regular code.</p>
+
+<p>I personally think <code>assert</code> is a good idea only when a <code>precondition</code> is too computationally onorous to run at Release. In all other cases, you should be using <code>precondition</code> (because you really do want the condition to be <code>true</code>) or you should move the testing into your test code (because it&rsquo;s not truly a precondition and you&rsquo;re just validating behavior in a specific case).</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>A function with one or more preconditions is a partial function (valid for only a subset of the values implied by the type signature). Each precondition represents a potential programmer error you can make when using the partial function. Unlike type requirements (where programmer errors get caught at compile time) precondition programmer errors manifest as a fatal errors at runtime.</p>
+
+<p>Fatal errors are obviously bad and you can avoid them by avoiding partial functions.</p>
+
+<p><strong>Do <em>not</em> avoid a partial function by failing to check preconditions</strong>. Boldface for a reason: that&rsquo;s worse than a crash. Failing to check preconditions results in indeterminate behavior that can let misbehavior propagate, potentially leading to &ldquo;worst case&rdquo; scenarios. It also impedes debugging and allows misbehaviors to persist rather than being quickly caught. If your function has requirements, check them!</p>
+
+<p>Instead, we can avoid partial functions by fixing our design to eliminate preconditions.</p>
+
+<p>Preconditions are required only because there are values permitted by the type requirements that cannot meet the runtime expectations. If you fix the type requirements (choose input types where every value can meet the runtime expectations) or change the runtime expectations (to handle every value in the type requirements) there&rsquo;s no need for preconditions.</p>
+
+<p>This can be as simple as returning an <code>Optional</code> instead of a simple value. Or defining an input type that validates requirements on construction (returning <code>nil</code> if the requirements can&rsquo;t be met). Given Swift&rsquo;s syntactically efficient conditional unwrapping operators and error handling capabilities, the cost of handling lots of these types of conditionals is quite low so partial functions should be a very rare thing.</p>
+
+<p>Despite all this, partial functions do exist. There are some narrow cases where they are necessary and some other situations where they&rsquo;re commonly used. And due to their use in the Swift standard library, almost all Swift programs use partial functions in some form so you need to be aware of them.</p>
+
+<p>For these reasons, you might even decide to create partial functions of your own. In the next post, I&rsquo;ll look at testing partial functions by catching <code>precondition</code> failures so you can ensure any partial functions you create will trigger fatal errors correctly as expected.</p>
+
+		</div>
+	</article>
+</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="a-new-era-for-cocoa-with-love.html">A new era for Cocoa with Love</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../../02/02/partial-functions-part-two-catching-precondition-failures.html">Partial functions in Swift, Part 2: Catching precondition failures</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../../../feed.json">JSON</a>, <a href="../../../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Objective-C&#39;s niche: why it survives in a world of alternatives</title>
+  <meta name="description" content="Objective-C remains an impediment for many programmers coming to the Mac or iPhone platforms &amp;mdash; few programmers have ever experienced it before learning Cocoa, forcing two learning curves at once for new Cocoa developers. How did Apple end up with such a weird language? And for a company known to replace CPU architectures and their entire operating system, why does Apple persist with Objective-C? The answer lies in the methods." />
+
+  <meta name="twitter:title" content="Objective-C&#39;s niche: why it survives in a world of alternatives"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/10/objective-c-niche-why-it-survives-in.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Objective-C remains an impediment for many programmers coming to the Mac or iPhone platforms &amp;mdash; few programmers have ever experienced it before learning Cocoa, forcing two learning curves at once for new Cocoa developers. How did Apple end up with such a weird language? And for a company known to replace CPU architectures and their entire operating system, why does Apple persist with Objective-C? The answer lies in the methods."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="objective-c-niche-why-it-survives-in.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="118px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Objective-C&#39;s niche: why it survives in a world of alternatives</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-10-12">October 12, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/objective-c.html">Objective-C</a>, <a href="../../categories/c++.html">C&#43;&#43;</a>, <a href="../../categories/standard-c.html">Standard C</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>Objective-C remains an impediment for many programmers coming to the Mac or iPhone platforms &mdash; few programmers have ever experienced it before learning Cocoa, forcing two learning curves at once for new Cocoa developers. How did Apple end up with such a weird language? And for a company known to replace CPU architectures and their entire operating system, why does Apple persist with Objective-C? The answer lies in the methods.</p></span>
+
+<span class="fullpost">
+
+<h2>Virtual methods</h2>
+
+<p>Most compiled, object-oriented languages (like C++, Java and C&#9839;) adhere closely to the object-oriented approaches first introduced in <a href="http://en.wikipedia.org/wiki/Simula">Simula 67</a> &mdash; in particular the concept of <a href="http://en.wikipedia.org/wiki/Virtual_function">virtual methods</a> and how they enable methods to be overridden.</p>
+
+<blockquote style="width:40%;float:right;margin-left:10px;"><strong>Origins in Algol:</strong> In much the same way that Objective-C is often called a "pure superset" of C, Simula 67 was a "pure superset" of <a href="http://en.wikipedia.org/wiki/ALGOL">Algol 60</a>. While <a href="http://en.wikipedia.org/wiki/Fortran">Fortran</a> is sometimes remembered as the first high-level language to gain popularity (and disdain), Algol 60 was the first programming language to actually resemble a modern language as it contained the <code>for</code>, <code>if</code>/<code>else</code>, <code>while</code> (of sorts), and other procedural contructs that are expected now in programming languages. While Algol was rarely used past the 1970's, <a href="http://en.wikipedia.org/wiki/Pascal_(programming_language)">Pascal</a> and its descendants closely resemble Algol in syntax.</blockquote>
+
+<p>In a compiled language, a <a href="http://en.wikipedia.org/wiki/Subroutine">regular function</a> (non-overrideable) ends up as a basic memory address. When the function is invoked, the CPU jumps to the memory address.</p>
+
+<p>Simula 67 introduced <a href="http://en.wikipedia.org/wiki/Virtual_table">virtual method tables</a> to adapt this for object-orientation. Instead of basic memory addresses, methods are compiled to row numbers in a table. To get the memory address, the method table is retrieved from the class of the object and the CPU jumps to the address at the specified row.</p>
+
+<p>Since different objects have different classes, they will have different addresses in their method tables, hereby allowing sublcasses to have different implementations of methods (<a href="http://en.wikipedia.org/wiki/Method_overriding">method overrides</a>) to their base classes.</p>
+
+<h2>Message passing</h2>
+
+<p>While virtual method tables do introduce a level of indirection that allows method behavior to change from object to object, the offsets into the table and hence the tables themselves all need to be created at compile-time.</p>
+
+<blockquote style="width:40%;float:right;margin-left:10px;"><strong>History of message passing:</strong> As with object-orientation itself, message passing was inspired by Simula 67 but Simula's message passing (called "Simulation") wasn't for method invocations &mdash; it was instead used for discrete event simulation (mostly queueing and list processing). <a href="http://en.wikipedia.org/wiki/Smalltalk">Smalltalk</a> expanded upon this idea by using message passing for method invocation. Smalltalk subsequently inspired the <a href="http://en.wikipedia.org/wiki/Actor_model">Actor Model</a> (used in distributed processing) and <a href="http://en.wikipedia.org/wiki/Remote_procedure_call">remote procedure calls</a> (RPC). Originally, Smalltalk messages were conceived to have a large amount of metadata (more like the full headers on an email) but eventually, this was simplified down to an approach syntactically similar to Objective-C's current implementation (minus square brackets).</blockquote>
+
+<p><a href="http://en.wikipedia.org/wiki/Message_passing">Message passing</a> presents an alternative way of solving the <a href="http://en.wikipedia.org/wiki/Dynamic_dispatch">method dispatch problem</a>. Instead of the virtual method's compile-time offsets and tables which don't consult the object (except for its type), message passing sends a unique message identifier to the object itself and the object determines at runtime what action to take.</p>
+
+<p>Message passing approaches may still have a virtual method table ("vtable") in the class' representation but this structure is not known at compile time &mdash; it is handled entirely at runtime &mdash; and instances of the class have the opportunity to take different actions in response to the message that are unrelated to the content of the table.</p>
+
+<p>There are two important differences here:</p>
+
+<ul><li>Runtime resolution &mdash; so the connection between message identifier and action can be changed at runtime.</li>
+<li>Involvement of the object itself, not just its class.</li></ul>
+
+<p>On a technical level, the difference between a virtual method table and passing a message identifier is relatively minor (since both are really table lookups and both are actually performed at runtime). The difference ends up being conceptual:</p>
+
+<ul><li>Virtual method table languages generally make it hard or impossible to change the virtual method table contents or pointers at runtime.</li>
+<li>Type safety is essential in a virtual method table language since the compiler may alter table lookups based on type, particularly in cases of multiple inheritance. In message passing systems, type safety is irrelevant to method invocation.</li></ul>
+
+<h2>Why this matters</h2>
+
+<p>The short answer is that this dynamic message handling in Objective-C makes it much easier to work within a large framework that you didn't create because you can examine, patch and modify elements of that framework on the fly. The most common situation where this is likely to occur is when dealing with an <a href="http://en.wikipedia.org/wiki/Application_framework">application framework</a>.</p>
+
+<p>The biggest reason for this is that you can add or change methods on existing objects, without needing to subclass them, while they are running. Approaches for this include <a href="http://developer.apple.com/mac/library/documentation/Cocoa/Conceptual/ObjectiveC/Articles/ocCategories.html#//apple_ref/doc/uid/TP30001163-CH20-TPXREF141">categories</a>, <a href="../../2008/03/supersequent-implementation.html">method swizzling</a> and isa-swizzling.</p>
+
+<p>This makes the following situations possible:</p>
+
+<ul><li>You want to add a convenience method to someone else's object (a quick search of my own posts reveals that about a dozens of my own posts involve adding convenience methods to Cocoa classes, e.g. <a href="../../2008/08/safely-fetching-nsmanagedobject-by-uri.html">Safely fetching an NSManagedObject by URI</a>).</li>
+<li>You want to change the behavior of a class you didn't (and can't) allocate because it is created by someone else (this is how <a href="http://developer.apple.com/mac/library/documentation/Cocoa/Conceptual/KeyValueObserving/Concepts/KVOImplementation.html">Key-Value Observing is implemented in Cocoa</a>).</li>
+<li>You want to treat objects generically and handle potential differences with runtime introspection.</li>
+<li>You want to substitute an object of a completely different class to the expected class (this is used in Cocoa by <a href="http://developer.apple.com/mac/library/documentation/Cocoa/Reference/Foundation/Classes/NSProxy_Class/Reference/Reference.html">NSProxy</a> to turn a regular object into a distributed object).</li>
+</ul>
+
+<p>These points may seem somewhat mild but they are central to maximizing code reuse when working within someone else's framework: if you need existing code to work differently, you don't need to reimplement the whole class and you don't need to change how it is allocated.</p>
+
+<p>Languages using virtual method tables can adopt some of these ideas (like the <a href="http://www.boost.org/doc/libs/1_40_0/doc/html/boost/any.html">boost::any</a> class or <a href="http://en.wikipedia.org/wiki/C_Sharp_4.0">C&#9839; 4.0's dynamic member lookup</a>) but these features have additional restrictions and don't apply to all objects, meaning that they can't be used on purely arbitrary objects (such as those you don't control or didn't create) and so don't help when interacting with someone else's framework.</p>
+
+<p>Simply put: dynamic message passing instead of virtual method invocations makes Objective-C a much better language for working with a large library or framework that someone has written.</p>
+
+<h2>The tradeoff</h2>
+
+<p>The downside to dynamic message invocation is that it is only as fast as virtual method invocation when the message lookup is cached, otherwise it is invariably slower.</p>
+
+<p>Also, in keeping with the philosophy of a purely dynamic messaging system, Objective-C does not use templates or template metaprogramming and does not have non-dynamic (i.e. non-virtual) methods. This means that Objective-C methods will miss out on the compiler optimizations possible when employing these techniques. Also, since modern programming in C++ is substantially focussed on these features, it can difficult to adapt programs using these ideas to Objective-C.</p>
+
+<p>Theoretically, Objective-C could implement these features but they are in opposition to the underlying concepts of flexibility and dynamic behavior in Objective-C &mdash; and would shut-down all advantages from the previous section if they were used.</p>
+
+<h2>Conclusion</h2>
+
+<p>It's not a coincidence that I write an Objective-C/Cocoa blog, I'm obviously an advocate of Objective-C and Cocoa. In my opinion, Objective-C is the best language for programming situations where you must make extensive use of a framework written by someone else (particularly an application framework). The success of Objective-C in this situation is due to the combination of:</p>
+<ul><li>speed and precision (from its compiled C roots)</li>
+<li>dynamic flexibility (due to using message passing for method invocations)</li></ul>
+
+<p>To frame this conclusion, I'll state that I've written major projects using C/WIN32, C++/PowerPlant, C++/MFC, and Java/Swing/AWT. I've also dabbled in smaller projects using C&#9839;/.Net. In all of these cases I have found the application frameworks to be less flexible and less reusable because they lack the dynamic modifiability of Objective-C.</p>
+
+<p>As I've stated, I do view Objective-C's strength in the area of application frameworks as a niche (albeit a very large niche). If I were writing a compiler, OS kernel, or a low-level/high-performance library, then I would use C++ (I wouldn't use pure C because I'd miss my abstractions) &mdash; but these are situations where metaprogramming, greater inlining and faster method invocations would trump flexibility concerns. Of course, if you have a project that needs to satisfy all these criteria: then there's always Objective-C++.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="ugly-side-of-blocks-explicit.html">The ugly side of blocks: explicit declarations and casting.</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="how-blocks-are-implemented-and.html">How blocks are implemented (and the consequences)</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

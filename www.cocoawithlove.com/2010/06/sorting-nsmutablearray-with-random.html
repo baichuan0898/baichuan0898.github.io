@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Sorting an NSMutableArray with a random comparison method</title>
+  <meta name="description" content="If you sorted an &lt;code&gt;NSMutableArray&lt;/code&gt; with a comparison method that randomly returns either higher or lower, would the result be an even, random distribution? Spoiler: no it won&#39;t but the actual distribution is interesting nonetheless. I&#39;ll show you what would happen if you did sort this way (and also show you how to correctly randomize an array if you did want an even distribution)." />
+
+  <meta name="twitter:title" content="Sorting an NSMutableArray with a random comparison method"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2010/06/sorting-nsmutablearray-with-random.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="If you sorted an &lt;code&gt;NSMutableArray&lt;/code&gt; with a comparison method that randomly returns either higher or lower, would the result be an even, random distribution? Spoiler: no it won&#39;t but the actual distribution is interesting nonetheless. I&#39;ll show you what would happen if you did sort this way (and also show you how to correctly randomize an array if you did want an even distribution)."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="sorting-nsmutablearray-with-random.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Sorting an NSMutableArray with a random comparison method</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2010-06-10">June 10, 2010</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/numerical-methods.html">numerical methods</a>, <a href="../../categories/foundation.html">Foundation</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>If you sorted an <code>NSMutableArray</code> with a comparison method that randomly returns either higher or lower, would the result be an even, random distribution? Spoiler: no it won't but the actual distribution is interesting nonetheless. I'll show you what would happen if you did sort this way (and also show you how to correctly randomize an array if you did want an even distribution).</p></span>
+
+<span class="fullpost">
+<h2>Sorting an array</h2>
+<p>You can sort an <code>NSMutableArray</code> by any logic you want using a comparison method (implemented on the contained objects) and invoking <code>sortUsingSelector:</code> on the array.</p>
+
+<p>What would happen if you sorted an array of numbers using the following category method which returned a random result?</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@implementation</span> <span class="nc">NSNumber</span> <span class="nl">(RandomComparison)</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="n">NSComparisonResult</span><span class="p">)</span><span class="nf">randomCompare:</span><span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nv">other</span>
+<span class="p">{</span>
+    <span class="c1">// randomly return either ascending or descending
+</span><span class="c1"></span>    <span class="k">return</span> <span class="p">(</span><span class="n">random</span><span class="p">()</span> <span class="o">%</span> <span class="mi">2</span><span class="p">)</span> <span class="o">?</span> <span class="nl">NSOrderedAscending</span> <span class="p">:</span> <span class="n">NSOrderedDescending</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">@end</span></code></pre></div>
+
+<p>Naively, you might think that the result would be an even, random distribution.</p>
+
+<h2>Distribution from a random sort</h2>
+
+<p>For an array 20 elements long, sorted using a random comparison, the following is a chart of percentages where the 1st element in the array ended after 1 million runs:</p>
+
+<img src="../../assets/objc-era/firstelement.png" width="497" height="357" />
+
+<p align="center"><em>The percentage of times that the original 1st element ended in each position of the final array.</em></p>
+
+<p>In a proper random distribution, you'd expect the first element to be equally likely to end up in any position. In fact a correct result here should be 5.0% +/- 0.1% for every column.</p>
+
+<p>The actual result reflects traits of <code>NSMutableArray</code>'s internal sorting (which I'm presuming uses a sort similar to the <a href="http://www.opensource.apple.com/source/CF/CF-368.28/Base.subproj/CFSortFunctions.c">CFQSortArray from CoreFoundation</a>.</p>
+
+<p>The biggest feature of the distribution is a fuction of how quicksort works. Between 7 and 40 elements (which this array is), <code>NSMutableArray</code>'s sort chooses a single pivot which is most likely to be in the middle of the array. Elements on either half are sorted with respect to each other before sorting with the whole.</p>
+
+<p>This pivot selection causes the huge difference between the distribution in the top and bottom half since elements compared with other elements on their own side of the pivot more often, they are more likely to remain on that half of the pivot.</p>
+
+<p>Quicksort subdivides the array but for subdivided blocks smaller than 7 elements, the <code>NSMutableArray</code>'s sort algorithm uses a bubble sort instead of quicksort. Elements 1 to 5 at the far left of the distribution show what happens in this bubble sort case: a bulge in the center of the 1 to 5 range, skewed in the direction of the element's original position (i.e. the bulge is lopsided towards 1).</p>
+
+<p>Let's look at what happens to element 11:</p>
+
+<img src="../../assets/objc-era/tenthelement.png" width="497" height="352" />
+
+<p align="center"><em>The percentage of times that the original 11th element ended in each position of the final array.</em></p>
+
+<p>This is not a simple mirror of the previous results but it again follows the quicksort pattern: results from a random sort are most likely to stay in the partition where they began, with minor perturbations on the fringes due to the bubble sort.</p>
+
+<h2>The correct way to randomize in-place</h2>
+
+<p>If you're interested, the correct way to randomize in-place is:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@implementation</span> <span class="nc">NSMutableArray</span> <span class="nl">(Randomization)</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">randomize</span>
+<span class="p">{</span>
+    <span class="n">NSInteger</span> <span class="n">count</span> <span class="o">=</span> <span class="p">[</span><span class="nb">self</span> <span class="n">count</span><span class="p">];</span>
+    <span class="k">for</span> <span class="p">(</span><span class="n">NSInteger</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">count</span> <span class="o">-</span> <span class="mi">1</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">NSInteger</span> <span class="n">swap</span> <span class="o">=</span> <span class="n">random</span><span class="p">()</span> <span class="o">%</span> <span class="p">(</span><span class="n">count</span> <span class="o">-</span> <span class="n">i</span><span class="p">)</span> <span class="o">+</span> <span class="n">i</span><span class="p">;</span>
+        <span class="p">[</span><span class="nb">self</span> <span class="nl">exchangeObjectAtIndex</span><span class="p">:</span><span class="n">swap</span> <span class="nl">withObjectAtIndex</span><span class="p">:</span><span class="n">i</span><span class="p">];</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="k">@end</span></code></pre></div>
+
+<p>A quick summary of what this does:</p>
+
+<ol><li>conceptually split the array into "used" elements (in their final positions) and "unused" elements (initially, everything is "unused")</li>
+<li>randomly choose an element from the unused elements</li>
+<li>swap the chosen element with the first element in the unused range</li>
+<li>this first position in the unused range is now considered used (i.e. the element is in its final position)</li>
+<li>repeat steps 2 to 4 until all elements are in their final positions</ol>
+
+<p>This algorithm is the "Fisher–Yates shuffle" and dates to 1938 (which is an indication of how obvious it is).</p>
+
+<p>If you're truly interested in a perfectly even, random distribution, you may want to use an approach that avoids biases due to modulo (modulo will round down too often for non-binary divisible numbers). You can see one approach for unbiased rounding in <a href="http://stackoverflow.com/questions/791232/canonical-way-to-randomize-an-nsarray-in-objective-c/791744#791744">this post by Brent Royal-Gordon on StackOverflow</a>. Although if you're really interested in an even distribution, you'll probably want to use a <a href="http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/MT2002/emt19937ar.html">Mersenne-Twister</a> instead of the C <code>random()</code> function.</p>
+
+<p>The reality is that that code I showed is faster than the other options and easily good enough unless you have a strong mathematical need for accuracy (in my tests on 1 million samples, it was evenly distributed to 2 significant figures in all cases).</p>
+
+<h2>Conclusion</h2>
+
+<p>A quick post this week. I was really just goofing around with comparison methods and thought the results were interesting. In retrospect, its obvious that the results from a sort with a random comparison would be a function of how the sort is performed but I was surprised that the two different kinds of sort (bubble and quick) both had a visible influence on the results.</p>
+
+<p>Of course, there are proper ways to randomize arrays and they're not very difficult &mdash; unless you're really fussy about the quality of your random numbers.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="avoiding-deadlocks-and-latency-in.html">Avoiding deadlocks and latency in libdispatch</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="design-of-every-mac-application.html">The design of every Mac application</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

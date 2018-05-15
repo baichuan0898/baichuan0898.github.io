@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Serving an NSManagedObjectContext over an NSConnection</title>
+  <meta name="description" content="In this post, I&#39;ll show you how you can serve a Core Data document over a network using NSConnection. This arrangement will never be as efficient or safe as writing your own code to communicate the data over the network but the promise of transparent and automatic networking seemed too tempting to pass up." />
+
+  <meta name="twitter:title" content="Serving an NSManagedObjectContext over an NSConnection"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/01/serving-nsmanagedobjectcontext-over.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="In this post, I&#39;ll show you how you can serve a Core Data document over a network using NSConnection. This arrangement will never be as efficient or safe as writing your own code to communicate the data over the network but the promise of transparent and automatic networking seemed too tempting to pass up."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="serving-nsmanagedobjectcontext-over.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Serving an NSManagedObjectContext over an NSConnection</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-01-05">January 5, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/core-data.html">Core Data</a>, <a href="../../categories/foundation.html">Foundation</a>, <a href="../../categories/fun-hacks.html">fun hacks</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>In this post, I'll show you how you can serve a Core Data document over a network using NSConnection. This arrangement will never be as efficient or safe as writing your own code to communicate the data over the network but the promise of transparent and automatic networking seemed too tempting to pass up.</p></span>
+
+<span class="fullpost">
+<h2>NSConnection and NSManagedObjectContext</h2>
+<p><code>NSConnection</code> is an often forgotten tool in the Foundation toolbox which allows messages to be sent from local objects to remote objects (in another process or on another machine). Once set up, it works almost transparently, especially when you keep the data sent over the <code>NSConnection</code> small and simple.</p>
+
+<p><code>NSManagedObjectContext</code> manages the data graph read from a Core Data persistent store (normally an SQLite database). It handles huge amounts of complex data.</p>
+
+<p>Other than their shared presence in Cocoa, these classes don't have much common ground. However, they seem like they should produce the Holy Grail of network computing: complex object management transparently served and managed over a network.</p>
+
+<p>Of course, it won't be easy: these APIs aren't likely to be sympathetic to each other. In fact, it's probably just a bad idea.</p>
+
+<h2>The sample app</h2>
+
+<p>I'm going to present a variation on Apple's Core Data Stickies sample app (the original is installed by the Developer Tools at /Developer/Examples/Core Data/Stickies/).</p>
+
+<p>Stickies look like this:</p>
+
+<img src="../../assets/objc-era/stickies.png" width="450" height="270" />
+
+<p><a href="../../assets/objc-era/Stickies.zip">Download the finished ClientServerStickies Xcode 3.1 project</a> (92kB).</p>
+
+<p>There are two versions of the program: a client and a server. The server will host the <code>NSManagedObjectContext</code> and any number of client may connect to it.</p>
+
+<p>Both client and server will continue to look like the original Stickies app, the only difference is that the server contains the only copy of the data and the note information is shared to each client over a network connection.</p>
+
+<p>Since the position of each note is shared, if you run the client and server on the same machine, the windows will be positioned on top of each other. Hide either the client or the server to check the other.<p>
+
+<h2>Setup</h2>
+
+<p>I've taken the Stickies project and duplicated the target, splitting it into a Server and Client target. The Server has the C preprocessor macro <code>STICKIES_SERVER</code> defined, so code differences between the two will be wrapped in <code>#ifdef</code>s using this macro. They also use different Info.plist files (to keep their <code>CFBundleIdentifiers</code> different) but are otherwise the same.</p> 
+
+<p>To run the project, you must build both targets and always start the server <em>before</em> the client.</p>
+
+<h2>Getting started: sharing the NSManagedObjectContext</h2>
+
+<p>The first step is to get the client and the server using the same <code>NSManagedObjectContext</code>. For this, we modify the <code>managedObjectContext</code> method in StickiesAppDelegate.m</p>
+
+<p>The server version remains the same until immediately before the <code>return</code> line, we add:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">NSSocketPort</span> <span class="o">*</span><span class="n">port</span> <span class="o">=</span>
+    <span class="p">[[[</span><span class="n">NSSocketPort</span> <span class="n">alloc</span><span class="p">]</span> <span class="nl">initWithTCPPort</span><span class="p">:</span><span class="n">STICKIES_SERVER_PORT</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span>
+
+<span class="n">NSConnection</span> <span class="o">*</span><span class="n">theConnection</span> <span class="o">=</span>
+    <span class="p">[[</span><span class="n">NSConnection</span> <span class="nl">connectionWithReceivePort</span><span class="p">:</span><span class="n">port</span> <span class="nl">sendPort</span><span class="p">:</span><span class="nb">nil</span><span class="p">]</span> <span class="k">retain</span><span class="p">];</span>
+<span class="p">[</span><span class="n">theConnection</span> <span class="nl">setDelegate</span><span class="p">:</span><span class="nb">self</span><span class="p">];</span>
+<span class="p">[</span><span class="n">theConnection</span> <span class="nl">setRootObject</span><span class="p">:</span><span class="n">managedObjectContext</span><span class="p">];</span></code></pre></div>
+
+<p>This is all we need to share the <code>NSManagedObjectContext</code>.</p>
+
+<p>For the client, we remove all the context creation code, leaving:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@try</span>
+<span class="p">{</span>
+    <span class="n">NSSocketPort</span> <span class="o">*</span><span class="n">port</span> <span class="o">=</span>
+        <span class="p">[[[</span><span class="n">NSSocketPort</span> <span class="n">alloc</span><span class="p">]</span>
+            <span class="nl">initRemoteWithTCPPort</span><span class="p">:</span><span class="n">STICKIES_SERVER_PORT</span> <span class="nl">host</span><span class="p">:</span><span class="s">@&#34;127.0.0.1&#34;</span><span class="p">]</span>
+        <span class="n">autorelease</span><span class="p">];</span>
+
+    <span class="n">NSConnection</span> <span class="o">*</span><span class="n">theConnection</span> <span class="o">=</span>
+        <span class="p">[[</span><span class="n">NSConnection</span> <span class="nl">connectionWithReceivePort</span><span class="p">:</span><span class="nb">nil</span> <span class="nl">sendPort</span><span class="p">:</span><span class="n">port</span><span class="p">]</span> <span class="k">retain</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">theConnection</span> <span class="nl">setDelegate</span><span class="p">:</span><span class="nb">self</span><span class="p">];</span>
+    <span class="n">managedObjectContext</span> <span class="o">=</span>
+        <span class="p">(</span><span class="n">NSManagedObjectContext</span> <span class="o">*</span><span class="p">)[[</span><span class="n">theConnection</span> <span class="n">rootProxy</span><span class="p">]</span> <span class="k">retain</span><span class="p">];</span>
+<span class="p">}</span>
+<span class="k">@catch</span> <span class="p">(</span><span class="n">NSException</span> <span class="o">*</span><span class="n">e</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="p">[[</span><span class="n">NSAlert</span>
+        <span class="nl">alertWithMessageText</span><span class="p">:</span><span class="s">@&#34;Connection error&#34;</span>
+        <span class="nl">defaultButton</span><span class="p">:</span><span class="nb">nil</span>
+        <span class="nl">alternateButton</span><span class="p">:</span><span class="nb">nil</span>
+        <span class="nl">otherButton</span><span class="p">:</span><span class="nb">nil</span>
+        <span class="nl">informativeTextWithFormat</span><span class="p">:</span>
+            <span class="s">@&#34;Server not found. Application will terminate.&#34;</span><span class="p">]</span>
+    <span class="n">runModal</span><span class="p">];</span>
+    
+    <span class="p">[</span><span class="n">NSApp</span> <span class="nl">terminate</span><span class="p">:</span><span class="nb">self</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This connects to the vended <code>NSManagedObjectContext</code> and uses it remotely.</p>
+
+<p>You can see here that I've hard-coded 127.0.0.1 (the localhost). If you want to actually use over a network, you can change this or publish using <code>NSNetService</code> if you're properly ambitious. Clearly, I'm not.</p>
+
+<p>That was great! And so simple. Does it work? Of course not.</p>
+
+<h2>What is NSKnownKeysDictionary1?</h2>
+
+<p>To work over an <code>NSConnection</code> an object must be encodeable by an <code>NSPort</code>. Almost everything can be encoded by the default <code>NSPortCoder</code>. Of course, I use the word "almost" because there are some things which can't be encoded. Generally, <code>void *</code> and pointers to pointers can't be encoded. In your own code, you can implement substitutions for the port coder to make it work.</p>
+
+<p>But Foundation is not my code, so when the return value from <code>entitiesByName</code> refuses to encode because its subclass of <code>NSDictionary</code> is too weird to be encoded, I have to take different measures. The following delegate method replaces this weird return with something more normal that will journey over the <code>NSConnection</code>.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">BOOL</span><span class="p">)</span><span class="nf">connection:</span><span class="p">(</span><span class="n">NSConnection</span> <span class="o">*</span><span class="p">)</span><span class="nv">conn</span>
+    <span class="nf">handleRequest:</span><span class="p">(</span><span class="n">NSDistantObjectRequest</span> <span class="o">*</span><span class="p">)</span><span class="nv">doReq</span>
+<span class="p">{</span>
+    <span class="n">NSInvocation</span> <span class="o">*</span><span class="n">invocation</span> <span class="o">=</span> <span class="p">[</span><span class="n">doReq</span> <span class="n">invocation</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">invocation</span> <span class="n">invoke</span><span class="p">];</span>
+
+    <span class="k">if</span> <span class="p">([</span><span class="n">invocation</span> <span class="n">selector</span><span class="p">]</span> <span class="o">==</span> <span class="k">@selector</span><span class="p">(</span><span class="n">entitiesByName</span><span class="p">))</span>
+    <span class="p">{</span>
+        <span class="kt">id</span> <span class="n">retVal</span><span class="p">;</span>
+        <span class="p">[</span><span class="n">invocation</span> <span class="nl">getReturnValue</span><span class="p">:</span><span class="o">&amp;</span><span class="n">retVal</span><span class="p">];</span>
+        
+        <span class="n">NSDictionary</span> <span class="o">*</span><span class="n">rebuilt</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSDictionary</span> <span class="nl">dictionaryWithDictionary</span><span class="p">:</span><span class="n">retVal</span><span class="p">];</span>
+        <span class="p">[</span><span class="n">invocation</span> <span class="nl">setReturnValue</span><span class="p">:</span><span class="o">&amp;</span><span class="n">rebuilt</span><span class="p">];</span>
+    <span class="p">}</span>
+
+    <span class="p">[</span><span class="n">doReq</span> <span class="nl">replyWithException</span><span class="p">:</span><span class="nb">nil</span><span class="p">];</span>
+
+    <span class="k">return</span> <span class="nb">YES</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This is a delegate method for the <code>NSConnection</code>. In this case, it will intercept the return results from <code>entitiesByName</code> (when this message is sent to an object on the server-side) and replace it with a clean and normal <code>NSDictionary</code>, not the unfriendly <code>NSKnownKeysDictionary1</code> oddball.</p>
+
+<h2>Don't have the model create the view. Really.</h2>
+
+<p>If you run the program using only the changes listed so far, the client won't show any windows.</p>
+
+<p>This is because the windows for the Stickies are created in <code>Sticky.m</code> in methods that are part of the <code> Sticky </code> class. This is the <code>NSManagedObject</code> subclass for the Sticky entity in the model. Like everything in the <code>NSManagedObjectContext</code>, it only exists on the server &mdash; so the server will have windows but the client wont.</p>
+
+<p>I'm not sure what the poor, overworked code-monkey that wrote this was thinking but you shouldn't write a program like this. The model should never create its view; a controller should.</p>
+
+<p>The <code>NSArrayController</code> fetches the Stickies for each client. To fix the creation of windows, we need something that watches the <code>NSArrayController</code> and creates the windows correctly on the client side when new objects are added to its <code>arrangedObjects</code>.</p>
+
+<p>All of the code that was in <code>Sticky.m</code> is pulled out and put into <code>StickyWindowController.m</code>. We can then have multiple window controllers for the same underlying data object &mdash; one window controller per client and one for the server.</p>
+
+<p>I've put the code that creates the window controllers into the <code>StickiesAppDelegate</code>. This isn't the most sensible place for it but the <code>NSArrayController</code> is already connected to this class in the sample so I'm working with what I have.</p>
+
+<p>Replacing the old <code>applicationDidFinishLaunching:</code> and adding synchronization methods gives:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">applicationDidFinishLaunching:</span><span class="p">(</span><span class="n">NSNotification</span> <span class="o">*</span><span class="p">)</span><span class="nv">notification</span> 
+<span class="p">{</span>
+    <span class="n">stickyWindowControllers</span> <span class="o">=</span> <span class="p">[[</span><span class="n">NSMutableArray</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">stickiesController</span>
+        <span class="nl">addObserver</span><span class="p">:</span><span class="nb">self</span>
+        <span class="nl">forKeyPath</span><span class="p">:</span><span class="s">@&#34;arrangedObjects&#34;</span>
+        <span class="nl">options</span><span class="p">:</span><span class="n">NSKeyValueObservingOptionNew</span>
+        <span class="nl">context</span><span class="p">:</span><span class="nb">nil</span><span class="p">];</span>
+<span class="p">}</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">syncWithStickiesController</span> 
+<span class="p">{</span>
+    <span class="n">NSSet</span> <span class="o">*</span><span class="n">newArrangedObjects</span> <span class="o">=</span>
+        <span class="p">[</span><span class="n">NSSet</span> <span class="nl">setWithArray</span><span class="p">:[</span><span class="n">stickiesController</span> <span class="n">arrangedObjects</span><span class="p">]];</span>
+    <span class="n">NSSet</span> <span class="o">*</span><span class="n">oldArrangedObjects</span> <span class="o">=</span>
+        <span class="p">[</span><span class="n">NSSet</span> <span class="nl">setWithArray</span><span class="p">:[</span><span class="n">stickyWindowControllers</span> <span class="nl">valueForKey</span><span class="p">:</span><span class="s">@&#34;sticky&#34;</span><span class="p">]];</span>
+
+    <span class="n">NSMutableSet</span> <span class="o">*</span><span class="n">createdObjects</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSMutableSet</span> <span class="nl">setWithSet</span><span class="p">:</span><span class="n">newArrangedObjects</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">createdObjects</span> <span class="nl">minusSet</span><span class="p">:</span><span class="n">oldArrangedObjects</span><span class="p">];</span>
+    
+    <span class="k">for</span> <span class="p">(</span><span class="n">NSManagedObject</span> <span class="o">*</span><span class="n">sticky</span> <span class="k">in</span> <span class="n">createdObjects</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="n">stickyWindowControllers</span> <span class="nl">addObject</span><span class="p">:</span>
+            <span class="p">[[[</span><span class="n">StickyWindowController</span> <span class="n">alloc</span><span class="p">]</span>
+                <span class="nl">initWithSticky</span><span class="p">:</span><span class="n">sticky</span><span class="p">]</span>
+            <span class="n">autorelease</span><span class="p">]];</span>
+    <span class="p">}</span>
+    <span class="k">for</span> <span class="p">(</span><span class="n">StickyWindowController</span> <span class="o">*</span><span class="n">stickyWindowController</span> <span class="k">in</span>
+        <span class="p">[</span><span class="n">NSArray</span> <span class="nl">arrayWithArray</span><span class="p">:</span><span class="n">stickyWindowControllers</span><span class="p">])</span>
+    <span class="p">{</span>
+        <span class="k">if</span> <span class="p">([</span><span class="n">oldArrangedObjects</span> <span class="nl">containsObject</span><span class="p">:[</span><span class="n">stickyWindowController</span> <span class="n">sticky</span><span class="p">]]</span> <span class="o">&amp;&amp;</span>
+            <span class="o">!</span><span class="p">[</span><span class="n">newArrangedObjects</span> <span class="nl">containsObject</span><span class="p">:[</span><span class="n">stickyWindowController</span> <span class="n">sticky</span><span class="p">]])</span>
+        <span class="p">{</span>
+            <span class="p">[</span><span class="n">stickyWindowController</span> <span class="n">close</span><span class="p">];</span>
+            <span class="p">[</span><span class="n">stickyWindowControllers</span> <span class="nl">removeObject</span><span class="p">:</span><span class="n">stickyWindowController</span><span class="p">];</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">observeValueForKeyPath:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">keyPath</span> <span class="nf">ofObject:</span><span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nv">object</span>
+    <span class="nf">change:</span><span class="p">(</span><span class="n">NSDictionary</span> <span class="o">*</span><span class="p">)</span><span class="nv">change</span> <span class="nf">context:</span><span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="p">)</span><span class="nv">context</span> 
+<span class="p">{</span>
+    <span class="k">if</span> <span class="p">([</span><span class="n">keyPath</span> <span class="nl">isEqualTo</span><span class="p">:</span><span class="s">@&#34;arrangedObjects&#34;</span><span class="p">])</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="nb">self</span> <span class="n">syncWithStickiesController</span><span class="p">];</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<h2>Two problems with NSArrayController remain</h2>
+
+<p>The last two issues I had to address were related to the <code>NSArrayController</code> not actually being in the same process as the <code>NSManagedObjectContext</code> to which it is connected.</p>
+
+<p>The <code>NSArrayController</code> lives on each client but it is asked to create new Sticky entities, which must live on the server. When it tries to allocate them on the client, it fails. In a more general sense: how do we create new <code>NSManagedObject</code>s on the server from the client side?</p>
+
+<p>The second problem is that <code>NSArrayController</code> listens for new or deleted objects in the context through <code>NSNotification</code>s. The <code>NSManagedObjectContext</code> only sends these to the <code>NSNotificationCenter</code> on the server. So the <code>NSArrayController</code> isn't receiving change notifications for the Stickies.</p>
+
+<p>To solve the first problem, I extend <code>NSManagedObject</code> on the client to intercept attempts to create objects and bounce these client-side requests to be performed on the server.</p>
+
+<p>On the server, I listen for the same notifications that <code>NSArrayController</code> needs and forward them to each of the clients.</p>
+
+<p>All of this is bundled up in the following code:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="cp">#ifdef STICKIES_SERVER
+</span><span class="cp"></span>
+<span class="k">@implementation</span> <span class="nc">NSManagedObjectContext</span> <span class="nl">(ServerRedirection)</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nf">remotelyAllocateWithEntity:</span><span class="p">(</span><span class="n">NSEntityDescription</span> <span class="o">*</span><span class="p">)</span><span class="nv">entity</span>
+<span class="p">{</span>
+    <span class="n">NSEntityDescription</span> <span class="o">*</span><span class="n">localEntity</span> <span class="o">=</span> <span class="p">[</span><span class="n">entity</span> <span class="nl">valueForKey</span><span class="p">:</span><span class="s">@&#34;self&#34;</span><span class="p">];</span>
+    <span class="k">return</span> <span class="p">[[</span><span class="n">NSManagedObject</span> <span class="n">alloc</span><span class="p">]</span>
+        <span class="nl">initWithEntity</span><span class="p">:</span><span class="n">localEntity</span> <span class="nl">insertIntoManagedObjectContext</span><span class="p">:</span><span class="nb">self</span><span class="p">];</span>
+<span class="p">}</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">forwardContextChangeNotificationsTo:</span><span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nv">receiver</span>
+<span class="p">{</span>
+    <span class="p">[[</span><span class="n">NSNotificationCenter</span> <span class="n">defaultCenter</span><span class="p">]</span>
+        <span class="nl">addObserver</span><span class="p">:</span><span class="n">receiver</span>
+        <span class="nl">selector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="nl">forwardNotification</span><span class="p">:)</span>
+        <span class="nl">name</span><span class="p">:</span><span class="s">@&#34;_NSObjectsChangedInManagingContextPrivateNotification&#34;</span>
+        <span class="nl">object</span><span class="p">:</span><span class="nb">self</span><span class="p">];</span>
+<span class="p">}</span>
+
+<span class="k">@end</span>
+
+<span class="cp">#else
+</span><span class="cp"></span>
+<span class="k">@implementation</span> <span class="nc">NSManagedObject</span> <span class="nl">(ServerRedirection)</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nf">initWithEntity:</span><span class="p">(</span><span class="n">NSEntityDescription</span> <span class="o">*</span><span class="p">)</span><span class="nv">entity</span>
+    <span class="nf">insertIntoManagedObjectContext:</span><span class="p">(</span><span class="n">NSManagedObjectContext</span> <span class="o">*</span><span class="p">)</span><span class="nv">context</span>
+<span class="p">{</span>
+    <span class="k">return</span> <span class="p">[</span><span class="n">context</span> <span class="nl">remotelyAllocateWithEntity</span><span class="p">:</span><span class="n">entity</span><span class="p">];</span>
+<span class="p">}</span>
+
+<span class="k">@end</span>
+
+<span class="cp">#endif</span></code></pre></div>
+
+<p>To make the forwarding work, the client needs to invoke <code>forwardContextChangeNotificationsTo:</code> on the remote <code>NSManagedObjectContext</code> object, passing in itself, and then implement the <code>forwardNotification:</code> method to send the notification method to the local <code>NSNotificationCenter</code>.</p>
+
+<h2>Conclusion</h2>
+
+<p>You can <a href="../../assets/objc-era/Stickies.zip">download the finished ClientServerStickies Xcode 3.1 project</a> (92kB).</p>
+
+<p>I hope this post has shown some of the quirks associated with vending arbitrary objects over an <code>NSConnection</code> to achieve networking.</p>
+
+<p>There are at least a few (possibly many) issues remaining. One of these is that if a client quits without explicitly calling <code>removeObserver:forKeyPath:</code> on any observed server objects, the server will crash if it later tries to send the observation. To fix this, you'd need to track all observations established over the <code>NSConnection</code> and remove them yourself in the case of abrupt client disconnection.</p>
+
+<p>This setup is also verbose, with lots of small messages getting sent forwards and backwards. Not a problem when runnning on the local host or over a local network but I don't think you'd want to run this over the broader Internet.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../../2008/12/heterogeneous-cells-in.html">Heterogeneous cells in a UITableViewController</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="multiple-row-selection-and-editing-in.html">Multiple row selection and editing in a UITableView</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

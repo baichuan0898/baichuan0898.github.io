@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>IMP of the current method</title>
+  <meta name="description" content="I wanted to get my new blog started with something that&#39;s unlikely to be found anywhere else. This is an obscure hack to access a fundamental piece of Objective-C data." />
+
+  <meta name="twitter:title" content="IMP of the current method"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2008/02/imp-of-current-method.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="I wanted to get my new blog started with something that&#39;s unlikely to be found anywhere else. This is an obscure hack to access a fundamental piece of Objective-C data."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="imp-of-current-method.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">IMP of the current method</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2008-02-25">February 25, 2008</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/objective-c.html">Objective-C</a>, <a href="../../categories/fun-hacks.html">fun hacks</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>I wanted to get my new blog started with something that's unlikely to be found anywhere else. This is an obscure hack to access a fundamental piece of Objective-C data.</p></span>
+
+<span class="fullpost"><h2>Not a trivial question</h2><blockquote>"How do you find the IMP of the current method?"</blockquote>
+
+<p>The section title doesn't lie, this isn't a trivial question. Objective-C (a language renowned for its ability to look everything up at runtime) has no variables, functions, operators or identifiers which directly access this value.</p>
+
+<p>Pragmatic readers might ask: "Why should I care?"</p>
+
+<p>Honestly, these readers should stop being difficult. I've only been writing this blog for 7 sentences now and already they're giving me grief. As George Mallory famously said: "Because it's there". Indeed, the mountain certainly was there and it killed him.</p>
+
+<p>If this is still insufficient for you, then I promise to give a reason in a future post <em>[<strong>edit</strong>: have a look at <a href="../03/supersequent-implementation.html">this future post</a>]</em>. I'm holding out for now because I want repeat readers and to get on with this post.</p>
+
+<h2>What is the IMP?</h2>
+
+<p>IMP is short for "implementation". It is the memory address of the start of a code block that implements a Method. It can be invoked just like a C function if needed. Normally though, you send a message to an Objective-C object, and the Objective-C runtime finds the Method associated with that message and invokes the IMP for you.</p>
+
+<p>There are rare cases though, where you may want to bypass the typical "<span class="monospace">[object method:parameter];</span>" syntax and the <span class="monospace">objc_msgSend()</span> function. In these cases you'll need to invoke the IMP directly. Herein lies its usefulness and the reason why you might wish to access it directly.</p>
+
+<h2>IMPs in the Objective-C runtime data</h2>
+
+<p>In Objective-C, every method of every class in your program has a data structure constructed for it at runtime. In Objective-C 2.0, this structure is officially "opaque" (it's still there but you access its contents through functions instead of directly).</p>
+
+<p>Let's look at what a Method structure contains...</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">struct</span> <span class="n">objc_method</span>
+<span class="p">{</span>
+  <span class="kt">SEL</span> <span class="n">method_name</span><span class="p">;</span>
+  <span class="kt">char</span> <span class="o">*</span> <span class="n">method_types</span><span class="p">;</span>
+  <span class="kt">IMP</span> <span class="n">method_imp</span><span class="p">;</span>
+<span class="p">};</span>
+<span class="k">typedef</span> <span class="n">objc_method</span> <span class="n">Method</span><span class="p">;</span></code></pre></div>
+
+<p>So the method has 3 properties:</p>
+
+<ul><li>method_name describes the signature of the method; its value is shared by all methods with the same name and parameter names</li>
+<li>method_types describes the types of the parameters to the method.</li>
+<li>method_imp is the function pointer, i.e. the address of the code invoked when this method is selected for invocation.</li></ul>
+
+<p>It's this "method_imp" that we are challenged to find. The IMP of a method is the address of its code, also known as its function pointer.</p>
+
+<h2>So where's the problem?</h2>
+
+<p>It would seem like the IMP of the current method should be easy. Every method has a <span class="monospace">self</span> parameter and a rarely used <span class="monospace">_cmd</span> parameter and using these we can invoke:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">[(</span><span class="n">NSObject</span> <span class="o">*</span><span class="p">)[</span><span class="nb">self</span> <span class="k">class</span><span class="p">]</span> <span class="nl">instanceMethodForSelector</span><span class="p">:</span><span class="n">_cmd</span><span class="p">];</span></code></pre></div>
+
+<p>Except that this only ever returns the <i>default</i> IMP.</p>
+
+<p>Selectors like <span class="monospace">_cmd</span> are not unique; they are shared by every method override, so if a Class hierarchy has multiple implementations at multiple depths in the hierarchy corresponding to <span class="monospace">_cmd</span>, you can't differentiate them.</p>
+
+<p>This is deliberate on the part of the Objective-C designers. The construction of the class hierarchy is supposed to determine which IMP you get for a given SEL.</p>
+
+<p>I'm being picky here: I wish to access the current Method implementation, regardless of whether it's the default.</p>
+
+<p>Don't mistake me: if you <i>are</i> after the default IMP (probably the common case), you <i>should</i> use <span class="monospace">+[NSObject instanceMethodForSelector:]</span> or one of the similar methods or functions. However, this article concerns the case where you're after a specific, not necessarily default, IMP.</p>
+
+<h2>Can't you just reference the function, same as in C?</h2>
+
+<p>In pure C getting the equivalent of an IMP is easy, as in the following example:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">void</span> <span class="nf">myFunction</span><span class="p">()</span>
+<span class="p">{</span>
+   <span class="kt">void</span> <span class="o">*</span><span class="n">myImplementation</span> <span class="o">=</span> <span class="n">myFunction</span><span class="p">;</span>
+  
+   <span class="p">...</span>
+<span class="p">}</span></code></pre></div>
+
+<p>In C, getting the function pointer of the current function is as easy as using the name of the function as an identifier (it's always in scope inside itself).</p>
+
+<p>There was a time when it was this simple in Objective C too. You used to be able to reference a method by its mangled name. Like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">myMethodWithParam1:</span><span class="p">(</span><span class="kt">int</span><span class="p">)</span><span class="nv">someParameter</span> <span class="nf">andParam2:</span><span class="p">(</span><span class="kt">int</span><span class="p">)</span><span class="nv">otherParameter</span>
+<span class="p">{</span>
+   <span class="kt">void</span> <span class="o">*</span><span class="n">myImplementation</span> <span class="o">=</span> <span class="n">_i_MyClass_MyCategory_myMethodWithParam1_andParam2_</span><span class="p">;</span>
+  
+   <span class="p">...</span>
+<span class="p">}</span></code></pre></div>
+
+<p>That time is long gone and mangled names are no longer available. So how do you get the address of the start of the function that you're in?</p>
+
+<h2>The solution</h2>
+
+<p>My solution begins with a little-known GCC "built-in" function.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">__builtin_return_address</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span></code></pre></div>
+
+<p>This function gives the return address from the current stack frame. You can pass numbers other than zero (to get other stack frames) but only zero is guaranteed to work.</p>
+
+<p>So how does this help, given that the return address into the middle of a function is not the same as the IMP which points to the start of the function?</p>
+
+<p>Well, we know:</p>
+<ul><li>a Method implementation is contiguous</li>
+<li>the result given by calling <span class="monospace">__builtin_return_address(0)</span> in a child function of the Method implementation of interest will be an address somewhere inside the implementation of interest</li></ul>
+
+<p>These two facts combined guarantee that if we invoke <span class="monospace">__builtin_return_address(0)</span> in child function of a Method implementation, then the Method implementation's IMP must be the closest preceding IMP in the program to the result given by <span class="monospace">__builtin_return_address(0)</span>.</p>
+
+<p>Since we can get the set of all Method IMPs for a Class from the method "<span class="monospace">self</span>" parameter, we now have an approach to solve the problem:</p>
+
+<ol><li>During an invocation of the Method of interest,</li>
+<li>Pass the <span class="monospace">self</span> and <span class="monospace">_cmd</span> from the method into our "find IMP" function.</li>
+<li>Inside this function, get the set of all Methods from the object's class and super-classes.</li>
+<li>Invoke <span class="monospace">__builtin_return_address(0) </span>and store its result.</li>
+<li>Find the Method in this set whose <span class="monospace">method_name</span> is equal to the <span class="monospace">_cmd</span> and whose <span class="monospace">method_imp</span> is closest to the result from <span class="monospace">__builtin_return_address(0)</span> without going over.</li>
+<li>This closest <span class="monospace">method_imp</span> is the IMP of the Method of interest.</li>
+</ol>
+
+<p>So here's the code:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="cp">#import &lt;objc/objc-class.h&gt;
+</span><span class="cp"></span><span class="kt">IMP</span> <span class="nf">impOfCallingMethod</span><span class="p">(</span><span class="kt">id</span> <span class="n">lookupObject</span><span class="p">,</span> <span class="kt">SEL</span> <span class="n">selector</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">NSUInteger</span> <span class="n">returnAddress</span> <span class="o">=</span> <span class="p">(</span><span class="n">NSUInteger</span><span class="p">)</span><span class="n">__builtin_return_address</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
+    <span class="n">NSUInteger</span> <span class="n">closest</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+    
+    <span class="c1">// Iterate over the class and all superclasses
+</span><span class="c1"></span>    <span class="kt">Class</span> <span class="n">currentClass</span> <span class="o">=</span> <span class="n">object_getClass</span><span class="p">(</span><span class="n">lookupObject</span><span class="p">);</span>
+    <span class="k">while</span> <span class="p">(</span><span class="n">currentClass</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="c1">// Iterate over all instance methods for this class
+</span><span class="c1"></span>        <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">methodCount</span><span class="p">;</span>
+        <span class="n">Method</span> <span class="o">*</span><span class="n">methodList</span> <span class="o">=</span> <span class="n">class_copyMethodList</span><span class="p">(</span><span class="n">currentClass</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">methodCount</span><span class="p">);</span>
+        <span class="kt">unsigned</span> <span class="kt">int</span> <span class="n">i</span><span class="p">;</span>
+        <span class="k">for</span> <span class="p">(</span><span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">methodCount</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="c1">// Ignore methods with different selectors
+</span><span class="c1"></span>            <span class="k">if</span> <span class="p">(</span><span class="n">method_getName</span><span class="p">(</span><span class="n">methodList</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">!=</span> <span class="n">selector</span><span class="p">)</span>
+            <span class="p">{</span>
+                <span class="k">continue</span><span class="p">;</span>
+            <span class="p">}</span>
+            
+            <span class="c1">// If this address is closer, use it instead
+</span><span class="c1"></span>            <span class="n">NSUInteger</span> <span class="n">address</span> <span class="o">=</span> <span class="p">(</span><span class="n">NSUInteger</span><span class="p">)</span><span class="n">method_getImplementation</span><span class="p">(</span><span class="n">methodList</span><span class="p">[</span><span class="n">i</span><span class="p">]);</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">address</span> <span class="o">&lt;</span> <span class="n">returnAddress</span> <span class="o">&amp;&amp;</span> <span class="n">address</span> <span class="o">&gt;</span> <span class="n">closest</span><span class="p">)</span>
+            <span class="p">{</span>
+                <span class="n">closest</span> <span class="o">=</span> <span class="n">address</span><span class="p">;</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+    
+        <span class="n">free</span><span class="p">(</span><span class="n">methodList</span><span class="p">);</span>
+        <span class="n">currentClass</span> <span class="o">=</span> <span class="n">class_getSuperclass</span><span class="p">(</span><span class="n">currentClass</span><span class="p">);</span>
+    <span class="p">}</span>
+    
+    <span class="k">return</span> <span class="p">(</span><span class="kt">IMP</span><span class="p">)</span><span class="n">closest</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The code is fairly straightforward: iterate over the hierarchy of Classes, and the Methods on each of these Classes (ignoring Methods that don't correspond to our selector) and track the closest preceding IMP to the <span class="monospace">__builtin_return_address(0)</span> result.
+
+<p>We can now invoke it like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">myMethodWithParam1:</span><span class="p">(</span><span class="kt">int</span><span class="p">)</span><span class="nv">someParameter</span> <span class="nf">andParam2:</span><span class="p">(</span><span class="kt">int</span><span class="p">)</span><span class="nv">otherParameter</span>
+<span class="p">{</span>
+   <span class="kt">void</span> <span class="o">*</span><span class="n">myImplementation</span> <span class="o">=</span> <span class="n">impOfCallingInstanceMethod</span><span class="p">([</span><span class="nb">self</span> <span class="k">class</span><span class="p">],</span> <span class="n">_cmd</span><span class="p">);</span>
+  
+   <span class="p">...</span>
+<span class="p">}</span></code></pre></div>
+
+<h2>Conclusion</h2>
+
+<p>I like the satisfaction of being able to access any value in my program. Having access to the method's selector and the current object by default in a function is okay but ambiguous. Knowing I can retrieve the IMP makes things seem more tidy.</p>
+
+<p>This approach does need to iterate over all methods in the current class' hierarchy. Technically, a faster approach would be to read the return address from the current (rather than a child) function and traversing backwards through the instructions at that location to find the "call" or equivalent instruction which invoked the current function. This would be tricky and platform dependent.</p>
+
+<p>Anyone keen to try that?</p></span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../../about/index.html">About</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../03/core-data-one-line-fetch.html">Core Data: one line fetch</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

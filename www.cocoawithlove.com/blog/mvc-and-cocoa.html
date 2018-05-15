@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Looking at Model-View-Controller in Cocoa</title>
+  <meta name="description" content="In this article, I’ll look at a little theory and history behind the primary application design pattern used in Cocoa. I’ll discuss the key shortcoming of Cocoa’s Model-View-Controller approach, Apple’s aborted efforts to address this shortcoming and wonder from where the next major improvements will come." />
+
+  <meta name="twitter:title" content="Looking at Model-View-Controller in Cocoa"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/blog/mvc-and-cocoa.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="In this article, I’ll look at a little theory and history behind the primary application design pattern used in Cocoa. I’ll discuss the key shortcoming of Cocoa’s Model-View-Controller approach, Apple’s aborted efforts to address this shortcoming and wonder from where the next major improvements will come."/>
+
+  <link rel="icon" href="../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../css/main.css" />
+  <link rel="canonical" href="mvc-and-cocoa.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../index.html"><img class="heartandcup" src="../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../about/index.html">about</a>
+        <a class="page-link" href="../archive/index.html">archive</a>
+        <a class="page-link" href="../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Looking at Model-View-Controller in Cocoa</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2017-02-28">February 28, 2017</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../tags/cocoa.html">cocoa</a>, <a href="../tags/app-design.html">app design</a>
+		 
+	</div>
+</header>
+
+
+<main role="main">
+	<article itemscope itemtype="http://schema.org/BlogPosting">
+		<div class="post-content" itemprop="articleBody">
+			
+
+<p>According to Apple&rsquo;s documentation, the standard pattern for Cocoa applications is called Model-View-Controller. Despite the name, this pattern is quite unlike the original definition of Model-View-Controller applied to Smalltalk-76. Cocoa&rsquo;s application design pattern actually shares more in common with ideas developed at Taligent (an Apple co-developed project from the 1990s) than with the original Smalltalk origin of the term.</p>
+
+<p>In this article, I&rsquo;ll look at a little theory and history behind the primary application design pattern used in Cocoa. I&rsquo;ll discuss the key shortcoming of Cocoa&rsquo;s Model-View-Controller approach, Apple&rsquo;s aborted efforts to address this shortcoming and wonder from where the next major improvements will come.</p>
+
+<nav id="TableOfContents"><span class="toc-heading">Contents</span>
+<ul>
+<li>
+<ul>
+<li><a href="#smalltalk-76">Smalltalk-76</a></li>
+<li><a href="#cocoa-appkit-uikit">Cocoa (AppKit/UIKit)</a></li>
+<li><a href="#taligent">Taligent</a></li>
+<li><a href="#the-controller-problem">The Controller Problem</a></li>
+<li><a href="#bindings">Bindings</a></li>
+<li><a href="#something-new">Something new?</a></li>
+<li><a href="#conclusion">Conclusion</a></li>
+</ul></li>
+</ul>
+</nav>
+
+<h2 id="smalltalk-76">Smalltalk-76</h2>
+
+<blockquote>
+<p>Probably the widest quoted pattern in UI development is Model View Controller (MVC) - it&rsquo;s also the most misquoted. I&rsquo;ve lost count of the times I&rsquo;ve seen something described as MVC which turned out to be nothing like it. <strong>- Martin Fowler, <a href="https://www.martinfowler.com/eaaDev/uiArchs.html">GUI Architectures</a></strong></p>
+</blockquote>
+
+<p>I want to quickly address what Martin Fowler means in the above quote since, by the definition Fowler uses – the same definition originally used by Trygve Reenskaug to describe Smalltalk-76 – the approach commonly used to develop Cocoa apps is not Model-View-Controller.</p>
+
+<p>In Smalltalk-76, interactive views were split into two completely separate objects: the View object and the Controller object. The View object performed display but any click or interaction wasn&rsquo;t handled by the View object and was instead dispatched by the partner Controller object. The important point to understand is that the Controller didn&rsquo;t load, setup or manage the View, nor did one Controller handle actions for multiple Views; in the original definition of Model-View-Controller, the View and Controller were simply the action and display aspects of a single control on screen.</p>
+
+<p><img src="../assets/blog/smalltalk_mvc.svg" alt="Smalltalk's version of Model-View-Controller" /></p>
+
+<figcaption>Smalltalk-76's version of Model-View-Controller</a></figcaption>
+
+<p>The diagram of Smalltalk-76&rsquo;s Model-View-Controller shows the <em>model</em> as the central component of the object graph, with communication primarily occurring between the model and the view or controller directly.</p>
+
+<p>This precise pattern reflects how Smalltalk-76 processed user-input and there&rsquo;s little need to use this precise pattern in modern programs. In that sense, either no modern framework is really Model-View-Controller, or the definition of the term has changed to mean something else.</p>
+
+<h2 id="cocoa-appkit-uikit">Cocoa (AppKit/UIKit)</h2>
+
+<p>When Cocoa says Model-View-Controller it&rsquo;s mostly trying to evoke the notion of <a href="https://en.wikipedia.org/wiki/Separation_of_presentation_and_content">Separated Presentation and Content</a> in application design (the idea that the model and view should have a decoupled design and be loosely linked at construction). To be fair, it&rsquo;s not just Cocoa that uses Model-View-Controller in this way: <em>most</em> modern uses of the term are really intended to convey what Martin Fowler calls &ldquo;Separated Presentation&rdquo; rather than the original Smalltalk-76 definition.</p>
+
+<p>Looking at the precise pattern Cocoa actually uses, Apple&rsquo;s Cocoa reference guides use a definition of <a href="https://developer.apple.com/library/content/documentation/General/Conceptual/DevPedia-CocoaCore/MVC.html">Model-View-Controller</a> that looks like this:</p>
+
+<p><img src="../assets/blog/cocoa_mvc.svg" alt="Cocoa's version of Model-View-Controller" /></p>
+
+<figcaption>Cocoa's version of Model-View-Controller</a></figcaption>
+
+<p>The important point to note is that the controller is the center of the object graph with most communication passing <em>via</em> the controller – distinct from the Smalltalk-76 version where the <em>model</em> was the center of the graph.</p>
+
+<p>Cocoa doesn&rsquo;t <em>force</em> this pattern on apps but it is strongly implied by all application templates. Loading from NIB files strongly encourages the use of <code>NSWindowController</code>/<code>UIViewController</code>. The delegate requirements of <code>NSTableView</code>/<code>UITableView</code> and related classes strongly imply a coordinator class that understands responsibilities of the entire presentation. Classes like <code>UITabBarController</code> and <code>UINavigationController</code> explicitly require instances of <code>UIViewController</code> to coordinate views as they are swapped in and out.</p>
+
+<h2 id="taligent">Taligent</h2>
+
+<p>In academic discussions, the pattern that Cocoa calls Model-View-Controller is usually called <a href="https://en.wikipedia.org/wiki/Model%E2%80%93view%E2%80%93presenter">Model-View-Presenter</a>. The two are identical except that what Cocoa calls Controllers are instead called Presenters. The name &ldquo;Presenter&rdquo; reflects their role setting up the scene and coordinating the action. In some cases, the Presenter object may be called a &ldquo;Supervising Controller&rdquo; – you can understand why &ldquo;Model-View-Supervising Controller&rdquo; might get simplified back down to Model-View-Controller again.</p>
+
+<p>The term Model-View-Presenter originated in the <a href="https://en.wikipedia.org/wiki/Taligent">Taligent</a> project. The most commonly cited paper is <a href="http://www.wildcrest.com/Potel/Portfolio/mvp.pdf">&ldquo;MVP: Model-View-Presenter, The Taligent Programming Model for C++ and Java&rdquo;</a> from 1997 but Taligent&rsquo;s classes for implementing this model were <a href="https://root.cern.ch/TaligentDocs/TaligentOnline/DocumentRoot/1.0/Docs/classes/TGUIPresenter.html">documented at least as early as 1995</a>.</p>
+
+<div class="aside"><a href="https://www.wired.com/1993/02/taligent/">This Wired article from 1993</a> gives an interesting insight into Taligent and the apparent bloat and infighting that doomed it.</div>
+
+<p>Taligent was a company originally started within Apple as a project code-named &ldquo;Pink&rdquo; (after the color of index cards used for its ideas) to provide an operating system replacement for <a href="https://en.wikipedia.org/wiki/System_7">System 7</a> (which was mapped out on &ldquo;Blue&rdquo; index cards). The project had a series of famous development and management problems during which Apple withdrew and focussed on the equally doomed <a href="https://en.wikipedia.org/wiki/Copland_(operating_system)">Copland</a> project. Taligent was continued at IBM where it was released as a series of application frameworks named CommonPoint, rather than an operating system, before being shut down in 1998.</p>
+
+<div class="aside">The <a href="https://root.cern.ch/TaligentDocs/TaligentOnline/DocumentRoot/1.0/Docs/books/index.html">Taligent documentation</a>, from 1995, is fascinating to read. The <a href="https://root.cern.ch/TaligentDocs/TaligentOnline/DocumentRoot/1.0/Docs/books/WM/WM_3.html">Guide to Designing Programs</a> discusses many ideas relevant to application design, 22 years later. However, the <a href="https://root.cern.ch/TaligentDocs/TaligentOnline/DocumentRoot/1.0/Docs/books/PF/PF_1.html">Programming with the Presentation Framework tutorial</a> is horrifically bad: baffling, over-technical and unapproachable.</div>
+
+<p>While NeXTStep predates Taligent, the controller classes in AppKit – which are now <em>defining</em> aspect of AppKit&rsquo;s Model-View-Controller design pattern – did not appear until NeXTStep 4 in 1996 (a major redesign of NeXTStep and the first NeXTStep version to incorporate the <code>NS</code> prefix that remains in macOS until this day). Earlier versions of NeXTStep used what might generously be called the Document-View pattern or more cruelly, no pattern at all.</p>
+
+<p>I don&rsquo;t know that NeXTStep borrowed directly from Taligent – it&rsquo;s possible this is simply a case of convergent evolution or multiple companies hiring from the same talent pool. All I can really tell from my 2017 vantage point is that Taligent published first.</p>
+
+<blockquote>
+<p><strong>Be careful with names:</strong> In modern iOS programming, Model-View-Presenter refers specifically to separate pattern where presentation logic is pulled into a separate presenter class and separated from the controller by a protocol layer. Calling Cocoa Model-View-Controller by the name Model-View-Presenter might feel historically justified but isn&rsquo;t accurate by the modern use of these terms.</p>
+</blockquote>
+
+<h2 id="the-controller-problem">The Controller Problem</h2>
+
+<p>Understanding Cocoa&rsquo;s Model-View-Controller as a variation on the Model-View-Presenter pattern – where the Presenter or Supervising Controller is responsible for the lifecycle, action and change propagations of all of the views under it in the scene – is important since it leads to the largest problem in the pattern: the &ldquo;Controller Problem&rdquo;.</p>
+
+<p>The Controller Problem, also called &ldquo;Massive/Huge/Giant View Controllers&rdquo;, is the problem where controllers in Cocoa have a horrible tendency to grow large by taking on a number of separate responsibilities that are primarily related by co-location in the view – not necessarily by any functional or data dependencies. Most non-trivial projects have a handful of controllers in the 2000 lines range or larger.</p>
+
+<p>Let me be clear: it&rsquo;s not the size alone that&rsquo;s the problem here but the <em>way</em> that controllers grow this big that&rsquo;s concerning: <strong>controllers in Cocoa are an aggregation of responsibilities that may or may not be related</strong>. A view controller may be responsible for a half-dozen or more views and each one may have construction, configuration, data display, data updating, layout, animation and action and other state maintenance responsibilities that end up in the parent view controller.</p>
+
+<p>That mix of independent and interdependent responsibilities at substantial scale is a maintenance nightmare. The large quantity of code blobs makes actual dependencies and interrelated functionality difficult to find. Controllers are always difficult to test (due to significant app and bundle state dependencies making isolation difficult) but the problems of scale and semi-dependence compound to make everything worse.</p>
+
+<p>The only solution to the Controller Problem is to continuously refactor large view controllers into multiple smaller, simpler controllers. This may involve redesigning or rethinking data structures to disentangle and eliminate dependencies that pass through the view controller and design sensible approaches to have multiple view controllers communicate. It can be done but it can involve lots of work, has all the normal risks of introducing bugs with each change, remains difficult to test (as with everything view controller related), yet despite all this, offers zero functionality gain for the end user.</p>
+
+<h2 id="bindings">Bindings</h2>
+
+<p>Apple have known about the Controller Problem for some time, as evidenced by their Mac OS X 10.3 introduction of Cocoa Bindings.</p>
+
+<div class="aside">If you'd like to learn more about Cocoa Bindings, read Apple's page "<a href="https://developer.apple.com/library/content/documentation/Cocoa/Conceptual/CocoaBindings/Concepts/WhatAreBindings.html">What are Cocoa Bindings?</a>".</div>
+
+<p>A binding is a runtime constructed path between two components. These components are usually a source of data and an observer of that data. The binding allows these components to communicate changes without needing any explicit code path. Instead, the path between the two components is defined in data – for Cocoa bindings, this is called a &ldquo;key-path&rdquo;. By specifying a key-path through the controller all the way to the model properties that govern the views&rsquo; state, bindings can ameliorate the Controller Problem by dramatically reducing – or even eliminating – code paths through the controller.</p>
+
+<p><img src="../assets/blog/cocoa_bindings_mvc.svg" alt="Cocoa's Model-View-Controller with Bindings" /></p>
+
+<figcaption>Code paths through the Controller are replaced by Bindings</a></figcaption>
+
+<p>More than a decade after their introduction, Cocoa Bindings remain all-but-forgotten. You can still use bindings in AppKit (they were never deprecated) but they were never introduced to UIKit, reflecting an impression that they never quite succeeded in their aim of making view programming easier.</p>
+
+<p>I think Bindings attacked a problem that needed attacking and in some cases could work really well – especially when combined with <code>NSArrayController</code> to drive an <code>NSTableView</code> – but I can understand why they didn&rsquo;t take over Mac programming.</p>
+
+<p>The key advantage of Cocoa Bindings (less code in your view controller) was achieved by a large amount of configuration in Interface Builder inspector panels. This can be confusing if you&rsquo;re looking for functionality in your code (it&rsquo;s not <em>in</em> your code), can be difficult to search (although Xcode&rsquo;s project-wide searching eventually gained the ability to search XIB files), difficult to debug (model data changes without the stack trace passing through your code), is very difficult to teach to newcomers who are unlikely to want to search through the inspector panels, can be even more cryptic than staring at code (you can&rsquo;t add comments or restructure a XIB file) and can fall victim to annoying Interface Builder issues like localization mixups and version control merge issues.</p>
+
+<p>In my opinion, the critical failing for Cocoa Bindings remains the difficulty in adding custom transformations and custom properties. These could both be done but the work involved in registering transformers and exposing bindings dictionaries made a tiresome affair. It always just seemed easier to pass the data through the view controller without bindings. This meant that Bindings tended to help the <em>simplest</em> problems (that didn&rsquo;t need much help) but didn&rsquo;t have much impact on the harder problems.</p>
+
+<h2 id="something-new">Something new?</h2>
+
+<p>Since Cocoa Bindings in Mac OS X 10.3, there haven&rsquo;t really been <em>any</em> clear attempts by Apple to alter the design pattern used for Cocoa apps.</p>
+
+<p>We did get Storyboards in iOS 5 and Mac OS X 10.10 but storyboards aren&rsquo;t really an attempt to <em>change</em> the design pattern as much as they are an attempt to facilitate the existing design pattern. Storyboards re-inforce the Model-View-Presenter design pattern by encouraging use of <code>NS</code>/<code>UIViewController</code>. Storyboards do help by encouraging smaller more focussed view controllers and very slightly reducing the &ldquo;Presentation&rdquo; burden of setup and transition. However, since they are configured in Interface Builder, they do exhibit a number of the issues that affected Cocoa Bindings.</p>
+
+<p>For those of us hoping for something more ambitious in application design patterns, Storyboards don&rsquo;t offer much that&rsquo;s new.</p>
+
+<p>New ideas in application design do exist. Outside Apple, we have options like <a href="reactive-programming-what-and-why.html">Reactive Programming</a> (which can fulfill most the role of Bindings if we choose), <a href="https://www.objc.io/issues/13-architecture/mvvm/">Model-View-ViewModel</a> (which reduces the work for a controller by bringing a transformed section of the model closer to the view), <a href="http://reswift.github.io/ReSwift/master/">unidirectional dataflow</a> (which reduces the need for binding by forcing data changes through a single reducer and broadcasting all data changes to the whole app); all of which are popular within different circles.</p>
+
+<p>There are also frameworks for doing things radically differently, like <a href="https://facebook.github.io/react-native/">React Native</a> or <a href="https://github.com/salutis/swift-elm">Swift-Elm</a>, although sacrificing Swift or Cocoa entirely comes with a significant set of drawbacks.</p>
+
+<p>It&rsquo;s unclear if any of these will have an effect on official Cocoa app development. Swift proved that Apple are willing to dramatically shake things up occasionally and there&rsquo;s an argument that Swift has increased the desire for a design pattern or view framework that takes advantage of aspects of the Swift language. However, it will likely be some time before Apple are willing to introduce a major Swift-only framework.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>Cocoa Model-View-Controller derived from a pattern called Model-View-Presenter. To add extra confusion, Model-View-Presenter means something else in modern programming so every name is likely to confuse time-travellers. I will try to use the description <a href="https://developer.apple.com/library/content/documentation/General/Conceptual/CocoaEncyclopedia/Model-View-Controller/Model-View-Controller.html">&ldquo;Cocoa Model-View-Controller&rdquo; since it has an authoritative definition</a>.</p>
+
+<p>If we take NeXTStep 4 as the origin date for Cocoa&rsquo;s current Model-View-Controller pattern then it is 20 years old this year. It&rsquo;s not <em>broken</em> but it has its drawbacks and it doesn&rsquo;t feel as exciting or efficient as it once did.</p>
+
+<p>Apple made its only significant effort to improve the design pattern, Cocoa Bindings, relatively early. Its reception was mixed and it has not been carried forward onto Apple&rsquo;s newer platforms.</p>
+
+<p>I don&rsquo;t have any information about internal efforts by the AppKit or UIKit teams but it&rsquo;s not immediately apparent that Apple are looking to make any dramatic changes any time soon. There are a number of possible design patterns employed in third-party frameworks which aim to improve the overall application design pattern in Cocoa but there doesn&rsquo;t appear to be consensus that any one of these is necessarily the way forward. I do think these efforts reflect an interest in <em>some</em> kind of improvement.</p>
+
+		</div>
+	</article>
+</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="protocols-versus-subclasses.html">The weirdest subclass I&#39;ve ever written</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="statements-messages-reducers.html">Statements, messages and reducers</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../feed.json">JSON</a>, <a href="../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2018 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

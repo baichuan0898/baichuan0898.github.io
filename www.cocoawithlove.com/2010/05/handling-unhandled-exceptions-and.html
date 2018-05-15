@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Handling unhandled exceptions and signals</title>
+  <meta name="description" content="When an application crashes on the iPhone, it disappears without telling the user what happened. However, it is possible to add exception and signal handling to your applications so that an error message can be displayed to the user or you can save changes. It is even possible to try to recover from this situation without crashing at all." />
+
+  <meta name="twitter:title" content="Handling unhandled exceptions and signals"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2010/05/handling-unhandled-exceptions-and.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="When an application crashes on the iPhone, it disappears without telling the user what happened. However, it is possible to add exception and signal handling to your applications so that an error message can be displayed to the user or you can save changes. It is even possible to try to recover from this situation without crashing at all."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="handling-unhandled-exceptions-and.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Handling unhandled exceptions and signals</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2010-05-25">May 25, 2010</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/objective-c.html">Objective-C</a>, <a href="../../categories/cocoa-touch.html">Cocoa Touch</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>When an application crashes on the iPhone, it disappears without telling the user what happened. However, it is possible to add exception and signal handling to your applications so that an error message can be displayed to the user or you can save changes. It is even possible to try to recover from this situation without crashing at all.</p></span>
+
+<span class="fullpost">
+
+<h2>Debug-only hack warning</h2>
+
+<blockquote><strong>Warning:</strong> The code in this post is for quick and dirty information gathering after a crash bug. The purpose is not to make your shipping code crash-proof, it is to allow better debugging of your application when a crash or exception occurs during user testing.<br/><br/> The code in this post performs signal handling in non re-entrant way &mdash; <strong>this is not a reliable thing to do</strong> and is only done because proper re-entrant coding is brutally difficult and the assumption is that your program has already fatally crashed so we're not too worried. If multiple signals are caught, this code probably won't help at all.</blockquote>
+
+<h2>Introduction</h2>
+
+<p>This post will present a sample application that deliberately raises Objective-C exceptions, <code>EXC_BAD_ACCESS</code> exceptions and related BSD signals. All exceptions and signals are caught, presenting debug information and allowing the application to continue after these events.</p>
+
+<img src="../../assets/objc-era/uncaughtexception.png" width="200" height="300" />
+
+<blockquote>You can download the sample project: <a href="../../assets/objc-era/UncaughtExceptions.zip">UncaughtExceptions.zip</a> (25kB)</blockquote>
+
+<p>This application will deliberately trigger an unhandled message exception after 4 seconds and then will deliberately trigger an <code>EXC_BAD_ACCESS</code>/<code>SIGBUS</code> signal at the 10 second mark.</p>
+
+<h2>Why do applications crash on the iPhone?</h2>
+
+<p>A crash (or more accurately: an unexpected termination) is the result of an unhandled signal sent to your application.</p>
+
+<p>An unhandled signal can come from three places: the kernel, other processes or the application itself. The two most common signals that cause crashes are:</p>
+
+<ul>
+<li><code>EXC_BAD_ACCESS</code> is a Mach exception sent by the kernel to your application when you try to access memory that is not mapped for your application. If not handled at the Mach level, it will be translated into a <code>SIGBUS</code> or <code>SIGSEGV</code> BSD signal.</li>
+<li><code>SIGABRT</code> is a BSD signal sent by an application to itself when an <code>NSException</code> or <code>obj_exception_throw</code> is not caught.</li>
+</ul>
+
+<p>In the case of Objective-C exceptions, the most common reason why unexpected exceptions are thrown in Objective-C is sending an unimplemented selector to an object (due to typo, object mixup or sending to an already released object that's been replaced by something else).</p>
+
+<blockquote><strong>Mac application note</strong>: <code>NSApplication</code> on the Mac always catches all Objective-C exceptions in the main run loop &mdash; so an exception on the main thread of a Mac application will not immediately crash the program, it will simply log the error. However, an unexpected exception can still leave the application in such a bad state that a crash will subsequently occur.</blockquote>
+
+<h2>Catching uncaught exceptions</h2>
+
+<p>The correct way to handle an uncaught exception is to fix the cause in your code. If your program is working perfectly, then the approaches shown here should not be necessary.</p>
+
+<p>Of course, programs do sometimes get released with bugs that may lead to a crash. In addition, you may simply want more information back from your testers when you know that there are bugs in your program.</p>
+
+<p>In these cases, there are two ways to catch otherwise uncaught conditions that will lead to a crash:</p>
+
+<ul><li>Use the function <code>NSUncaughtExceptionHandler</code> to install a handler for uncaught Objective-C exceptions.</li>
+<li>Use the <code>signal</code> function to install handlers for BSD signals.</li></ul>
+
+<p>For example, installing an Objective-C exception handler and handlers for common signals might look like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">void</span> <span class="nf">InstallUncaughtExceptionHandler</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="n">NSSetUncaughtExceptionHandler</span><span class="p">(</span><span class="o">&amp;</span><span class="n">HandleException</span><span class="p">);</span>
+    <span class="n">signal</span><span class="p">(</span><span class="n">SIGABRT</span><span class="p">,</span> <span class="n">SignalHandler</span><span class="p">);</span>
+    <span class="n">signal</span><span class="p">(</span><span class="n">SIGILL</span><span class="p">,</span> <span class="n">SignalHandler</span><span class="p">);</span>
+    <span class="n">signal</span><span class="p">(</span><span class="n">SIGSEGV</span><span class="p">,</span> <span class="n">SignalHandler</span><span class="p">);</span>
+    <span class="n">signal</span><span class="p">(</span><span class="n">SIGFPE</span><span class="p">,</span> <span class="n">SignalHandler</span><span class="p">);</span>
+    <span class="n">signal</span><span class="p">(</span><span class="n">SIGBUS</span><span class="p">,</span> <span class="n">SignalHandler</span><span class="p">);</span>
+    <span class="n">signal</span><span class="p">(</span><span class="n">SIGPIPE</span><span class="p">,</span> <span class="n">SignalHandler</span><span class="p">);</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Responding to the exceptions and signals can then happen in the implementation of the <code>HandleException</code> and <code>SignalHandler</code>. In the sample application, these both call through to the same internal implementation so that the same work can be done in either case.</p>
+
+<blockquote><strong>Save your data</strong>: The very first task to perform in your uncaught exception handler should be to save data that might need saving or otherwise clean up your application. However: if the exception may have left the data in an invalid state, you may need to save to a separate location (like a "Recovered Documents" folder) so you don't overwrite good data with potentially corrupt data.</blockquote>
+
+<p>While these cover the most common signals, there are many more signals that may be sent that you can add if required.</p>
+
+<p>There are two signals which cannot be caught: <code>SIGKILL</code> and <code>SIGSTOP</code>. These are sent to your application to end it or suspend it without notice (a <code>SIGKILL</code> is what is sent by the command-line function <code>kill -9</code> if you're familiar with that and a <code>SIGSTOP</code> is sent by typing Control-Z in a terminal).</p>
+
+<h2>Requirements of the exception handler</h2>
+
+<h3>An unhandled exception handler may never return</h3>
+
+<p>The types of situations which would cause an unhandled exception or signal handler to be invoked are the types of situations that are generally considered unrecoverable in an application.</p>
+
+<p>However, sometimes it is simply the stack frame or current function which is unrecoverable. If you can prevent the current stack frame from continuing, then sometimes the rest of the program can continue.</p>
+
+<p>If you wish to attempt this, then your unhandled exception handler must never return control to the calling function &mdash; the code which raised the exception or triggered the signal should not be used again.</p>
+
+<p>In order to continue the program without ever returning control to the calling function, we must return to the main thread (if we are not already there) and permanently block the old thread. On the main thread, we must start our own run loop and never return to the original run loop.</p>
+
+<p>This will mean that the stack memory used by the thread that caused the exception will be permanently leaked. This is the price of this approach.</p>
+
+<h3>Attempt to recover</h3>
+
+<p>Since a run loop will be used to display the dialog, we can keep that run loop running indefinitely and it can serve as a possible replacement for the application's main run loop.</p>
+
+<p>For this to work, the run loop must handle all the modes of the main run loop. Since the main run loop includes a few private modes (for GSEvent handling and scroll tracking), the default <code>NSDefaultRunLoopMode</code> is insufficent.</p>
+
+<p>Fortunately, if the <code>UIApplication</code> has already created all the modes for the main loop, then we can get all of these modes by reading from the loop. Assuming it is run on the main thread after the main loop is created, the following code will run the loop in all <code>UIApplication</code> modes:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">CFRunLoopRef</span> <span class="n">runLoop</span> <span class="o">=</span> <span class="n">CFRunLoopGetCurrent</span><span class="p">();</span>
+<span class="n">CFArrayRef</span> <span class="n">allModes</span> <span class="o">=</span> <span class="n">CFRunLoopCopyAllModes</span><span class="p">(</span><span class="n">runLoop</span><span class="p">);</span>
+
+<span class="k">while</span> <span class="p">(</span><span class="o">!</span><span class="n">dismissed</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">for</span> <span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="n">mode</span> <span class="k">in</span> <span class="p">(</span><span class="n">NSArray</span> <span class="o">*</span><span class="p">)</span><span class="n">allModes</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">CFRunLoopRunInMode</span><span class="p">((</span><span class="n">CFStringRef</span><span class="p">)</span><span class="n">mode</span><span class="p">,</span> <span class="mf">0.001</span><span class="p">,</span> <span class="nb">false</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="n">CFRelease</span><span class="p">(</span><span class="n">allModes</span><span class="p">);</span></code></pre></div>
+
+<h3>As part of the debug information, we want the stack addresses</h3>
+
+<p>You can get the backtrace using the function <code>backtrace</code> and attempt to convert this to symbols using <code>backtrace_symbols</code>.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">+</span> <span class="p">(</span><span class="n">NSArray</span> <span class="o">*</span><span class="p">)</span><span class="nf">backtrace</span>
+<span class="p">{</span>
+    <span class="kt">void</span><span class="o">*</span> <span class="n">callstack</span><span class="p">[</span><span class="mi">128</span><span class="p">];</span>
+    <span class="kt">int</span> <span class="n">frames</span> <span class="o">=</span> <span class="n">backtrace</span><span class="p">(</span><span class="n">callstack</span><span class="p">,</span> <span class="mi">128</span><span class="p">);</span>
+    <span class="kt">char</span> <span class="o">**</span><span class="n">strs</span> <span class="o">=</span> <span class="n">backtrace_symbols</span><span class="p">(</span><span class="n">callstack</span><span class="p">,</span> <span class="n">frames</span><span class="p">);</span>
+    
+    <span class="kt">int</span> <span class="n">i</span><span class="p">;</span>
+    <span class="n">NSMutableArray</span> <span class="o">*</span><span class="n">backtrace</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSMutableArray</span> <span class="nl">arrayWithCapacity</span><span class="p">:</span><span class="n">frames</span><span class="p">];</span>
+    <span class="k">for</span> <span class="p">(</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="n">UncaughtExceptionHandlerSkipAddressCount</span><span class="p">;</span>
+        <span class="n">i</span> <span class="o">&lt;</span> <span class="n">UncaughtExceptionHandlerSkipAddressCount</span> <span class="o">+</span>
+            <span class="n">UncaughtExceptionHandlerReportAddressCount</span><span class="p">;</span>
+        <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="n">backtrace</span> <span class="nl">addObject</span><span class="p">:[</span><span class="n">NSString</span> <span class="nl">stringWithUTF8String</span><span class="p">:</span><span class="n">strs</span><span class="p">[</span><span class="n">i</span><span class="p">]]];</span>
+    <span class="p">}</span>
+    <span class="n">free</span><span class="p">(</span><span class="n">strs</span><span class="p">);</span>
+    
+    <span class="k">return</span> <span class="n">backtrace</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Notice that we skip the first few addresses: this is because they will be the addresses of the signal or exception handling functions (not very interesting). Since we want to keep the data minimal (for display in a <code>UIAlert</code> dialog) I choose not to display the exception handling functions.</p>
+
+<h3>If the user selects "Quit" we want the crash to be logged</h3>
+
+<p>If the user selects "Quit" to abort the application instead of attempting to continue, it's a good idea to generate the crash log so that normal crash log handling can track the problem.</p>
+
+<p>In this case, we need to remove all the exception handlers and re-raise the exception or resend the signal. This will cause the application to crash as normal (although the uncaught exception handler will appear at the top of the stack, lower frames will be the same).</p>
+
+<h2>Limitations</h2>
+
+<h3>The signal handler is not re-entrant</h3>
+
+<p>Remember from the paragraph at the beginning:</p>
+
+<blockquote>The code in this post performs signal handling in non re-entrant way &mdash; <strong>this is not a reliable thing to do</strong> and is only done because proper re-entrant coding is brutally difficult and the assumption is that your program has already fatally crashed so we're not too worried. If multiple signals are caught, this code probably won't help at all.</blockquote>
+
+<p>If you want to learn how to write signal handlers for non-crash related signals or learn how to write proper re-entrant signal handling, I'm afraid you'll need to look elsewhere &mdash; there's not enough space here for me to show you and it's really hard. Ignoring this constraint here is okay for debug code only where we assume we're only going to get 1 signal.</p>
+
+<h3>This approach won't work if the application hasn't configured the main run loop</h3>
+
+<p>The exact way that <code>UIApplication</code> constructs windows and the main run loop is private. This means that if the main run loop and initial windows are not already constructed, the exception code I've given won't work &mdash; the code will run but the <code>UIAlert</code> dialog will never appear. For this reason, I install the exception handlers with a <code>performSelector:withObject:afterDelay:0</code> from the <code>applicationDidFinishLaunching:</code> method on the App Delegate to ensure that this exception handler is only installed after the main run loop is fully configured. Any exception that occurs prior to this point on startup will crash the application as normal.</p>
+
+<h3>Your application may be left in an unstable or invalid state</h3>
+
+<p>You cannot simply continue from all situations that trigger exceptions. If you're in the middle of a situation that must be completed in its entirety (a transaction on your document) then your application's document may now be invalid.</p>
+
+<p>Alternately, the conditions which led to the exception or signal may have left your stack or heap in a state so corrupted that nothing is possible. In this type of situation, you're going to crash and there's little you can do.</p>
+
+<h3>The exception or signal could just happen again</h3>
+
+<p>The initial causes of the exception or signal will not be fixed by ignoring it. The application might simply raise the same exception immediately. In fact, you could become overwhelmed by exceptions in some cases &mdash; for this reason, I've limited the number of uncaught exceptions that may be handled to 10 in the sample application.</p>
+
+<h3>Resources used up to the time of the exception are leaked</h3>
+
+<p>Since the stack is blocked from returning, everything allocated on the stack or the autorelease pool between the main run loop and the exception will be leaked.</p>
+
+<h3>It might be bad behavior for the user</h3>
+
+<p>Depending on the style of your application, it might be better to simply let the crash happen &mdash; not all users care about debug information and your application might not have data that needs saving, so a very rare crash might not be too offensive.</p>
+
+<h3>gdb will interfere with signal handling</h3>
+
+<p>When you're debugging, the SIGBUS and SIGSEGV signals may not get called. This is because gdb inserts Mach exception handlers which picks them up at the EXC_BAD_ACCESS stage (and refuses to continue). Other signals type may also be handled by gdb, preventing the signals from reaching your handlers.</p>
+
+<p>If you want to test signal handling properly, you'll need to run without gdb (Run with Breakpoints off).</p>
+
+<h2>Conclusion</h2>
+
+<blockquote>You can download the sample project: <a href="../../assets/objc-era/UncaughtExceptions.zip">UncaughtExceptions.zip</a> (25kB)</blockquote>
+
+<p>It is possible to make your application continue running for a short period of time after a "crash" signal occurs by handling common exceptional signals and attempting to recover.</p>
+
+<p>There are real risks though in terms of signal re-entrancy problems, leaked memory and potentially corrupted application data, so this type of approach should be viewed as either a debugging tool or a measure of last resort.</p>
+
+<p>However, it is comforting to have a level of fallback in the situation where a hard to reproduce crash occurs during testing and you'd like more information on the application state when the crash happened.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="5-ways-to-draw-2d-shape-with-hole-in.html">5 ways to draw a 2D shape with a hole in CoreGraphics</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../06/avoiding-deadlocks-and-latency-in.html">Avoiding deadlocks and latency in libdispatch</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

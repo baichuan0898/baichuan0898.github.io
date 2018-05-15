@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Classes for fetching and parsing XML or JSON via HTTP</title>
+  <meta name="description" content="In this post I show two reusable classes for fetching data via HTTP: one that parses the result as XML and another that parses as JSON. These are relatively simple tasks but due to the number of required steps, they can become tiresome if you don&#39;t have robust, reusable code for the task. These classes will work on iOS or on the Mac but the optional error alerts and password dialogs are only implemented for iOS." />
+
+  <meta name="twitter:title" content="Classes for fetching and parsing XML or JSON via HTTP"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2011/05/classes-for-fetching-and-parsing-xml-or.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="In this post I show two reusable classes for fetching data via HTTP: one that parses the result as XML and another that parses as JSON. These are relatively simple tasks but due to the number of required steps, they can become tiresome if you don&#39;t have robust, reusable code for the task. These classes will work on iOS or on the Mac but the optional error alerts and password dialogs are only implemented for iOS."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="classes-for-fetching-and-parsing-xml-or.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Classes for fetching and parsing XML or JSON via HTTP</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2011-05-30">May 30, 2011</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/snow-leopard.html">Snow Leopard</a>, <a href="../../categories/uikit.html">UIKit</a>, <a href="../../categories/appkit.html">AppKit</a>, <a href="../../categories/foundation.html">Foundation</a>, <a href="../../categories/cocoa-touch.html">Cocoa Touch</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>In this post I show two reusable classes for fetching data via HTTP: one that parses the result as XML and another that parses as JSON. These are relatively simple tasks but due to the number of required steps, they can become tiresome if you don't have robust, reusable code for the task. These classes will work on iOS or on the Mac but the optional error alerts and password dialogs are only implemented for iOS.</p></span><span class="fullpost"><h2>Introduction</h2><p>In my experience, "fetching data via HTTP" is probably the second most common task that iOS applications perform after "displaying a list of things in a table". Since I <a href="../../2010/12/uitableview-construction-drawing-and.html">wrote a recent post showing how I handle display in tables</a>, showing my reusable classes for fetching via HTTP seemed like a reasonable follow up.</p><p>As with the post on <code>UITableView</code> management, this post is all about trying to make the HTTP fetching, handling and processing as simple and reusable as possible.</p><p>What I hope to demonstrate is that even though the Cocoa API makes it look like you need to bolt <code>NSURLConnection</code> delegate methods onto your own classes every time you need a network connection, it doesn't mean that you actually need to do all this work every time you need a network connection. For the most common tasks like this, you should develop your own, reusable approaches that you like, that serve your needs and that make new code easier.</p><p>There are lots of alternative approaches around that demonstrate similar ideas. My implementation is a simple implementation compared to full frameworks (for a more thorough implementation along similar lines, you may want to look at <a href="http://restkit.org/">RestKit</a>). I hope you'll still be able to see the contrast compared to ad hoc solutions though, especially if you've ever jammed HTTP communication into your projects without thinking about keeping the interface clean and simple.</p><blockquote>You can download the four classes discussed in this project: <a href="../../assets/objc-era/HTTPXMLJSONFetchers.zip">HTTPXMLJSONFetchers.zip</a> (16kB)</blockquote><h2>HTTP connections in Cocoa</h2><p>BSD sockets and <code>CFHTTPStream</code> are generally too low level to use regularly. Unless your program requires meticulous control of the network layer, you probably want to use <code>NSURLConnection</code> for handling HTTP fetching.</p><p>Technically, <code>NSURLConnection</code> can perform network connections in a single instruction: <code>+[NSURLConnection sendSynchronousRequest:returningResponse:error:]</code>. Synchronous connection should be avoided in all but a few rare worker-thread situations because it stops your program's user-interface and it doesn't allow careful error handling.</p><p>This means that when fetching via HTTP, you should be using <code>NSURLConnection</code>'s delegate methods. The delegate methods are:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">connection:</span><span class="p">(</span><span class="n">NSURLConnection</span> <span class="o">*</span><span class="p">)</span><span class="nv">connection</span> <span class="nf">didReceiveResponse:</span><span class="p">(</span><span class="n">NSURLResponse</span> <span class="o">*</span><span class="p">)</span><span class="nv">response</span>
+<span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">connection:</span><span class="p">(</span><span class="n">NSURLConnection</span> <span class="o">*</span><span class="p">)</span><span class="nv">connection</span> <span class="nf">didReceiveData:</span><span class="p">(</span><span class="n">NSData</span> <span class="o">*</span><span class="p">)</span><span class="nv">data</span>
+<span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">connection:</span><span class="p">(</span><span class="n">NSURLConnection</span> <span class="o">*</span><span class="p">)</span><span class="nv">connection</span> <span class="nf">didFailWithError:</span><span class="p">(</span><span class="n">NSError</span> <span class="o">*</span><span class="p">)</span><span class="nv">error</span>
+<span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">connection:</span><span class="p">(</span><span class="n">NSURLConnection</span> <span class="o">*</span><span class="p">)</span><span class="nv">aConnection</span> <span class="nf">didReceiveAuthenticationChallenge:</span><span class="p">(</span><span class="n">NSURLAuthenticationChallenge</span> <span class="o">*</span><span class="p">)</span><span class="nv">aChallenge</span>
+<span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">connectionDidFinishLoading:</span><span class="p">(</span><span class="n">NSURLConnection</span> <span class="o">*</span><span class="p">)</span><span class="nv">connection</span></code></pre></div>
+
+<p>and a thorough implementation means implementing all 5 of these methods.</p><p>A commonly seen case for this is to add the <code>NSURLConnection</code> delegate methods to your <code>UITableViewController</code> and make that view controller manage the connection.</p><p>While this might seem like a good idea (the view controller can track the status of the connection and provide visual updates and also present its own errors) the reality is that fully handling the connection takes a lot of code. How much code? The code I use is 530 lines long (including comments and spacing).</p><p>But there's also a more serious problem: bolting <code>NSURLConnection</code> to your <code>UITableViewController</code> limits code reuse. If your network code is tied closely to the view controller, there's more work involved in adding network behaviors to other view controllers or parts of your program.</p><p>Why do <code>NSURLConnection</code> delegates take so much code to implement? In the simplest case, they don't (you could probably manage a connection in 20 lines or so) but you'd be overlooking a lot of subtler behaviors. Errors, password authentication, cancelling the connection cleanly and offering simple construction versus meticulous construction are the type of behaviors that get left out if you're rewriting the code every time or operating under serious time constraints.</p><h2>HTTPFetcher</h2><p>The idea behind my <code>HTTPFetcher</code> class is really simple: it's reusable <code>NSURLConnection</code> delegate. It handles all the <code>NSURLConnection</code> delegate work and calls back when it has the results. It provides default error handling, password authentication and while it has a very simple default constructor, it still provides enough hooks that you can customize its behavior.</p><p>The interface to the class is really just construction methods, a start, a cancel and some properties. The <code>assign</code> properties are for configuring the connection before you start it. The <code>readonly</code> properties are for gathering information once the connection is complete.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@interface</span> <span class="nc">HTTPFetcher</span> : <span class="nc">NSObject</span> <span class="o">&lt;</span><span class="n">UITextFieldDelegate</span><span class="o">&gt;</span>
+
+<span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">readonly</span><span class="p">)</span> <span class="n">NSData</span> <span class="o">*</span><span class="n">data</span><span class="p">;</span>
+<span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">readonly</span><span class="p">)</span> <span class="n">NSURLRequest</span> <span class="o">*</span><span class="n">urlRequest</span><span class="p">;</span>
+<span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">readonly</span><span class="p">)</span> <span class="n">NSDictionary</span> <span class="o">*</span><span class="n">responseHeaderFields</span><span class="p">;</span>
+<span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">readonly</span><span class="p">)</span> <span class="n">NSInteger</span> <span class="n">failureCode</span><span class="p">;</span>
+<span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">assign</span><span class="p">)</span> <span class="kt">BOOL</span> <span class="n">showAlerts</span><span class="p">;</span>
+<span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">assign</span><span class="p">)</span> <span class="kt">BOOL</span> <span class="n">showAuthentication</span><span class="p">;</span>
+<span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">assign</span><span class="p">)</span> <span class="kt">void</span> <span class="o">*</span><span class="n">context</span><span class="p">;</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nf">initWithURLRequest:</span><span class="p">(</span><span class="n">NSURLRequest</span> <span class="o">*</span><span class="p">)</span><span class="nv">aURLRequest</span>
+    <span class="nf">receiver:</span><span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nv">aReceiver</span>
+    <span class="nf">action:</span><span class="p">(</span><span class="kt">SEL</span><span class="p">)</span><span class="nv">receiverAction</span><span class="p">;</span>
+<span class="p">-</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nf">initWithURLString:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">aURLString</span>
+    <span class="nf">receiver:</span><span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nv">aReceiver</span>
+    <span class="nf">action:</span><span class="p">(</span><span class="kt">SEL</span><span class="p">)</span><span class="nv">receiverAction</span><span class="p">;</span>
+<span class="p">-</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nf">initWithURLString:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">aURLString</span>
+    <span class="nf">timeout:</span><span class="p">(</span><span class="n">NSTimeInterval</span><span class="p">)</span><span class="nv">aTimeoutInterval</span>
+    <span class="nf">cachePolicy:</span><span class="p">(</span><span class="n">NSURLCacheStoragePolicy</span><span class="p">)</span><span class="nv">aCachePolicy</span>
+    <span class="nf">receiver:</span><span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nv">aReceiver</span>
+    <span class="nf">action:</span><span class="p">(</span><span class="kt">SEL</span><span class="p">)</span><span class="nv">receiverAction</span><span class="p">;</span>
+<span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">start</span><span class="p">;</span>
+<span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">cancel</span><span class="p">;</span>
+
+<span class="k">@end</span></code></pre></div>
+
+<p>You initialize the class in whatever way you choose (the middle init method shown here is the simplest), optionally configure the class (the most common configuration is to set the <code>context</code> pointer so that when the connection completes, you can remember where to set the data), start the connection and then it will invoke the <code>receiverAction</code> on your <code>receiver</code> object (the receiver action takes one parameter: the <code>HTTPFetcher</code> itself).</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="c1">// Example fetcher creation
+</span><span class="c1"></span><span class="n">fetcher</span> <span class="o">=</span> <span class="p">[[</span><span class="n">HTTPFetcher</span> <span class="n">alloc</span><span class="p">]</span>
+    <span class="nl">initWithURLString</span><span class="p">:</span><span class="s">@&#34;http://some-domain.com/some/path&#34;</span>
+    <span class="nl">receiver</span><span class="p">:</span><span class="nb">self</span>
+    <span class="nl">action</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="nl">receiveResponse</span><span class="p">:)];</span>
+<span class="p">[</span><span class="n">fetcher</span> <span class="n">start</span><span class="p">];</span>
+
+<span class="c1">// Example fetcher response handling
+</span><span class="c1"></span><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">receiveResponse:</span><span class="p">(</span><span class="n">HTTPFetcher</span> <span class="o">*</span><span class="p">)</span><span class="nv">aFetcher</span>
+<span class="p">{</span>
+    <span class="n">NSAssert</span><span class="p">(</span><span class="n">aFetcher</span> <span class="o">==</span> <span class="n">fetcher</span><span class="p">,</span>
+        <span class="s">@&#34;In this example, aFetcher is always the same as the fetcher ivar we set above&#34;</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">([</span><span class="n">fetcher</span><span class="p">.</span><span class="n">data</span> <span class="n">length</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="p">[</span><span class="nb">self</span> <span class="nl">doSomethingWithTheData</span><span class="p">:</span><span class="n">fetcher</span><span class="p">.</span><span class="n">data</span><span class="p">];</span>
+    <span class="p">}</span>
+    <span class="p">[</span><span class="n">fetcher</span> <span class="k">release</span><span class="p">];</span>
+    <span class="n">fetcher</span> <span class="o">=</span> <span class="nb">nil</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Ordinarily, your program will want to customize the code that presents the errors and make the presentation consistent to your application. You can do this with the <code>HTTPFetcher</code> class by either subclassing or editing the class itself or you can disable the alerts and authentication functionality and perform the work outside the class. However, if you don't have time to do this customization, there is default behavior in the class that will suffice.</p><blockquote><strong>HTTPFetcher memory management</strong>: the <code>HTTPFetcher</code> does not retain itself while running and does not retain the <code>receiver</code>. This is because the expected behavior is that the receiver retains the <code>HTTPFetcher</code> and we don't want a <a href="../../2009/07/rules-to-avoid-retain-cycles.html">retain cycle</a>. If you create the <code>HTTPFetcher</code> and don't have a retain count on it, it will immediately auto-<code>cancel</code> itself and <code>dealloc</code>.</blockquote><h2>XMLFetcher</h2><p>The <code>HTTPFetcher</code> is fine if you simply want the data from an HTTP connection. For my own purposes though, I've never used the <code>HTTPFetcher</code> on its own — I've always used it as the base-class for classes which post-process the HTTP data before invoking the receiver's callback method.</p><p>The <code>XMLFetcher</code> class is for turning an XML response into something more useful. Instead of needing to look at the <code>data</code> property of the <code>HTTPFetcher</code>, you can use the <code>results</code> property which is the array of nodes matching a given XPath query on the XML result.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@interface</span> <span class="nc">XMLFetcher</span> : <span class="nc">HTTPFetcher</span>
+
+<span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">copy</span><span class="p">,</span> <span class="k">readonly</span><span class="p">)</span> <span class="n">NSString</span> <span class="o">*</span><span class="n">xPathQuery</span><span class="p">;</span>
+<span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">retain</span><span class="p">,</span> <span class="k">readonly</span><span class="p">)</span> <span class="n">NSArray</span> <span class="o">*</span><span class="n">results</span><span class="p">;</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nf">initWithURLString:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">aURLString</span>
+    <span class="nf">xPathQuery:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">query</span>
+    <span class="nf">receiver:</span><span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nv">aReceiver</span>
+    <span class="nf">action:</span><span class="p">(</span><span class="kt">SEL</span><span class="p">)</span><span class="nv">receiverAction</span><span class="p">;</span>
+
+<span class="k">@end</span></code></pre></div>
+
+<p>I've <a href="../../2008/10/using-libxml2-for-parsing-and-xpath.html">previously spoken</a> about how I'm not a fan of the event-driven model (sometimes called a SAX parser) promoted by Apple in the iOS API. It is certainly memory efficient and faster for large files but it requires you perform your own structured handling which is tiresome, prone to mistakes and not really reusable. I personally prefer a document-based model like the <code>NSXML</code> API that exists in Mac OS X but not in iOS.</p><p>The <code>XMLFetcher</code> class blends the libXML-based XPath based parsing and querying with the <code>HTTPFetcher</code>.</p><p>However, I've addressed a number of the shortcomings of my previous libXML-based parsing. The biggest problem with that earlier code was that it simply packaged the XML into <code>NSDictionary</code>s (which is inelegant at best) — so instead, the results are now a dedicated <code>XPathResultNode</code> class which can cleanly represent <code>attributes</code>, <code>childNodes</code> and <code>contentString</code>s. There's also better handling of content strings either side of subnodes and concatenating of text data spread over subnodes.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@interface</span> <span class="nc">XPathResultNode</span> : <span class="nc">NSObject</span>
+
+<span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">retain</span><span class="p">,</span> <span class="k">readonly</span><span class="p">)</span> <span class="n">NSString</span> <span class="o">*</span><span class="n">name</span><span class="p">;</span>
+<span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">retain</span><span class="p">,</span> <span class="k">readonly</span><span class="p">)</span> <span class="n">NSMutableDictionary</span> <span class="o">*</span><span class="n">attributes</span><span class="p">;</span>
+<span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">retain</span><span class="p">,</span> <span class="k">readonly</span><span class="p">)</span> <span class="n">NSMutableArray</span> <span class="o">*</span><span class="n">content</span><span class="p">;</span>
+
+<span class="p">+</span> <span class="p">(</span><span class="n">NSArray</span> <span class="o">*</span><span class="p">)</span><span class="nf">nodesForXPathQuery:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">query</span> <span class="nf">onHTML:</span><span class="p">(</span><span class="n">NSData</span> <span class="o">*</span><span class="p">)</span><span class="nv">htmlData</span><span class="p">;</span>
+<span class="p">+</span> <span class="p">(</span><span class="n">NSArray</span> <span class="o">*</span><span class="p">)</span><span class="nf">nodesForXPathQuery:</span><span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nv">query</span> <span class="nf">onXML:</span><span class="p">(</span><span class="n">NSData</span> <span class="o">*</span><span class="p">)</span><span class="nv">xmlData</span><span class="p">;</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="n">NSArray</span> <span class="o">*</span><span class="p">)</span><span class="nf">childNodes</span><span class="p">;</span>
+<span class="p">-</span> <span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nf">contentString</span><span class="p">;</span>
+<span class="p">-</span> <span class="p">(</span><span class="n">NSString</span> <span class="o">*</span><span class="p">)</span><span class="nf">contentStringByUnifyingSubnodes</span><span class="p">;</span>
+
+<span class="k">@end</span></code></pre></div>
+
+<p>XPath query note: XPath queries can be a little difficult to get used to — if you're not accustomed to XPath, it can be hard to extract the exact nodes you want. Like regular expressions though, they're a highly specialized language for extracting data and once you understand the different functions available, they are the quickest way of getting specific nodes out of XML.</p><blockquote><strong>Compiler note</strong>: the XPathResultNode.m file contains a comment at the time which explains the Xcode compiler settings required to make it work. Basically, you need to include libxml in the include path and link your project with libxml2.dylib.</blockquote><h2>JSONFetcher</h2><p>The <code>JSONFetcher</code> is really just the same idea as the <code>XMLFetcher</code> — parse the result from <code>HTTPFetcher</code> once complete, this time as JSON data.</p><p>The class I've written relies on <a href="http://stig.github.com/json-framework/">SBJSON</a>, Stig Brautaset's BSD-licensed JSON parsing library. You will need to download these files separately and include them in your project (it's 3 .m files and 4 .h files).</p><p>SBJSON isn't your only option for JSON handling in iOS or Mac OS X. There are a few other <a href="http://stackoverflow.com/questions/2256625/comparison-of-json-parser-for-objective-c-json-framework-yajl-touchjson-etc">JSON libraries for iOS and Mac discussed here on Stackoverflow</a> if you'd prefer options. Obviously though, you'd need to make minor adjustments to integrate a different parser.</p><p>With a JSON response, there's not the same expectation of needing to find a subnode within a larger result (as is the common case for XML), so the JSON parser simply parses the whole JSON structure and returns it all.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@interface</span> <span class="nc">JSONFetcher</span> : <span class="nc">HTTPFetcher</span>
+
+<span class="k">@property</span> <span class="p">(</span><span class="k">nonatomic</span><span class="p">,</span> <span class="k">readonly</span><span class="p">)</span> <span class="kt">id</span> <span class="n">result</span><span class="p">;</span>
+
+<span class="k">@end</span></code></pre></div>
+
+<h2>Conclusion</h2><blockquote>You can download the four classes discussed in this project: <a href="../../assets/objc-era/HTTPXMLJSONFetchers.zip">HTTPXMLJSONFetchers.zip</a> (16kB)</blockquote><p>I've presented my classes for handling these tasks. I don't expect that everyone has the same data and network requirements as I do, so there's every chance that you would need very different classes to suit your own exact needs.</p><p>The point is really to consider reuse in your own code — how can you evolve your classes so that when you start a new project you need to rewrite as little as possible — you can simply bring in your own class for handling network data, pass different parameters into its constructor and your network connection is done.</p><p>Until I had composed these classes for my own purposes, new projects involved hundreds of lines of code that went through a copy, paste, refactor process from existing projects I'd written. While copy, paste, refactor will work, it is slower, more prone to errors and harder to keep up-to-date than properly reusable classes. In most cases, you should view copy and paste as a failure of your own processes. That's a hard rule to adhere to, since copy, paste, refactor is faster than designing a reusable class — or at least it is initially (compared to an up-front design effort). You need to have the discipline to recognize the common behaviors between classes or projects and refactor into shared classes if required.</p><p>A final thought: I realize I I haven't really shown these classes at work in an example program. If you can't work out how to use them in a real program, please wait a week or two: I plan to share a real-world project that uses them to handle all its network communication.</p></span></p>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="presenting-mac-dialog-sheet-with-visual.html">Presenting a Mac dialog sheet with visual cue effects</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../06/process-of-writing-ios-application.html">An RSS-feed and location-based iOS application</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

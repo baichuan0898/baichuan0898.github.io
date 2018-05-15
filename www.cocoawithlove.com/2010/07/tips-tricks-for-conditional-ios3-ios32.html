@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Tips &amp; Tricks for conditional iOS3, iOS3.2 and iOS4 code</title>
+  <meta name="description" content="In this post, I&#39;ll show you ways to determine which version of iOS you are running on and show you how to write a macro that can both conditionally compile and runtime switch between the code for different versions of iOS." />
+
+  <meta name="twitter:title" content="Tips &amp; Tricks for conditional iOS3, iOS3.2 and iOS4 code"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2010/07/tips-tricks-for-conditional-ios3-ios32.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="In this post, I&#39;ll show you ways to determine which version of iOS you are running on and show you how to write a macro that can both conditionally compile and runtime switch between the code for different versions of iOS."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="tips-tricks-for-conditional-ios3-ios32.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Tips &amp; Tricks for conditional iOS3, iOS3.2 and iOS4 code</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2010-07-06">July 6, 2010</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/xcode.html">Xcode</a>, <a href="../../categories/cocoa-touch.html">Cocoa Touch</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>In this post, I'll show you ways to determine which version of iOS you are running on and show you how to write a macro that can both conditionally compile and runtime switch between the code for different versions of iOS.</p></span><span class="fullpost"><h2>A project or target that supports multiple versions of iOS</h2><p>To make an application target that runs on multiple versions of iOS is relatively simple:</p><ul><li>Set the "Base SDK" in your projects settings to the <em>newest</em> version number of iOS whose features you may want.</li><li>Set the "iPhone OS Deployment Target" to the <em>oldest</em> version number of iOS that you will support</li></ul><p>However, getting the target settings correct is the easy part of the problem. The hard part is using new features on newer iOS versions without breaking the app on older versions.</p><h2>Running in the 3.1.3 simulator</h2><p>Before getting to the actual code, it might be worthwhile to discuss how to run your projects in older versions of the simulator.</p><p>The simulator is an important part of iOS development (since it is much faster and simpler than running your code on the device). But Apple have removed SDK versions earlier than 3.2 from the current Xcode builds. This makes it hard to verify your apps on earlier devices unless you install on a physical device.</p><p>Support for 3.1.3 is relatively important since it is the last version of iOS supported by the original iPhone and iPod Touch and it will be a few months before iOS 4 exceeds 80% of the remaining iPhone and iPod Touch market.</p><p>To allow simulation in 3.1.3, you must install an old version of Xcode. If you are a registered iPhone developer, you can download <a href="http://developer.apple.com/iphone/download.action?path=/iphone/iphone_sdk_3.1.3__final/iphone_sdk_3.1.3_with_xcode_3.1.4__leopard__9m2809a.dmg">Xcode 3.1.4 for Leopard with iPhone SDK 3.1.3</a> or <a href="http://developer.apple.com/iphone/download.action?path=/iphone/iphone_sdk_3.1.3__final/iphone_sdk_3.1.3_with_xcode_3.2.1__snow_leopard__10m2003a.dmg">Xcode 3.1.4 for Snow Leopard with iPhone SDK 3.1.3</a>. Be careful to install these in a different location to your Xcode 3.2.3 with iOS3.2/iOS4 (either select a different hard disk or rename your existing /Developer directory before you install).</p><p>Once you've got an old version of Xcode, you'll want to duplicate your main target and set the Base SDK to 3.1.3 in this duplicate (because it won't exist in this version of Xcode). You should use a second target for this because you shouldn't risk messing with your main target just to run code in the simulator.</p><h2>Using features from newer iOS versions while supporting older iOS versions</h2><p>For example, if you want to start an iOS4 background task in an application that you want to run on earlier versions of iOS, then you'll need to use code like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="cp">#if __IPHONE_OS_VERSION_MAX_ALLOWED &gt;= 40000
+</span><span class="cp"></span>    <span class="k">if</span> <span class="p">([[</span><span class="n">UIApplication</span> <span class="n">sharedApplication</span><span class="p">]</span>
+        <span class="nl">respondsToSelector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="nl">beginBackgroundTaskWithExpirationHandler</span><span class="p">:)])</span>
+    <span class="p">{</span>
+        <span class="n">UIBackgroundTaskIdentifier</span> <span class="n">bgTask</span> <span class="o">=</span> <span class="p">[[</span><span class="n">UIApplication</span> <span class="n">sharedApplication</span><span class="p">]</span>
+            <span class="nl">beginBackgroundTaskWithExpirationHandler</span><span class="p">:</span><span class="o">^</span><span class="p">{}];</span>
+
+        <span class="c1">// Perform work that should be allowed to continue in background
+</span><span class="c1"></span>
+        <span class="p">[[</span><span class="n">UIApplication</span> <span class="n">sharedApplication</span><span class="p">]</span> <span class="nl">endBackgroundTask</span><span class="p">:</span><span class="n">bgTask</span><span class="p">];</span>
+    <span class="p">}</span>
+<span class="cp">#endif</span></code></pre></div>
+
+<p>There are three important components:</p><ol><li>The <code>#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 40000</code> compile-time conditional. This ensures that if we choose to build this project with a Base SDK lower than 4.0, then it won't cause compile problems. This is essential for running in older versions of the simulator.</li><li>The runtime check that <code> UIApplication </code> supports the <code> beginBackgroundTaskWithExpirationHandler </code> method. Since the final release build will be built against the 4.0 SDK (even if users install on SDK 3.0) this runtime check ensures that the method we need is available.</li><li>Everything else between the <code>#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 40000</code> and the <code>#endif</code> is the iPhone OS 4 code.</li></ol><h2>Making the conditional work less ugly</h2><p>The problem with the previous code is the compile-time conditional and the runtime check for the presence of methods is cumbersome since you must remember to to both.</p><p>If you want to integrate both a compile-time check and a runtime check, a better approach would look like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">IF_IOS4_OR_GREATER</span>
+<span class="p">(</span>
+    <span class="n">UIBackgroundTaskIdentifier</span> <span class="n">bgTask</span> <span class="o">=</span> <span class="p">[[</span><span class="n">UIApplication</span> <span class="n">sharedApplication</span><span class="p">]</span>
+        <span class="nl">beginBackgroundTaskWithExpirationHandler</span><span class="p">:</span><span class="o">^</span><span class="p">{}];</span>
+
+    <span class="c1">// Perform work that should be allowed to continue in background
+</span><span class="c1"></span>
+    <span class="p">[[</span><span class="n">UIApplication</span> <span class="n">sharedApplication</span><span class="p">]</span> <span class="nl">endBackgroundTask</span><span class="p">:</span><span class="n">bgTask</span><span class="p">];</span>
+<span class="p">);</span></code></pre></div>
+
+<p>We can implement this macro as follows:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="cp">#ifndef kCFCoreFoundationVersionNumber_iPhoneOS_4_0
+</span><span class="cp">#define kCFCoreFoundationVersionNumber_iPhoneOS_4_0 550.32
+</span><span class="cp">#endif
+</span><span class="cp"></span>
+<span class="cp">#if __IPHONE_OS_VERSION_MAX_ALLOWED &gt;= 40000
+</span><span class="cp">#define IF_IOS4_OR_GREATER(...) \
+</span><span class="cp"></span>    <span class="k">if</span> <span class="p">(</span><span class="n">kCFCoreFoundationVersionNumber</span> <span class="o">&gt;=</span> <span class="n">kCFCoreFoundationVersionNumber_iPhoneOS_4_0</span><span class="p">)</span> \
+    <span class="p">{</span> \
+        <span class="n">__VA_ARGS__</span> \
+    <span class="p">}</span>
+<span class="cp">#else
+</span><span class="cp">#define IF_IOS4_OR_GREATER(...)
+</span><span class="cp">#endif</span></code></pre></div>
+
+<p>If we want to include something only in OS versions <em>prior</em> to a a specific version, then we don't need the conditional compilation (since we still want the code to appear when compiled in a later version. In this case, only a runtime check is required. You can either do this directly, or for symmetry with other macros, you could use:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="cp">#define IF_PRE_IOS4(...) \
+</span><span class="cp"></span>    <span class="k">if</span> <span class="p">(</span><span class="n">kCFCoreFoundationVersionNumber</span> <span class="o">&lt;</span> <span class="n">kCFCoreFoundationVersionNumber_iPhoneOS_4_0</span><span class="p">)</span> \
+    <span class="p">{</span> \
+        <span class="n">__VA_ARGS__</span> \
+    <span class="p">}</span></code></pre></div>
+
+<p>Three interesting points to note about these macros:</p><ol><li>I use the <code>kCFCoreFoundationVersionNumber</code> to determine the iPhone OS at runtime. There are many examples on the web using <code>[[UIDevice currentDevice] systemVersion]</code> but that method requires a string comparison and potentially handling of major and minor numbers within the string components. A single <code>double</code> comparison is far more straightforward.</li><li>I have not used the typical <code>do { x } while (0)</code> wrapper around the macro, so you <em>can</em> simply tack an <code>else</code> onto the end if you choose (and it doesn't need conditional compilation of its own).</li><li>I use a variable argument list for the macro. This is so that any number of commas may appear in the contents without causing problems.</li></ol><p>A final point... the <code>kCFCoreFoundationVersionNumber</code> definitions may not be in every version of the SDK (each SDK normally contains definitions for versions up to but not including itself), so you should conditionally define them yourself in case they're missing. Here's a handy list:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="cp">#ifndef kCFCoreFoundationVersionNumber_iPhoneOS_2_0
+</span><span class="cp">#define kCFCoreFoundationVersionNumber_iPhoneOS_2_0 478.23
+</span><span class="cp">#endif
+</span><span class="cp"></span>
+<span class="cp">#ifndef kCFCoreFoundationVersionNumber_iPhoneOS_2_1
+</span><span class="cp">#define kCFCoreFoundationVersionNumber_iPhoneOS_2_1 478.26
+</span><span class="cp">#endif
+</span><span class="cp"></span>
+<span class="cp">#ifndef kCFCoreFoundationVersionNumber_iPhoneOS_2_2
+</span><span class="cp">#define kCFCoreFoundationVersionNumber_iPhoneOS_2_2 478.29
+</span><span class="cp">#endif
+</span><span class="cp"></span>
+<span class="cp">#ifndef kCFCoreFoundationVersionNumber_iPhoneOS_3_0
+</span><span class="cp">#define kCFCoreFoundationVersionNumber_iPhoneOS_3_0 478.47
+</span><span class="cp">#endif
+</span><span class="cp"></span>
+<span class="cp">#ifndef kCFCoreFoundationVersionNumber_iPhoneOS_3_1
+</span><span class="cp">#define kCFCoreFoundationVersionNumber_iPhoneOS_3_1 478.52
+</span><span class="cp">#endif
+</span><span class="cp"></span>
+<span class="cp">#ifndef kCFCoreFoundationVersionNumber_iPhoneOS_3_2
+</span><span class="cp">#define kCFCoreFoundationVersionNumber_iPhoneOS_3_2 478.61
+</span><span class="cp">#endif
+</span><span class="cp"></span>
+<span class="cp">#ifndef kCFCoreFoundationVersionNumber_iPhoneOS_4_0
+</span><span class="cp">#define kCFCoreFoundationVersionNumber_iPhoneOS_4_0 550.32
+</span><span class="cp">#endif</span></code></pre></div>
+
+<h2>Better still: solutions that don't require macros</h2><p>Better than a simple macro is a simple function. This is a valid solution where the contents of your conditional code does not itself contain OS specific code (only the condition itself requires OS specific logic).</p><p>A common example is handing separate layout for iPad and iPhone versions. Ordinarily, if you're compiling for iPad 3.2 and iPhone 3.1.3, you need the following code:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="cp">#if __IPHONE_OS_VERSION_MAX_ALLOWED &gt;= 30200
+</span><span class="cp"></span>    <span class="k">if</span> <span class="p">([[</span><span class="n">UIDevice</span> <span class="n">currentDevice</span><span class="p">]</span> <span class="nl">respondsToSelector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="n">userInterfaceIdiom</span><span class="p">)]</span> <span class="o">&amp;&amp;</span>
+        <span class="p">[[</span><span class="n">UIDevice</span> <span class="n">currentDevice</span><span class="p">]</span> <span class="n">userInterfaceIdiom</span><span class="p">]</span> <span class="o">==</span> <span class="n">UIUserInterfaceIdiomPad</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="c1">// iPad specific layout changes
+</span><span class="c1"></span>    <span class="p">}</span>
+    <span class="k">else</span>
+<span class="cp">#endif
+</span><span class="cp"></span>    <span class="p">{</span>
+        <span class="c1">// iPhone layout
+</span><span class="c1"></span>    <span class="p">}</span></code></pre></div>
+
+<p>You can handle this with a conditional macro like the <code>IF_IOS4_OR_GREATER</code> but a far better solution is:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">if</span> <span class="p">(</span><span class="n">isIPad</span><span class="p">())</span>
+<span class="p">{</span>
+    <span class="c1">// iPad specific layout changes
+</span><span class="c1"></span><span class="p">}</span>
+<span class="k">else</span>
+<span class="p">{</span>
+    <span class="c1">// iPhone layout
+</span><span class="c1"></span><span class="p">}</span></code></pre></div>
+
+<p>Where all the conditional pollution is tidily kept in your <code>isIPad()</code> function:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">BOOL</span> <span class="nf">isIPad</span><span class="p">()</span>
+<span class="p">{</span>
+    <span class="n">IF_3_2_OR_GREATER</span>
+    <span class="p">(</span>
+        <span class="k">if</span> <span class="p">([[</span><span class="n">UIDevice</span> <span class="n">currentDevice</span><span class="p">]</span> <span class="n">userInterfaceIdiom</span><span class="p">]</span> <span class="o">==</span> <span class="n">UIUserInterfaceIdiomPad</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="k">return</span> <span class="nb">YES</span><span class="p">;</span>
+        <span class="p">}</span>
+    <span class="p">);</span>
+    
+    <span class="k">return</span> <span class="nb">NO</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<h2>Conclusion</h2><p>Apple doesn't exactly make it easy to support old versions of the iPhone SDK. I'm sure they want everyone to keep up to date or buy new devices if their current device can't be updated.</p><p>That's not always a realistic attitude for App Store developers. You can't expect all your customers to upgrade as soon as possible.</p><p>The important point when writing for multiple versions of the SDK is to keep as few conditionals as possible. You don't want to have thousands of conditionals in your code for supporting different versions. Every conditional is extra testing work since different behaviors must be fully exercised on all different platforms.</p><p>While the conditionals and functions I've talked about here will help, if you find yourself needing a lot of conditionals you may also want to consider design changes like instantiating different subclasses for different OS versions.</p></span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../06/assign-retain-copy-pitfalls-in-obj-c.html">Assign, retain, copy: pitfalls in Obj-C property accessors</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="is-virtual-machine-for-cocoa.html">Is a virtual machine for Cocoa programming inevitable?</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

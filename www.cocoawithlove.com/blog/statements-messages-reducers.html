@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Statements, messages and reducers</title>
+  <meta name="description" content="I show how to structure programs around three tiers of computational units – statements, messages and reducers – and talk about the general problem of containing and isolating state that this restructuring aims to address." />
+
+  <meta name="twitter:title" content="Statements, messages and reducers"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/blog/statements-messages-reducers.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="I show how to structure programs around three tiers of computational units – statements, messages and reducers – and talk about the general problem of containing and isolating state that this restructuring aims to address."/>
+
+  <link rel="icon" href="../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../css/main.css" />
+  <link rel="canonical" href="statements-messages-reducers.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../index.html"><img class="heartandcup" src="../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../about/index.html">about</a>
+        <a class="page-link" href="../archive/index.html">archive</a>
+        <a class="page-link" href="../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Statements, messages and reducers</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2017-06-22">June 22, 2017</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../tags/app-design.html">app design</a>, <a href="../tags/fundamentals.html">fundamentals</a>
+		 
+	</div>
+</header>
+
+
+<main role="main">
+	<article itemscope itemtype="http://schema.org/BlogPosting">
+		<div class="post-content" itemprop="articleBody">
+			
+
+<p>Common advice when improving the design of a program is to break the programs into small isolated units of functionality so that we can consider the behavior within each component separately to the connections between components.</p>
+
+<p>If that&rsquo;s the only advice you&rsquo;re given though, it can be difficult to work out how to apply it in practice.</p>
+
+<p>In this article, I&rsquo;ll show how this advice can be followed through the simple evolution of a piece of code, arriving at a pattern that is common in concurrent programming (but is useful across most stateful programs) where we build our program from three different tiers of computational unit: &ldquo;statements&rdquo;, &ldquo;messages&rdquo; and &ldquo;reducers&rdquo;.</p>
+
+<blockquote>
+<p>You can <a href="https://github.com/mattgallagher/CocoaWithLovePlaygrounds">download this article as a Swift Playground</a> from github.</p>
+</blockquote>
+
+<nav id="TableOfContents"><span class="toc-heading">Contents</span>
+<ul>
+<li>
+<ul>
+<li><a href="#aim">Aim</a></li>
+<li><a href="#a-series-of-statements">A series of statements</a></li>
+<li><a href="#controlling-our-program-through-messages">Controlling our program through messages</a></li>
+<li><a href="#structuring-logic-through-component-connections">Structuring logic through component connections</a></li>
+<li><a href="#reducers">Reducers</a></li>
+<li><a href="#where-do-we-go-from-here">Where do we go from here?</a></li>
+<li><a href="#conclusion">Conclusion</a>
+<ul>
+<li><a href="#looking-forward">Looking forward&hellip;</a></li>
+</ul></li>
+</ul></li>
+</ul>
+</nav>
+
+<h2 id="aim">Aim</h2>
+
+<p>The purpose of this article is to show how to isolate state in your program. There are a number of reasons why we might want to do this:</p>
+
+<ol>
+<li>If containment is clean, the behavior at a single location is easier to understand</li>
+<li>If containment is clean, it is easier to model and understand connections between components.</li>
+<li>If state is accessed at a single location, it is easy to move that location inside another execution context (like a queue, thread or simply within a mutex) and make your program threadsafe and asynchronous.</li>
+<li>If state can only be accessed in restricted ways, we can more carefully manage dependencies and keep everything up-to-date when dependencies change</li>
+</ol>
+
+<h2 id="a-series-of-statements">A series of statements</h2>
+
+<p>A <strong>statement</strong> is the standard computational unit in an imperative programming language, like Swift. Statements include assigment, functions and control flow and may include effects (changes in state).</p>
+
+<p>I know, I know, I&rsquo;m explaining basic programming terminology to programmers; I&rsquo;ll be brief.</p>
+
+<p>Here&rsquo;s a small program where the logic is built from statements:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">printCode</span><span class="p">(</span><span class="kc">_</span> <span class="n">code</span><span class="p">:</span> <span class="nb">Int</span><span class="p">)</span> <span class="p">{</span>
+   <span class="k">if</span> <span class="kd">let</span> <span class="nv">scalar</span> <span class="p">=</span> <span class="nb">UnicodeScalar</span><span class="p">(</span><span class="n">code</span><span class="p">)</span> <span class="p">{</span>
+      <span class="bp">print</span><span class="p">(</span><span class="n">scalar</span><span class="p">)</span>
+   <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+      <span class="bp">print</span><span class="p">(</span><span class="s">&#34;�&#34;</span><span class="p">)</span>
+   <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kd">let</span> <span class="nv">grinning</span> <span class="p">=</span> <span class="mh">0x1f600</span>
+<span class="n">printCode</span><span class="p">(</span><span class="n">grinning</span><span class="p">)</span>
+
+<span class="kd">let</span> <span class="nv">rollingOnTheFloorLaughing</span> <span class="p">=</span> <span class="mh">0x1f600</span>
+<span class="n">printCode</span><span class="p">(</span><span class="n">rollingOnTheFloorLaughing</span><span class="p">)</span>
+
+<span class="kd">let</span> <span class="nv">notAValidScalar</span> <span class="p">=</span> <span class="mh">0x999999</span>
+<span class="n">printCode</span><span class="p">(</span><span class="n">notAValidScalar</span><span class="p">)</span>
+
+<span class="kd">let</span> <span class="nv">smirkingFace</span> <span class="p">=</span> <span class="mh">0x1f60f</span>
+<span class="n">printCode</span><span class="p">(</span><span class="n">smirkingFace</span><span class="p">)</span>
+
+<span class="kd">let</span> <span class="nv">stuckOutTongueClosedEyes</span> <span class="p">=</span> <span class="mh">0x1f61d</span>
+<span class="n">printCode</span><span class="p">(</span><span class="n">stuckOutTongueClosedEyes</span><span class="p">)</span></code></pre></div>
+
+<p>This will print each of the following on their own line: 😀 🤣 � 😏 😝</p>
+
+<p><em>The boxed question mark character is not a mistake, the code deliberately prints the Unicode replacement character (<code>0xfffd</code>) on failure to convert to a <code>UnicodeScalar</code>.</em></p>
+
+<h2 id="controlling-our-program-through-messages">Controlling our program through messages</h2>
+
+<p>The biggest problem with logic built purely from statements is that extending it with additional functionality is verbose. Looking for ways to eliminate verbosity naturally leads to code driven (at least in part) by data.</p>
+
+<p>For example, driving the previous example through data reduces the last 10 lines down to 4:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">let</span> <span class="nv">codes</span> <span class="p">=</span> <span class="p">[</span><span class="mh">0x1f600</span><span class="p">,</span> <span class="mh">0x1f923</span><span class="p">,</span> <span class="mh">0x999999</span><span class="p">,</span> <span class="mh">0x1f60f</span><span class="p">,</span> <span class="mh">0x1f61d</span><span class="p">]</span>
+<span class="k">for</span> <span class="n">c</span> <span class="k">in</span> <span class="n">codes</span> <span class="p">{</span>
+   <span class="n">printCode</span><span class="p">(</span><span class="n">c</span><span class="p">)</span>
+<span class="p">}</span></code></pre></div>
+
+<p>However, this example is very simple and it might not be clear that it has really changed anything. We can increase the complexity of the example to make the difference clearer.</p>
+
+<p>We&rsquo;ll modify our array to replace the basic <code>Int</code> values with a type that needs a little more handling.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">enum</span> <span class="nc">Instruction</span> <span class="p">{</span>
+   <span class="k">case</span> <span class="bp">print</span>
+   <span class="k">case</span> <span class="n">increment</span><span class="p">(</span><span class="nb">Int</span><span class="p">)</span>
+   <span class="k">case</span> <span class="kr">set</span><span class="p">(</span><span class="nb">Int</span><span class="p">)</span>
+
+   <span class="kd">static</span> <span class="kd">func</span> <span class="nf">array</span><span class="p">(</span><span class="kc">_</span> <span class="n">instrs</span><span class="p">:</span> <span class="n">Instruction</span><span class="p">...)</span> <span class="p">-&gt;</span> <span class="p">[</span><span class="n">Instruction</span><span class="p">]</span> <span class="p">{</span> <span class="k">return</span> <span class="n">instrs</span> <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Now, instead of simply printing every <code>Int</code> value received, our handling requires maintaining an internal <code>Int</code> storage and different <code>Instruction</code> values may <code>.set</code> the storage, may <code>.increment</code> the storage or may request that the storage be <code>.print</code>ed.</p>
+
+<p>Let&rsquo;s look at what code we might use to process the array of <code>Instruction</code> objects:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">struct</span> <span class="nc">Interpreter</span> <span class="p">{</span>
+   <span class="kd">var</span> <span class="nv">state</span><span class="p">:</span> <span class="nb">Int</span> <span class="p">=</span> <span class="mi">0</span>
+   <span class="kd">func</span> <span class="nf">printCode</span><span class="p">()</span> <span class="p">{</span>
+      <span class="k">if</span> <span class="kd">let</span> <span class="nv">scalar</span> <span class="p">=</span> <span class="nb">UnicodeScalar</span><span class="p">(</span><span class="n">state</span><span class="p">)</span> <span class="p">{</span>
+         <span class="bp">print</span><span class="p">(</span><span class="n">scalar</span><span class="p">)</span>
+      <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+         <span class="bp">print</span><span class="p">(</span><span class="s">&#34;�&#34;</span><span class="p">)</span>
+      <span class="p">}</span>
+   <span class="p">}</span>
+   <span class="kr">mutating</span> <span class="kd">func</span> <span class="nf">handleInstruction</span><span class="p">(</span><span class="kc">_</span> <span class="n">instruction</span><span class="p">:</span> <span class="n">Instruction</span><span class="p">)</span> <span class="p">{</span>
+      <span class="k">switch</span> <span class="n">instruction</span> <span class="p">{</span>
+      <span class="k">case</span> <span class="p">.</span><span class="bp">print</span><span class="p">:</span> <span class="n">printCode</span><span class="p">()</span>
+      <span class="k">case</span> <span class="p">.</span><span class="n">increment</span><span class="p">(</span><span class="kd">let</span> <span class="nv">x</span><span class="p">):</span> <span class="n">state</span> <span class="o">+=</span> <span class="n">x</span>
+      <span class="k">case</span> <span class="p">.</span><span class="kr">set</span><span class="p">(</span><span class="kd">let</span> <span class="nv">x</span><span class="p">):</span> <span class="n">state</span> <span class="p">=</span> <span class="n">x</span>
+      <span class="p">}</span>
+   <span class="p">}</span>
+<span class="p">}</span>
+
+<span class="kd">var</span> <span class="nv">interpreter</span> <span class="p">=</span> <span class="n">Interpreter</span><span class="p">()</span>
+<span class="kd">let</span> <span class="nv">instructions</span> <span class="p">=</span> <span class="n">Instruction</span><span class="p">.</span><span class="n">array</span><span class="p">(</span>
+   <span class="p">.</span><span class="kr">set</span><span class="p">(</span><span class="mh">0x1f600</span><span class="p">),</span> <span class="p">.</span><span class="bp">print</span><span class="p">,</span>
+   <span class="p">.</span><span class="n">increment</span><span class="p">(</span><span class="mh">0x323</span><span class="p">),</span> <span class="p">.</span><span class="bp">print</span><span class="p">,</span>
+   <span class="p">.</span><span class="n">increment</span><span class="p">(</span><span class="mh">0x999999</span><span class="p">),</span> <span class="p">.</span><span class="bp">print</span><span class="p">,</span>
+   <span class="p">.</span><span class="kr">set</span><span class="p">(</span><span class="mh">0x1f60f</span><span class="p">),</span> <span class="p">.</span><span class="bp">print</span><span class="p">,</span>
+   <span class="p">.</span><span class="n">increment</span><span class="p">(</span><span class="mh">0xe</span><span class="p">),</span> <span class="p">.</span><span class="bp">print</span>
+<span class="p">)</span>
+<span class="k">for</span> <span class="n">i</span> <span class="k">in</span> <span class="n">instructions</span> <span class="p">{</span>
+   <span class="n">interpreter</span><span class="p">.</span><span class="n">handleInstruction</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This code produces the same output as the previous example and uses a very similar <code>printCode</code> function internally but it should be clear that the <code>Interpreter</code> struct is running a little mini-program defined by the <code>instructions</code> array.</p>
+
+<p>It should now be much clearer that our program&rsquo;s logic is composed of logic on two different tiers:</p>
+
+<ol>
+<li>Swift statements in <code>handleInstruction</code> and <code>printCode</code> which interpret and execute each instruction</li>
+<li>The <code>Instructions.array</code> which contains a sequence of messages that need to be interpreted</li>
+</ol>
+
+<p>Our second tier of computational unit is the <strong>message</strong> and it is any data which can be fed to a component in a stream, where the structure of data in the stream itself determines the result.</p>
+
+<blockquote>
+<p><strong>Terminology note</strong>: I&rsquo;m calling these instructions &ldquo;messages&rdquo;, following common terminology in <a href="https://en.wikipedia.org/wiki/Process_calculus">process calculus</a> and the <a href="https://en.wikipedia.org/wiki/Actor_model">actor model</a>, but the term &ldquo;commands&rdquo; is also sometimes used. In some cases, these messages may also be treated as a complete &ldquo;domain specific language&rdquo;.</p>
+</blockquote>
+
+<h2 id="structuring-logic-through-component-connections">Structuring logic through component connections</h2>
+
+<p>The biggest problem with the previous code is that its structure does not aesthetically reflect the structure of the computation; it&rsquo;s difficult to see at a glance what direction the logic flows.</p>
+
+<p>We need to consider what the structure of the computation really is. We&rsquo;re trying to:</p>
+
+<ol>
+<li>take a sequence of instructions</li>
+<li>convert those instructions into sequence of effects on our internal state</li>
+<li>emit further messages to a third stage that can <code>print</code></li>
+</ol>
+
+<p>It is possible to identify parts of the <code>Interpreter</code> struct that perform these tasks but that struct is not aethetically organized to reflect these three steps.</p>
+
+<p>So let&rsquo;s refactor our code to something that directly shows the connection.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">var</span> <span class="nv">state</span><span class="p">:</span> <span class="nb">Int</span> <span class="p">=</span> <span class="mi">0</span>
+<span class="n">Instruction</span><span class="p">.</span><span class="n">array</span><span class="p">(</span>
+   <span class="p">.</span><span class="kr">set</span><span class="p">(</span><span class="mh">0x1f600</span><span class="p">),</span> <span class="p">.</span><span class="bp">print</span><span class="p">,</span>
+   <span class="p">.</span><span class="n">increment</span><span class="p">(</span><span class="mh">0x323</span><span class="p">),</span> <span class="p">.</span><span class="bp">print</span><span class="p">,</span>
+   <span class="p">.</span><span class="n">increment</span><span class="p">(</span><span class="mh">0x999999</span><span class="p">),</span> <span class="p">.</span><span class="bp">print</span><span class="p">,</span>
+   <span class="p">.</span><span class="kr">set</span><span class="p">(</span><span class="mh">0x1f60f</span><span class="p">),</span> <span class="p">.</span><span class="bp">print</span><span class="p">,</span>
+   <span class="p">.</span><span class="n">increment</span><span class="p">(</span><span class="mh">0xe</span><span class="p">),</span> <span class="p">.</span><span class="bp">print</span>
+<span class="p">).</span><span class="n">flatMap</span> <span class="p">{</span> <span class="p">(</span><span class="n">i</span><span class="p">:</span> <span class="n">Instruction</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Int</span><span class="p">?</span> <span class="k">in</span>
+   <span class="k">switch</span> <span class="n">i</span> <span class="p">{</span>
+   <span class="k">case</span> <span class="p">.</span><span class="bp">print</span><span class="p">:</span> <span class="k">return</span> <span class="n">state</span>
+   <span class="k">case</span> <span class="p">.</span><span class="n">increment</span><span class="p">(</span><span class="kd">let</span> <span class="nv">x</span><span class="p">):</span> <span class="n">state</span> <span class="o">+=</span> <span class="n">x</span><span class="p">;</span> <span class="k">return</span> <span class="kc">nil</span>
+   <span class="k">case</span> <span class="p">.</span><span class="kr">set</span><span class="p">(</span><span class="kd">let</span> <span class="nv">x</span><span class="p">):</span> <span class="n">state</span> <span class="p">=</span> <span class="n">x</span><span class="p">;</span> <span class="k">return</span> <span class="kc">nil</span>
+   <span class="p">}</span>
+<span class="p">}.</span><span class="n">forEach</span> <span class="p">{</span> <span class="n">value</span> <span class="k">in</span>
+   <span class="k">if</span> <span class="kd">let</span> <span class="nv">scalar</span> <span class="p">=</span> <span class="nb">UnicodeScalar</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="p">{</span>
+      <span class="bp">print</span><span class="p">(</span><span class="n">scalar</span><span class="p">)</span>
+   <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+      <span class="bp">print</span><span class="p">(</span><span class="s">&#34;�&#34;</span><span class="p">)</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Once again, the code will print the same output as previous examples.</p>
+
+<p>We now have a three stage pipeline that directly reflects the 3 points above: a sequence of instructions, interpreting instructions and applying state effects, and the output phase.</p>
+
+<h2 id="reducers">Reducers</h2>
+
+<p>Let&rsquo;s look in particular at the <code>flatMap</code> stage in the middle of our pipeline. Why is it the most important?</p>
+
+<p>It&rsquo;s not because of the <code>flatMap</code> function itself but because it is the only stage where I used a capturing closure. The <code>state</code> variable is captured and referenced exclusively by this stage, making the <code>state</code> value effectively a private variable of the <code>flatMap</code> closure. The state is only ever indirectly accessed from outside the <code>flatMap</code> stage – it is set by providing an input <code>Instruction</code> and it is accessed via <code>Int</code> values that the <code>flatMap</code> stage chooses to emit.</p>
+
+<p>We can model this stage like this:</p>
+
+<p><img src="../assets/blog/reducer.svg" alt="Figure 1: a diagram of a reducer, its state and messages" /></p>
+
+<figcaption>A diagram of stage in a pipeline as a "reducer"</figcaption>
+
+<p>Each of the <code>a</code> values in this diagram are the <code>Instruction</code> values. The <code>x</code> values are the <code>state</code> and the <code>b</code> values are the <code>Int?</code> emitted.</p>
+
+<p>This is called a <strong>reducer</strong> and it is the third tier of computational unit that I want to discuss. A reducer is an entity with identity (a reference type in Swift) and internal state that is accessed purely by incoming and outgoing messages.</p>
+
+<p>When I say that reducers are the third tier of computation unit that I want to discuss, I&rsquo;m excluding consideration of the contents of the reducer (which are typical Swift statements effecting the encapsulated state) and instead considering the reducer as a single black box unit defined by its connections to other units and suggesting that these boxes are how we can lay out higher level logic.</p>
+
+<p>Another way of explaining this is while statements perform logic <em>within</em> an execution context, reducers form logic by spanning between execution contexts.</p>
+
+<p>I used a capturing closure to ad hoc a reducer from a <code>flatMap</code> function and an <code>Int</code> variable but most reducers are <code>class</code> instances that maintain their state a little more tightly and assist with integration into a larger graph.</p>
+
+<blockquote>
+<p>I&rsquo;m using the term &ldquo;reducer&rdquo; to describe this type of construct. My definition is more accurately an Agent or Actor with <a href="https://en.wikipedia.org/wiki/Operational_semantics#Reduction_semantics">reduction semantics</a>. In a weird terminology twist, &ldquo;reducers&rdquo; are also called &ldquo;accumulators&rdquo;, despite those words being near opposites. It&rsquo;s a matter of perspective: a &ldquo;reducer&rdquo; reduces the incoming stream of messages down to a single state value; while an &ldquo;accumulator&rdquo; accumulates new information in its state over time by incorporating each incoming message as it arrives.</p>
+</blockquote>
+
+<h2 id="where-do-we-go-from-here">Where do we go from here?</h2>
+
+<p>We can replace the reducer abstractions with very different kinds of machinery.</p>
+
+<p>We could migrate our previous code, which operates on a Swift <code>Array</code> of values to the CwlSignal reactive programming framework with effort that is barely more than drag and drop. This would give us access to asynchronous capabilities or true communication channels between different parts of our program.</p>
+
+<p>Here&rsquo;s how it looks:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="n">Signal</span><span class="p">&lt;</span><span class="n">Instruction</span><span class="o">&gt;</span><span class="p">.</span><span class="n">from</span><span class="p">(</span><span class="n">values</span><span class="p">:</span> <span class="p">[</span>
+   <span class="p">.</span><span class="kr">set</span><span class="p">(</span><span class="mh">0x1f600</span><span class="p">),</span> <span class="p">.</span><span class="bp">print</span><span class="p">,</span>
+   <span class="p">.</span><span class="n">increment</span><span class="p">(</span><span class="mh">0x323</span><span class="p">),</span> <span class="p">.</span><span class="bp">print</span><span class="p">,</span>
+   <span class="p">.</span><span class="n">increment</span><span class="p">(</span><span class="mh">0x999999</span><span class="p">),</span> <span class="p">.</span><span class="bp">print</span><span class="p">,</span>
+   <span class="p">.</span><span class="kr">set</span><span class="p">(</span><span class="mh">0x1f60f</span><span class="p">),</span> <span class="p">.</span><span class="bp">print</span><span class="p">,</span>
+   <span class="p">.</span><span class="n">increment</span><span class="p">(</span><span class="mh">0xe</span><span class="p">),</span> <span class="p">.</span><span class="bp">print</span>
+<span class="p">]).</span><span class="n">filterMap</span><span class="p">(</span><span class="n">initialState</span><span class="p">:</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span> <span class="p">(</span><span class="n">state</span><span class="p">:</span> <span class="kr">inout</span> <span class="nb">Int</span><span class="p">,</span> <span class="n">i</span><span class="p">:</span> <span class="n">Instruction</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Int</span><span class="p">?</span> <span class="k">in</span>
+   <span class="k">switch</span> <span class="n">i</span> <span class="p">{</span>
+   <span class="k">case</span> <span class="p">.</span><span class="bp">print</span><span class="p">:</span> <span class="k">return</span> <span class="n">state</span>
+   <span class="k">case</span> <span class="p">.</span><span class="n">increment</span><span class="p">(</span><span class="kd">let</span> <span class="nv">x</span><span class="p">):</span> <span class="n">state</span> <span class="o">+=</span> <span class="n">x</span><span class="p">;</span> <span class="k">return</span> <span class="kc">nil</span>
+   <span class="k">case</span> <span class="p">.</span><span class="kr">set</span><span class="p">(</span><span class="kd">let</span> <span class="nv">x</span><span class="p">):</span> <span class="n">state</span> <span class="p">=</span> <span class="n">x</span><span class="p">;</span> <span class="k">return</span> <span class="kc">nil</span>
+   <span class="p">}</span>
+<span class="p">}.</span><span class="n">subscribeValuesAndKeepAlive</span> <span class="p">{</span> <span class="n">value</span> <span class="k">in</span>
+   <span class="k">if</span> <span class="kd">let</span> <span class="nv">scalar</span> <span class="p">=</span> <span class="nb">UnicodeScalar</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="p">{</span>
+      <span class="bp">print</span><span class="p">(</span><span class="n">scalar</span><span class="p">)</span>
+   <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+      <span class="bp">print</span><span class="p">(</span><span class="s">&#34;�&#34;</span><span class="p">)</span>
+   <span class="p">}</span>
+   <span class="k">return</span> <span class="kc">true</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The <code>filterMap</code> function here is more ideally suited as a reducer since it offers truly private internal state as part of the API – no more captured variables required to establish private state - otherwise it is semantically equivalent to the previous <code>flatMap</code> as it maps over the sequences of values in the signal and filters out optionals.</p>
+
+<p>This simple change between abstractions is possible because the contents of the reducer are dependent on the messages, not the reducer machinery itself.</p>
+
+<p>As for any additional tiers of computational unit beyond reducers? I don&rsquo;t know, I haven&rsquo;t encountered any. We&rsquo;ve addressed the issue of state encapsulation so any additional tier would be to address a new issue. But if artificial neural networks can have &ldquo;Deep Learning&rdquo;, then why can&rsquo;t programming have &ldquo;Deep Semantics&rdquo;? Clearly, it&rsquo;s the future 😉.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<blockquote>
+<p>You can <a href="https://github.com/mattgallagher/CocoaWithLovePlaygrounds">download this article as a Swift Playground</a> from github.</p>
+</blockquote>
+
+<p>The lesson here is that the most natural way to break a program into small, isolated components is to organize your program in three different tiers:</p>
+
+<ol>
+<li>stateful code isolated in reducers with access limited to messages in and messages out</li>
+<li>messages which act to program reducers into a given state</li>
+<li>graph structure formed by reducers lays out the higher level logic of the program</li>
+</ol>
+
+<p>None of this is new advice; this all originates in concurrent computation theory from mid-1970s and the advice hasn&rsquo;t changed substantially since the early 1990s when &ldquo;reduction semantics&rdquo; were formalized.</p>
+
+<p>Of course, that doesn&rsquo;t mean that people always follow good advice. Object-oriented programming was the hammer that people used to try and solve every programming problem though the 1990s and early 2000s and while you can build a reducer from an object, that doesn&rsquo;t mean that all objects are reducers. Unrestricted interfaces on objects can make state, dependencies and interface coupling into a maintenance nightmare.</p>
+
+<p>However, it is straightforward to model your objects as reducers by simplifying the public interface down to:</p>
+
+<ul>
+<li>a constructor</li>
+<li>a single function for messages-in</li>
+<li>a way to subscribe or otherwise connect messages-out</li>
+</ul>
+
+<p>It&rsquo;s a situation where <em>limiting</em> the functionality of an interface will greatly improve the ability to maintain and iterate the design.</p>
+
+<h3 id="looking-forward">Looking forward&hellip;</h3>
+
+<p>In the example in the <a href="#structuring-logic-through-component-connections">Structuring logic through component connections</a> section, I used the controversial definition of <code>flatMap</code> (the one that is never a monad). In my next article, I&rsquo;m going to talk about why monads are considered a fundamental unit of computation to many functional programmers yet a strict implementation in imperative programming is sometimes less useful than transforms which aren&rsquo;t quite monads.</p>
+
+		</div>
+	</article>
+</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="mvc-and-cocoa.html">Looking at Model-View-Controller in Cocoa</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="an-aside-about-flatmap-and-monads.html">An aside about flatMap and monads</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../feed.json">JSON</a>, <a href="../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

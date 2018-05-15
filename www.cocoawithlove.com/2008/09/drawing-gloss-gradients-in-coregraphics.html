@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Drawing gloss gradients in CoreGraphics</title>
+  <meta name="description" content="This post presents a function &amp;mdash DrawGlossGradient(CGContextRef context, NSColor *color, NSRect inRect) &amp;mdash  that will draw a &#34;gloss&#34; gradient in a single statement. All colors in the gradient are calculated from the single color parameter." />
+
+  <meta name="twitter:title" content="Drawing gloss gradients in CoreGraphics"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2008/09/drawing-gloss-gradients-in-coregraphics.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="This post presents a function &amp;mdash DrawGlossGradient(CGContextRef context, NSColor *color, NSRect inRect) &amp;mdash  that will draw a &#34;gloss&#34; gradient in a single statement. All colors in the gradient are calculated from the single color parameter."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="drawing-gloss-gradients-in-coregraphics.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Drawing gloss gradients in CoreGraphics</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2008-09-13">September 13, 2008</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/coregraphics.html">CoreGraphics</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>This post presents a function &mdash DrawGlossGradient(CGContextRef context, NSColor *color, NSRect inRect) &mdash  that will draw a "gloss" gradient in a single statement. All colors in the gradient are calculated from the single color parameter.</p></span>
+
+<span class="fullpost">
+<h2>Introduction</h2>
+<p>The following samples are gloss gradients. They are all made by the DrawGlossGradient function described below.</p>
+
+<img src="../../assets/objc-era/gradientSample.png" width="457" height="57" />
+
+<p>This type of gradient is common on buttons or other graphical adornments on webpages. The "aqua" aesthetic of Mac OS X also uses this type of gradient in numerous places.</p>
+<p>The gradient is actually composed of a number of components, all intended to simulate a translucent glass or plastic lens-shaped object that is lit from above.</p>
+<p>A diagram of the physical structure being modelled would look like this:</p>
+
+<img src="../../assets/objc-era/glossDiagram.png" width="200" height="302" />
+
+<p>The light gray "lens" shape is the glass or plastic translucent object being modelled.</p>
+
+<p>The top half, as seen by the viewer, is dominated by the arc labelled "B" which is light from the light-source reflected directly to the viewer.</p>
+
+<p>The bottom half, as seen by the viewer, contains the effects of two arcs: C and A. Arc C is a "caustic" highlight, where the light from the light source is focussed to a higher intensity by the lens shape of the translucent material. Arc A is darker because the recessed nature of the translucent material casts a shadow over this area.</p>
+
+<p>The final point to note is that the lens shape is not flat at the back, so these light and dark components attenuate in a non-linear fashion.</p>
+
+<h2>Creating the effect in code</h2>
+
+<p>We need four different color values:</p>
+
+<ul><li>The top of the gloss highlight (whitest due to incident angle of reflection)</li>
+<li>The bottom of the gloss highlight (white-ish but not as white as top)</li>
+<li>The background color - darkest visible part of shadow (will be provided as input to the function)</li>
+<li>The caustic color (brighter than background and incorporating a subtle hue change)</li></ul>
+
+<p>Once we have these values, we can simply create a gradient out of them.</p>
+
+<blockquote>I'm going to use a CoreGraphics CGShadingRef. It would be possible to produce a fairly similar effect using an NSGradient but that class only handles constant-slope gradients and I want to incorporate a subtle exponential in the gradients.</blockquote>
+
+<h2>The gloss highlight color</h2>
+
+<p>The two gloss highlight colors will just be a blend of white and the background color. Picking relative intensities of these two colors is not very hard. I chose a 0.6 fraction of white for my top gloss color and a 0.2 for the bottom of the gloss (although these fractions will be reduced by the scaling below).</p>
+
+<p>When using a range of background colors, I found that dark colors needed a smaller fraction of white than light colors to appear similarly glossy, so I had to scale the effect based on background brightness.</p>
+
+<p>I chose the following function to produce a scaling coefficient for my gloss brightness, based on brightness of the background color:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">float</span> <span class="nf">perceptualGlossFractionForColor</span><span class="p">(</span><span class="kt">float</span> <span class="o">*</span><span class="n">inputComponents</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">const</span> <span class="kt">float</span> <span class="n">REFLECTION_SCALE_NUMBER</span> <span class="o">=</span> <span class="mf">0.2</span><span class="p">;</span>
+    <span class="k">const</span> <span class="kt">float</span> <span class="n">NTSC_RED_FRACTION</span> <span class="o">=</span> <span class="mf">0.299</span><span class="p">;</span>
+    <span class="k">const</span> <span class="kt">float</span> <span class="n">NTSC_GREEN_FRACTION</span> <span class="o">=</span> <span class="mf">0.587</span><span class="p">;</span>
+    <span class="k">const</span> <span class="kt">float</span> <span class="n">NTSC_BLUE_FRACTION</span> <span class="o">=</span> <span class="mf">0.114</span><span class="p">;</span>
+
+    <span class="kt">float</span> <span class="n">glossScale</span> <span class="o">=</span>
+        <span class="n">NTSC_RED_FRACTION</span> <span class="o">*</span> <span class="n">inputComponents</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span>
+        <span class="n">NTSC_GREEN_FRACTION</span> <span class="o">*</span> <span class="n">inputComponents</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span>
+        <span class="n">NTSC_BLUE_FRACTION</span> <span class="o">*</span> <span class="n">inputComponents</span><span class="p">[</span><span class="mi">2</span><span class="p">];</span>
+    <span class="n">glossScale</span> <span class="o">=</span> <span class="n">pow</span><span class="p">(</span><span class="n">glossScale</span><span class="p">,</span> <span class="n">REFLECTION_SCALE_NUMBER</span><span class="p">);</span>
+    <span class="k">return</span> <span class="n">glossScale</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The input components are 3 floats (RGB). The coefficients with which I multiply them are the NTSC color-to-luminance conversion coefficients. It's an acceptable "perceptual brightness" conversion for color and far easier than RGB to LUV. I then raise this value to a fractional power &mdash; value chosen experimentally as it seemed to give about the right final value across the range of brightnesses.</p>
+
+<h2>The caustic highlight color</h2>
+
+<p>The caustic color is a harder problem. We need to achieve a hue and brightness shift of the background color towards yellow, while retaining the background's saturation.</p>
+
+<p>Again, as with gloss, there was a non-linearity to account for: colors further in hue from yellow required proportionally less hue shift to maintain the appearance of the same hue-shift effect. I chose to scale the hue shift by a cosine such that the hue shift seemed perceptually appropriate.</p>
+
+<p>In addition, grays (having no real hue) need special handling. Reds needed special handling to account for the fact that hue wraps around at red. Purples didn't really look good hued towards yellow, so I decided to make them hue towards magenta.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">void</span> <span class="nf">perceptualCausticColorForColor</span><span class="p">(</span><span class="kt">float</span> <span class="o">*</span><span class="n">inputComponents</span><span class="p">,</span> <span class="kt">float</span> <span class="o">*</span><span class="n">outputComponents</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">const</span> <span class="kt">float</span> <span class="n">CAUSTIC_FRACTION</span> <span class="o">=</span> <span class="mf">0.60</span><span class="p">;</span>
+    <span class="k">const</span> <span class="kt">float</span> <span class="n">COSINE_ANGLE_SCALE</span> <span class="o">=</span> <span class="mf">1.4</span><span class="p">;</span>
+    <span class="k">const</span> <span class="kt">float</span> <span class="n">MIN_RED_THRESHOLD</span> <span class="o">=</span> <span class="mf">0.95</span><span class="p">;</span>
+    <span class="k">const</span> <span class="kt">float</span> <span class="n">MAX_BLUE_THRESHOLD</span> <span class="o">=</span> <span class="mf">0.7</span><span class="p">;</span>
+    <span class="k">const</span> <span class="kt">float</span> <span class="n">GRAYSCALE_CAUSTIC_SATURATION</span> <span class="o">=</span> <span class="mf">0.2</span><span class="p">;</span>
+    
+    <span class="n">NSColor</span> <span class="o">*</span><span class="n">source</span> <span class="o">=</span>
+        <span class="p">[</span><span class="n">NSColor</span>
+            <span class="nl">colorWithCalibratedRed</span><span class="p">:</span><span class="n">inputComponents</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="nl">green</span><span class="p">:</span><span class="n">inputComponents</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+            <span class="nl">blue</span><span class="p">:</span><span class="n">inputComponents</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+            <span class="nl">alpha</span><span class="p">:</span><span class="n">inputComponents</span><span class="p">[</span><span class="mi">3</span><span class="p">]];</span>
+
+    <span class="kt">float</span> <span class="n">hue</span><span class="p">,</span> <span class="n">saturation</span><span class="p">,</span> <span class="n">brightness</span><span class="p">,</span> <span class="n">alpha</span><span class="p">;</span>
+    <span class="p">[</span><span class="n">source</span> <span class="nl">getHue</span><span class="p">:</span><span class="o">&amp;</span><span class="n">hue</span> <span class="nl">saturation</span><span class="p">:</span><span class="o">&amp;</span><span class="n">saturation</span> <span class="nl">brightness</span><span class="p">:</span><span class="o">&amp;</span><span class="n">brightness</span> <span class="nl">alpha</span><span class="p">:</span><span class="o">&amp;</span><span class="n">alpha</span><span class="p">];</span>
+
+    <span class="kt">float</span> <span class="n">targetHue</span><span class="p">,</span> <span class="n">targetSaturation</span><span class="p">,</span> <span class="n">targetBrightness</span><span class="p">;</span>
+    <span class="p">[[</span><span class="n">NSColor</span> <span class="n">yellowColor</span><span class="p">]</span> <span class="nl">getHue</span><span class="p">:</span><span class="o">&amp;</span><span class="n">targetHue</span> <span class="nl">saturation</span><span class="p">:</span><span class="o">&amp;</span><span class="n">targetSaturation</span> <span class="nl">brightness</span><span class="p">:</span><span class="o">&amp;</span><span class="n">targetBrightness</span> <span class="nl">alpha</span><span class="p">:</span><span class="o">&amp;</span><span class="n">alpha</span><span class="p">];</span>
+    
+    <span class="k">if</span> <span class="p">(</span><span class="n">saturation</span> <span class="o">&lt;</span> <span class="mf">1e-3</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">hue</span> <span class="o">=</span> <span class="n">targetHue</span><span class="p">;</span>
+        <span class="n">saturation</span> <span class="o">=</span> <span class="n">GRAYSCALE_CAUSTIC_SATURATION</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">hue</span> <span class="o">&gt;</span> <span class="n">MIN_RED_THRESHOLD</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">hue</span> <span class="o">-=</span> <span class="mf">1.0</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">hue</span> <span class="o">&gt;</span> <span class="n">MAX_BLUE_THRESHOLD</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="p">[[</span><span class="n">NSColor</span> <span class="n">magentaColor</span><span class="p">]</span> <span class="nl">getHue</span><span class="p">:</span><span class="o">&amp;</span><span class="n">targetHue</span> <span class="nl">saturation</span><span class="p">:</span><span class="o">&amp;</span><span class="n">targetSaturation</span> <span class="nl">brightness</span><span class="p">:</span><span class="o">&amp;</span><span class="n">targetBrightness</span> <span class="nl">alpha</span><span class="p">:</span><span class="o">&amp;</span><span class="n">alpha</span><span class="p">];</span>
+    <span class="p">}</span>
+
+    <span class="kt">float</span> <span class="n">scaledCaustic</span> <span class="o">=</span> <span class="n">CAUSTIC_FRACTION</span> <span class="o">*</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">+</span> <span class="n">cos</span><span class="p">(</span><span class="n">COSINE_ANGLE_SCALE</span> <span class="o">*</span> <span class="n">M_PI</span> <span class="o">*</span> <span class="p">(</span><span class="n">hue</span> <span class="o">-</span> <span class="n">targetHue</span><span class="p">)));</span>
+
+    <span class="n">NSColor</span> <span class="o">*</span><span class="n">targetColor</span> <span class="o">=</span>
+        <span class="p">[</span><span class="n">NSColor</span>
+            <span class="nl">colorWithCalibratedHue</span><span class="p">:</span><span class="n">hue</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">scaledCaustic</span><span class="p">)</span> <span class="o">+</span> <span class="n">targetHue</span> <span class="o">*</span> <span class="n">scaledCaustic</span>
+            <span class="nl">saturation</span><span class="p">:</span><span class="n">saturation</span>
+            <span class="nl">brightness</span><span class="p">:</span><span class="n">brightness</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">scaledCaustic</span><span class="p">)</span> <span class="o">+</span> <span class="n">targetBrightness</span> <span class="o">*</span> <span class="n">scaledCaustic</span>
+            <span class="nl">alpha</span><span class="p">:</span><span class="n">inputComponents</span><span class="p">[</span><span class="mi">3</span><span class="p">]];</span>
+    <span class="p">[</span><span class="n">targetColor</span> <span class="nl">getComponents</span><span class="p">:</span><span class="n">outputComponents</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>So this function is really just an HSV conversion of the inputComponents and the yellowColor, and the blending of the two.</p>
+
+<h2>Composing into a single gradient</h2>
+
+<p>Now to assemble the colors into a gradient. We'll need to implement an interpolation function that will return the correct color for a given progress point in the gradient.</p>
+
+<p>With the aforementioned "background color", "caustic color", "top gloss white fraction" and "bottom gloss white fraction" passed into this function as the "color", "caustic", "initialWhite" and "finalWhite" parameters of the GlossParameters struct, the function looks like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">typedef</span> <span class="k">struct</span>
+<span class="p">{</span>
+    <span class="kt">float</span> <span class="n">color</span><span class="p">[</span><span class="mi">4</span><span class="p">];</span>
+    <span class="kt">float</span> <span class="n">caustic</span><span class="p">[</span><span class="mi">4</span><span class="p">];</span>
+    <span class="kt">float</span> <span class="n">expCoefficient</span><span class="p">;</span>
+    <span class="kt">float</span> <span class="n">expScale</span><span class="p">;</span>
+    <span class="kt">float</span> <span class="n">expOffset</span><span class="p">;</span>
+    <span class="kt">float</span> <span class="n">initialWhite</span><span class="p">;</span>
+    <span class="kt">float</span> <span class="n">finalWhite</span><span class="p">;</span>
+<span class="p">}</span> <span class="n">GlossParameters</span><span class="p">;</span>
+
+<span class="k">static</span> <span class="kt">void</span> <span class="nf">glossInterpolation</span><span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="n">info</span><span class="p">,</span> <span class="k">const</span> <span class="kt">float</span> <span class="o">*</span><span class="n">input</span><span class="p">,</span>
+    <span class="kt">float</span> <span class="o">*</span><span class="n">output</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">GlossParameters</span> <span class="o">*</span><span class="n">params</span> <span class="o">=</span> <span class="p">(</span><span class="n">GlossParameters</span> <span class="o">*</span><span class="p">)</span><span class="n">info</span><span class="p">;</span>
+
+    <span class="kt">float</span> <span class="n">progress</span> <span class="o">=</span> <span class="o">*</span><span class="n">input</span><span class="p">;</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">progress</span> <span class="o">&lt;</span> <span class="mf">0.5</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">progress</span> <span class="o">=</span> <span class="n">progress</span> <span class="o">*</span> <span class="mf">2.0</span><span class="p">;</span>
+
+        <span class="n">progress</span> <span class="o">=</span>
+            <span class="mf">1.0</span> <span class="o">-</span> <span class="n">params</span><span class="o">-&gt;</span><span class="n">expScale</span> <span class="o">*</span> <span class="p">(</span><span class="n">expf</span><span class="p">(</span><span class="n">progress</span> <span class="o">*</span> <span class="o">-</span><span class="n">params</span><span class="o">-&gt;</span><span class="n">expCoefficient</span><span class="p">)</span> <span class="o">-</span> <span class="n">params</span><span class="o">-&gt;</span><span class="n">expOffset</span><span class="p">);</span>
+
+        <span class="kt">float</span> <span class="n">currentWhite</span> <span class="o">=</span> <span class="n">progress</span> <span class="o">*</span> <span class="p">(</span><span class="n">params</span><span class="o">-&gt;</span><span class="n">finalWhite</span> <span class="o">-</span> <span class="n">params</span><span class="o">-&gt;</span><span class="n">initialWhite</span><span class="p">)</span> <span class="o">+</span> <span class="n">params</span><span class="o">-&gt;</span><span class="n">initialWhite</span><span class="p">;</span>
+        
+        <span class="n">output</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">params</span><span class="o">-&gt;</span><span class="n">color</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">currentWhite</span><span class="p">)</span> <span class="o">+</span> <span class="n">currentWhite</span><span class="p">;</span>
+        <span class="n">output</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">params</span><span class="o">-&gt;</span><span class="n">color</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">currentWhite</span><span class="p">)</span> <span class="o">+</span> <span class="n">currentWhite</span><span class="p">;</span>
+        <span class="n">output</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">params</span><span class="o">-&gt;</span><span class="n">color</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">currentWhite</span><span class="p">)</span> <span class="o">+</span> <span class="n">currentWhite</span><span class="p">;</span>
+        <span class="n">output</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">params</span><span class="o">-&gt;</span><span class="n">color</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">currentWhite</span><span class="p">)</span> <span class="o">+</span> <span class="n">currentWhite</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="k">else</span>
+    <span class="p">{</span>
+        <span class="n">progress</span> <span class="o">=</span> <span class="p">(</span><span class="n">progress</span> <span class="o">-</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">*</span> <span class="mf">2.0</span><span class="p">;</span>
+
+        <span class="n">progress</span> <span class="o">=</span> <span class="n">params</span><span class="o">-&gt;</span><span class="n">expScale</span> <span class="o">*</span>
+            <span class="p">(</span><span class="n">expf</span><span class="p">((</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">progress</span><span class="p">)</span> <span class="o">*</span> <span class="o">-</span><span class="n">params</span><span class="o">-&gt;</span><span class="n">expCoefficient</span><span class="p">)</span> <span class="o">-</span> <span class="n">params</span><span class="o">-&gt;</span><span class="n">expOffset</span><span class="p">);</span>
+
+        <span class="n">output</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">params</span><span class="o">-&gt;</span><span class="n">color</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">progress</span><span class="p">)</span> <span class="o">+</span> <span class="n">params</span><span class="o">-&gt;</span><span class="n">caustic</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">progress</span><span class="p">;</span>
+        <span class="n">output</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">params</span><span class="o">-&gt;</span><span class="n">color</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">progress</span><span class="p">)</span> <span class="o">+</span> <span class="n">params</span><span class="o">-&gt;</span><span class="n">caustic</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">*</span> <span class="n">progress</span><span class="p">;</span>
+        <span class="n">output</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">params</span><span class="o">-&gt;</span><span class="n">color</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">progress</span><span class="p">)</span> <span class="o">+</span> <span class="n">params</span><span class="o">-&gt;</span><span class="n">caustic</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">*</span> <span class="n">progress</span><span class="p">;</span>
+        <span class="n">output</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">params</span><span class="o">-&gt;</span><span class="n">color</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">*</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">progress</span><span class="p">)</span> <span class="o">+</span> <span class="n">params</span><span class="o">-&gt;</span><span class="n">caustic</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">*</span> <span class="n">progress</span><span class="p">;</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>As you can see, the function is split into two halves: the first half handles the gloss and the second half handles the caustic. An exponential is used to create an attenuating effect on the gradient.</p>
+
+<h2>Draw the gradient</h2>
+
+<p>The draw function is pretty straightforward. Most of it is configuring the GlossParameters struct with the coefficient and offsets of the exponential, invoking the functions to generate the required colors and performing the mechanics of drawing a gradient using CGShadingCreateAxial and CGContextDrawShading.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="kt">void</span> <span class="nf">DrawGlossGradient</span><span class="p">(</span><span class="n">CGContextRef</span> <span class="n">context</span><span class="p">,</span> <span class="n">NSColor</span> <span class="o">*</span><span class="n">color</span><span class="p">,</span> <span class="n">NSRect</span> <span class="n">inRect</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="k">const</span> <span class="kt">float</span> <span class="n">EXP_COEFFICIENT</span> <span class="o">=</span> <span class="mf">1.2</span><span class="p">;</span>
+    <span class="k">const</span> <span class="kt">float</span> <span class="n">REFLECTION_MAX</span> <span class="o">=</span> <span class="mf">0.60</span><span class="p">;</span>
+    <span class="k">const</span> <span class="kt">float</span> <span class="n">REFLECTION_MIN</span> <span class="o">=</span> <span class="mf">0.20</span><span class="p">;</span>
+    
+    <span class="n">GlossParameters</span> <span class="n">params</span><span class="p">;</span>
+    
+    <span class="n">params</span><span class="p">.</span><span class="n">expCoefficient</span> <span class="o">=</span> <span class="n">EXP_COEFFICIENT</span><span class="p">;</span>
+    <span class="n">params</span><span class="p">.</span><span class="n">expOffset</span> <span class="o">=</span> <span class="n">expf</span><span class="p">(</span><span class="o">-</span><span class="n">params</span><span class="p">.</span><span class="n">expCoefficient</span><span class="p">);</span>
+    <span class="n">params</span><span class="p">.</span><span class="n">expScale</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">params</span><span class="p">.</span><span class="n">expOffset</span><span class="p">);</span>
+
+    <span class="n">NSColor</span> <span class="o">*</span><span class="n">source</span> <span class="o">=</span>
+        <span class="p">[</span><span class="n">color</span> <span class="nl">colorUsingColorSpaceName</span><span class="p">:</span><span class="n">NSCalibratedRGBColorSpace</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">source</span> <span class="nl">getComponents</span><span class="p">:</span><span class="n">params</span><span class="p">.</span><span class="n">color</span><span class="p">];</span>
+    <span class="k">if</span> <span class="p">([</span><span class="n">source</span> <span class="n">numberOfComponents</span><span class="p">]</span> <span class="o">==</span> <span class="mi">3</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">params</span><span class="p">.</span><span class="n">color</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">;</span>
+    <span class="p">}</span>
+    
+    <span class="n">perceptualCausticColorForColor</span><span class="p">(</span><span class="n">params</span><span class="p">.</span><span class="n">color</span><span class="p">,</span> <span class="n">params</span><span class="p">.</span><span class="n">caustic</span><span class="p">);</span>
+    
+    <span class="kt">float</span> <span class="n">glossScale</span> <span class="o">=</span> <span class="n">perceptualGlossFractionForColor</span><span class="p">(</span><span class="n">params</span><span class="p">.</span><span class="n">color</span><span class="p">);</span>
+
+    <span class="n">params</span><span class="p">.</span><span class="n">initialWhite</span> <span class="o">=</span> <span class="n">glossScale</span> <span class="o">*</span> <span class="n">REFLECTION_MAX</span><span class="p">;</span>
+    <span class="n">params</span><span class="p">.</span><span class="n">finalWhite</span> <span class="o">=</span> <span class="n">glossScale</span> <span class="o">*</span> <span class="n">REFLECTION_MIN</span><span class="p">;</span>
+
+    <span class="k">static</span> <span class="k">const</span> <span class="kt">float</span> <span class="n">input_value_range</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">};</span>
+    <span class="k">static</span> <span class="k">const</span> <span class="kt">float</span> <span class="n">output_value_ranges</span><span class="p">[</span><span class="mi">8</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">};</span>
+    <span class="n">CGFunctionCallbacks</span> <span class="n">callbacks</span> <span class="o">=</span> <span class="p">{</span><span class="mi">0</span><span class="p">,</span> <span class="n">glossInterpolation</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">};</span>
+    
+    <span class="n">CGFunctionRef</span> <span class="n">gradientFunction</span> <span class="o">=</span> <span class="n">CGFunctionCreate</span><span class="p">(</span>
+        <span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="p">)</span><span class="o">&amp;</span><span class="n">params</span><span class="p">,</span>
+        <span class="mi">1</span><span class="p">,</span> <span class="c1">// number of input values to the callback
+</span><span class="c1"></span>        <span class="n">input_value_range</span><span class="p">,</span>
+        <span class="mi">4</span><span class="p">,</span> <span class="c1">// number of components (r, g, b, a)
+</span><span class="c1"></span>        <span class="n">output_value_ranges</span><span class="p">,</span>
+        <span class="o">&amp;</span><span class="n">callbacks</span><span class="p">);</span>
+    
+    <span class="n">CGPoint</span> <span class="n">startPoint</span> <span class="o">=</span> <span class="n">CGPointMake</span><span class="p">(</span><span class="n">NSMinX</span><span class="p">(</span><span class="n">inRect</span><span class="p">),</span> <span class="n">NSMaxY</span><span class="p">(</span><span class="n">inRect</span><span class="p">));</span>
+    <span class="n">CGPoint</span> <span class="n">endPoint</span> <span class="o">=</span> <span class="n">CGPointMake</span><span class="p">(</span><span class="n">NSMinX</span><span class="p">(</span><span class="n">inRect</span><span class="p">),</span> <span class="n">NSMinY</span><span class="p">(</span><span class="n">inRect</span><span class="p">));</span>
+
+    <span class="n">CGColorSpaceRef</span> <span class="n">colorspace</span> <span class="o">=</span> <span class="n">CGColorSpaceCreateDeviceRGB</span><span class="p">();</span>
+    <span class="n">CGShadingRef</span> <span class="n">shading</span> <span class="o">=</span> <span class="n">CGShadingCreateAxial</span><span class="p">(</span><span class="n">colorspace</span><span class="p">,</span> <span class="n">startPoint</span><span class="p">,</span>
+        <span class="n">endPoint</span><span class="p">,</span> <span class="n">gradientFunction</span><span class="p">,</span> <span class="nb">FALSE</span><span class="p">,</span> <span class="nb">FALSE</span><span class="p">);</span>
+    
+    <span class="n">CGContextSaveGState</span><span class="p">(</span><span class="n">context</span><span class="p">);</span>
+    <span class="n">CGContextClipToRect</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">NSRectToCGRect</span><span class="p">(</span><span class="n">inRect</span><span class="p">));</span>
+    <span class="n">CGContextDrawShading</span><span class="p">(</span><span class="n">context</span><span class="p">,</span> <span class="n">shading</span><span class="p">);</span>
+    <span class="n">CGContextRestoreGState</span><span class="p">(</span><span class="n">context</span><span class="p">);</span>
+    
+    <span class="n">CGShadingRelease</span><span class="p">(</span><span class="n">shading</span><span class="p">);</span>
+    <span class="n">CGColorSpaceRelease</span><span class="p">(</span><span class="n">colorspace</span><span class="p">);</span>
+    <span class="n">CGFunctionRelease</span><span class="p">(</span><span class="n">gradientFunction</span><span class="p">);</span>
+<span class="p">}</span></code></pre></div>
+
+<h2>Conclusion</h2>
+
+<p>There are lots of parameters in these functions that can be tweaked to personal preference. You can enhance the hue change, the gradient slopes and the gloss intensity very simply.</p>
+
+<p>I'm fairly happy with the gloss and its brightness. I think that's worked well.</p>
+
+<p>The hue shift for the caustic works well but the brightness of the caustic seems a little inconsistent. This could be tweaked a little.</p>
+
+<p>Purples on the boundary with blue or red can look a little strange. Maybe there's a way to smooth this, I don't know. I haven't really thought about it.</p>
+
+<p>This approach doesn't work well with bright colors provided as the input color, since the input color is used as the darkest color in the gradient. This is not a problem as much as it is a consideration when choosing the input color.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="parametric-acceleration-curves-in-core.html">Parametric acceleration curves in Core Animation</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="cocoa-application-driven-by-http-data.html">A Cocoa application driven by HTTP data</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

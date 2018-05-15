@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Adapter interfaces in Objective-C, using categories.</title>
+  <meta name="description" content="The Categories feature of Objective-C lets the programmer add extra sets of methods after compilation, something impossible in most compiled languages. Using this feature, here is an Objective-C variant of the classic &#34;Adapter&#34; design pattern that allows two classes to work closely together, without two-way coupling dependency problems." />
+
+  <meta name="twitter:title" content="Adapter interfaces in Objective-C, using categories."/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2008/05/adapter-interfaces-in-objective-c-using.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="The Categories feature of Objective-C lets the programmer add extra sets of methods after compilation, something impossible in most compiled languages. Using this feature, here is an Objective-C variant of the classic &#34;Adapter&#34; design pattern that allows two classes to work closely together, without two-way coupling dependency problems."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="adapter-interfaces-in-objective-c-using.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Adapter interfaces in Objective-C, using categories.</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2008-05-24">May 24, 2008</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/objective-c.html">Objective-C</a>, <a href="../../categories/object-oriented-design.html">object-oriented design</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>The Categories feature of Objective-C lets the programmer add extra sets of methods after compilation, something impossible in most compiled languages. Using this feature, here is an Objective-C variant of the classic "Adapter" design pattern that allows two classes to work closely together, without two-way coupling dependency problems.</p></span>
+
+<span class="fullpost">
+
+<h2>Connecting two classes: the simple version</h2>
+
+<p>This article is about making two (or more) classes work together. The traditional way that happens is like this:<p>
+
+<ol><li>Implement "Class A" with a given set of methods</li>
+<li>Implement 'Class B', invoking methods that 'Class A' already provides</li></ol>
+
+<p>Obviously, this is how almost all class interaction works. And it works well, especially in situations where 
+"Class B" is dependent on "Class A" but "Class A" remains independent.</p>
+
+<h2>Working closely together works badly</h2>
+
+<p>When both classes need to work closely together, keeping their interfaces and operation clean and clear becomes difficult.</p>
+
+<h3>What can we do when the second class needs information that the first class doesn't provide?</h3>
+
+<p>We could keep adding methods to "Class A" to give "Class B" everything it needs but coupling two classes together (by adding extra design features to one purely for the other to use) is generally considered bad for maintenance reasons.</p>
+
+<p>If the extra methods are useful in a more general sense, then this isn't a problem but if these extra methods are only useful for "Class B", then we are really breaking the abstraction between the two classes because the "Class A" now knows everything that "Class B" needs internally. Non-hierarchic coupling of classes is normally considered an "anti-pattern" (bad design choice) for this reason.</p>
+
+<h3>How do we neatly perform a calculation that needs parts inside each class?</h3>
+
+<p>If we are performing an aggregate calculation where parts of the calculation need to be performed inside each of the two classes, then the algorithm may be difficult to read and maintain because it is split across multiple modules.</p>
+
+<p>We could create a third class or module to perform the calculation in a unified place but that may generate the same coupling issues described in the previous section, where the third class now needs specifically tailored interfaces into "Class A" and "Class B" in order to access the data it needs to perform its work.</p>
+
+<h2>A solution using categories</h2>
+
+<p>Most of the time, categories in Objective-C are used to define extra methods for a class in a separate library &mdash; where the original set of methods on a class can't be changed. Categories can also be used to break up a class according to areas of concern. This is how we will use it in this solution: breaking coupling issues between classes by dividing the classes up according to their areas of concern.</p>
+
+<p>Our problem consists of these constraints:</p>
+<ol><li>"Class B" needs some detailed information from "Class A"</li>
+<li>It's not really "Class A"'s job to care about what "Class B" is doing.</li>
+</ol>
+
+<p>We can solve this problem by creating extra "Class A" methods inside "Class B"'s source file. Specifically, we create a category of "Class A" inside the source file for "Class B".</p>
+
+<p>This allows the source file for "Class A" to remain independent of "Class B", yet still allows "Class B" to obtain specially catered information. The result is that the methods in the source file for "Class A" are those public "Class A" methods that any class may use, whereas "Class B" defines its own private interface &mdash; so private that the base "Class A" definition remains unaware of it. It also allows a calculation which may be split across both classes to be performed entirely in one source file, for neatness and clarity.</p>
+
+<p>The "Adapter" interface described in the article title refers to the "Adapter" design pattern. Normally, an Adapter is a third class written for the purposes of linking two incompatible classes. In this case, Objective-C's categories let us create the Adapter inteface as an extension of "Class A" but residing inside the implementation file for "Class B".</p>
+
+<h2>Summary</h2>
+
+<p>The Adapter interface is structured as follows.</p>
+
+<p>Class A's implementation:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@implementation</span> <span class="nc">Class_A</span>
+<span class="c1">// Class_A&#39;s methods
+</span><span class="c1"></span><span class="k">@end</span></code></pre></div>
+
+<p>Class_B's implementation:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">@</span> <span class="n">implementation</span> <span class="n">Class_A</span> <span class="p">(</span><span class="n">Class_B_Adapter</span><span class="p">)</span>
+<span class="c1">// Methods to allow Class_B to connect to Class_A
+</span><span class="c1">// Methods that Class_B can use to calculate values dependent on both Class_A
+</span><span class="c1">//   and Class_B
+</span><span class="c1"></span><span class="k">@end</span>
+
+<span class="p">@</span> <span class="n">implementation</span> <span class="n">Class_B</span>
+<span class="c1">// Class_B&#39;s methods
+</span><span class="c1"></span><span class="k">@end</span></code></pre></div>
+
+<p>Note that these are the "implementation" files, not the "interface" files. Since this is a private interface for "Class B" to interact with "Class A", the "Class_A (ClassBAdapter)" should not appear in the interface file.</p>
+
+<p>This type of design allows "Class B" to work closely with "Class A" without forcing the default implementation of "Class A" to change just to suit "Class B" and further allows the implementation of the "ClassBAdapter" methods to live close to their usage.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="implementing-countbyenumeratingwithstat.html">Implementing countByEnumeratingWithState:objects:count:</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../06/five-approaches-to-listening-observing.html">Five approaches to listening, observing and notifying in Cocoa.</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

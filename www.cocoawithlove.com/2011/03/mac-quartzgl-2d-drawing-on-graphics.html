@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Mac QuartzGL (2D drawing on the graphics card) performance</title>
+  <meta name="description" content="QuartzGL was introduced as an official feature in Mac OS X 10.5 Leopard (although it was a developer-only feature in Mac OS X 10.4 as Quartz 2D Extreme). However, it is off by default and is largely ignored by most developers. In this post, I look at how to enable QuartzGL, the performance impact it has on different kinds of drawing and whether you should use it in your Mac programs." />
+
+  <meta name="twitter:title" content="Mac QuartzGL (2D drawing on the graphics card) performance"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2011/03/mac-quartzgl-2d-drawing-on-graphics.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="QuartzGL was introduced as an official feature in Mac OS X 10.5 Leopard (although it was a developer-only feature in Mac OS X 10.4 as Quartz 2D Extreme). However, it is off by default and is largely ignored by most developers. In this post, I look at how to enable QuartzGL, the performance impact it has on different kinds of drawing and whether you should use it in your Mac programs."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="mac-quartzgl-2d-drawing-on-graphics.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Mac QuartzGL (2D drawing on the graphics card) performance</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2011-03-25">March 25, 2011</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/performance-tests.html">performance tests</a>, <a href="../../categories/appkit.html">AppKit</a>, <a href="../../categories/coregraphics.html">CoreGraphics</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>QuartzGL was introduced as an official feature in Mac OS X 10.5 Leopard (although it was a developer-only feature in Mac OS X 10.4 as Quartz 2D Extreme). However, it is off by default and is largely ignored by most developers. In this post, I look at how to enable QuartzGL, the performance impact it has on different kinds of drawing and whether you should use it in your Mac programs.</p></span>
+
+<span class="fullpost">
+
+<h2>Introduction</h2>
+
+<p>A graphics card can render 3D graphics hundreds of times faster than a CPU and graphics cards are used to accelerate compositing of windows on the desktop for a many-fold performance increase.</p>
+
+<p>Despite the advantages of graphics cards in these areas, 2D geometry on the Mac is normally generated by the CPU in main memory. You can opt to have your program drawn on the graphics card instead but this option is off by default. This 2D on the graphics card drawing is named QuartzGL.</p>
+
+<p>QuartzGL works by generating an an OpenGL ARB_fragment_program (pixel buffer drawing commands) and performing on the graphics card what would ordinarily be performed on the CPU.</p>
+
+<p>It shouldn't take you very long to guess the reason that it is disabled by default: QuartzGL does not improve all kinds of drawing. An ARB_fragment_program does not use the same geometry processing that 3D graphics relies upon, so it's unlikely to be the most optimized part of the GPU. For some kinds of drawing, it will perform considerably worse than regular CPU-based drawing. The question I hope to answer is: what kinds of operation go faster, what kinds are unaffected and what kinds might go slower?</p>
+
+<h2>How to enable QuartzGL</h2>
+
+<p>You can enable QuartzGL for your program by editing your Info.plist file. Just insert a boolean value <code>QuartzGLEnable</code> and set it to true.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="o">&lt;</span><span class="n">key</span><span class="o">&gt;</span><span class="n">QuartzGLEnable</span><span class="o">&lt;/</span><span class="n">key</span><span class="o">&gt;</span>
+<span class="o">&lt;</span><span class="nb">true</span><span class="o">/&gt;</span></code></pre></div>
+
+<p>Of course, you could also do this for <em>any</em> program if you wish. Edit the Info.plist and see what happens the next time you run it.</p>
+
+<h2>The test code</h2>
+
+<p>I'll run three tests:</p>
+
+<ol><li>drawing semi-transparent rectangles</li>
+<li>drawing text</li>
+<li>drawing randomly placed lines</li></ol>
+
+<p>If you're curious about why I'm testing these: I experimented with a number of different drawing primitives and decided that these were the most common drawing primitives that produced the most widely varying results.</p>
+
+<p>This is the drawing code:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="cp">#if TEST == 1
+</span><span class="cp"></span>
+    <span class="p">[[[</span><span class="n">NSColor</span> <span class="n">redColor</span><span class="p">]</span> <span class="nl">colorWithAlphaComponent</span><span class="p">:</span><span class="mf">0.01</span><span class="p">]</span> <span class="n">set</span><span class="p">];</span>
+    <span class="k">for</span> <span class="p">(</span><span class="n">NSInteger</span> <span class="n">k</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">k</span> <span class="o">&lt;</span> <span class="mi">1000</span><span class="p">;</span> <span class="n">k</span><span class="o">++</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="p">[[</span><span class="n">NSBezierPath</span> <span class="nl">bezierPathWithRect</span><span class="p">:</span><span class="n">rect</span><span class="p">]</span> <span class="n">fill</span><span class="p">];</span>
+    <span class="p">}</span>
+
+<span class="cp">#elif TEST == 2
+</span><span class="cp"></span>
+    <span class="k">for</span> <span class="p">(</span><span class="n">NSInteger</span> <span class="n">j</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="mi">2000</span><span class="p">;</span> <span class="n">j</span><span class="o">++</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">NSString</span> <span class="o">*</span><span class="n">displayString</span> <span class="o">=</span>
+            <span class="s">@&#34;A string to excercise basic Cocoa text drawing.&#34;</span><span class="p">;</span>
+        <span class="p">[</span><span class="n">displayString</span>
+            <span class="nl">drawAtPoint</span><span class="p">:</span><span class="n">NSMakePoint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="nb">self</span><span class="p">.</span><span class="n">bounds</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span><span class="p">)</span>
+            <span class="nl">withAttributes</span><span class="p">:</span><span class="nb">nil</span><span class="p">];</span>
+    <span class="p">}</span>
+
+<span class="cp">#elif TEST == 3
+</span><span class="cp"></span>
+    <span class="p">[[</span><span class="n">NSColor</span> <span class="n">grayColor</span><span class="p">]</span> <span class="n">set</span><span class="p">];</span>
+    <span class="k">for</span> <span class="p">(</span><span class="n">NSInteger</span> <span class="n">l</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">l</span> <span class="o">&lt;</span> <span class="mi">2000</span><span class="p">;</span> <span class="n">l</span><span class="o">++</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">CGFloat</span> <span class="n">xCoord1</span> <span class="o">=</span> <span class="nb">self</span><span class="p">.</span><span class="n">bounds</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">width</span> <span class="o">*</span> <span class="n">random</span><span class="p">()</span> <span class="o">/</span> <span class="p">(</span><span class="n">CGFloat</span><span class="p">)</span><span class="n">INT_MAX</span><span class="p">;</span>
+        <span class="n">CGFloat</span> <span class="n">xCoord2</span> <span class="o">=</span> <span class="nb">self</span><span class="p">.</span><span class="n">bounds</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">width</span> <span class="o">*</span> <span class="n">random</span><span class="p">()</span> <span class="o">/</span> <span class="p">(</span><span class="n">CGFloat</span><span class="p">)</span><span class="n">INT_MAX</span><span class="p">;</span>
+        <span class="n">CGFloat</span> <span class="n">yCoord1</span> <span class="o">=</span> <span class="nb">self</span><span class="p">.</span><span class="n">bounds</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span> <span class="o">*</span> <span class="n">random</span><span class="p">()</span> <span class="o">/</span> <span class="p">(</span><span class="n">CGFloat</span><span class="p">)</span><span class="n">INT_MAX</span><span class="p">;</span>
+        <span class="n">CGFloat</span> <span class="n">yCoord2</span> <span class="o">=</span> <span class="nb">self</span><span class="p">.</span><span class="n">bounds</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span> <span class="o">*</span> <span class="n">random</span><span class="p">()</span> <span class="o">/</span> <span class="p">(</span><span class="n">CGFloat</span><span class="p">)</span><span class="n">INT_MAX</span><span class="p">;</span>
+        
+        <span class="n">NSBezierPath</span> <span class="o">*</span><span class="n">line</span> <span class="o">=</span> <span class="p">[</span><span class="n">NSBezierPath</span> <span class="n">bezierPath</span><span class="p">];</span>
+        <span class="p">[</span><span class="n">line</span> <span class="nl">moveToPoint</span><span class="p">:</span><span class="n">NSMakePoint</span><span class="p">(</span><span class="n">xCoord1</span><span class="p">,</span> <span class="n">yCoord1</span><span class="p">)];</span>
+        <span class="p">[</span><span class="n">line</span> <span class="nl">lineToPoint</span><span class="p">:</span><span class="n">NSMakePoint</span><span class="p">(</span><span class="n">xCoord2</span><span class="p">,</span> <span class="n">yCoord2</span><span class="p">)];</span>
+        <span class="p">[</span><span class="n">line</span> <span class="n">stroke</span><span class="p">];</span>
+    <span class="p">}</span>
+
+<span class="cp">#endif</span></code></pre></div>
+
+<h2>Test results</h2>
+
+<p>You can <a href="../../assets/objc-era/QuartzGLTest.zip">download the complete project for the QuartzGLTest</a> (32kb).</p>
+
+<p>I ran the test on a 2.66Ghz Quad Core Mac Pro with an ATI Radeon HD 4870 graphics card. I used the Quartz Debug program to disable "Beam Sync" during the tests. The window in the test application is resizeable but I ran it at the default 480 by 400 pixel content size.</p>
+
+<img src="../../assets/objc-era/quartzglperformance.png" width="535" height="385" />
+
+<p>The raw FPS rates here are not really important (I chose the number of iterations fairly arbitrarily). The important point is the relative difference between the QuartzGL and CPU tests.</p>
+
+<p>As you can see, QuartzGL's impact ranges from nearly a 10 times performance improvement in the best case, through to an 83% speed reduction.</p>
+
+<h2>Conclusion</h2>
+
+<p>The performance improvement for semi-transparent rectangles is considerable but it is hard to recommend QuartzGL in general. Time consuming drawing operations are likely to have an even mix of both lines and flat color areas, resulting in a negligible difference either way.</p>
+
+<p>I spent some time once talking with an engineer who had worked on what was then Quartz 2D Extreme. He gave the impression that Apple had been initially very hopeful about its potential &mdash; as were many onlookers like myself. It just <em>seemed</em> like drawing on the graphics card should be 10 times faster for everything. But as this engineer related, they simply could get around bottlenecks that kept the whole system at disappointing speeds.</p>
+
+<p>Ultimately, you are more likely to improve drawing performance more through reducing redraw than through increasing draw speed. For example, you could cache areas of your drawing in CoreAnimation layers, eliminating the need to redraw and relying on what your graphics card does well: compositing. As an aside, CoreAnimation appears to disable QuartzGL so you can't do both.</p>
+
+<p>It's unclear if graphics card drawing will improve in future. I doubt the current ARB_fragment_program implementation will ever see dramatic improvement but with OpenCL and other forms of GPU-based programming, it certainly <em>feels</em> like a reimplementation using a newer technology could yield better results. Of course, this "feeling" didn't help the original ARB_fragment_program implementation succeed. Additionally, OpenCL remains constrained by features that only work on specific graphics cards (like image buffers). And OpenCL doesn't change the bottleneck of transferring data backwards and forwards between the CPU and graphics card (something which does not necessarily improve even when the CPU and GPU themselves increase in speed).</p>
+
+<p>Finally, none of this should be taken as an indication that Quartz drawing on the CPU is particularly slow; it's not. But if you're wondering if you could squeeze a little extra performance out of your program by switching to QuartzGL &mdash; probably not unless the key limitation in your program is raw pixel fill rate and you have relatively few lines.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="history-of-ios-media-apis-iphone-os-20.html">A history of iOS media APIs (iPhone OS 2.0 to iOS 4.3)</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../04/user-interface-strings-in-cocoa.html">User interface strings in Cocoa</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

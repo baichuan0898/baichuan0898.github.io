@@ -1,0 +1,120 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<!--
+Local Variables:
+sgml-default-dtd-file: "~/html-loose.ced"
+End:
+-->
+<html>
+  <head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+
+    <title>Hamster Emporium: Dr. Gregory Parker, Department of Diagnostic Engineering</title>
+    <link title="RSS 2.0" href="../../../../rss.xml.rss" type="application/rss+xml" rel="alternate">
+  </head>
+  <body bgcolor="#ffffff">
+    <table cellpadding="0" cellspacing="0">
+      <tr>
+	  <td valign="top" align="left">
+	    <a href="../../../../index.html"><img src="http://www.sealiesoftware.com/hamster.jpg" alt="" width="108" height="160"></a><br><br>
+	    <b>blog</b><br>
+	    <a href="../../../../index.html">recent</a><br>
+	    <a href="../../../index.html">archive</a><br>
+	    <a href="http://twitter.com/gparker">twitter</a><br>
+	    <br>
+	    <b>projects</b><br>
+	    <a href="http://www.apple.com/macosx/">Mac OS X</a><br>
+	    <a href="http://www.sealiesoftware.com/keyboard/index.html">Keyboard</a><br>
+	     &nbsp; <a href="http://www.sealiesoftware.com/keyboard/index.html">backlight</a><br>
+	    <a href="http://www.sealiesoftware.com/cscmenu/index.html">CSC Menu</a><br>
+	    <a href="http://www.sealiesoftware.com/valgrind/index.html">Valgrind</a><br>
+	    <a href="http://www.sealiesoftware.com/fringe/index.html">Fringe Player</a><br>
+	    <a href="http://www.sealiesoftware.com/pssh/index.html">pssh</a><br>
+	    <a href="http://www.sealiesoftware.com/peal/index.html">Peal</a><br>
+	    <a href="http://www.sealiesoftware.com/frankenmouse/index.html">Frankenmouse</a><br>
+	    <br>
+	  </td>
+	  <td>
+	    &nbsp; &nbsp;
+	  </td>
+	  <td valign="top">
+	      <h2>Hamster Emporium archive</h2>
+  <p>
+     &lt;&lt; &nbsp; <a href="../../../2011/06/17/objc_explain_objc_msgSend_vtable.html">[objc explain]: objc_msgSend_vtable</a> &nbsp; | &nbsp;  
+    <a href="../../../index.html">archive</a>
+     &nbsp; | &nbsp; <a href="../../8/16/TargetConditionalsh.html">TargetConditionals.h</a> &nbsp; &gt;&gt; 
+  </p>
+  <table cellpadding="0" cellspacing="3">
+      <tr>
+	<td>
+	  <a href="Dr_Gregory_Parker_Department_of_Diagnostic_Engineering.html"><img src="http://www.sealiesoftware.com/link.gif" width="14" height="16" border="0" alt="(link)"></a>
+	</td>
+	<td>
+	  <b><font size="+1">Dr. Gregory Parker, Department of Diagnostic Engineering</font></b> &nbsp; 
+	  <font size="-1">(<a href="Dr_Gregory_Parker_Department_of_Diagnostic_Engineering.html">2010-09-01 3:15 AM</a>)</font>
+	</td>
+      </tr>
+      <tr>
+	<td>
+	  &nbsp;
+	</td>
+	<td>
+	      <p>
+      Last week, <a href="http://twitter.com/rballard">Rick Ballard</a> came by my office for a consult. He had caught Xcode at a crash in <code>objc_msgSend()</code>. The crash looked like an intermittent problem that had been plaguing Xcode for months. So he called the local expert on debugging <code>objc_msgSend()</code>. Dr. Gregory Parker, Department of Diagnostic Engineering.
+    <p>
+      The good news was that Rick's crash was reliably reproducible. Running tests on a live patient is better than performing an autopsy on a dead one. The bad news was that the obvious debugging tools had not helped. <code>NSZombieEnabled</code> and <code>guardmalloc</code> had turned up nothing, and <code>AUTO_USE_GUARDS=YES</code> (the GC equivalent of <code>guardmalloc</code>) just thrashed the machine for two hours before running out of address space.
+    <p>
+      <a href="http://sealiesoftware.com/blog/archive/2008/09/22/objc_explain_So_you_crashed_in_objc_msgSend.html">So you crashed in <code>objc_msgSend()</code></a>. The selector was <code>-isAbsolutePath</code>, which was reasonable but meant the debugger's backtrace was missing a frame. <code>objc_msgSend()</code> had read the class from the object, read the method cache from the class, read a method from the method cache, and crashed while trying to read the <code>IMP</code> from the method. Theory: either one of those data structures had been hit by a memory smasher, or the original object was bogus but happened to have dereferenceable pointers in the right places to survive that long. The method cache's mask was invalid - it should have been of the form 2<sup>n</sup>-1 - so the failure must have been at or before that point in the chain.
+    <p>
+      The object pointer itself looked plausible. Theory: the object was valid, but a previous object at the same location had been used after being freed. We had the great luxury of a reproducible crash, so we turned on <code>MallocStackLoggingNoCompact</code> and ran it again. That memory had only been used for one object, and it had not been deallocated. So the evidence did not support the use-after-free theory. But the history showed that the object had been allocated as an <code>NSPathStore2</code> - an internal subclass of <code>NSString</code> for file pathnames - which matched the selector <code>-isAbsolutePath</code> and matched the call site's expectations. The theory that the object pointer was valid looked good.
+    <p>
+      The object pointer was good, and the method cache was not: the failure was on the chain between them. The contents of the object looked good. The bytes looked like alternating zero and ASCII, which is a dead giveaway for the UTF-16 used inside <code>NSString</code>. The string value decoded as <code>@"/Xcode4/usr/bin/llvm-gcc"</code>, which made sense in the call site's context.
+    <p>
+      The object's <code>isa</code> pointer was not so good. Its value was <code>0xa0050000</code>. This was not class <code>NSPathStore2</code> or any other class. <code>vmmap</code> showed it to be in Foundation's data segment, and <code>otool</code> showed it was specifically in Foundation's constant CF strings. But instead of pointing to the start of some string, it pointed to the middle of a string object. That string object was <code>@"tzm-Latn"</code>: some localization thingy, perhaps? Theory: some bug had replaced this object's isa pointer with a pointer to the middle of an unrelated localization string object. This did not sound like a good theory.
+    <p>
+      Go back to the board. Symptom: the object was allocated as an <code>NSPathStore2</code>. Symptom: the object's <code>isa</code> pointer is now <code>0xa0050000</code>, which is not <code>NSPathStore2</code>. What should the <code>isa</code> pointer's value have been? <code>otool</code> and <code>objc_getClass()</code> agreed: the correct <code>isa</code> pointer should have been <code>0xa005f198</code>. <code>0xa0050000</code> is suspiciously similar. Theory: something had cleared two bytes of this object, leaving a nonsense <code>isa</code> pointer. <code>@"tzm-Latn"</code> was a red herring.
+    <p>
+      Aha! This is 32-bit i386. Little endian. The pointer <code>0xa005f198</code> is stored backwards in memory: <code>0x98 0xf1 0x05 0xa0</code>. Clearing the least-significant bytes of the <code>isa</code> pointer meant clearing bytes 0 and 1 of the object, not bytes 2 and 3. Damage to bytes 0 and 1 is exactly what you'd expect from a two-byte overrun of the object preceding this one in memory. Theory: the bug was in that preceding object, and this <code>NSPathStore2</code> object was an innocent victim.
+    <p>
+      <code>malloc_history</code> works with a pointer to the middle of an allocation, too. We plugged in <code>object-1</code> and got back an instance of <code>DVTSourceModelItem</code>, not deallocated. Rick recognized this as part of Xcode's indexer, which was always running in another thread at the time of the crash. A buffer overrun from the <code>DVTSourceModelItem</code> object fit the symptoms.
+    <p>
+      But where was the buffer? I had expected an overrun in some heap-allocated C array, not an ordinary object. Nor did <code>DVTSourceModelItem</code> have any C arrays in its instance variables. 
+    <p>
+      Theory: the compiler or runtime had allocated too little memory for the instance of class <code>DVTSourceModelItem</code>, and ordinary ivar access had overrun that allocation. It was a long shot, but easy to test. <code>malloc_size()</code> and <code>class_getInstanceSize()</code> and an eyeball count of ivars all agreed that the object was 32 bytes. Theory disproved.
+    <p>
+      We tested the overrun theory again. Add an unused ivar to the end of <code>DVTSourceModelItem</code>, recompile, and run it. No crash. Remove the ivar. Crash. The extra ivar "fixed" the bug. The buffer overrun theory still fit the evidence, but we couldn't find it. 
+    <p>
+      No more ideas. We needed data. Debugger watchpoints were out: there were thousands of instances of <code>DVTSourceModelItem</code>, and we couldn't watch two bytes after each of them. We were not yet desperate enough to try brute force code inspection. <code>AUTO_USE_GUARDS=YES</code> could catch it, if it didn't fall over first. Since we had a suspect in mind, we could play the <code>guardmalloc</code> trick ourselves with a narrower target. Override <code>+[DVTSourceModelItem alloc]</code>, <code>mprotect()</code> the page after the allocation, and cross our fingers really hard hoping that it still reproduced after changing the timing so much.
+    <p>
+      Bang! It crashed (good) somewhere new (also good). <code>DVTSourceModelItem</code> <code>-init</code> was writing to one of its own instance variables. The ivar was a bit in a bitfield, and that bitfield was at the end of the ivar list. 
+    <p>
+      Disassemble. The generated code read 4 bytes around the bit into a register, change the bit in that register, and wrote the 4 bytes back to memory. That's typical for a bitfield. The unexpected part was that the 4 bytes spanned the last two bytes of the object and the first two bytes after the object. That's a bug. Most of the time the out of bounds access is invalid - it reads two bytes it shouldn't, and writes back the same value. But if there's another thread it can crash:
+      <table border=1 cellspacing=0 cellpadding=4>
+	<tr><td align=center>Thread 1</td><td align=center>Thread 2</td></tr>
+	<tr><td>reads four bytes, including two<br>bytes outside the object</td><td>&nbsp;</td></tr>
+	<tr><td>&nbsp;</td><td>allocates a new object</td></tr>
+	<tr><td>&nbsp;</td><td>writes an isa pointer</td></tr>
+	<tr><td>writes four bytes, clobbering the<br>new value written by Thread 2</td><td>&nbsp;</td></tr>
+	<tr><td>&nbsp;</td><td>crashes</td></tr>
+      </table>
+    <p>
+      Theory: a compiler bug generated bad code for <code>DVTSourceModelItem</code>'s bitfield ivar, causing a read-modify-write out of bounds by two bytes, which corrupted memory in other threads. Test: try a different compiler. <code>DVTSourceModelItem.m</code> was built with <code>clang</code>, so we recompiled with <code>llvm-gcc</code>. No crash, and the disassembly looked correct. Compile with <code>clang</code> again, crash again.
+    <p>
+      Diagnosis: <code>clang</code> compiler bug in bitfield ivars. The patient's symptoms were treated with an extra ivar in <code>DVTSourceModelItem</code> until a compiler transplant could be performed. 
+    <p>
+      Elapsed time: about three hours. Too long for an episode of a TV procedural drama, unfortunately. 
+    </p>
+
+	  </td>
+      </tr>
+  </table>
+
+	  </td>
+	</tr>
+    </table>
+    <hr>
+    <img align="right" src="http://www.sealiesoftware.com/sealie.gif" alt="seal!" width="114" height="69">
+    Greg Parker<br>
+    <a href="mailto:gparker-www@sealiesoftware.com">gparker-www@sealiesoftware.com</a><br>
+    <a href="http://www.sealiesoftware.com/index.html">Sealie Software</a>
+  </body>
+</html>

@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Model-View-Controller without the Controller</title>
+  <meta name="description" content="The upcoming CwlViews library offers a syntax for constructing views that has a profound effect on the Cocoa applications, making them naturally &#39;unidirectional&#39; and eliminating the need for `UIViewController` subclasses. In this article, I look at what the Cocoa application design pattern becomes if we take away the need for a controller." />
+
+  <meta name="twitter:title" content="Model-View-Controller without the Controller"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/blog/mvc-without-the-c.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="The upcoming CwlViews library offers a syntax for constructing views that has a profound effect on the Cocoa applications, making them naturally &#39;unidirectional&#39; and eliminating the need for `UIViewController` subclasses. In this article, I look at what the Cocoa application design pattern becomes if we take away the need for a controller."/>
+
+  <link rel="icon" href="../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../css/main.css" />
+  <link rel="canonical" href="mvc-without-the-c.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../index.html"><img class="heartandcup" src="../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../about/index.html">about</a>
+        <a class="page-link" href="../archive/index.html">archive</a>
+        <a class="page-link" href="../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Model-View-Controller without the Controller</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2018-01-20">January 20, 2018</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../tags/cocoa.html">cocoa</a>, <a href="../tags/views.html">views</a>, <a href="../tags/app-design.html">app-design</a>
+		 
+	</div>
+</header>
+
+
+<main role="main">
+	<article itemscope itemtype="http://schema.org/BlogPosting">
+		<div class="post-content" itemprop="articleBody">
+			
+
+<p><a href="a-view-construction-syntax.html">In the previous article</a>, I presented a syntax for constructing views in a self-contained expression. The syntax comes from my upcoming CwlViews library, which I hope to release in a few weeks; but in the meantime, I wanted to take a look at the effect this syntax has on the application design pattern.</p>
+
+<p>View construction syntax might seem like a trivial matter of aesthetics but an app built around the syntax I presented ends up with some dramatic changes: it makes all state changes naturally unidirectional and eliminates the controller role from the application design pattern. Given that controllers are probably the <em>most</em> prominent aspect of Cocoa app programming, their removal constitutes a substantial change.</p>
+
+<p>Which raises the question: what do you have left if you remove the Controller from the Cocoa Model-View-Controller pattern?</p>
+
+<blockquote>
+<p><strong>Book announcement!</strong> I&rsquo;m writing a book with two other amazing developers, <a href="https://twitter.com/chriseidhof">Chris Eidhof</a> and <a href="https://twitter.com/floriankugler">Florian Kugler</a> from <a href="https://www.objc.io">objc.io</a>, titled <a href="https://www.objc.io/books/app-architecture/"><strong>App Architecture</strong></a>. It will cover a range of conventional and experimental application design patterns and architectural techniques – including the application design pattern described in this article. The book is <a href="https://www.objc.io/books/app-architecture/"><strong>available now</strong> in Early Access</a>.</p>
+</blockquote>
+
+<nav id="TableOfContents"><span class="toc-heading">Contents</span>
+<ul>
+<li>
+<ul>
+<li><a href="#background">Background</a></li>
+<li><a href="#a-simple-view-controller-in-cocoa-mvc">A simple view controller in Cocoa MVC</a></li>
+<li><a href="#implementing-the-same-code-with-cwlviews">Implementing the same code with CwlViews</a></li>
+<li><a href="#view-binders">View-binders</a></li>
+<li><a href="#model-adapters">Model-adapters</a></li>
+<li><a href="#feedback-loops-and-unidirectional-data-flow">Feedback loops and unidirectional data flow</a></li>
+<li><a href="#controller-or-bindings-does-it-matter">Controller or bindings, does it matter?</a></li>
+<li><a href="#scalability-view-models-and-testing">Scalability, view-models and testing</a></li>
+<li><a href="#what-s-the-result">What&rsquo;s the result?</a></li>
+<li><a href="#view-the-code">View the code</a></li>
+<li><a href="#conclusion">Conclusion</a>
+<ul>
+<li><a href="#looking-forward">Looking forward&hellip;</a></li>
+</ul></li>
+</ul></li>
+</ul>
+</nav>
+
+<h2 id="background">Background</h2>
+
+<p>I&rsquo;ve previously described &ldquo;ideal&rdquo; Model-View-Controller as any implementation where model changes take the path shown in the following diagram:</p>
+
+<p><img src="../assets/blog/ideal_mvc.svg" alt="" /></p>
+
+<figcaption>Ideal data-flow path in a Model-View-Controller application</figcaption>
+
+<p>Why do I consider this &ldquo;ideal&rdquo;? I explain the reasons in <a href="worst-possible-application.html">The worst possible application</a>; a good application requires a cleanly separately model and view and a cleanly separated model must be passively observed (instead of &ldquo;getting&rdquo; data imperatively) to maintain its abstraction. Invoking actions and passively observing creates this <em>feedback loop</em> between the view and the model.</p>
+
+<p>In <a href="view-state-driven-applications.html">View-state driven applications</a>, I talked about the benefits of making view-state (not just document state) go through the loop in this diagram. Making view-state and document-state go through a loop like this is sometimes called &ldquo;unidirectional data flow&rdquo; since all data flows must go in the same direction (clockwise in this diagram). Outputs from any view (excluding &ldquo;display&rdquo;) must go all the way through to a model object and inputs to each view (excluding &ldquo;user-events&rdquo;) must come from model objects.</p>
+
+<p>There are multiple frameworks for enforcing unidirectional data flow on other platforms – Elm, Flux, Redux, etc. These usually model their state as a &ldquo;reducer&rdquo;. I&rsquo;ve previously <a href="statements-messages-reducers.html">talked about reducers</a> – they&rsquo;re functions that take message inputs, update state and emit notifications. Their key advantage is that they&rsquo;re isolated; they can run in their own execution context, interacting with the rest of the program only via inputs and notifications. Common frameworks for unidirectional data flow tend use use a single change pipeline that invokes all reducers as part of a managed approach to changes.</p>
+
+<p>My <a href="statements-messages-reducers.html">View-state driven pattern</a> (MVC+ViewState) offered a more lightweight approach to unidirectional data flow – deliberately avoiding reliance on any larger framework or global pipeline. Instead, MVC+ViewState added a separate View-state model to the standard MVC pattern and pushed view-state through that model using the same techniques used for the regular model. However, manually maintaining a separate View-state model doubled the observation work and coordinating views dependent on state from both models were clear drawbacks.</p>
+
+<h2 id="a-simple-view-controller-in-cocoa-mvc">A simple view controller in Cocoa MVC</h2>
+
+<p>I&rsquo;ll come back to the ideas of view-state and unidirectional data flow but first, I want to discuss the role of view controller in a simple Cocoa Model-View-Controller application.</p>
+
+<p>For this, I&rsquo;ll look at the MVC (non-View-state) version of <a href="view-state-driven-applications.html">the &ldquo;Clocks&rdquo; app I presented a couple of months ago</a>. The app has a &ldquo;Select Timezone&rdquo; screen that looks like this:</p>
+
+<p><img src="../assets/blog/clocks3.png" alt="Clocks app MasterViewController" /></p>
+
+<figcaption>The "Select Timezone" screen in the Clocks app</figcaption>
+
+<p>This screen is a basic table view showing plain text rows, backed by a view controller named <code>SelectTimezoneViewController</code>. The table view is populated by the standard <code>UITableViewDataSource</code> and <code>UITableViewDelegate</code> methods:</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">var</span> <span class="nv">rows</span> <span class="p">=</span> <span class="n">TimeZone</span><span class="p">.</span><span class="n">knownTimeZoneIdentifiers</span><span class="p">.</span><span class="bp">sorted</span><span class="p">()</span>
+
+<span class="kd">func</span> <span class="nf">numberOfSections</span><span class="p">(</span><span class="k">in</span> <span class="n">tableView</span><span class="p">:</span> <span class="n">UITableView</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Int</span> <span class="p">{</span>
+   <span class="k">return</span> <span class="mi">1</span>
+<span class="p">}</span>
+
+<span class="kd">func</span> <span class="nf">tableView</span><span class="p">(</span><span class="kc">_</span> <span class="n">tableView</span><span class="p">:</span> <span class="n">UITableView</span><span class="p">,</span> <span class="n">numberOfRowsInSection</span> <span class="n">section</span><span class="p">:</span> <span class="nb">Int</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">Int</span> <span class="p">{</span>
+   <span class="k">return</span> <span class="n">rows</span><span class="p">.</span><span class="bp">count</span>
+<span class="p">}</span>
+
+<span class="kd">func</span> <span class="nf">tableView</span><span class="p">(</span><span class="kc">_</span> <span class="n">tableView</span><span class="p">:</span> <span class="n">UITableView</span><span class="p">,</span> <span class="n">cellForRowAt</span> <span class="n">indexPath</span><span class="p">:</span> <span class="n">IndexPath</span><span class="p">)</span>
+   <span class="p">-&gt;</span> <span class="n">UITableViewCell</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">cell</span> <span class="p">=</span> <span class="n">tableView</span><span class="p">.</span><span class="n">dequeueReusableCell</span><span class="p">(</span><span class="n">withIdentifier</span><span class="p">:</span> <span class="s">&#34;textRow&#34;</span><span class="p">,</span> <span class="k">for</span><span class="p">:</span> <span class="n">indexPath</span><span class="p">)</span>
+   <span class="n">cell</span><span class="p">.</span><span class="n">textLabel</span><span class="o">!</span><span class="p">.</span><span class="n">text</span> <span class="p">=</span> <span class="n">rows</span><span class="p">[</span><span class="n">indexPath</span><span class="p">.</span><span class="n">row</span><span class="p">]</span>
+   <span class="k">return</span> <span class="n">cell</span>
+<span class="p">}</span></code></pre></div>
+<p>This is about as simple as <code>UITableViewDataSource</code> and <code>UITableViewDelegate</code> method implementations can get: a fixed single section is specified, the number of rows for the section comes from the <code>rows</code> array, a <code>UITableViewCell</code> with identifier <code>&quot;textRow&quot;</code> is constructed and the cell&rsquo;s <code>textLabel</code> is configured with a value from the <code>rows</code> array.</p>
+
+<p>The scene also includes a search field. In the storyboard for this scene, the <code>delegate</code> of the search field is set to the <code>SelectTimezoneViewController</code> and the following <code>UISearchBarDelegate</code> function is called when the search text changes:</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">searchBar</span><span class="p">(</span><span class="kc">_</span> <span class="n">searchBar</span><span class="p">:</span> <span class="n">UISearchBar</span><span class="p">,</span> <span class="n">textDidChange</span><span class="p">:</span> <span class="nb">String</span><span class="p">)</span> <span class="p">{</span>
+   <span class="kd">let</span> <span class="nv">value</span> <span class="p">=</span> <span class="n">textDidChange</span><span class="p">.</span><span class="n">lowercased</span><span class="p">()</span>
+   <span class="n">rows</span> <span class="p">=</span> <span class="n">TimeZone</span><span class="p">.</span><span class="n">knownTimeZoneIdentifiers</span><span class="p">.</span><span class="bp">sorted</span><span class="p">().</span><span class="bp">filter</span> <span class="p">{</span> <span class="n">str</span> <span class="k">in</span>
+      <span class="n">value</span><span class="p">.</span><span class="bp">isEmpty</span> <span class="o">||</span> <span class="n">str</span><span class="p">.</span><span class="n">lowercased</span><span class="p">().</span><span class="n">range</span><span class="p">(</span><span class="n">of</span><span class="p">:</span> <span class="n">value</span><span class="p">)</span> <span class="o">!=</span> <span class="kc">nil</span>
+   <span class="p">}</span>
+   <span class="n">tableView</span><span class="p">.</span><span class="n">reloadData</span><span class="p">()</span>
+<span class="p">}</span></code></pre></div>
+<p>This recreates and filters the timezone identifiers, producing a new <code>rows</code> array and reloads the table data.</p>
+
+<p>Finally, since the purpose of the scene is to select timezone identifiers and add timezones to the model, it&rsquo;s necessary to handle row selection:</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">tableView</span><span class="p">(</span><span class="kc">_</span> <span class="n">tableView</span><span class="p">:</span> <span class="n">UITableView</span><span class="p">,</span> <span class="n">didSelectRowAt</span> <span class="n">indexPath</span><span class="p">:</span> <span class="n">IndexPath</span><span class="p">)</span> <span class="p">{</span>
+   <span class="k">if</span> <span class="n">rows</span><span class="p">.</span><span class="bp">indices</span><span class="p">.</span><span class="bp">contains</span><span class="p">(</span><span class="n">indexPath</span><span class="p">.</span><span class="n">row</span><span class="p">)</span> <span class="p">{</span>
+      <span class="n">Document</span><span class="p">.</span><span class="n">shared</span><span class="p">.</span><span class="n">addTimezone</span><span class="p">(</span><span class="n">rows</span><span class="p">[</span><span class="n">indexPath</span><span class="p">.</span><span class="n">row</span><span class="p">])</span>
+   <span class="p">}</span>
+   <span class="n">presentingViewController</span><span class="p">?.</span><span class="n">dismiss</span><span class="p">(</span><span class="n">animated</span><span class="p">:</span> <span class="kc">true</span><span class="p">,</span> <span class="n">completion</span><span class="p">:</span> <span class="kc">nil</span><span class="p">)</span>
+<span class="p">}</span></code></pre></div>
+<p>When a row is selected, two separate actions occur:<code>addTimezone</code> is called on the <code>Document</code> and the entire &ldquo;Select Timezone&rdquo; modal presentation is dismissed.</p>
+
+<p>All of the code I have shown for the &ldquo;Select Timezone&rdquo; scene is implemented on a single view controller. This is the standard Cocoa MVC approach for this type of scene.</p>
+
+<h2 id="implementing-the-same-code-with-cwlviews">Implementing the same code with CwlViews</h2>
+
+<p>I now want to look at how this same code would be implemented in CwlViews. The code will need to fulfill the same roles of:</p>
+
+<ol>
+<li>Define the section and row structure of the table view</li>
+<li>Construct cells from the row data</li>
+<li>When the search text changes, sort and filter the timezone identifiers and refresh the display</li>
+<li>When a row is selected, add the timezone to the document and dismiss the modal presentation.</li>
+</ol>
+
+<p>Here&rsquo;s the code:</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">tableView</span><span class="p">(</span><span class="kc">_</span> <span class="n">select</span><span class="p">:</span> <span class="n">SelectState</span><span class="p">,</span> <span class="kc">_</span> <span class="bp">split</span><span class="p">:</span> <span class="n">SplitState</span><span class="p">,</span> <span class="kc">_</span> <span class="n">doc</span><span class="p">:</span> <span class="n">DocumentAdapter</span><span class="p">)</span>
+   <span class="p">-&gt;</span> <span class="n">TableView</span> <span class="p">{</span>
+   <span class="k">return</span> <span class="n">TableView</span><span class="p">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="p">(</span>
+      <span class="p">.</span><span class="n">tableData</span> <span class="o">--</span> <span class="n">select</span><span class="p">.</span><span class="n">search</span><span class="p">.</span><span class="bp">map</span> <span class="p">{</span> <span class="n">text</span> <span class="k">in</span>
+         <span class="kd">let</span> <span class="nv">value</span> <span class="p">=</span> <span class="n">text</span><span class="p">.</span><span class="n">lowercased</span><span class="p">()</span>
+         <span class="k">return</span> <span class="n">TimeZone</span><span class="p">.</span><span class="n">knownTimeZoneIdentifiers</span><span class="p">.</span><span class="bp">sorted</span><span class="p">().</span><span class="bp">filter</span> <span class="p">{</span> <span class="n">str</span> <span class="k">in</span>
+            <span class="n">value</span><span class="p">.</span><span class="bp">isEmpty</span> <span class="o">||</span> <span class="n">str</span><span class="p">.</span><span class="n">lowercased</span><span class="p">().</span><span class="n">range</span><span class="p">(</span><span class="n">of</span><span class="p">:</span> <span class="n">value</span><span class="p">)</span> <span class="o">!=</span> <span class="kc">nil</span>
+         <span class="p">}.</span><span class="n">tableData</span><span class="p">()</span>
+      <span class="p">},</span>
+      <span class="p">.</span><span class="n">cellIdentifier</span> <span class="o">--</span> <span class="p">{</span> <span class="n">rowDescription</span> <span class="k">in</span> <span class="p">.</span><span class="n">textRowIdentifier</span> <span class="p">},</span>
+      <span class="p">.</span><span class="n">cellConstructor</span> <span class="o">--</span> <span class="p">{</span> <span class="n">cellIdentifier</span><span class="p">,</span> <span class="n">rowData</span> <span class="k">in</span>
+         <span class="n">TableViewCell</span><span class="p">(.</span><span class="n">textLabel</span> <span class="o">--</span> <span class="n">Label</span><span class="p">(.</span><span class="n">text</span> <span class="o">--</span> <span class="n">rowData</span><span class="p">))</span>
+      <span class="p">},</span>
+      <span class="p">.</span><span class="n">didSelectRow</span> <span class="o">--</span> <span class="n">Input</span><span class="p">().</span><span class="n">multicast</span><span class="p">(</span>
+         <span class="n">Input</span><span class="p">().</span><span class="n">filterMap</span> <span class="p">{</span> <span class="p">.</span><span class="n">add</span><span class="p">(</span><span class="nv">$0</span><span class="p">.</span><span class="n">rowData</span><span class="o">!</span><span class="p">)</span> <span class="p">}.</span><span class="n">bind</span><span class="p">(</span><span class="n">to</span><span class="p">:</span> <span class="n">doc</span><span class="p">)</span>
+         <span class="n">Input</span><span class="p">().</span><span class="bp">map</span> <span class="p">{</span> <span class="kc">_</span> <span class="k">in</span> <span class="kc">nil</span> <span class="p">}.</span><span class="n">bind</span><span class="p">(</span><span class="n">to</span><span class="p">:</span> <span class="bp">split</span><span class="p">.</span><span class="n">select</span><span class="p">),</span>
+      <span class="p">)</span>
+   <span class="p">)</span>
+<span class="p">}</span></code></pre></div>
+<p><strong>There&rsquo;s no view controller</strong>. This one code sample includes all the functionality of the previous three Swift code samples but the functionality is implemented by attaching behaviors directly to the table view, itself.</p>
+
+<p>You can probably see the sorting and filtering of the <code>knownTimeZoneIdentifiers</code> in the middle of this example – it&rsquo;s largely unchanged from before – but I&rsquo;ll probably need to explain the remaining details.</p>
+
+<p>Understanding what&rsquo;s happening involves learning about the two key components of CwlViews: <strong>view-binders</strong> and <strong>model-adapters</strong>.</p>
+
+<h2 id="view-binders">View-binders</h2>
+
+<p>This code uses the type names <code>TableView&lt;String&gt;</code>, <code>TableViewCell</code> and <code>Label</code> instead of <code>UITableView</code>, <code>UITableViewCell</code> or <code>UILabel</code>. These type names are the view-binders for their respective views.</p>
+
+<blockquote>
+<p><strong>View-binders</strong> in CwlViews are the constructors of underlying view objects. They fully describe the view through a series of &ldquo;bindings&rdquo; (either constant values, closures or reactive programming signals). You can call <code>instance()</code> on the view-binder to force construction of the underlying view but in general, this will happen automatically when the view-binder is used by a parent so you don&rsquo;t generally do it yourself.</p>
+</blockquote>
+
+<p>The structure of the table – the sections and rows – are specified by applying the function <code>.tableData()</code> to the end of the sorted, filtered <code>TimeZone.knownTimeZoneIdentifiers</code> array transformation. This is a convenience function provided by CwlViews to turn an array into a <code>TableData&lt;RowData&gt;</code> structure that describes a single-section, static table view. In this case, the <code>RowData</code> is a <code>String</code>, since the rows are the string timezone identifiers. The same structure can describe mutable animatable table rows and sections but those features are not needed, here.</p>
+
+<p>The <code>.cellIdentifier</code> and <code>.cellConstructor</code> closures together specify the same construction of the <code>UITableViewCell</code> that we performed in <code>tableView(_:,cellForRowAt:)</code> in the MVC version.</p>
+
+<p>The <code>.didSelectRow</code> binding handles the same work as the <code>tableView(_:,didSelectRowAt:)</code> from the MVC version. Since this one binding needs to handle two actions (adding the timezone identifier to the model and dismissing the modal selection view controller), a <code>multicast</code> is used, which splits the single <code>Input</code> into two: an <code>.add</code> message sent to the <code>doc</code> (which will create the new timezone entry in the document) and a <code>nil</code> message sent to the <code>split.select</code> variable (the &ldquo;Select Timezone&rdquo; modal presentation is constructed from this view-state variable in the parent split view so setting the variable to <code>nil</code> implicitly clears the modal presentation).</p>
+
+<h2 id="model-adapters">Model-adapters</h2>
+
+<p>I want to talk a little about <em>state</em>. All mutable state in CwlView must be wrapped in what CwlViews calls model-adapters.</p>
+
+<blockquote>
+<p><strong>Model-adapters</strong> are a concept that CwlViews provides for handling the <em>model</em>-end of bindings. A model-adapter is any object that internally wraps and maintains a state value internally – using a reducer – and externally exposes reactive programming inputs and outputs.</p>
+</blockquote>
+
+<div class="aside"><strong>Compared to view-binders:</strong> model-adapters expose a bindable interface (so you can attach bindings after construction) whereas view-binders consume bindings on construction (their bindable properties are concealed internally).</div>
+
+<p>Examples of model-adapters in the <code>tableView</code> construction example include the <code>DocumentAdapter</code> and the <code>select.search</code> and <code>split.select</code> properties. All properties and parameters in CwlViews are expected to be either immutable or wrapped in a model-adapter so the remaining parameters – the <code>SelectState</code> and <code>SplitState</code> objects which contain the <code>search</code> and <code>select</code> properties – are immutable model structs (technically, they are emitted from model-adapters higher up in the view-state hierarchy but that&rsquo;s not relevant here).</p>
+
+<p>This expectation that model-adapters must wrap all mutable state might seem restrictive but it turns out to be entirely pragmatic:</p>
+
+<ol>
+<li>the only possible mutations on a view-binder are through bindings</li>
+<li>bindings on a view-binder need to connect to other objects</li>
+<li>the other objects must expose a bindable interface to work with bindings</li>
+</ol>
+
+<p>A model-adapter is any stateful object that exposes a bindable interface allowing it to be the &ldquo;other object&rdquo;.</p>
+
+<p>The most important model-adapter to the &ldquo;Select Timezone&rdquo; scene is the <code>select.search</code> object that represents the contents of the search field. This property is referenced in the <code>tableView</code> construction code and is an example of the most common kind of model-adapter, the <code>Var</code>:</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">let</span> <span class="nv">search</span><span class="p">:</span> <span class="n">Var</span><span class="p">&lt;</span><span class="nb">String</span><span class="o">&gt;</span></code></pre></div>
+<p>A <code>Var</code> is a model-adapter with &ldquo;set&rdquo; semantics – a basic setter where any value you send it replaces the existing value. You can see how this <code>search</code> property is &ldquo;set&rdquo; by looking at the construction of the <code>SearchBar</code> for the &ldquo;Select Timezone&rdquo; scene:</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">searchBar</span><span class="p">(</span><span class="kc">_</span> <span class="n">select</span><span class="p">:</span> <span class="n">SelectState</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="n">SearchBarConstructor</span> <span class="p">{</span>
+   <span class="k">return</span> <span class="n">SearchBar</span><span class="p">(</span>
+      <span class="p">.</span><span class="n">text</span> <span class="o">--</span> <span class="n">select</span><span class="p">.</span><span class="n">search</span><span class="p">,</span>
+      <span class="p">.</span><span class="n">didChange</span> <span class="o">--</span> <span class="n">select</span><span class="p">.</span><span class="n">search</span>
+   <span class="p">)</span>
+<span class="p">}</span></code></pre></div>
+<p>When the search bar changes, it emits a value through the <code>.didChange</code> binding and <code>select.search</code> is set. If <code>select.search</code> changes, it will emit a value through its output to the <code>.text</code> binding, updating the search bar (<code>.didChange</code> won&rsquo;t be called if the value is unchanged, so this configuration won&rsquo;t cause an infinite loop).</p>
+
+<h2 id="feedback-loops-and-unidirectional-data-flow">Feedback loops and unidirectional data flow</h2>
+
+<p>The search bar example shows the full view/model feedback loop that I diagrammed at the top of this article: <code>SearchBar.didChange</code> &rarr; <code>SelectState.search</code> (input) &rarr; <code>SelectState.search</code> (output) &rarr; <code>SearchBar.text</code>.</p>
+
+<p>I mentioned briefly in the <a href="#background">Background</a> that having all view outputs go via the model and all view inputs come from the model is sometimes called &ldquo;unidirectional data flow&rdquo;. In Elm/Flux/Redux, this path is enforced by the framework. In the <a href="view-state-driven-applications.html">MVC+ViewState approach I presented in the Clocks app</a> it was enforced through manual effort.</p>
+
+<p>In CwlViews, all view-state is naturally handled on its own very simple, unidirectional view/model feedback loops. It&rsquo;s an emergent effect of the syntax requiring neither framework enforcement nor significant vigilance.</p>
+
+<h2 id="controller-or-bindings-does-it-matter">Controller or bindings, does it matter?</h2>
+
+<p>So I made a dramatic statement in the introduction that this pattern eliminates the controller – but it doesn&rsquo;t really eliminate the <em>work</em>, it just moves that work down into bindings on each view. It&rsquo;s reasonable to ask: why does it matter if they&rsquo;re implemented in bindings or if they&rsquo;re implemented in methods on a controller?</p>
+
+<p>The biggest reason why bindings are an improvement is that bindings don&rsquo;t share state and they can&rsquo;t depend on each other. Bindings can depend on their source-end but they can&rsquo;t depend on anything else. Bindings avoid unwanted interdependence.</p>
+
+<p>Using regular Cocoa view-controller subclasses without bindings, you can keep behaviors independent – if you&rsquo;re disciplined – but there&rsquo;s no syntax to enforce this or framework help to ensure it, so dependencies and other interference creep in. Non-trivial controllers are typically filled with shared state, manually propagated dependencies and expectations of sequentiality between different actions. In many cases, the size of larger view controllers is enough to create <em>visual</em> interference between behaviors.</p>
+
+<p>Interference between behaviors in view controllers causes code complexity to grow in a greater-than-linear way per new behavior. Along with the significant over-assignment of responsibilities to a small number of view controllers in Cocoa MVC, this leads to the problem jokingly called &ldquo;Massive-View-Controller&rdquo; (using the same &ldquo;MVC&rdquo; acronym) where Cocoa view controllers are overloaded with behaviors and each new behavior is increasingly fragile, slowing development and requiring continuous refactoring.</p>
+
+<h2 id="scalability-view-models-and-testing">Scalability, view-models and testing</h2>
+
+<p>Most MVC alternatives attempt to address controller complexity issues by adding separate roles to the application design pattern that split the controller into multiple smaller objects. CwlViews does almost the <em>opposite</em> – it eliminates the controller and throws everything into a single large expression.</p>
+
+<p>At first glance, this might seem ridiculous; how is a single expression more scalable than an entire class? Or cluster of classes?</p>
+
+<p>The truth is that the CwlViews approach isn&rsquo;t about forcing everything into a single expression. The point about declarative expressions like CwlViews&rsquo; construction is that it is easily <em>decomposable</em>. You can build your view-binders however you choose and break functionality out into its own function as it grows.</p>
+
+<p>In fact, the <code>tableView</code> and <code>searchBar</code> functions I&rsquo;ve already shown are themselves broken out of the construction of the overall scene because I think it looks better to keep the construction of components separate from the layout of those components:</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="k">return</span> <span class="n">ViewController</span><span class="p">(</span>
+   <span class="p">.</span><span class="n">view</span> <span class="o">--</span> <span class="n">View</span><span class="p">(</span>
+      <span class="p">.</span><span class="n">backgroundColor</span> <span class="o">--</span> <span class="p">.</span><span class="n">barTint</span><span class="p">,</span>
+      <span class="p">.</span><span class="n">layout</span> <span class="o">--</span> <span class="p">.</span><span class="n">vertical</span><span class="p">(</span>
+         <span class="p">.</span><span class="n">view</span><span class="p">(</span><span class="n">navBar</span><span class="p">(</span><span class="bp">split</span><span class="p">)),</span>
+         <span class="p">.</span><span class="n">view</span><span class="p">(</span><span class="n">searchBar</span><span class="p">(</span><span class="n">select</span><span class="p">)),</span>
+         <span class="p">.</span><span class="n">view</span><span class="p">(</span><span class="n">length</span><span class="p">:</span> <span class="p">.</span><span class="n">fillRemaining</span><span class="p">,</span>
+            <span class="n">tableView</span><span class="p">(</span><span class="n">select</span><span class="p">,</span> <span class="bp">split</span><span class="p">,</span> <span class="n">doc</span><span class="p">)</span>
+         <span class="p">)</span>
+      <span class="p">)</span>
+   <span class="p">)</span>
+<span class="p">)</span></code></pre></div>
+<blockquote>
+<p>This code sample does reveal something else: the <code>ViewController</code> is not totally <em>gone</em> in CwlViews. <code>ViewController</code>s are still used for their role in swapping in and out sections of the view-tree. However, they don&rsquo;t have many other responsibilities. Notice that the only binding used here for the <code>ViewController</code> is to specify its child <code>.view</code>.</p>
+</blockquote>
+
+<p>It&rsquo;s not just child views that you can easily move out of the construction syntax to their own locations. Imagine that you decided the <code>.tableData</code> binding transformation that I showed previously during the <code>TableView</code> construction:</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="p">.</span><span class="n">tableData</span> <span class="o">--</span> <span class="n">select</span><span class="p">.</span><span class="n">search</span><span class="p">.</span><span class="bp">map</span> <span class="p">{</span> <span class="n">text</span> <span class="k">in</span>
+   <span class="kd">let</span> <span class="nv">value</span> <span class="p">=</span> <span class="n">text</span><span class="p">.</span><span class="n">lowercased</span><span class="p">()</span>
+   <span class="n">TimeZone</span><span class="p">.</span><span class="n">knownTimeZoneIdentifiers</span><span class="p">.</span><span class="bp">sorted</span><span class="p">().</span><span class="bp">filter</span> <span class="p">{</span> <span class="n">str</span> <span class="k">in</span>
+      <span class="n">value</span><span class="p">.</span><span class="bp">isEmpty</span> <span class="o">||</span> <span class="n">str</span><span class="p">.</span><span class="n">lowercased</span><span class="p">().</span><span class="n">range</span><span class="p">(</span><span class="n">of</span><span class="p">:</span> <span class="n">value</span><span class="p">)</span> <span class="o">!=</span> <span class="kc">nil</span>
+   <span class="p">}.</span><span class="n">tableData</span><span class="p">()</span>
+<span class="p">},</span></code></pre></div>
+<p>was growing too large.</p>
+
+<p>The decomposeable nature of CwlViews&rsquo; declarative syntax means that it is trivial to pull this code out and put it somewhere else. The most natural place to move a transformation like this is into a <code>var</code> or <code>func</code> on the structs whose properties the transformation processes.</p>
+
+<p>For example, you could move this transformation into a <code>var</code> on the <code>SelectState</code> struct where the <code>search</code> property resides:</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">var</span> <span class="nv">tableData</span><span class="p">:</span> <span class="n">Signal</span><span class="p">&lt;</span><span class="n">TableData</span><span class="p">&lt;</span><span class="nb">String</span><span class="o">&gt;&gt;</span> <span class="p">{</span>
+   <span class="k">return</span> <span class="n">search</span><span class="p">.</span><span class="bp">map</span> <span class="p">{</span> <span class="n">text</span> <span class="k">in</span>
+      <span class="kd">let</span> <span class="nv">value</span> <span class="p">=</span> <span class="n">text</span><span class="p">.</span><span class="n">lowercased</span><span class="p">()</span>
+      <span class="n">TimeZone</span><span class="p">.</span><span class="n">knownTimeZoneIdentifiers</span><span class="p">.</span><span class="bp">sorted</span><span class="p">().</span><span class="bp">filter</span> <span class="p">{</span> <span class="n">str</span> <span class="k">in</span>
+         <span class="n">value</span><span class="p">.</span><span class="bp">isEmpty</span> <span class="o">||</span> <span class="n">str</span><span class="p">.</span><span class="n">lowercased</span><span class="p">().</span><span class="n">range</span><span class="p">(</span><span class="n">of</span><span class="p">:</span> <span class="n">value</span><span class="p">)</span> <span class="o">!=</span> <span class="kc">nil</span>
+      <span class="p">}.</span><span class="n">tableData</span><span class="p">()</span>
+   <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+<p>With this property in-place, the code at the binding location is reduced to:</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="p">.</span><span class="n">tableData</span> <span class="o">--</span> <span class="n">select</span><span class="p">.</span><span class="n">tableData</span></code></pre></div>
+<p>When you add this type of transformation to a view-state struct, the effect starts to get very similar to a <strong>presentation model</strong>, also known as <strong>view-model</strong> (a representation of state from the model, combined with partial state from the view that encodes the presentation and interaction logic of the view). You can also move these transformations to the main document adapter. In that scenario, these transformations start to look like <strong>use-cases</strong> (specialized slices of the model as needed by views within the app).</p>
+
+<p>By lifting transformation logic out of the view-binder and up into the model layer, you can make specialized versions that further transform more general versions so that the appropriate level of abstraction and transformation is provided and the whole architecture scales as needed.</p>
+
+<p>The question is: should all transformations be lifted out to form a complete presentation-model in all cases? The Model-View-ViewModel pattern suggests this approach because the presentation-model can be used as a testable interface for testing the logic and state of the entire view.</p>
+
+<p>While you could do this in CwlViews if you wanted, the reality is that a manually created presentation-model isn&rsquo;t necessary for testing because the view-binder already makes it possible to access the presentation and interaction logic.</p>
+
+<p>For example, if we wanted to test that the correct <code>.cellIdentifier</code> binding was used in the table view returned from our <code>tableView</code> construction function, we could write the following test:</p>
+<div class="highlight"><pre class="chroma"><code class="language-swift" data-lang="swift"><span class="kd">func</span> <span class="nf">testTableViewCellIdentifier</span><span class="p">()</span> <span class="p">{</span>
+   <span class="c1">// Create the inputs</span>
+   <span class="kd">let</span> <span class="nv">select</span> <span class="p">=</span> <span class="n">SelectState</span><span class="p">()</span>
+   <span class="kd">let</span> <span class="nv">split</span> <span class="p">=</span> <span class="n">SplitState</span><span class="p">()</span>
+   <span class="kd">let</span> <span class="nv">doc</span> <span class="p">=</span> <span class="n">DocumentAdapter</span><span class="p">(</span><span class="n">document</span><span class="p">:</span> <span class="n">Document</span><span class="p">())</span>
+   
+   <span class="c1">// Call our tableView function to create the view-binder then extract the bindings</span>
+   <span class="kd">let</span> <span class="nv">bindings</span> <span class="p">=</span> <span class="n">tableView</span><span class="p">(</span><span class="n">select</span><span class="p">,</span> <span class="bp">split</span><span class="p">,</span> <span class="n">doc</span><span class="p">).</span><span class="n">consumeBindings</span><span class="p">()</span>
+   
+   <span class="c1">// Select the binding we want</span>
+   <span class="kd">var</span> <span class="nv">function</span><span class="p">:</span> <span class="p">((</span><span class="n">TableRowDescription</span><span class="p">&lt;</span><span class="nb">String</span><span class="o">&gt;</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nb">String</span><span class="p">?)?</span> <span class="p">=</span> <span class="kc">nil</span>
+   <span class="k">for</span> <span class="n">b</span> <span class="k">in</span> <span class="n">bindings</span> <span class="p">{</span>
+      <span class="k">if</span> <span class="k">case</span> <span class="p">.</span><span class="n">cellIdentifier</span><span class="p">(</span><span class="kd">let</span> <span class="nv">f</span><span class="p">)</span> <span class="p">=</span> <span class="n">b</span> <span class="p">{</span>
+         <span class="n">function</span> <span class="p">=</span> <span class="n">f</span>
+         <span class="k">break</span>
+      <span class="p">}</span>
+   <span class="p">}</span>
+   
+   <span class="c1">// Test the result</span>
+   <span class="kd">let</span> <span class="nv">result</span> <span class="p">=</span> <span class="n">function</span><span class="p">?(</span><span class="n">TableRowDescription</span><span class="p">(</span><span class="n">indexPath</span><span class="p">:</span> <span class="n">IndexPath</span><span class="p">(),</span> <span class="n">rowData</span><span class="p">:</span> <span class="kc">nil</span><span class="p">))</span>
+   <span class="n">XCTAssert</span><span class="p">(</span><span class="n">result</span> <span class="p">==</span> <span class="s">&#34;textRow&#34;</span><span class="p">)</span>
+<span class="p">}</span></code></pre></div>
+<p>I should probably build some helper functions to simplify this type of scenrio a little but the premise is clear: you can ask a view-binder for its bindings and test them in the same way that you would test the observable properties of a view-model.</p>
+
+<h2 id="what-s-the-result">What&rsquo;s the result?</h2>
+
+<p>Getting back to the initial question I posed: what do you have left if you remove the Controller from the Cocoa Model-View-Controller pattern?</p>
+
+<p>Taken literally, the simplest name would be Model-View – and it wouldn&rsquo;t be <em>wrong</em> since everything except the bindings in this approach is either a model-layer object or a view-layer object. But I have spent too many years writing in MFC&rsquo;s Document-View, which sounds a lot like Model-View and whose defining aspect is that the whole program is coordinated from the window&rsquo;s message queue. I hardly want to court comparison with that.</p>
+
+<p>With &ldquo;bindings&rdquo; forming such a significant part of this pattern – largely replacing the Controller from Model-View-Controller – it would be natural to describe this pattern as Model-View-Bindings but unfortunately, Model-View-Binder is already a synonym for Model-View-ViewModel on some platforms. Probably better to avoid confusion.</p>
+
+<p>Ultimately, since I&rsquo;ve taken to describing the pattern with the following diagram:</p>
+
+<p><img src="../assets/blog/mavb.svg" alt="" /></p>
+
+<figcaption>The CwlViews application design pattern</figcaption>
+
+<p>I&rsquo;ve been calling the pattern ModelAdapter-ViewBinder (MAVB).</p>
+
+<p>Yeah, it&rsquo;s a bit of a word-salad but I persuaded my co-authors <a href="https://www.objc.io/books/app-architecture/">Application Architecture</a> to let me put this crazy idea into the book (because I&rsquo;ve been having so much fun with it), so I figured I should give it a name.</p>
+
+<h2 id="view-the-code">View the code</h2>
+
+<p>You can view the <a href="https://github.com/mattgallagher/Clocks/blob/undoredo/Clocks/SelectTimezoneViewController.swift?ts=3">original MVC version of the &ldquo;SelectTimezoneViewController.swift&rdquo; file</a> on the <a href="https://github.com/mattgallagher/Clocks/tree/undoredo">undoredo branch of the Clocks repository</a> on github. It&rsquo;s received some touch-ups since I released the code in November but most of the project is unchanged.</p>
+
+<p>You can also view the <a href="https://github.com/mattgallagher/Clocks/blob/cwlviews/Clocks/SelectView.swift?ts=3">CwlViews version of the &ldquo;SelectView.swift&rdquo; file</a> on the <a href="https://github.com/mattgallagher/Clocks/tree/cwlviews">cwlviews branch of the Clocks repository</a> on github.</p>
+
+<p>The CwlViews version is a complete project, showing much more of CwlViews than I&rsquo;ve revealed here. It also fully implements user-interface time-travel, like the View-state driven &ldquo;master&rdquo; branch.</p>
+
+<p>But at the moment, the CwlViews version won&rsquo;t actually build. It will give errors similar to:</p>
+
+<pre><code>error: failed to clone; Cloning into bare repository '/Users/matt/Library/Developer/Xcode/DerivedData/Clocks-euhvzfgwykqqnrblysttdbspzjie/Build/Intermediates.noindex/repositories/CwlViews.git-1609764927845648232'...
+remote: Repository not found.
+fatal: repository 'https://github.com/mattgallagher/CwlViews.git/' not found
+error: swift package resolve failed
+</code></pre>
+
+<p>because there is no repository at <a href="https://github.com/mattgallagher/CwlViews.git">https://github.com/mattgallagher/CwlViews.git</a> yet.</p>
+
+<p>I&rsquo;m still working on some final details before I release it publicly in a few weeks. Assuming I have the details right then this Clocks version will build correctly once I push CwlViews to github.</p>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>I started CwlViews by looking for a better view construction syntax. It&rsquo;s interesting how a change to something as seemingly superficial as syntax has deep effects on the overall structure of a Cocoa application.</p>
+
+<p>The controller layer – the most prominent layer of Cocoa&rsquo;s Model-View-Controller pattern – is eliminated as an architectural component and reduced to a trivial member of the view layer. The behaviors previously implemented on the view controller are moved into bindings on the views themselves.</p>
+
+<p>Even this change is not a mere rearrangement. Moving behaviors into bindings keeps them independent, helping complexity to scale linearly with each additional behavior, instead of the greater-than-linear complexity scaling in typical view controllers. Additionally, the overall construction is arbitrarily decomposable as needed.</p>
+
+<p>The architecture is naturally unidirectional. This happens without a global driver to keep the application on a single pipeline or any need for constant discipline. It happens naturally since you need to give view-bindings both a view-end and a model-end.</p>
+
+<p>Under all of this: the underlying view objects and underlying model objects are unchanged. It&rsquo;s all still standard Cocoa views and the model object is unchanged, it&rsquo;s just the construction and wrapping that have changed.</p>
+
+<h3 id="looking-forward">Looking forward&hellip;</h3>
+
+<p>I should probably just release CwlViews already.</p>
+
+<blockquote>
+<p><strong>Self promotion? On my own blog?!</strong></p>
+
+<p>The ModelAdapter-ViewBinder pattern, along with other experimental and conventional patterns and architectural techniques, are examined in depth in a book I&rsquo;m writing, with <a href="https://twitter.com/chriseidhof">Chris Eidhof</a> and <a href="https://twitter.com/floriankugler">Florian Kugler</a> from <a href="https://www.objc.io">objc.io</a>, titled <a href="https://www.objc.io/books/app-architecture/">App Architecture</a> (iOS Application Patterns in Swift).</p>
+
+<p><a href="https://www.objc.io/books/app-architecture/"><img src="../assets/blog/app_architecture.png" alt="App Architecture" /></a></p>
+
+<p><a href="https://www.objc.io/books/app-architecture/">You can <strong>order now</strong> in Early Access to get the first chapter immediately and subsequent chapters as they&rsquo;re released</a>.</p>
+</blockquote>
+
+		</div>
+	</article>
+</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="a-view-construction-syntax.html">A view construction syntax</a>
+  </div>
+  <div class="page-next">
+    
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../feed.json">JSON</a>, <a href="../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2018 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

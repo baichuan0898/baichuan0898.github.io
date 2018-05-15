@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Easy custom UITableView drawing</title>
+  <meta name="description" content="It is really easy to customize your &lt;code&gt;UITableView&lt;/code&gt;s. I&#39;ll show you how to completely customize the appearance of &lt;code&gt;UITableView&lt;/code&gt;s without overriding or subclassing and without the need for any tricky hackery." />
+
+  <meta name="twitter:title" content="Easy custom UITableView drawing"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/04/easy-custom-uitableview-drawing.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="It is really easy to customize your &lt;code&gt;UITableView&lt;/code&gt;s. I&#39;ll show you how to completely customize the appearance of &lt;code&gt;UITableView&lt;/code&gt;s without overriding or subclassing and without the need for any tricky hackery."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="easy-custom-uitableview-drawing.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Easy custom UITableView drawing</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-04-28">April 28, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/uikit.html">UIKit</a>, <a href="../../categories/cocoa-touch.html">Cocoa Touch</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>It is really easy to customize your <code>UITableView</code>s. I'll show you how to completely customize the appearance of <code>UITableView</code>s without overriding or subclassing and without the need for any tricky hackery.</p></span>
+
+<span class="fullpost">
+<h2>Make my table pretty</h2>
+
+<p>The core of most iPhone applications is the <code>UITableView</code>. To make your iPhone application stand out, the simplest way is to make your <code>UITableView</code> look good.</p>
+
+<p>Customizing your <code>UITableView</code> can be really easy. You don't need custom drawing code. You don't need subclasses of anything. Cocoa Touch provides all the drawing capability you need, all you have to do is use the right classes in the right ways and provide the layout.</p>
+
+<h2>The sample application</h2>
+
+<p>The approach I'll show you will turn the table on the left into the table on the right:</p>
+
+<img src="../../assets/objc-era/customtableview.png" width="550" height="405" />
+
+<p style="text-align:center;"><em>Left: a default <code>UITableView</code> with three rows. Right: the same table view after customization.</em></p>
+
+<h2>How to fail at UITableView customizing</h2>
+
+<p>Coming from Mac OS X made it harder for me &mdash; <code>UITableView</code> needs to be customized in a very particular way and structurally, it is very different to Mac OS X's <code>NSTableView</code> and <code>NSCell</code> drawing.</p>
+
+<p>The following are all <em><strong>really bad ways</strong></em> to customize a table (even though you can make it work):</p>
+
+<ul>
+<li>Subclassing <code>UITableView</code> to customize the drawing of cells</li>
+<li>Subclassing <code>UITableViewCell</code> to customize the drawing of cell content</li>
+<li>Creating your own array of <code>UITableViewCell</code>s and returning these instead of using <code>dequeueReusableCellWithIdentifier:</code></li>
+</ul>
+
+<p>About the second point: it is okay to customize <code>UITableViewCell</code> &mdash; but you shouldn't really use it for drawing. The <code>UITableViewCell</code> class is more of a controller class &mdash; it handles behaviors and layout, not drawing. You can customize <code>UITableViewCell</code> to load a specific <code>contentView</code> (and do the custom drawing there).</p>
+
+<p>That last point (that you should always use <code>dequeueReusableCellWithIdentifier:</code>) is only peripherally related to drawing but it will significantly slow your drawing down if you avoid the normal cell queuing architecture.</p>
+
+<h2>How to succeed at UITableView customizing</h2>
+
+<p>There are only a few points to understand related to table drawing.</p>
+
+<p><strong>First</strong>: the <code>UITableView</code> does not itself draw anything except the background. To customize the background of a <code>UITableView</code>, all you need to do is set its <code>backgroundColor</code> to <code>[UIColor clearColor]</code> and you can draw your own background in a view <em>behind</em> the <code>UITableView</code>.</p>
+
+<p><strong>Second</strong>: The <code>tableHeaderView</code> (and the table footer and section headers and footers) need not be just a title. You can insert your own view, with its own subviews in the table header, giving layout and custom drawing freedom.</p>
+
+<p><strong>Third</strong>: <code>UITableViewCell</code> is composed of 5 different subviews. Customizing the right subview is the secret to good <code>UITableViewCell</code> drawing. The subviews are:</p>
+
+<ol><li><code>backgroundView</code> &mdash; the entire background of the row (including what looks like the <code>UITableView</code>'s background in <code>UITableViewStyleGrouped</code> style tables.</li>
+<li><code>selectedBackgroundView</code> &mdash; replaces the <code>backgroundView</code> when the row is selected.</li>
+<li><code>image</code> &mdash; a customizable image (not actually a subview) at the left of the cell.</li>
+<li><code>accessoryView</code> &mdash; a customizable view at the right of the cell.</li>
+<li><code>contentView</code> &mdash; a customizable view between the <code>image</code> and the <code>accessoryView</code> (technically, it extends behind the <code>image</code>).</li>
+</ol>
+
+<p>You can customize any of these (except <code>image</code> which must be a <code>UIImage</code>) using your own custom drawn views.</p>
+
+<p>However, since the pixel size of the table never changes, it is often easiest just to use <code>UIImageView</code>s for each of them. Then you can take highly complex views drawn in separate programs, cut them into the 5 necessary pieces and let the automatic caching of <code>UIImage</code>'s named image cache manage your memory for you.</p>
+
+<p>There is an argument against drawing your views in code and that is that the iPhone's drawing is not nearly as fast as Mac OS X. Operations like gradients and multiple overlapped components can really tax the iPhone.</p>
+
+<p>Custom drawing code is a good choice for simple and flat colour drawing. In most other cases &mdash; as in this post &mdash; I recommend you use <code>UIImageView</code> to draw your views in a table.</p>
+
+<h2>Implementation</h2>
+
+<p>With all custom drawing handled by <code>UIImageView</code>, that still leaves some work to do. You must handle all layout and configuring of views.</p>
+
+<h3>Configuration of the UITableView and layout of the table header</h3>
+
+<p>As an example of what that means, have a look at the <code>viewDidLoad</code> method for this post:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">viewDidLoad</span>
+<span class="p">{</span>
+    <span class="c1">//
+</span><span class="c1"></span>    <span class="c1">// Change the properties of the imageView and tableView (these could be set
+</span><span class="c1"></span>    <span class="c1">// in interface builder instead).
+</span><span class="c1"></span>    <span class="c1">//
+</span><span class="c1"></span>    <span class="n">tableView</span><span class="p">.</span><span class="n">separatorStyle</span> <span class="o">=</span> <span class="n">UITableViewCellSeparatorStyleNone</span><span class="p">;</span>
+    <span class="n">tableView</span><span class="p">.</span><span class="n">rowHeight</span> <span class="o">=</span> <span class="mi">100</span><span class="p">;</span>
+    <span class="n">tableView</span><span class="p">.</span><span class="n">backgroundColor</span> <span class="o">=</span> <span class="p">[</span><span class="n">UIColor</span> <span class="n">clearColor</span><span class="p">];</span>
+    <span class="n">imageView</span><span class="p">.</span><span class="n">image</span> <span class="o">=</span> <span class="p">[</span><span class="n">UIImage</span> <span class="nl">imageNamed</span><span class="p">:</span><span class="s">@&#34;gradientBackground.png&#34;</span><span class="p">];</span>
+    
+    <span class="c1">//
+</span><span class="c1"></span>    <span class="c1">// Create a header view. Wrap it in a container to allow us to position
+</span><span class="c1"></span>    <span class="c1">// it better.
+</span><span class="c1"></span>    <span class="c1">//
+</span><span class="c1"></span>    <span class="n">UIView</span> <span class="o">*</span><span class="n">containerView</span> <span class="o">=</span>
+        <span class="p">[[[</span><span class="n">UIView</span> <span class="n">alloc</span><span class="p">]</span>
+            <span class="nl">initWithFrame</span><span class="p">:</span><span class="n">CGRectMake</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">300</span><span class="p">,</span> <span class="mi">60</span><span class="p">)]</span>
+        <span class="n">autorelease</span><span class="p">];</span>
+    <span class="n">UILabel</span> <span class="o">*</span><span class="n">headerLabel</span> <span class="o">=</span>
+        <span class="p">[[[</span><span class="n">UILabel</span> <span class="n">alloc</span><span class="p">]</span>
+            <span class="nl">initWithFrame</span><span class="p">:</span><span class="n">CGRectMake</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">20</span><span class="p">,</span> <span class="mi">300</span><span class="p">,</span> <span class="mi">40</span><span class="p">)]</span>
+        <span class="n">autorelease</span><span class="p">];</span>
+    <span class="n">headerLabel</span><span class="p">.</span><span class="n">text</span> <span class="o">=</span> <span class="n">NSLocalizedString</span><span class="p">(</span><span class="s">@&#34;Header for the table&#34;</span><span class="p">,</span> <span class="s">@&#34;&#34;</span><span class="p">);</span>
+    <span class="n">headerLabel</span><span class="p">.</span><span class="n">textColor</span> <span class="o">=</span> <span class="p">[</span><span class="n">UIColor</span> <span class="n">whiteColor</span><span class="p">];</span>
+    <span class="n">headerLabel</span><span class="p">.</span><span class="n">shadowColor</span> <span class="o">=</span> <span class="p">[</span><span class="n">UIColor</span> <span class="n">blackColor</span><span class="p">];</span>
+    <span class="n">headerLabel</span><span class="p">.</span><span class="n">shadowOffset</span> <span class="o">=</span> <span class="n">CGSizeMake</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span>
+    <span class="n">headerLabel</span><span class="p">.</span><span class="n">font</span> <span class="o">=</span> <span class="p">[</span><span class="n">UIFont</span> <span class="nl">boldSystemFontOfSize</span><span class="p">:</span><span class="mi">22</span><span class="p">];</span>
+    <span class="n">headerLabel</span><span class="p">.</span><span class="n">backgroundColor</span> <span class="o">=</span> <span class="p">[</span><span class="n">UIColor</span> <span class="n">clearColor</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">containerView</span> <span class="nl">addSubview</span><span class="p">:</span><span class="n">headerLabel</span><span class="p">];</span>
+    <span class="nb">self</span><span class="p">.</span><span class="n">tableView</span><span class="p">.</span><span class="n">tableHeaderView</span> <span class="o">=</span> <span class="n">containerView</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>This method handles the configuration of the <code>tableView</code> (setting the <code>backgroundColor</code>, <code>rowHeight</code> and sets an image behind the table) but also creates its own layout for the table header.</p>
+
+<p>The layout of the header here is for the table's header view. You can include a custom header for every table section by implementing the <code>UITableViewDelegate</code> method <code>tableView:viewForHeaderInSection:</code>. There are equivalent properties and methods for the table and section footers.</p>
+
+<p>It is possible to handle this type of layout in Interface Builder and load the XIB files for this type of layout. Sadly though, on the iPhone, reading loading lots of views from XIB files is slow (I suspect this is due to slow reading from the Flash memory) and doesn't always allow configuration of every property.</p>
+
+<p>For this reason, I normally sketch my views in Interface Builder and then manually recreate the same thing in code. That's what I've done here: picking coordinates for the <code>headerLabel</code> that looks balanced in the view.</p>
+
+<h3>Cell backgrounds</h3>
+
+<p>The cell background needs to incorporate the tops and bottoms of table "sections". For this reason, the <code>backgroundView</code> and <code>selectedBackgroundView</code> normally need to be set on a row-by-row basis.</p>
+
+<p>In your <code>tableView:cellForRowAtIndexPath:</code> method where you are configuring the cell for a given row, this code will handle that behavior:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">UIImage</span> <span class="o">*</span><span class="n">rowBackground</span><span class="p">;</span>
+<span class="n">UIImage</span> <span class="o">*</span><span class="n">selectionBackground</span><span class="p">;</span>
+<span class="n">NSInteger</span> <span class="n">sectionRows</span> <span class="o">=</span> <span class="p">[</span><span class="n">aTableView</span> <span class="nl">numberOfRowsInSection</span><span class="p">:[</span><span class="n">indexPath</span> <span class="n">section</span><span class="p">]];</span>
+<span class="n">NSInteger</span> <span class="n">row</span> <span class="o">=</span> <span class="p">[</span><span class="n">indexPath</span> <span class="n">row</span><span class="p">];</span>
+<span class="k">if</span> <span class="p">(</span><span class="n">row</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">row</span> <span class="o">==</span> <span class="n">sectionRows</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">rowBackground</span> <span class="o">=</span> <span class="p">[</span><span class="n">UIImage</span> <span class="nl">imageNamed</span><span class="p">:</span><span class="s">@&#34;topAndBottomRow.png&#34;</span><span class="p">];</span>
+    <span class="n">selectionBackground</span> <span class="o">=</span> <span class="p">[</span><span class="n">UIImage</span> <span class="nl">imageNamed</span><span class="p">:</span><span class="s">@&#34;topAndBottomRowSelected.png&#34;</span><span class="p">];</span>
+<span class="p">}</span>
+<span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">row</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">rowBackground</span> <span class="o">=</span> <span class="p">[</span><span class="n">UIImage</span> <span class="nl">imageNamed</span><span class="p">:</span><span class="s">@&#34;topRow.png&#34;</span><span class="p">];</span>
+    <span class="n">selectionBackground</span> <span class="o">=</span> <span class="p">[</span><span class="n">UIImage</span> <span class="nl">imageNamed</span><span class="p">:</span><span class="s">@&#34;topRowSelected.png&#34;</span><span class="p">];</span>
+<span class="p">}</span>
+<span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">row</span> <span class="o">==</span> <span class="n">sectionRows</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">rowBackground</span> <span class="o">=</span> <span class="p">[</span><span class="n">UIImage</span> <span class="nl">imageNamed</span><span class="p">:</span><span class="s">@&#34;bottomRow.png&#34;</span><span class="p">];</span>
+    <span class="n">selectionBackground</span> <span class="o">=</span> <span class="p">[</span><span class="n">UIImage</span> <span class="nl">imageNamed</span><span class="p">:</span><span class="s">@&#34;bottomRowSelected.png&#34;</span><span class="p">];</span>
+<span class="p">}</span>
+<span class="k">else</span>
+<span class="p">{</span>
+    <span class="n">rowBackground</span> <span class="o">=</span> <span class="p">[</span><span class="n">UIImage</span> <span class="nl">imageNamed</span><span class="p">:</span><span class="s">@&#34;middleRow.png&#34;</span><span class="p">];</span>
+    <span class="n">selectionBackground</span> <span class="o">=</span> <span class="p">[</span><span class="n">UIImage</span> <span class="nl">imageNamed</span><span class="p">:</span><span class="s">@&#34;middleRowSelected.png&#34;</span><span class="p">];</span>
+<span class="p">}</span>
+<span class="p">((</span><span class="n">UIImageView</span> <span class="o">*</span><span class="p">)</span><span class="n">cell</span><span class="p">.</span><span class="n">backgroundView</span><span class="p">).</span><span class="n">image</span> <span class="o">=</span> <span class="n">rowBackground</span><span class="p">;</span>
+<span class="p">((</span><span class="n">UIImageView</span> <span class="o">*</span><span class="p">)</span><span class="n">cell</span><span class="p">.</span><span class="n">selectedBackgroundView</span><span class="p">).</span><span class="n">image</span> <span class="o">=</span> <span class="n">selectionBackground</span><span class="p">;</span></code></pre></div>
+
+<h3>Layout within the contentView</h3>
+
+<p>Layout of elements within the <code>contentView</code> need only be set on construction of the <code>contentView</code> (not on a row-by-row basis).</p>
+
+<p>Sadly, laying out <code>UILabel</code>s in the <code>contentView</code> (like the "Cell at row X." and "Some other infomation." lables in this example) is a little verbose.</p>
+
+<p>The following code is run immediately after the allocation of the <code>UITableViewCell</code> to position the "Cell at row X." label:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">const</span> <span class="n">CGFloat</span> <span class="n">LABEL_HEIGHT</span> <span class="o">=</span> <span class="mi">20</span><span class="p">;</span>
+<span class="n">UIImage</span> <span class="o">*</span><span class="n">image</span> <span class="o">=</span> <span class="p">[</span><span class="n">UIImage</span> <span class="nl">imageNamed</span><span class="p">:</span><span class="s">@&#34;imageA.png&#34;</span><span class="p">];</span>
+
+<span class="c1">//
+</span><span class="c1">// Create the label for the top row of text
+</span><span class="c1">//
+</span><span class="c1"></span><span class="n">topLabel</span> <span class="o">=</span>
+    <span class="p">[[[</span><span class="n">UILabel</span> <span class="n">alloc</span><span class="p">]</span>
+        <span class="nl">initWithFrame</span><span class="p">:</span>
+            <span class="n">CGRectMake</span><span class="p">(</span>
+                <span class="n">image</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">width</span> <span class="o">+</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">cell</span><span class="p">.</span><span class="n">indentationWidth</span><span class="p">,</span>
+                <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">aTableView</span><span class="p">.</span><span class="n">rowHeight</span> <span class="o">-</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">LABEL_HEIGHT</span><span class="p">),</span>
+                <span class="n">aTableView</span><span class="p">.</span><span class="n">bounds</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">width</span> <span class="o">-</span>
+                    <span class="n">image</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">width</span> <span class="o">-</span> <span class="mf">4.0</span> <span class="o">*</span> <span class="n">cell</span><span class="p">.</span><span class="n">indentationWidth</span>
+                        <span class="o">-</span> <span class="n">indicatorImage</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">width</span><span class="p">,</span>
+                <span class="n">LABEL_HEIGHT</span><span class="p">)]</span>
+    <span class="n">autorelease</span><span class="p">];</span>
+<span class="p">[</span><span class="n">cell</span><span class="p">.</span><span class="n">contentView</span> <span class="nl">addSubview</span><span class="p">:</span><span class="n">topLabel</span><span class="p">];</span>
+
+<span class="c1">//
+</span><span class="c1">// Configure the properties for the text that are the same on every row
+</span><span class="c1">//
+</span><span class="c1"></span><span class="n">topLabel</span><span class="p">.</span><span class="n">tag</span> <span class="o">=</span> <span class="n">TOP_LABEL_TAG</span><span class="p">;</span>
+<span class="n">topLabel</span><span class="p">.</span><span class="n">backgroundColor</span> <span class="o">=</span> <span class="p">[</span><span class="n">UIColor</span> <span class="n">clearColor</span><span class="p">];</span>
+<span class="n">topLabel</span><span class="p">.</span><span class="n">textColor</span> <span class="o">=</span> <span class="p">[</span><span class="n">UIColor</span> <span class="nl">colorWithRed</span><span class="p">:</span><span class="mf">0.25</span> <span class="nl">green</span><span class="p">:</span><span class="mf">0.0</span> <span class="nl">blue</span><span class="p">:</span><span class="mf">0.0</span> <span class="nl">alpha</span><span class="p">:</span><span class="mf">1.0</span><span class="p">];</span>
+<span class="n">topLabel</span><span class="p">.</span><span class="n">highlightedTextColor</span> <span class="o">=</span> <span class="p">[</span><span class="n">UIColor</span> <span class="nl">colorWithRed</span><span class="p">:</span><span class="mf">1.0</span> <span class="nl">green</span><span class="p">:</span><span class="mf">1.0</span> <span class="nl">blue</span><span class="p">:</span><span class="mf">0.9</span> <span class="nl">alpha</span><span class="p">:</span><span class="mf">1.0</span><span class="p">];</span>
+<span class="n">topLabel</span><span class="p">.</span><span class="n">font</span> <span class="o">=</span> <span class="p">[</span><span class="n">UIFont</span> <span class="nl">systemFontOfSize</span><span class="p">:[</span><span class="n">UIFont</span> <span class="n">labelFontSize</span><span class="p">]];</span>
+
+<span class="c1">//
+</span><span class="c1">// Create a background image view.
+</span><span class="c1">//
+</span><span class="c1"></span><span class="n">cell</span><span class="p">.</span><span class="n">backgroundView</span> <span class="o">=</span> <span class="p">[[[</span><span class="n">UIImageView</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span>
+<span class="n">cell</span><span class="p">.</span><span class="n">selectedBackgroundView</span> <span class="o">=</span> <span class="p">[[[</span><span class="n">UIImageView</span> <span class="n">alloc</span><span class="p">]</span> <span class="n">init</span><span class="p">]</span> <span class="n">autorelease</span><span class="p">];</span></code></pre></div>
+
+<p>In my mind, it seems like there should be a more efficient way to do this. I hold out the possibility that there is.</p>
+
+<p>This code spends most of its time working out where the label should be placed. It needs to go right of the image, left of the <code>accessoryView</code>, middle of the row but above the "Some other information." label.</p>
+
+<h3>Other adornments</h3>
+
+<p>The <code>accessoryView</code> is just a <code>UIImageView</code>. The <code>cell.image</code> is set as a property. These are extremely simple additions but they make the table cells far more impactful.</p>
+
+<h2>Conclusion</h2>
+
+<blockquote>You can download the <a href="../../assets/objc-era/EasyCustomTable.zip">EasyCustomTable project as a zip file</a> (60kb).</blockquote>
+
+<p>The code includes a <code>#define</code> at the top that allows you to toggle the custom drawing on and off.</p>
+
+<p>None of this is particularly revolutionary (it is all in the iPhone documentation) but it is still easy to miss the properties and methods that make it easy.</p>
+
+<p>This does require custom images. If you've never drawn anything, now is a good time to learn <a href="http://www.inkscape.org/">inkscape</a> (it's free and very good for the price). You could also use Adobe Illustrator but if you have that much money, pay an artist to draw it for you.</p>
+
+<p>Layout of the content in code is probably the weakest part of the approach I've presented. To make it easier, you can pre-layout everything in Interface Builder and copy the layout into code. For complicated layouts, you could even try using <a href="http://github.com/akosma/nib2objc/tree/master">nib2objc</a> to convert your XIB files to code automatically (although I've never done this, I'm just mentioning nib2objc because the idea is so cool).</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="what-does-it-mean-when-you-assign-super.html">What does it mean when you assign [super init] to self?</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../05/invoking-other-processes-in-cocoa.html">Invoking other processes in Cocoa</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

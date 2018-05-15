@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Design of a multi-platform app using The Cocotron</title>
+  <meta name="description" content="In this post, I&#39;ll talk about how multi-platform applications are structured and talk about some of the different ways that applications separate core logic from platform specific behaviors. I&#39;ll talk about how using a porting layer like The Cocotron fits into these designs and why using The Cocotron doesn&#39;t necessarily mean that you&#39;re ignoring best-practice or creating a second-class application." />
+
+  <meta name="twitter:title" content="Design of a multi-platform app using The Cocotron"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2010/04/design-of-multi-platform-app-using.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="In this post, I&#39;ll talk about how multi-platform applications are structured and talk about some of the different ways that applications separate core logic from platform specific behaviors. I&#39;ll talk about how using a porting layer like The Cocotron fits into these designs and why using The Cocotron doesn&#39;t necessarily mean that you&#39;re ignoring best-practice or creating a second-class application."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="design-of-multi-platform-app-using.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="118px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Design of a multi-platform app using The Cocotron</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2010-04-21">April 21, 2010</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/objective-c.html">Objective-C</a>, <a href="../../categories/appkit.html">AppKit</a>, <a href="../../categories/foundation.html">Foundation</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>In this post, I'll talk about how multi-platform applications are structured and talk about some of the different ways that applications separate core logic from platform specific behaviors. I'll talk about how using a porting layer like <a href="http://cocotron.org">The Cocotron</a> fits into these designs and why using The Cocotron doesn't necessarily mean that you're ignoring best-practice or creating a second-class application.</p></span>
+
+<span class="fullpost">
+
+<p>Disclaimer: I'm not associated with The Cocotron, I just think it's really cool.
+
+<h2>Multi-platform abstractions</h2>
+<p>In my <a href="options-for-porting-objective-ccocoa.html">previous post</a>, I talked about different libraries, APIs and SDKs that can be used to help adapt and link a Cocoa application for running under Windows.</p>
+
+<p>Commenters on that post pointed out that I omitted any discussion of the structural and design considerations in abstracting platform specific behaviors from the core logic of your program.</p>
+
+<h3>A simple model of platform abstractions</h3>
+
+<p>Generally, the aim is to structure a multi-platform program like this:</p>
+
+<img src="../../assets/objc-era/drawing.png" width="319" height="289" />
+
+<p>The idea is that your program should never need to write any platform specific code outside of the platform implementations. The platform abstracted layer is the layer to which your core application talks. This abstracted layer is then connected to multiple implementations underneath whose responsibility it is to perform the correct platform specific actions corresponding to the abstracted invocations above.</p>
+
+<p>As easy as it is to draw a diagram like this, it says very little about how it will actually work.</p>
+
+<p>The reality is that a high-quality, multi-platform application is dependent upon how well the platform specific implementation works and whether it follows the rules and guidelines of the target platform.</p>
+
+<p>In order that a platform specific implementation correctly behaves as a native application on specific platforms, you need to add further code at the platform implementation layer &mdash; in some cases, moving the entire user-interface layout and structure into this layer is required to properly create the look-and-feel for the platform.</p>
+
+<p>However, growing the platform implementation level in this way, you eventually end up with unrelated applications on each platform that just happen to share a common library to perform some internal work.</p>
+
+<p>Have a look at how open source applications like Transmission and VLC are developed: they share a library to handle most of the processing or data manipulation work but the actual application is completely rewritten from platform to platform &mdash; all of what the user sees is platform specific. They may be layed out to look similar from platform to platform but this is because they have been separately implemented to replicate each other.</p>
+
+<h3>Increasing common functionality between platform implementations</h3>
+
+<p>Writing a completely different application for every platform that just happens to share a core library is not a bad way to write a multi-platform application but it takes a huge amount of effort and the platform implementations may tend to drift away from each other in terms of appearance and functionality since they are so different at a user level.</p>
+
+<p>The reality is that you will probably want to forgo some platform distinctiveness for common behavior. A very good abstraction and implementation layer can still adapt this back to the native style of the platform to the point where the user cannot tell the difference.</p>
+
+<p>As an example Firefox choose to forgo all standard platform controls and draw everything themselves. This allows Firefox to use its own user-interface layout and design and expose control over these traits to the core application.</p>
+
+<p>However, early versions of Firefox were critically attacked for not sufficiently mapping its own user-interface design onto the Mac platform. Windows didn't highlight and unhighlight correctly. Popup menus didn't match native popup menus. Drawing speed was poor. The reality was not that abstracting user-interface controls was inherently flawed but simply the platform specific implementation needed to significant work to correctly map the abstraction onto something that meshed with the native platform.</p>
+
+<p>It is not an inherently bad idea to abstract some aspects of the platform implementation but you need to remember that a poor implementation of an abstraction may end up taking more work to fix than the abstraction saved in the first place. Multi-platform is a struggle to decide which functionality should be abstracted and which should be re-implemented.</p>
+
+<h2>How does this relate to porting to Windows with Cocotron?</h2>
+
+<p>The Cocotron treats Cocoa itself as though it is the platform abstracted layer. It then uses a series of platform-specific class implementations (for example <code>NSTask</code> has a platform specific implementation: <code>NSTask_win32</code>) to map functionality onto target platforms.</p>
+
+<p>This may seem strange if you're accustomed to considering Cocoa as though it is the Mac OS. The reality is though that AppKit and Foundation do not expose much of the underlying operating system at all. In a Cocoa application, you will never write directly to the Window Server, you will rarely use direct hardware access like IOKit and you should never hardcode paths to locations on your hard drive.</p>
+
+<p>A well-written application framework is already an abstraction layer. It needs to be so that the operating system can be updated without breaking all existing programs.</p>
+
+<p>Cocoa is implemented on the Mac upon Apple's Objective-C runtime, the Mach/XNU kernel and ABI, the Mac OS X Window Server and various private frameworks, BSD and POSIX components that comprise the greater operating system.</p>
+
+<p>The Cocotron takes the same Cocoa API but instead chooses to implement it on top of its own runtime, the Windows ABI, GDI drawing and Windows messages, and the the other Win32 DLLs as prepared by MinGW for cross-compilation.</p>
+
+<h2>Cocotron's Win32 implementation</h2>
+
+<p>Windows messages are drawn out of a standard Win32 <code>WindowProcs</code>, <code>PeekMsg</code> and <code>MsgWaitForMultipleObjects</code> calls. The messages are transformed into the equivalent <code>NSEvents</code> and are rerouted to follow the event routing as required by Cocoa.</p>
+
+<p>All drawing at the AppKit level is implemented using CoreGraphics, which is itself implemented using a set of classes that The Cocotron calls "O2Graphics" of which the platform implementation <code>O2Context_gdi</code> is just a regular GDI <code>HWND</code> and <code>O2DeviceContext_gdi</code> is an ordinary <code>HDC</code>, all of which are drawn using standard GDI drawing commands.</p>
+
+<p><code>NSFileHandle_win32</code> uses standard Windows <code>HANDLE</code>s internally (in place of the file descriptors used on the Mac), BSD sockets become WSA sockets, <code>NSFonts</code> become <code>HFONT</code>s and paths are separated by backslashes.</p>
+
+<p>In many respects, it is amazing how seamlessly a high level application framework like Cocoa can be remapped onto a completely different low-level implementation like Win32. Of course, the experience is unlikely to be totally seamless but much of that is due to The Cocotron's work-in-progress status; in a reasonable sized program, you're likely to encounter classes and functions which haven't been implemented yet &mdash; or whose implementation has not been fully tested.</p>
+
+<p>A corollary here: don't expect that The Cocotron will let you port your application to Windows without you knowing (or at least learning) some Win32. It is highly likely that you'll need to write at least some of the Windows implementation for your application yourself.</p>
+
+<h2>The Cocotron versus WINE</h2>
+
+<p>The Cocotron treats the Cocoa frameworks like a platform abstracted layer and reimplement them under Windows.</p>
+
+<p>Isn't this the same thing that WINE does to reimplement Win32 DLLs on Linux?</p>
+
+<p>Yes and no.</p>
+
+<p>Firstly: Cocoa is a higher-level API than Win32. The high level nature of Cocoa makes it easier to abstract from its native environment and reimplement. As I stated before: Cocoa already has an under-the-hood implementation on the Mac and The Cocotron is simply filling in for this. By comparison, Win32 doesn't necessarily have an under-the-hood implementation; in many respects, it is the under-the-hood implementation upon which higher level APIs in Windows are built. WINE must work much harder to allow Win32 applications to run outside of their native environment.</p>
+
+<p>Secondly: you can make a special build of The Cocotron to work in a way that is most appropriate for your application. This allows you to create a higher quality of native application by adding the native behaviors your application needs in its target environment. You can also implement or bug fix features that your application uses; you can make sure there are no problems with your program running under Windows.</p>
+
+<p>Thirdly: You use The Cocotron by compiling and linking against it; it's not simply swapped in place of the native Cocoa frameworks. This means that at compile time, significant portions of the program can be changed and be aware of a Windows environment.</p>
+
+<h2>"Native-ness" of the end result</h2>
+
+<p>Does the Cocotron appear as a native windows application?</p>
+
+<p>The short answer is: not initially.</p>
+
+<p>The reality is that The Cocotron interprets your XIB files and menus literally &mdash; it makes the best attempt to have the Windows application look exactly like the Mac application. The end result is something that looks a lot like a Mac application that has suddenly appeared on Windows.</p>
+
+<p>If you don't mind how the application looks and behaves, then it probably doesn't matter &mdash; once the application is functional you can stop.</p>
+
+<p>However, if you're looking to properly integrate as a Windows application, you'll want to generate different XIB files (yes, that's right, you can still use Mac XIB files to create a better Windows application &mdash; just change the layout) to rework the interface so that controls are positioned more like Windows applications. At the same time, you can change images, colors and other traits so that the user-interface looks less like a Mac skin.</p>
+
+<p>Rethinking how menus are used on Windows is also an important step: Windows has been slowly deprecating menu bars over the last few years, whereas menus are still an important user-interface feature on the Mac.</p>
+
+<p>You'd probably also want to abstract away traits like "Sheets" (modal dialogs that are stuck to the front of an existing window) since these appear quite foreign on Windows.</p>
+
+<p>You might also want to remove the custom button drawing that The Cocotron uses to simulate the different Mac OS button styles and instead revert to natively drawn buttons where appropriate.</p>
+
+<h2>Appropriateness of using The Cocotron for a multi-platform application</h2>
+
+<p>The biggest advantage that The Cocotron offers over other means of writing a multi-platform application is simple, low effort porting of simple applications from the Mac to Windows. In this capacity, it is a huge time saver.</p>
+
+<p>Outside this scenario, it is less compelling.</p>
+
+<p>While Cocoa works fairly well as an abstraction layer, it certainly does a number of things that are not appropriate on all platforms and for which some run-around is required.</p>
+
+<p>Further, The Cocotron targets Win32 on Windows. Very few people are writing programs in raw Win32 any more. Few people would want to; it's horrific! This isn't a poor choice made by The Cocotron &mdash; it's the appropriate API on Windows for a low-level implementation &mdash; but it's not exactly programmer friendly. Extending and expanding bottom level features in Win32 is slow and uncomfortable.</p>
+
+<p>Long story short: The Cocotron is great for porting small Cocoa applications to Windows quickly. It does a good job of that, but for larger programs, for platforms other than Mac/Windows, or for applications that are not predominantly Cocoa, you would probably want to draw the platform abstraction line at a different point and keep AppKit and Foundation out of your application's core.</p>
+
+<h2>Conclusion</h2>
+
+<p>I didn't intend to have another post full of words rather than code so soon after the last one. It looks like I failed miserably.</p>
+
+<p>However, last week I received numerous emails, and a few comments on the post itself, questioning if using an API like The Cocotron was ever a good idea. The question asked was: surely the best practice is to avoid a porting library like The Cocotron and instead focus on building a platform independent core and then write completely native implementations for each platform?</p>
+
+<p>There's no right-in-all-cases answer.</p>
+
+<p>If your application is already written in Objective-C, then The Cocotron is certainly the fastest way to bring your application to Windows and it is as capable as any other Win32 implementation of delivering a first rate experience.</p>
+
+<p>I'm not pretending that there is no additional work required to make the end result look properly at home on Windows. The Cocotron ports your program somewhat literally. As you'd expect, reinterpretation &mdash; in this case, to match the style of the target platform &mdash; must always be done by a human and an extra step.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="options-for-porting-objective-ccocoa.html">Options for porting Objective-C/Cocoa apps to Windows</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="porting-mac-program-to-windows-using.html">Porting a Mac program to Windows using The Cocotron</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Using NSKeyedArchiver to archive a C linked-list</title>
+  <meta name="description" content="&lt;code&gt;NSKeyedArchiver&lt;/code&gt; provides some support for archiving C primitive types but provides no support for pointers to C structs. I&#39;ll show you how you can archive a linked list of C structs, despite the lack of support in &lt;code&gt;NSKeyedArchiver&lt;/code&gt;." />
+
+  <meta name="twitter:title" content="Using NSKeyedArchiver to archive a C linked-list"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/03/using-nskeyedarchiver-to-archive-c.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="&lt;code&gt;NSKeyedArchiver&lt;/code&gt; provides some support for archiving C primitive types but provides no support for pointers to C structs. I&#39;ll show you how you can archive a linked list of C structs, despite the lack of support in &lt;code&gt;NSKeyedArchiver&lt;/code&gt;."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="using-nskeyedarchiver-to-archive-c.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Using NSKeyedArchiver to archive a C linked-list</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-03-28">March 28, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/foundation.html">Foundation</a>, <a href="../../categories/standard-c.html">Standard C</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p><code>NSKeyedArchiver</code> provides some support for archiving C primitive types but provides no support for pointers to C structs. I'll show you how you can archive a linked list of C structs, despite the lack of support in <code>NSKeyedArchiver</code>.</p></span>
+
+<span class="fullpost">
+<h2>Standard C</h2>
+<p>Cocoa contains very little support for standard C data structures. The reason for this is pretty simple: introspection. An Objective-C object can report on what it is, its block size, its ivars and methods. Protocols can be implemented to provide further metadata about the object. With a pointer to an arbitrary block of standard C data, you have no information at all about the type and structure of the block.</p>
+
+<p>While keeping all your data in Objective-C objects works well most of the time, sometimes you'll need to work with standard C data structures &mdash; for example when working with data produced by third party libraries.</p>
+
+<p>To show how to use C data structures with libraries that expect Objective-C objects, I'll show you how to archive a linked-list of C structs using <code>NSKeyedArchiver</code>.</p>
+
+<h2>Metadata and wrappers</h2>
+
+<p>As I mentioned, the real problem with arbitrary C data is that it offers no introspection &mdash; we must be able to ask our data about its metadata. Specifically, we will need to know the size of the list node structs (we can copy the whole struct as a block of data) and the offsets within the struct of pointers to other list nodes.</p>
+
+<p>In addition to metadata, we need a way to deal with pointers. <code>NSKeyedArchiver</code> provides no way to encode an arbitrary pointer.</p>
+
+<p>To handle both these problems, the solution will use one Objective-C "wrapper" object to represent each struct, and one extra "context" object to encode data about the overall archive operation.</p>
+
+<p>The context object will encode the size of the struct and byte offsets of each pointer within the struct (since this data is stored once, not per object, we assume that every node in the linked list is the same type).</p>
+
+<p>The wrapper objects for each struct will serve two purposes: they will handle the encoding of each struct's data but they will also act as proxies for the pointers between structs &mdash; allowing us to encode pointers to objects (permitted by <code>NSKeyedArchiver</code>) instead of pointers to structs (not permitted).</p>
+
+<p>To allow the wrapper objects to act as proxies for each pointer, we will also need a dictionary that stores the mapping from struct to associated proxy object &mdash; this mapping will be held in the context object.</p>
+
+<h2>Interface design</h2>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@interface</span> <span class="nc">BlockWrapper</span> : <span class="nc">NSObject</span> <span class="o">&lt;</span><span class="n">NSCoding</span><span class="o">&gt;</span>
+<span class="p">{</span>
+    <span class="n">BlockContext</span> <span class="o">*</span><span class="n">blockContext</span><span class="p">;</span>
+    <span class="kt">void</span> <span class="o">*</span><span class="n">blockPointer</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">@property</span> <span class="p">(</span><span class="k">readonly</span><span class="p">)</span> <span class="kt">void</span> <span class="o">*</span><span class="n">blockPointer</span><span class="p">;</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nf">initWithBlockContext:</span><span class="p">(</span><span class="n">BlockContext</span> <span class="o">*</span><span class="p">)</span><span class="nv">aBlockContext</span>
+    <span class="nf">blockPointer:</span><span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="p">)</span><span class="nv">aBlockPointer</span><span class="p">;</span>
+
+<span class="k">@end</span></code></pre></div>
+
+<p>The data for the wrapper object is very simple: a <code>blockPointer</code> that points to the data that the object will encode and <code>blockContext</code> which points to the context object for the archive operation.</p>
+
+<p>I decided to name this class <code>BlockWrapper</code> instead of <code>StructWrapper</code> to properly reflect how the class handles the data it wraps &mdash; as an arbitrary block of bytes.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">@interface</span> <span class="nc">BlockContext</span> : <span class="nc">NSObject</span> <span class="o">&lt;</span><span class="n">NSCoding</span><span class="o">&gt;</span>
+<span class="p">{</span>
+    <span class="n">CFMutableDictionaryRef</span> <span class="n">blockToBlockWrapperMappings</span><span class="p">;</span>
+    <span class="kt">void</span> <span class="o">*</span><span class="n">startingBlock</span><span class="p">;</span>
+    <span class="n">size_t</span> <span class="n">blockSize</span><span class="p">;</span>
+    <span class="n">NSArray</span> <span class="o">*</span><span class="n">pointerOffsets</span><span class="p">;</span>
+<span class="p">}</span>
+
+<span class="k">@property</span> <span class="p">(</span><span class="k">readonly</span><span class="p">)</span> <span class="n">size_t</span> <span class="n">blockSize</span><span class="p">;</span>
+<span class="k">@property</span> <span class="p">(</span><span class="k">readonly</span><span class="p">)</span> <span class="kt">void</span> <span class="o">*</span><span class="n">startingBlock</span><span class="p">;</span>
+<span class="k">@property</span> <span class="p">(</span><span class="k">readonly</span><span class="p">,</span> <span class="k">retain</span><span class="p">,</span> <span class="k">nonatomic</span><span class="p">)</span> <span class="n">NSArray</span> <span class="o">*</span><span class="n">pointerOffsets</span><span class="p">;</span>
+
+<span class="p">-</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nf">initWithStartingBlock:</span><span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="p">)</span><span class="nv">aStartingBlock</span>
+    <span class="nf">blockSize:</span><span class="p">(</span><span class="n">size_t</span><span class="p">)</span><span class="nv">aBlockSize</span>
+    <span class="nf">pointerOffsets:</span><span class="p">(</span><span class="n">NSArray</span> <span class="o">*</span><span class="p">)</span><span class="nv">aPointerOffsets</span><span class="p">;</span>
+<span class="p">-</span> <span class="p">(</span><span class="n">BlockWrapper</span> <span class="o">*</span><span class="p">)</span><span class="nf">wrapperForBlock:</span><span class="p">(</span><span class="kt">void</span> <span class="o">*</span><span class="p">)</span><span class="nv">aBlock</span><span class="p">;</span>
+
+<span class="k">@end</span></code></pre></div>
+
+<p>The <code>BlockContext</code> class is fairly straightforward as well: it encodes all the previously discussed metadata about the block.</p>
+
+<p>Since I wanted this code to work for <em>any</em> linked list node, I haven't hard-coded the number or location of pointers within each block &mdash; I store the offsets of each pointer as an array.</p> 
+
+<p>The <code>wrapperForBlock:</code> will be the correct way to find the <code>BlockWrapper</code> object for any of our list node pointers. This method will return the corresponding <code>BlockWrapper</code> from the <code>blockToBlockWrapperMappings</code>, creating a new <code>BlockWrapper</code> if one does not already exist for the given list node pointer.</p>
+
+<p>Notice that I use a <code>CFMutableDictionaryRef</code> instead of an <code>NSDictionary</code>. This is because the keys in this dictionary will be the pointers to the blocks, not Objective-C objects, and <code>NSDictionary</code> requires that its keys be Objective-C objects. With <code>CFMutableDictionaryRef</code>, we can configure the dictionary to handle raw pointers.</p>
+
+<p>Despite containing all this metadata during the encoding process, for its own encoding, the <code>BlockContext</code> only needs to save the <code>startingBlock</code> and <code>pointerOffsets</code>. The <code>NSKeyedArchiver</code> will implicitly store the <code>blockSize</code> for each encoded block and the mappings from <code>BlockWrapper</code> to pointer.</p>
+
+<h2>Encoding and decoding the BlockWrapper</h2>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">encodeWithCoder:</span><span class="p">(</span><span class="n">NSCoder</span> <span class="o">*</span><span class="p">)</span><span class="nv">encoder</span>
+<span class="p">{</span>
+    <span class="p">[</span><span class="n">encoder</span> <span class="nl">encodeBytes</span><span class="p">:</span><span class="n">blockPointer</span> <span class="nl">length</span><span class="p">:[</span><span class="n">blockContext</span> <span class="n">blockSize</span><span class="p">]</span> <span class="nl">forKey</span><span class="p">:</span><span class="s">@&#34;block&#34;</span><span class="p">];</span>
+    <span class="p">[</span><span class="n">encoder</span> <span class="nl">encodeObject</span><span class="p">:</span><span class="n">blockContext</span> <span class="nl">forKey</span><span class="p">:</span><span class="s">@&#34;blockContext&#34;</span><span class="p">];</span>
+
+    <span class="n">NSMutableArray</span> <span class="o">*</span><span class="n">blockWrapperArray</span> <span class="o">=</span>
+        <span class="p">[</span><span class="n">NSMutableArray</span> <span class="nl">arrayWithCapacity</span><span class="p">:[[</span><span class="n">blockContext</span> <span class="n">pointerOffsets</span><span class="p">]</span> <span class="n">count</span><span class="p">]];</span>
+
+    <span class="k">for</span> <span class="p">(</span><span class="n">NSNumber</span> <span class="o">*</span><span class="n">offsetNumber</span> <span class="k">in</span> <span class="p">[</span><span class="n">blockContext</span> <span class="n">pointerOffsets</span><span class="p">])</span>
+    <span class="p">{</span>
+        <span class="n">NSUInteger</span> <span class="n">offset</span> <span class="o">=</span> <span class="p">[</span><span class="n">offsetNumber</span> <span class="n">integerValue</span><span class="p">];</span>
+        <span class="kt">void</span> <span class="o">*</span><span class="n">childBlock</span> <span class="o">=</span> <span class="o">*</span><span class="p">(</span><span class="kt">void</span> <span class="o">**</span><span class="p">)((</span><span class="n">NSUInteger</span><span class="p">)</span><span class="n">blockPointer</span> <span class="o">+</span> <span class="n">offset</span><span class="p">);</span>
+        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">childBlock</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="p">[</span><span class="n">blockWrapperArray</span> <span class="nl">addObject</span><span class="p">:[</span><span class="n">NSNull</span> <span class="n">null</span><span class="p">]];</span>
+            <span class="k">continue</span><span class="p">;</span>
+        <span class="p">}</span>
+
+        <span class="n">BlockWrapper</span> <span class="o">*</span><span class="n">childWrapper</span> <span class="o">=</span> <span class="p">[</span><span class="n">blockContext</span> <span class="nl">wrapperForBlock</span><span class="p">:</span><span class="n">childBlock</span><span class="p">];</span>
+        <span class="p">[</span><span class="n">blockWrapperArray</span> <span class="nl">addObject</span><span class="p">:</span><span class="n">childWrapper</span><span class="p">];</span>
+    <span class="p">}</span>
+    
+    <span class="p">[</span><span class="n">encoder</span> <span class="nl">encodeObject</span><span class="p">:</span><span class="n">blockWrapperArray</span> <span class="nl">forKey</span><span class="p">:</span><span class="s">@&#34;childBlocks&#34;</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Encoding the block itself and storing a pointer to the <code>BlockContext</code> is simple. Most of the work in encoding relates to handling pointers to other nodes:</p>
+
+<ul><li>get each pointer offset</li>
+<li>reading the value of the pointer from the block</li>
+<li>map the pointer's value to a <code>BlockWrapper</code> object using the <code>blockContext</code></li>
+<li>encoding each referenced <code>BlockWrapper</code> in an <code>NSArray</code> using the <code>childBlocks</code> key</li></ul>
+
+<p>Notice that <code>NULL</code> pointers still require a <code>NSNull</code> object in the <code>childBlocks</code> array so that the indices in this array always correspond to the indices in the <code>pointerOffsets</code> array.</p>
+
+<p>The decode process for <code>BlockWrapper</code> is mostly the same work in reverse: decode the block, decode the reference to the context object and then set all of the pointers according to the decoded <code>childBlocks</code> array.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">id</span><span class="p">)</span><span class="nf">initWithCoder:</span><span class="p">(</span><span class="n">NSCoder</span> <span class="o">*</span><span class="p">)</span><span class="nv">decoder</span>
+<span class="p">{</span>
+    <span class="nb">self</span> <span class="o">=</span> <span class="p">[</span><span class="nb">super</span> <span class="n">init</span><span class="p">];</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nb">self</span> <span class="o">!=</span> <span class="nb">nil</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">NSUInteger</span> <span class="n">blockSize</span><span class="p">;</span>
+        <span class="k">const</span> <span class="kt">void</span> <span class="o">*</span><span class="n">bytes</span> <span class="o">=</span>
+            <span class="p">[</span><span class="n">decoder</span> <span class="nl">decodeBytesForKey</span><span class="p">:</span><span class="s">@&#34;block&#34;</span> <span class="nl">returnedLength</span><span class="p">:</span><span class="o">&amp;</span><span class="n">blockSize</span><span class="p">];</span>
+        <span class="n">blockPointer</span> <span class="o">=</span> <span class="n">malloc</span><span class="p">(</span><span class="n">blockSize</span><span class="p">);</span>
+        <span class="n">memcpy</span><span class="p">(</span><span class="n">blockPointer</span><span class="p">,</span> <span class="n">bytes</span><span class="p">,</span> <span class="n">blockSize</span><span class="p">);</span>
+        
+        <span class="n">BlockContext</span> <span class="o">*</span><span class="n">context</span> <span class="o">=</span> <span class="p">[</span><span class="n">decoder</span> <span class="nl">decodeObjectForKey</span><span class="p">:</span><span class="s">@&#34;blockContext&#34;</span><span class="p">];</span>
+
+        <span class="n">NSArray</span> <span class="o">*</span><span class="n">childBlocks</span> <span class="o">=</span> <span class="p">[</span><span class="n">decoder</span> <span class="nl">decodeObjectForKey</span><span class="p">:</span><span class="s">@&#34;childBlocks&#34;</span><span class="p">];</span>
+        <span class="n">NSArray</span> <span class="o">*</span><span class="n">pointerOffsets</span> <span class="o">=</span> <span class="p">[</span><span class="n">context</span> <span class="n">pointerOffsets</span><span class="p">];</span>
+        <span class="n">NSInteger</span> <span class="n">i</span><span class="p">;</span>
+        <span class="n">NSInteger</span> <span class="n">count</span> <span class="o">=</span> <span class="p">[</span><span class="n">childBlocks</span> <span class="n">count</span><span class="p">];</span>
+        
+        <span class="n">NSAssert</span><span class="p">(</span><span class="n">count</span> <span class="o">==</span> <span class="p">[</span><span class="n">pointerOffsets</span> <span class="n">count</span><span class="p">],</span>
+            <span class="s">@&#34;Mismatch between childBlocks and pointerOffsets&#34;</span><span class="p">);</span>
+        
+        <span class="k">for</span> <span class="p">(</span><span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">count</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="n">BlockWrapper</span> <span class="o">*</span><span class="n">wrapperObject</span> <span class="o">=</span> <span class="p">[</span><span class="n">childBlocks</span> <span class="nl">objectAtIndex</span><span class="p">:</span><span class="n">i</span><span class="p">];</span>
+            <span class="n">NSNumber</span> <span class="o">*</span><span class="n">offsetNumber</span> <span class="o">=</span> <span class="p">[</span><span class="n">pointerOffsets</span> <span class="nl">objectAtIndex</span><span class="p">:</span><span class="n">i</span><span class="p">];</span>
+            <span class="n">NSUInteger</span> <span class="n">offset</span> <span class="o">=</span> <span class="p">[</span><span class="n">offsetNumber</span> <span class="n">integerValue</span><span class="p">];</span>
+            
+            <span class="kt">void</span> <span class="o">*</span><span class="n">childPointer</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+            <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="p">[</span><span class="n">wrapperObject</span> <span class="nl">isEqual</span><span class="p">:[</span><span class="n">NSNull</span> <span class="n">null</span><span class="p">]])</span>
+            <span class="p">{</span>
+                <span class="n">childPointer</span> <span class="o">=</span> <span class="p">[</span><span class="n">wrapperObject</span> <span class="n">blockPointer</span><span class="p">];</span>
+            <span class="p">}</span>
+            
+            <span class="o">*</span><span class="p">(</span><span class="kt">void</span> <span class="o">**</span><span class="p">)((</span><span class="n">NSUInteger</span><span class="p">)</span><span class="n">blockPointer</span> <span class="o">+</span> <span class="n">offset</span><span class="p">)</span> <span class="o">=</span> <span class="n">childPointer</span><span class="p">;</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="nb">self</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The biggest difference between decoding and encoding is that in decoding, we need to <code>malloc</code> the memory for the list node (pointed to by <code>blockPointer</code>). When encoding, this memory was allocated externally before we began.</p>
+
+<p>The result is that the code which unarchives the linked list is also responsible for <code>free</code>-ing it.</p>
+
+<h2>Conclusion</h2>
+
+<blockquote>Download the complete solution (which includes a trivial sample program) <a href="../../assets/objc-era/LinkedListCoding.zip">LinkedListCoding.zip</a> (48kB)</blockquote>
+
+<p>This solution will let you archive an arbitrary linked list of C structs using <code>NSKeyedArchiver</code>. The solution does make some assumptions &mdash; specifically, your list nodes must all be the same type and the only pointers must point to other list nodes or <code>NULL</code>. Other list arrangements would require changes to the solution.</p>
+
+<p>Of course, this solution is not as elegant as avoiding linked lists altogether. If you have control over the code and it's simple enough, storing <code>NSObject</code> in an <code>NSMutableArray</code> is much better supported by Cocoa.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="recreating-uitableviewcontroller-to.html">Recreating UITableViewController to increase code reuse</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../04/8-confusing-objective-c-warnings-and.html">8 Confusing Objective-C Warnings and Errors</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

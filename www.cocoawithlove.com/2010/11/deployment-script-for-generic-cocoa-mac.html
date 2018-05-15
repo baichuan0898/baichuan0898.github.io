@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>A deployment script for a generic Cocoa Mac application</title>
+  <meta name="description" content="Deployment for a Cocoa Mac application normally involves a few common steps: committing code into a repository, updating version numbers and packaging the application as a DMG disk image. In this post, I&#39;ll show you a combination bash/perl/Applescript to handle all these tasks in a single script." />
+
+  <meta name="twitter:title" content="A deployment script for a generic Cocoa Mac application"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2010/11/deployment-script-for-generic-cocoa-mac.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="Deployment for a Cocoa Mac application normally involves a few common steps: committing code into a repository, updating version numbers and packaging the application as a DMG disk image. In this post, I&#39;ll show you a combination bash/perl/Applescript to handle all these tasks in a single script."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="deployment-script-for-generic-cocoa-mac.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">A deployment script for a generic Cocoa Mac application</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2010-11-05">November 5, 2010</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/code-management.html">code management</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>Deployment for a Cocoa Mac application normally involves a few common steps: committing code into a repository, updating version numbers and packaging the application as a DMG disk image. In this post, I'll show you a combination bash/perl/Applescript to handle all these tasks in a single script.</p></span>
+
+<span class="fullpost">
+<h2>Deployment steps</h2>
+<p>Standard Xcode build templates will build your code but don't really offer any help beyond that point. Deploying your application normally requires a few extra steps beyond what the standard templates provide.</p>
+
+<p>While you can simply make a ZIP archive out of the application in your Release directory and call it done, there's normally a few more steps that you should take when deploying an application.</p>
+
+<h3>1. Update your version number</h3>
+
+<p>Obviously, this isn't a hard step but it is easy to forget since the user-facing version number (build numbers not included) must be deliberately updated when you decide a build is ready.</p>
+
+<h3>2. Commit your code into a version control system</h3>
+
+<p>This step should be obvious: it protects your time investment by ensuring that your code doesn't disappear.</p>
+
+<p>And yet I still visit small or single-programmer offices where all the code is just kept in a directory and the whole directory is duplicated from version to version or to play with features. Seriously, that is <em>not</em> how you should manage things. You may have your disk backed up, you may keep copies of your builds but these things are only complimentary to maintaining your repository.</p>
+
+<p>How did we implement this feature in version 1.2 (and where's the old code)? Why was this code changed and what did it do before? Do we have a copy of version 3.5 of the application anywhere?</p>
+
+<p>These are the questions that are best answered by not only having a code repository but having it properly tagged for every build. I won't get into philosophies about how frequently you should commit <em>between</em> releases or how you should tag bug fixes and feature changes but the absolute minimum for any system should be that you tag your releases. Your deployment script should make this mandatory.</p>
+
+<p>Incidentally, newer distributed repository version control programs like git make creating a repository for your code so much simpler. Instead of needing to set up a centralized location, you can casually make any folder its own local repository (i.e. just run "git init" in the directory) and worry about whether and where to locate an official or shared repository later.</p>
+
+<p>Frustrated at Xcode's horrible version control system support? Can't remember all the git commands? Don't like git's command-line interface? I certainly don't. Fortunately, Mac apps like <a href="http://gitx.frim.nl/">GitX</a> are simple, pretty and work well.</p> 
+
+<h3>3. Make certain you have a clean build</h3>
+
+<p>From time-to-time, you will encounter problems with builds that are only fixed by cleaning and rebuilding. One of the biggest examples of this are assets that you deliberately remove from the build &mdash; these never get removed from the build directory unless you clean first, then build. Without a step to clean the directory first, your build may not be exactly what you think it should be.</p>
+
+<h3>4. Package the application in a DMG file</h3>
+
+<p>Mostly for reasons of aesthetic presentation, Mac applications that don't require an installer are normally deployed as DMG disk images. These can be a little fiddly to create, adjust aesthetically and then create a compressed version for distribution.</p>
+
+<p>Fortunately, with a little Applescripting, we can automate this process too.</p>
+
+<h2>A big ole Bash script</h2>
+
+<p>Here then is a bash script to handle all of the above steps. It's an annoying diversion into another language for a C/Obj-C/C++ programmer but some things (especially setting folder view options) need to be done a specific way.</p>
+
+<p>A script of this sort is the traditional way that this type of deployment is handled. However, it is actually <em>not</em> how I handle my deployments (but I'm a little weird in this respect). Next week, I'll show you the code I use for deployment.</p>
+
+<h3>Assumptions in this script</h3>
+
+<p>There's a few assumptions here. While they are normally valid assumptions if you create your project using default Cocoa Mac Application template, there are certainly cases where they won't apply and you'll need to tweak the script a little.</p>
+
+<ol>
+<li>This script requires 1 parameter: the .xcodeproj file you want to build.</li>
+<li>The target you want to build must have the same name as the project (minus the .xcodeproj extension).</li>
+<li>The Info.plist for the application must have the same name as the project (minus the .xcodeproj extension) with the suffix "-Info.plist".</li>
+<li>The application build has the same name as the project (minus the .xcodeproj extension).</li>
+<li>The deployment build is the "Release" build and the build project directory is the build/Release directory.</li>
+<li>You use git for your repository (although this script will continue if git is not installed).</li>
+<li>The background image for your DMG folder is a 400x300px PNG named background.png in the same folder as the .xcodeproj file (although this script will skip background image steps if the background.png is missing).</li>
+<li>The deployment DMG file will be saved to the Desktop with the same name as the project (minus the .xcodeproj extension) with the suffix ".dmg" (build will fail if there's already something at this location).</li>
+</ol>
+
+<h3>The script</h3>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="o">&lt;</span><span class="n">span</span> <span class="n">style</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;color:#793;&#34;</span><span class="o">&gt;</span><span class="cp">#!/bin/bash
+</span><span class="cp"></span><span class="o">&lt;/</span><span class="n">span</span><span class="o">&gt;</span>
+<span class="k">if</span> <span class="p">[</span> <span class="o">!</span> <span class="sa"></span><span class="s">&#34;${1}&#34;</span> <span class="p">];</span> <span class="n">then</span>
+    <span class="n">echo</span> <span class="sa"></span><span class="s">&#34;usage: $0 xcode_project_path&#34;</span>
+    <span class="n">exit</span>
+<span class="n">fi</span>
+
+<span class="n">XCODE_PROJECT_PATH</span><span class="o">=</span><span class="err">$</span><span class="mi">1</span>
+<span class="n">XCODE_DIRECTORY</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;`dirname &#34;</span><span class="err">$</span><span class="mi">1</span><span class="sa"></span><span class="s">&#34;`&#34;</span>
+<span class="n">XCODE_PROJECT_NAME</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;`basename -s .xcodeproj &#34;</span><span class="err">$</span><span class="p">{</span><span class="n">XCODE_PROJECT_PATH</span><span class="p">}</span><span class="sa"></span><span class="s">&#34;`&#34;</span>
+
+<span class="o">&lt;</span><span class="n">span</span> <span class="n">style</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;color:#793;&#34;</span><span class="o">&gt;</span><span class="cp"># xcodebuild needs to run from the project&#39;s directory so we&#39;ll move there
+</span><span class="cp"># and stay for the duration of this script
+</span><span class="cp"></span><span class="o">&lt;/</span><span class="n">span</span><span class="o">&gt;</span><span class="n">cd</span> <span class="sa"></span><span class="s">&#34;${XCODE_DIRECTORY}&#34;</span>
+
+<span class="o">&lt;</span><span class="n">span</span> <span class="n">style</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;color:#793;&#34;</span><span class="o">&gt;</span><span class="cp"># Check if git is installed
+</span><span class="cp"></span><span class="o">&lt;/</span><span class="n">span</span><span class="o">&gt;</span><span class="k">if</span> <span class="p">[</span> <span class="err">`</span><span class="n">which</span> <span class="n">git</span><span class="err">`</span> <span class="p">];</span> <span class="n">then</span>
+    <span class="n">echo</span> <span class="sa"></span><span class="s">&#34;git is installed on this computer&#34;</span>
+
+    <span class="o">&lt;</span><span class="n">span</span> <span class="n">style</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;color:#793;&#34;</span><span class="o">&gt;</span><span class="cp"># If git is installed, then require that the code be committed&lt;/span&gt;
+</span><span class="cp"></span>    <span class="k">if</span> <span class="p">[</span> <span class="sa"></span><span class="s">&#34;`git status -s 2&gt;&amp;1 | egrep &#39;^\?\?|^ M|^A |^ D|^fatal:&#39;`&#34;</span> <span class="p">]</span> <span class="p">;</span> <span class="n">then</span>
+        <span class="n">echo</span> <span class="sa"></span><span class="s">&#34;Code is not committed into git. Commit into git before deployment.&#34;</span>
+        <span class="n">exit</span>
+    <span class="n">fi</span>
+    <span class="n">echo</span> <span class="sa"></span><span class="s">&#34;Repository up-to-date.&#34;</span>
+<span class="n">fi</span>
+
+<span class="o">&lt;</span><span class="n">span</span> <span class="n">style</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;color:#793;&#34;</span><span class="o">&gt;</span><span class="cp"># !! Update: Changed from using the Perl Cocoa bridge to using PlistBuddy !!
+</span><span class="cp"># Use the perl to Objective-C bridge to get the version from the Info.plist
+</span><span class="cp"># You could easily use the python or ruby bridges to do the same thing
+</span><span class="cp">#CURRENT_VERSION=&#34;`echo &#39;use Foundation;
+</span><span class="cp">#$file = &#34;&#39;&#34;${XCODE_PROJECT_NAME}&#34;&#39;-Info.plist&#34;;
+</span><span class="cp">#$plist = NSDictionary-&gt;dictionaryWithContentsOfFile_($file);
+</span><span class="cp">#$value = $plist-&gt;objectForKey_(&#34;CFBundleVersion&#34;);
+</span><span class="cp">#print $value-&gt;description()-&gt;UTF8String() . &#34;\n&#34;;&#39; | perl`&#34;
+</span><span class="cp"></span><span class="o">&lt;/</span><span class="n">span</span><span class="o">&gt;</span>
+<span class="o">&lt;</span><span class="n">span</span> <span class="n">style</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;color:#793;&#34;</span><span class="o">&gt;</span><span class="cp"># Use PlistBuddy instead of the perl to Cocoa bridge
+</span><span class="cp"></span><span class="o">&lt;/</span><span class="n">span</span><span class="o">&gt;</span><span class="n">CURRENT_VERSION</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;`/usr/libexec/PlistBuddy -c &#39;Print CFBundleVersion&#39; \
+</span><span class="s">    &#34;</span><span class="err">$</span><span class="p">{</span><span class="n">XCODE_PROJECT_NAME</span><span class="p">}</span><span class="o">-</span><span class="n">Info</span><span class="p">.</span><span class="n">plist</span><span class="sa"></span><span class="s">&#34;`&#34;</span>
+
+<span class="o">&lt;</span><span class="n">span</span> <span class="n">style</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;color:#793;&#34;</span><span class="o">&gt;</span><span class="cp"># Report the current version
+</span><span class="cp"></span><span class="o">&lt;/</span><span class="n">span</span><span class="o">&gt;</span><span class="n">echo</span> <span class="sa"></span><span class="s">&#34;Current version is ${CURRENT_VERSION}&#34;</span>
+
+<span class="o">&lt;</span><span class="n">span</span> <span class="n">style</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;color:#793;&#34;</span><span class="o">&gt;</span><span class="cp"># Prompt for a new version
+</span><span class="cp"></span><span class="o">&lt;/</span><span class="n">span</span><span class="o">&gt;</span><span class="n">read</span> <span class="o">-</span><span class="n">p</span> <span class="sa"></span><span class="s">&#34;Please enter the new version:</span><span class="err">
+</span><span class="err"></span><span class="s">&#34;</span> <span class="n">NEW_VERSION</span>
+
+<span class="o">&lt;</span><span class="n">span</span> <span class="n">style</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;color:#793;&#34;</span><span class="o">&gt;</span><span class="cp"># !! Update: Changed from using the Perl Cocoa bridge to using PlistBuddy !!
+</span><span class="cp"># Use the bridge again to write the updated version back to the Info.plist
+</span><span class="cp">#echo &#39;use Foundation;
+</span><span class="cp">#$version = &#34;&#39;$NEW_VERSION&#39;&#34;;
+</span><span class="cp">#$file = &#34;&#39;&#34;${XCODE_PROJECT_NAME}&#34;&#39;-Info.plist&#34;;
+</span><span class="cp">#$plist = NSDictionary-&gt;dictionaryWithContentsOfFile_($file);
+</span><span class="cp">#$plist-&gt;setObject_forKey_($version, &#34;CFBundleVersion&#34;);
+</span><span class="cp">#$plist-&gt;writeToFile_atomically_($file, &#34;YES&#34;);&#39; | perl
+</span><span class="cp"></span><span class="o">&lt;/</span><span class="n">span</span><span class="o">&gt;</span>
+<span class="o">&lt;</span><span class="n">span</span> <span class="n">style</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;color:#793;&#34;</span><span class="o">&gt;</span><span class="cp"># Use PlistBuddy instead of the perl to Cocoa bridge
+</span><span class="cp"></span><span class="o">&lt;/</span><span class="n">span</span><span class="o">&gt;/</span><span class="n">usr</span><span class="o">/</span><span class="n">libexec</span><span class="o">/</span><span class="n">PlistBuddy</span> <span class="o">-</span><span class="n">c</span> <span class="sa"></span><span class="s">&#34;Set CFBundleVersion ${NEW_VERSION}&#34;</span> \
+    <span class="sa"></span><span class="s">&#34;${XCODE_PROJECT_NAME}-Info.plist&#34;</span>
+
+<span class="o">&lt;</span><span class="n">span</span> <span class="n">style</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;color:#793;&#34;</span><span class="o">&gt;</span><span class="cp"># Commit the updated Info.plist
+</span><span class="cp"></span><span class="o">&lt;/</span><span class="n">span</span><span class="o">&gt;</span><span class="k">if</span> <span class="p">[</span> <span class="err">`</span><span class="n">which</span> <span class="n">git</span><span class="err">`</span> <span class="p">];</span> <span class="n">then</span>
+    <span class="n">git</span> <span class="n">commit</span> <span class="o">-</span><span class="n">m</span> <span class="sa"></span><span class="s">&#34;Updated Info.plist to version ${NEW_VERSION}&#34;</span> \
+        <span class="sa"></span><span class="s">&#34;${XCODE_PROJECT_NAME}-Info.plist&#34;</span>
+<span class="n">fi</span>
+
+<span class="o">&lt;</span><span class="n">span</span> <span class="n">style</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;color:#793;&#34;</span><span class="o">&gt;</span><span class="cp"># Clean the Release build
+</span><span class="cp"></span><span class="o">&lt;/</span><span class="n">span</span><span class="o">&gt;</span><span class="n">xcodebuild</span> <span class="o">-</span><span class="n">configuration</span> <span class="n">Release</span> <span class="o">-</span><span class="n">target</span> <span class="sa"></span><span class="s">&#34;${XCODE_PROJECT_NAME}&#34;</span> <span class="n">clean</span>
+
+<span class="o">&lt;</span><span class="n">span</span> <span class="n">style</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;color:#793;&#34;</span><span class="o">&gt;</span><span class="cp"># Build the Release build
+</span><span class="cp"></span><span class="o">&lt;/</span><span class="n">span</span><span class="o">&gt;</span><span class="k">if</span> <span class="p">[</span> <span class="sa"></span><span class="s">&#34;`xcodebuild -configuration Release -target &#34;</span><span class="err">$</span><span class="p">{</span><span class="n">XCODE_PROJECT_NAME</span><span class="p">}</span><span class="sa"></span><span class="s">&#34; build \
+</span><span class="s">     | egrep &#39; error:&#39;`&#34;</span> <span class="p">]</span> <span class="p">;</span> <span class="n">then</span>
+    <span class="n">echo</span> <span class="sa"></span><span class="s">&#34;Build failed.&#34;</span>
+    <span class="n">exit</span>
+<span class="n">fi</span>
+
+<span class="o">&lt;</span><span class="n">span</span> <span class="n">style</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;color:#793;&#34;</span><span class="o">&gt;</span><span class="cp"># Tag the repository now that we have a successful build
+</span><span class="cp"></span><span class="o">&lt;/</span><span class="n">span</span><span class="o">&gt;</span><span class="n">git</span> <span class="n">tag</span> <span class="sa"></span><span class="s">&#34;version-${NEW_VERSION}&#34;</span>
+
+<span class="o">&lt;</span><span class="n">span</span> <span class="n">style</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;color:#793;&#34;</span><span class="o">&gt;</span><span class="cp">#########
+</span><span class="cp"># From this point onwards, the script is all about DMG packaging
+</span><span class="cp">#########
+</span><span class="cp"></span><span class="o">&lt;/</span><span class="n">span</span><span class="o">&gt;</span>
+<span class="o">&lt;</span><span class="n">span</span> <span class="n">style</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;color:#793;&#34;</span><span class="o">&gt;</span><span class="cp"># Create a temporary directory to work in
+</span><span class="cp"></span><span class="o">&lt;/</span><span class="n">span</span><span class="o">&gt;</span><span class="n">TEMP_DIR</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;`mktemp -d &#34;</span><span class="err">$</span><span class="p">{</span><span class="n">TMPDIR</span><span class="p">}</span><span class="err">$</span><span class="p">{</span><span class="n">XCODE_PROJECT_NAME</span><span class="p">}.</span><span class="n">XXXXX</span><span class="sa"></span><span class="s">&#34;`&#34;</span>
+
+<span class="o">&lt;</span><span class="n">span</span> <span class="n">style</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;color:#793;&#34;</span><span class="o">&gt;</span><span class="cp"># Create the folder from which we&#39;ll make the disk image
+</span><span class="cp"></span><span class="o">&lt;/</span><span class="n">span</span><span class="o">&gt;</span><span class="n">DISK_IMAGE_SOURCE_PATH</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;${TEMP_DIR}/${XCODE_PROJECT_NAME}&#34;</span>
+<span class="n">mkdir</span> <span class="sa"></span><span class="s">&#34;${DISK_IMAGE_SOURCE_PATH}&#34;</span>
+
+<span class="o">&lt;</span><span class="n">span</span> <span class="n">style</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;color:#793;&#34;</span><span class="o">&gt;</span><span class="cp"># Copy the application into the folder
+</span><span class="cp"></span><span class="o">&lt;/</span><span class="n">span</span><span class="o">&gt;</span><span class="n">cp</span> <span class="o">-</span><span class="n">R</span> <span class="sa"></span><span class="s">&#34;build/Release/${XCODE_PROJECT_NAME}.app&#34;</span> \
+    <span class="sa"></span><span class="s">&#34;${DISK_IMAGE_SOURCE_PATH}/${XCODE_PROJECT_NAME}.app&#34;</span>
+
+<span class="o">&lt;</span><span class="n">span</span> <span class="n">style</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;color:#793;&#34;</span><span class="o">&gt;</span><span class="cp"># Make a symlink to the Applications folder
+</span><span class="cp"># (so we can prompt the user to install the application)
+</span><span class="cp"></span><span class="o">&lt;/</span><span class="n">span</span><span class="o">&gt;</span><span class="n">ln</span> <span class="o">-</span><span class="n">s</span> <span class="sa"></span><span class="s">&#34;/Applications&#34;</span> <span class="sa"></span><span class="s">&#34;${DISK_IMAGE_SOURCE_PATH}/Applications&#34;</span>
+
+<span class="o">&lt;</span><span class="n">span</span> <span class="n">style</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;color:#793;&#34;</span><span class="o">&gt;</span><span class="cp"># If a &#34;background.png&#34; file is present in the Xcode project directory,
+</span><span class="cp"># we&#39;ll use that for the background of the folder.
+</span><span class="cp"># An assumption is made in this script that the background image is 400x300px
+</span><span class="cp"># If you are using a different sized image, you&#39;ll need to adjust the
+</span><span class="cp"># placement and sizing parameters in the Applescript below
+</span><span class="cp"></span><span class="o">&lt;/</span><span class="n">span</span><span class="o">&gt;</span><span class="k">if</span> <span class="p">[</span> <span class="o">-</span><span class="n">e</span> <span class="sa"></span><span class="s">&#34;background.png&#34;</span> <span class="p">];</span> <span class="n">then</span>
+    <span class="n">cp</span> <span class="sa"></span><span class="s">&#34;background.png&#34;</span> \
+        <span class="sa"></span><span class="s">&#34;${DISK_IMAGE_SOURCE_PATH}/background.png&#34;</span>
+<span class="n">fi</span>
+
+
+<span class="o">&lt;</span><span class="n">span</span> <span class="n">style</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;color:#793;&#34;</span><span class="o">&gt;</span><span class="cp"># Create the read-write version of the disk image from the folder
+</span><span class="cp"># Also note the path at which the disk is mounted so we can open the disk
+</span><span class="cp"># to adjust its attributes
+</span><span class="cp"></span><span class="o">&lt;/</span><span class="n">span</span><span class="o">&gt;</span><span class="n">DISK_IMAGE_READWRITE_PATH</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;${DISK_IMAGE_SOURCE_PATH}-rw.dmg&#34;</span>
+<span class="n">VOLUME_MOUNT_PATH</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;`hdiutil create -srcfolder &#34;</span><span class="err">$</span><span class="p">{</span><span class="n">DISK_IMAGE_SOURCE_PATH</span><span class="p">}</span><span class="sa"></span><span class="s">&#34; \
+</span><span class="s">    -format UDRW -attach &#34;</span><span class="err">$</span><span class="p">{</span><span class="n">DISK_IMAGE_READWRITE_PATH</span><span class="p">}</span><span class="sa"></span><span class="s">&#34; | \
+</span><span class="s">    sed -n &#39;s/.*\(\/Volumes\/.*\)/</span><span class="se">\1</span><span class="s">/p&#39;`&#34;</span>
+
+
+<span class="o">&lt;</span><span class="n">span</span> <span class="n">style</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;color:#793;&#34;</span><span class="o">&gt;</span><span class="cp"># Now we use Applescript to tell the Finder to open the disk image,
+</span><span class="cp"># set the view options to a bare, icon arranged view
+</span><span class="cp"># set the background image (if present)
+</span><span class="cp"># and set the icon placements
+</span><span class="cp"></span><span class="o">&lt;/</span><span class="n">span</span><span class="o">&gt;</span><span class="k">if</span> <span class="p">[</span> <span class="o">-</span><span class="n">e</span> <span class="sa"></span><span class="s">&#34;background.png&#34;</span> <span class="p">];</span> <span class="n">then</span>
+    <span class="n">echo</span> <span class="err">&#39;</span>
+    <span class="n">tell</span> <span class="n">application</span> <span class="sa"></span><span class="s">&#34;Finder&#34;</span>
+        <span class="n">open</span> <span class="p">(</span><span class="sa"></span><span class="s">&#34;&#39;&#34;</span><span class="err">$</span><span class="p">{</span><span class="n">VOLUME_MOUNT_PATH</span><span class="p">}</span><span class="sa"></span><span class="s">&#34;&#39;&#34;</span> <span class="n">as</span> <span class="n">POSIX</span> <span class="n">file</span><span class="p">)</span>
+        <span class="n">set</span> <span class="n">statusbar</span> <span class="n">visible</span> <span class="n">of</span> <span class="n">front</span> <span class="n">window</span> <span class="n">to</span> <span class="nb">false</span>
+        <span class="n">set</span> <span class="n">toolbar</span> <span class="n">visible</span> <span class="n">of</span> <span class="n">front</span> <span class="n">window</span> <span class="n">to</span> <span class="nb">false</span>
+        <span class="n">set</span> <span class="n">view_options</span> <span class="n">to</span> <span class="n">the</span> <span class="n">icon</span> <span class="n">view</span> <span class="n">options</span> <span class="n">of</span> <span class="n">front</span> <span class="n">window</span>
+        <span class="n">set</span> <span class="n">icon</span> <span class="n">size</span> <span class="n">of</span> <span class="n">view_options</span> <span class="n">to</span> <span class="mi">96</span>
+        <span class="n">set</span> <span class="n">arrangement</span> <span class="n">of</span> <span class="n">view_options</span> <span class="n">to</span> <span class="n">not</span> <span class="n">arranged</span>
+        <span class="n">set</span> <span class="n">the</span> <span class="n">bounds</span> <span class="n">of</span> <span class="n">front</span> <span class="n">window</span> <span class="n">to</span> <span class="p">{</span><span class="mi">100</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="mi">400</span><span class="p">}</span>
+        <span class="n">set</span> <span class="n">app_icon</span> <span class="n">to</span> <span class="n">item</span> <span class="sa"></span><span class="s">&#34;&#39;&#34;</span><span class="err">$</span><span class="p">{</span><span class="n">XCODE_PROJECT_NAME</span><span class="p">}</span><span class="sa"></span><span class="s">&#34;&#39;&#34;</span> <span class="n">of</span> <span class="n">front</span> <span class="n">window</span>
+        <span class="n">set</span> <span class="n">app_folder</span> <span class="n">to</span> <span class="n">item</span> <span class="sa"></span><span class="s">&#34;Applications&#34;</span> <span class="n">of</span> <span class="n">front</span> <span class="n">window</span>
+        <span class="n">set</span> <span class="n">background_image</span> <span class="n">to</span> <span class="n">item</span> <span class="sa"></span><span class="s">&#34;background.png&#34;</span> <span class="n">of</span> <span class="n">front</span> <span class="n">window</span>
+        <span class="n">set</span> <span class="n">background</span> <span class="n">picture</span> <span class="n">of</span> <span class="n">view_options</span> <span class="n">to</span> <span class="n">item</span> <span class="sa"></span><span class="s">&#34;background.png&#34;</span> <span class="n">of</span> <span class="n">front</span> <span class="n">window</span>
+        <span class="n">set</span> <span class="n">position</span> <span class="n">of</span> <span class="n">background_image</span> <span class="n">to</span> <span class="p">{</span><span class="mi">200</span><span class="p">,</span> <span class="mi">200</span><span class="p">}</span>
+        <span class="n">set</span> <span class="n">position</span> <span class="n">of</span> <span class="n">app_icon</span> <span class="n">to</span> <span class="p">{</span><span class="mi">120</span><span class="p">,</span> <span class="mi">100</span><span class="p">}</span>
+        <span class="n">set</span> <span class="n">position</span> <span class="n">of</span> <span class="n">app_folder</span> <span class="n">to</span> <span class="p">{</span><span class="mi">280</span><span class="p">,</span> <span class="mi">100</span><span class="p">}</span>
+        <span class="n">set</span> <span class="n">current</span> <span class="n">view</span> <span class="n">of</span> <span class="n">front</span> <span class="n">window</span> <span class="n">to</span> <span class="n">icon</span> <span class="n">view</span>
+    <span class="n">end</span> <span class="n">tell</span><span class="err">&#39;</span> <span class="o">|</span> <span class="n">osascript</span>
+<span class="k">else</span>
+    <span class="n">echo</span> <span class="err">&#39;</span>
+    <span class="n">tell</span> <span class="n">application</span> <span class="sa"></span><span class="s">&#34;Finder&#34;</span>
+        <span class="n">open</span> <span class="p">(</span><span class="sa"></span><span class="s">&#34;&#39;&#34;</span><span class="err">$</span><span class="p">{</span><span class="n">VOLUME_MOUNT_PATH</span><span class="p">}</span><span class="sa"></span><span class="s">&#34;&#39;&#34;</span> <span class="n">as</span> <span class="n">POSIX</span> <span class="n">file</span><span class="p">)</span>
+        <span class="n">set</span> <span class="n">statusbar</span> <span class="n">visible</span> <span class="n">of</span> <span class="n">front</span> <span class="n">window</span> <span class="n">to</span> <span class="nb">false</span>
+        <span class="n">set</span> <span class="n">toolbar</span> <span class="n">visible</span> <span class="n">of</span> <span class="n">front</span> <span class="n">window</span> <span class="n">to</span> <span class="nb">false</span>
+        <span class="n">set</span> <span class="n">view_options</span> <span class="n">to</span> <span class="n">the</span> <span class="n">icon</span> <span class="n">view</span> <span class="n">options</span> <span class="n">of</span> <span class="n">front</span> <span class="n">window</span>
+        <span class="n">set</span> <span class="n">icon</span> <span class="n">size</span> <span class="n">of</span> <span class="n">view_options</span> <span class="n">to</span> <span class="mi">96</span>
+        <span class="n">set</span> <span class="n">arrangement</span> <span class="n">of</span> <span class="n">view_options</span> <span class="n">to</span> <span class="n">not</span> <span class="n">arranged</span>
+        <span class="n">set</span> <span class="n">the</span> <span class="n">bounds</span> <span class="n">of</span> <span class="n">front</span> <span class="n">window</span> <span class="n">to</span> <span class="p">{</span><span class="mi">100</span><span class="p">,</span> <span class="mi">100</span><span class="p">,</span> <span class="mi">500</span><span class="p">,</span> <span class="mi">400</span><span class="p">}</span>
+        <span class="n">set</span> <span class="n">app_icon</span> <span class="n">to</span> <span class="n">item</span> <span class="sa"></span><span class="s">&#34;&#39;&#34;</span><span class="err">$</span><span class="p">{</span><span class="n">XCODE_PROJECT_NAME</span><span class="p">}</span><span class="sa"></span><span class="s">&#34;&#39;&#34;</span> <span class="n">of</span> <span class="n">front</span> <span class="n">window</span>
+        <span class="n">set</span> <span class="n">app_folder</span> <span class="n">to</span> <span class="n">item</span> <span class="sa"></span><span class="s">&#34;Applications&#34;</span> <span class="n">of</span> <span class="n">front</span> <span class="n">window</span>
+        <span class="n">set</span> <span class="n">position</span> <span class="n">of</span> <span class="n">app_icon</span> <span class="n">to</span> <span class="p">{</span><span class="mi">120</span><span class="p">,</span> <span class="mi">100</span><span class="p">}</span>
+        <span class="n">set</span> <span class="n">position</span> <span class="n">of</span> <span class="n">app_folder</span> <span class="n">to</span> <span class="p">{</span><span class="mi">280</span><span class="p">,</span> <span class="mi">100</span><span class="p">}</span>
+        <span class="n">set</span> <span class="n">current</span> <span class="n">view</span> <span class="n">of</span> <span class="n">front</span> <span class="n">window</span> <span class="n">to</span> <span class="n">icon</span> <span class="n">view</span>
+    <span class="n">end</span> <span class="n">tell</span><span class="err">&#39;</span> <span class="o">|</span> <span class="n">osascript</span>
+<span class="n">fi</span>
+
+<span class="o">&lt;</span><span class="n">span</span> <span class="n">style</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;color:#793;&#34;</span><span class="o">&gt;</span><span class="cp"># Make the background.png file invisible
+</span><span class="cp"></span><span class="o">&lt;/</span><span class="n">span</span><span class="o">&gt;</span><span class="n">SetFile</span> <span class="o">-</span><span class="n">a</span> <span class="n">V</span> <span class="sa"></span><span class="s">&#34;${VOLUME_MOUNT_PATH}/background.png&#34;</span>
+
+<span class="o">&lt;</span><span class="n">span</span> <span class="n">style</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;color:#793;&#34;</span><span class="o">&gt;</span><span class="cp"># Eject the disk image so that we can convert it to a compressed format
+</span><span class="cp"></span><span class="o">&lt;/</span><span class="n">span</span><span class="o">&gt;</span><span class="n">hdiutil</span> <span class="n">eject</span> <span class="sa"></span><span class="s">&#34;${VOLUME_MOUNT_PATH}&#34;</span>
+
+<span class="o">&lt;</span><span class="n">span</span> <span class="n">style</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;color:#793;&#34;</span><span class="o">&gt;</span><span class="cp"># Create the final, compressed disk image
+</span><span class="cp"></span><span class="o">&lt;/</span><span class="n">span</span><span class="o">&gt;</span><span class="n">hdiutil</span> <span class="n">convert</span> <span class="sa"></span><span class="s">&#34;${DISK_IMAGE_READWRITE_PATH}&#34;</span> <span class="o">-</span><span class="n">format</span> <span class="n">UDBZ</span> \
+    <span class="o">-</span><span class="n">o</span> <span class="sa"></span><span class="s">&#34;${HOME}/Desktop/${XCODE_PROJECT_NAME}.dmg&#34;</span>
+
+<span class="o">&lt;</span><span class="n">span</span> <span class="n">style</span><span class="o">=</span><span class="sa"></span><span class="s">&#34;color:#793;&#34;</span><span class="o">&gt;</span><span class="cp"># Remove the temp directory
+</span><span class="cp"></span><span class="o">&lt;/</span><span class="n">span</span><span class="o">&gt;</span><span class="n">rm</span> <span class="o">-</span><span class="n">Rf</span> <span class="sa"></span><span class="s">&#34;${TEMP_DIR}&#34;</span></code></pre></div>
+
+<h2>Conclusion</h2>
+
+<p>Ergh: a code-heavy post with neither C nor Objective-C.</p>
+
+<p>Next week, I'll show you how to perform the same steps in a logging, reporting, error-handling Cocoa application.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../10/ios-tone-generator-introduction-to.html">An iOS tone generator (an introduction to AudioUnits)</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="cocoa-application-for-running-scripts.html">A Cocoa application for running scripts</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

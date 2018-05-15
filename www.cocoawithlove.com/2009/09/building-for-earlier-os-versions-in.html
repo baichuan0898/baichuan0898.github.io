@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Building for earlier OS versions from Snow Leopard</title>
+  <meta name="description" content="It is very easy, when developing on a new operating system, to create projects that won&#39;t run on any previous OS version. To ensure backwards compatibility, there are Xcode and gcc options that allow you to build while maintaining support for earlier OS versions. In this post, I&#39;ll look at the ways in which this compatibility is controlled and some of the new ways it can go wrong on Snow Leopard." />
+
+  <meta name="twitter:title" content="Building for earlier OS versions from Snow Leopard"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/09/building-for-earlier-os-versions-in.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="It is very easy, when developing on a new operating system, to create projects that won&#39;t run on any previous OS version. To ensure backwards compatibility, there are Xcode and gcc options that allow you to build while maintaining support for earlier OS versions. In this post, I&#39;ll look at the ways in which this compatibility is controlled and some of the new ways it can go wrong on Snow Leopard."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="building-for-earlier-os-versions-in.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Building for earlier OS versions from Snow Leopard</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-09-16">September 16, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/snow-leopard.html">Snow Leopard</a>, <a href="../../categories/appkit.html">AppKit</a>, <a href="../../categories/xcode.html">Xcode</a>, <a href="../../categories/cocoa-touch.html">Cocoa Touch</a>, <a href="../../categories/standard-c.html">Standard C</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>It is very easy, when developing on a new operating system, to create projects that won't run on any previous OS version. To ensure backwards compatibility, there are Xcode and gcc options that allow you to build while maintaining support for earlier OS versions. In this post, I'll look at the ways in which this compatibility is controlled and some of the new ways it can go wrong on Snow Leopard.</p></span>
+
+<span class="fullpost">
+
+<h2>The cost of backwards compatibility</h2>
+
+<p>Customers are regularly unhappy at programmers for dropping support for older operating systems as soon as possible. As with most decisions like this, the reason tends to be a little bit feature-driven and a little bit economic: development support costs increase for every supported version of the OS older than the most recent supported version.</p>
+
+<p>Supporting older operating systems requires:</p>
+
+<ol>
+<li>When creating a build on a newer OS, you must be careful to write the entire program relying only on behaviors that existing on your earliest targetted OS.</li>
+<li>A test system running an earlier version of the OS to verify that point 1 succeeded.</li>
+</ol>
+
+<p>Point 1 tends to be where most programmers rule out support for earlier systems. I know that as much as 20% of the Mac user-base are still running Mac OS X 10.3.9 and 10.4.11 but I'm unlikely to ever support these operating systems again in one of my releases because these markets aren't big enough to warrant giving up features like Obj-C 2.0's fast iteration, <code>NSOperationQueue</code> or CoreAnimation which have changed how I write programs.</p>
+
+<p>Point 2 can also be a serious impediment for small developers who simply don't maintain a series of test machines for their software. Larger developers can simply buy extra machines or buy time in Apple's <a href="https://developer.apple.com/labs/">Compatibility Labs</a> but even large companies need to weigh this cost against the potential return.</p>
+
+<h2>Easy part: building against earlier SDKs in Xcode</h2>
+
+<p>With Snow Leopard now installed on my main development machine though, I'm forced to go through the backwards compatibility rigamarole just to ensure Leopard compatibility. As fast as the uptake of Snow Leopard was, it still isn't the dominant Mac OS X version &mdash; it is far too soon for me to demand users upgrade (although Gus Mueller has already ripped that band-aid off with the 10.6-only release of <a href="http://flyingmeat.com/acorn/">Acorn 2</a>).</p>
+
+<blockquote>While I'm talking about Mac OS X here, these settings are the same when building for different iPhone OS versions.</blockquote>
+
+<p>Building against earlier SDKs in Xcode is the easy part. There are two settings involved:
+
+<ol>
+<li><strong>Base SDK</strong> (the OS version whose headers you'll use and the newest OS version from which you'll use optional features)</li>
+<li><strong>Mac OS X Deployment Target</strong> (the oldest OS version supported)</li>
+</ol>
+
+<p>The Base SDK controls what SDK you actually link against and the Mac OS X Deployment Target controls the minimum OS version allowed. In simple cases, just set both of these to the same value.</p>
+
+<p>You set the Base SDK in the Project settings:</p>
+
+<img src="../../assets/objc-era/xcodesdksetting.png" width="570" height="285" />
+
+<p>and further down the settings list, the Mac OS X Deployment Target:</p>
+
+<img src="../../assets/objc-era/xcodedeploymentsetting.png" width="570" height="160" />
+
+<h2>Weak linking (using newer features if they are available)</h2>
+
+<p>Weak linking allows you to link against a newer SDK but deploy on an older operating system.</p>
+
+<p>You should use weak linking in cases where you:</p>
+
+<ul><li>want the program to run on a earlier version of the operating system</li>
+<li>want to use a feature from a newer OS version if it is available</li></ul>
+
+<p>Set the Base SDK to the newer OS version that contains the newer features you will use if available and set the Mac OS X Deployment Target to the older version.</p>
+
+<p>This causes everything newer than the Mac OS X Deployment Target to be <strong>weak linked</strong> &mdash; meaning that you will try to link against the newer features if available but can live without them if they are not available.</p>
+
+<p>If a program is run on an older OS than the Base SDK:</p>
+
+<ul>
+<li>unavailable weak linked functions will have <code>NULL</code> function pointers</li>
+<li>unavailable weak linked class names will return <code>nil</code> from <code>NSClassFromString</code></li>
+<li>unavailable weak linked methods will return NO from the containing objects' <code>respondsToSelector:</code> method.</li></ul>
+
+<p>The important point to remember is that anything weak-linked should be checked to ensure it is non-zero before use.</p>
+
+<p>For example, suppose to wanted to set the Dock to autohide on Mac OS X 10.6 (using the new Snow Leopard <code>-[NSApplication setPresentationOptions:]</code> method) but you want your application to also run on Mac OS X 10.5 and leave the Dock as-is, you could set the Base SDK to Mac OS X 10.6, the Deployment Target to Mac OS X 10.5 and run the following code:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="k">if</span> <span class="p">([[</span><span class="n">NSApplication</span> <span class="n">sharedApplication</span><span class="p">]</span>
+    <span class="nl">respondsToSelector</span><span class="p">:</span><span class="k">@selector</span><span class="p">(</span><span class="nl">setPresentationOptions</span><span class="p">:)])</span>
+<span class="p">{</span>
+    <span class="p">[[</span><span class="n">NSApplication</span> <span class="n">sharedApplication</span><span class="p">]</span>
+        <span class="nl">setPresentationOptions</span><span class="p">:</span><span class="n">NSApplicationPresentationAutoHideDock</span><span class="p">];</span>
+<span class="p">}</span></code></pre></div>
+
+<h2>Command-line building for earlier OS versions</h2>
+
+<p>You might think POSIX/Open Source libraries that are written to be cross-platform and don't link directly against an Mac OS X specific libraries shouldn't need to change from OS version to OS version.</p>
+
+<p>However, most C/C++ libraries do link against libc (which is a part of libSystem on Mac OS X). Since libSystem is a dynamic library and changes between OS versions, this means that you must be mindful of exactly what version of libSystem you build against.</p>
+
+<p>A common example of getting this wrong is the following linker error:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">Undefined</span> <span class="nl">symbols</span><span class="p">:</span>
+  <span class="sa"></span><span class="s">&#34;_fopen$UNIX2003&#34;</span><span class="p">,</span> <span class="n">referenced</span> <span class="nl">from</span><span class="p">:</span>
+      <span class="n">_some_function</span> <span class="k">in</span> <span class="n">somefile</span><span class="p">.</span><span class="n">o</span></code></pre></div>
+
+<p>You will get this and similar errors when trying to link two different components which are themselves linked against different versions of libSystem. In this case, the application was linked against Base SDK Mac OS X 10.5 but the static library was linked against the current libSystem.B.dylib in Mac OS X 10.6.</p>
+
+<p>Obviously, <code>fopen</code> is a Standard C function and it is in every version of libSystem but different versions of libSystem have subtly different versions of the function. To fix the bug, you must ensure that all components you link together themselves link against the same versions of the standard libraries.</p>
+
+<p>In the example above, the solution is to rebuild the static library from the source using the following gcc link-line options:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span><span class="nf">isysroot</span> <span class="o">/</span><span class="n">Developer</span><span class="o">/</span><span class="n">SDKs</span><span class="o">/</span><span class="n">MacOSX10</span><span class="mf">.5</span><span class="p">.</span><span class="n">sdk</span> <span class="o">-</span><span class="n">mmacosx</span><span class="o">-</span><span class="n">version</span><span class="o">-</span><span class="n">min</span><span class="o">=</span><span class="mf">10.5</span></code></pre></div>
+
+<p>That's right, it's the same settings as in Xcode but on the command line &mdash; the Base SDK (<code>isysroot</code>) and the Mac OS X Deployment Target (<code>mmacosx-version-min</code>).</p>
+
+<p>Once you've built an executable or a dynamic library, you can use otool to check that they're not linking against any unexpected dynamic libraries (which may not be present on older OS versions) with the following command:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">otool</span> <span class="o">-</span><span class="n">L</span> <span class="n">myAppExecutable</span></code></pre></div>
+
+<p>This reports the required dynamic libraries and their version numbers.</p>
+
+<p>Run the same command on the dynamic libraries in your targetted SDK directory to check their version numbers against the library numbers required by your executable.</p>
+
+<h2>Be wary of changed gcc</h2>
+
+<p>In Mac OS X 10.5, if you didn't specify an architecture, gcc would build a 32-bit binary. In Snow Leopard, this has changed: if no architecture is specified, a 64-bit binary will be built.</p>
+
+<p>You'll need to pay attention to this, particularly for auto-configured builds which may need to coaxing now to build 32-bit binaries.</p>
+
+<p>Of course, this is an easy thing to do: just specify "-arch i386" or "-arch x86_64" or both on the gcc compile command line &mdash; but you will need to remember.</p>
+
+<p>This problem can manifest in an annoying way: a file not found error when linking, even when there is a file of the desired name in the search path. If this occurs, be sure to check that the file in the search path contains the right architecture for your build.</p>
+
+<p>Check an architecture with the following:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">file</span> <span class="n">libSomeLibrary</span><span class="p">.</span><span class="n">dylib</span></code></pre></div>
+
+<p>If you're trying to build a 32-bit binary and you only see:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">libSomeLibrary</span><span class="p">.</span><span class="n">dylib</span> <span class="p">(</span><span class="k">for</span> <span class="n">architecture</span> <span class="n">x86_64</span><span class="p">)</span><span class="o">:</span>   <span class="n">Mach</span><span class="o">-</span><span class="n">O</span> <span class="mi">64</span><span class="o">-</span><span class="n">bit</span> <span class="n">executable</span> <span class="n">x86_64</span></code></pre></div>
+
+<p>Then you need to rebuild libSomeLibrary.dylib or find a 32-bit version.</p>
+
+<h2>Conclusion</h2>
+
+<p>Programmers don't like supporting earlier OS versions because it means more work and fewer cool features to play with. Despite this, there are often economic reasons to put in the effort and forgo the more modern features to support earlier OS versions.</p>
+
+<p>You will want to choose an OS version when you start a project, since removing OS-specific features can be hugely time consuming &mdash; it is always easier to drop support later rather than gain support.</p>
+
+<p>Set the Base SDK, set the Deployment Target and make certain all your components remain in-sync on these points. Remember to double check the build target and architecture for all components you build for yourself and always be wary of dynamic libraries.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="creating-alpha-masks-from-text-on.html">Creating alpha masks from text on the iPhone and Mac</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="whereismymac-snow-leopard-corelocation.html">WhereIsMyMac, a Snow Leopard CoreLocation project</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

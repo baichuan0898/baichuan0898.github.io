@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Hidden Xcode build, debug and template settings</title>
+  <meta name="description" content="This is a collection of the most useful hidden and hard-to-find settings in Xcode related to building, debugging and file templates." />
+
+  <meta name="twitter:title" content="Hidden Xcode build, debug and template settings"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2008/06/hidden-xcode-build-debug-and-template.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="This is a collection of the most useful hidden and hard-to-find settings in Xcode related to building, debugging and file templates."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="hidden-xcode-build-debug-and-template.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Hidden Xcode build, debug and template settings</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2008-06-28">June 28, 2008</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/xcode.html">Xcode</a>, <a href="../../categories/foundation.html">Foundation</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>This is a collection of the most useful hidden and hard-to-find settings in Xcode related to building, debugging and file templates.</p></span>
+
+<span class="fullpost">
+<p>This post is about hard-to-find settings in Xcode that most programmers can't live without. I felt strange writing a post on this topic since most of this information is documented elsewhere. But I still find myself forgetting and needing to rediscover these tidbits (even though I've been using ProjectBuilder/Xcode for 7 years and should remember), so I think that it's probably information worth reinforcing.</p>
+
+<p>I'll cover:</p>
+<ul><li><a href="#compilersettings">Custom compiler flags for GCC</a></li>
+<li><a href="#buildscripts">Pre and post build scripts</a></li>
+<li><a href="#buildname">Changing the name of the built program</a></li>
+<li><a href="#mycompanyname">Replacing the annoying "__MyCompanyName__" placeholder in file templates</a></li>
+<li><a href="#filetemplates">Completely customizing the file templates</a></li>
+<li><a href="#textmacros">Customizing, altering and adding autocomplete "Text Macros"</a></li>
+<li><a href="#environmentvariables">Configuring environment variables and executable arguments for Debugging</a></li>
+</ul>
+
+<h2><a name="compilersettings">Custom compiler settings</a></h2>
+<p>The default compiler settings in Xcode projects are pretty good. Even so, it's a programmer's mission to play with everything and playing with the compiler settings is at the heart of a programming project.</p>
+
+<p>Custom compile settings are buried pretty deep in Xcode. To access the custom compiler settings, you must:</p>
+
+<ol><li>Have a project window or project-contained document window frontmost in Xcode.</li>
+<li>Select the menu item "Edit Project Settings" from the "Project" menu in the menubar <br/><strong><em>or</em></strong><br/> Right-click the project icon in the "Groups & Files" tree-view of the Project window and select "Get Info" from the popup menu (the project's icon is a blue document icon located at the very top of this tree-view by default).</li>
+<li>Select the "Build" tab at the top of the Project Info window that appears.</li>
+<li>Set the "Configuration" to "Debug", "Release" or "All Configurations" from the popup menu at the top of the tab panel (compile settings will only be changed for the configuration that you select).</li>
+<li>Scroll down to the heading named "GCC 4.0 - Language".</li>
+<li>Each of these checkboxes allow customization of build settings. If you want to know what setting each will affect, click on the row and show the "Research Assistant" (Control-Command-?).</li></ol>
+<p>Completely custom command line settings can be passed to the compiler using the "Other C Flags" line (for C and Objective-C) or the "Other C++ Flags" (for C++).</p>
+
+<p>More on Xcode's build settings can be found in the "<a href="http://developer.apple.com/documentation/DeveloperTools/Reference/XcodeBuildSettingRef/Introduction/Introduction.html">Xcode Build Setting Reference</a>".
+
+<h2><a name="buildscripts">Post or pre build scripts</a></h2>
+
+<p>Build phases are how Xcode performs the different steps in a build. If you expand one of the targets in the "Targets" node of the "Groups & Files" tree-view of the Project window, you can see the different steps in the build. For a normal "Cocoa Application", the steps will be "Copy Bundle Resources", "Compile Sources" and "Link Binary with Libraries".</p>
+
+<p>You can add a new build stage to a target by right-clicking the target and selecting the build phase you want from the "Add" submenu of the popup menu.</p>
+
+<p>You can also choose one of the options in the "New Build Phase" submenu of the "Project" menu in the menubar to add a build phase to the current target.</p>
+
+<p>To add a "script" build stage, select "New Run Script Build Phase". This will add a new script as the last phase of the build. If you want the script to be a "pre-build" script, you must drag it to the top of the list of build phases shown for the target in the "Targets" node of the "Groups & Files" tree-view of the Project window. An "inter build" script would also be possible by dragging to a location between other stages.</p>
+
+<p>Finally, you must enter the script itself. Select the build phase and choose "Get Info" from the "File" menu in the menubar. Select the "General" tab and you can enter the script in the "Script" field.</p>
+
+<p>A list of variables you can use in your script is listed on the <a href="http://developer.apple.com/documentation/DeveloperTools/Conceptual/XcodeUserGuide/Contents/Resources/en.lproj/05_03_bs_build_phases/chapter_32_section_9.html">Run Script Build Phase</a> page of the Xcode documentation.</p>
+
+<h2><a name="buildname">Changing the built program's name</a></h2>
+
+<p>This can be a little tricky to find since the the built program's name ("MyProgram.app" for example) does not exist in any complete form in Xcode.</p>
+
+<ol><li>Have a project window or project-contained document window frontmost in Xcode with the "Active Target" set to the target whose product you'd like to rename.</li>
+<li>Select the menu item "Edit Active Target '...'" from the "Project" menu in the menubar <br/><strong><em>or</em></strong><br/> Right-click the target's name under "Targets" in the "Groups & Files" tree-view of the Project window and select "Get Info" from the popup menu.</li>
+<li>Select the "Build" tab at the top of the Project Info window that appears.</li>
+<li>Set the "Configuration" to "Debug", "Release" or "All Configurations" from the popup menu at the top of the tab panel (compile settings will only be changed for the configuration that you select).</li>
+<li>Scroll down to the heading named "Packaging".</li></ol>
+
+<p>The name of the application will be a combination of the "Executable Prefix" (normally empty), the "Product Name" (initially the same as the Project's name), the "Executable Prefix", and the "Wrapper Extension" (normally ".app" for Applications).</p>
+
+<p>In short, most of the time you will just need to change the "Product Name" field.</p>
+
+<h2><a name="mycompanyname">Replacing __MyCompanyName__ in the new file templates</a></h2>
+
+<p>Enter the following line:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">defaults</span> <span class="n">write</span> <span class="n">com</span><span class="p">.</span><span class="n">apple</span><span class="p">.</span><span class="n">Xcode</span> <span class="n">PBXCustomTemplateMacroDefinitions</span> <span class="err">&#39;</span><span class="p">{</span> <span class="sa"></span><span class="s">&#34;ORGANIZATIONNAME&#34;</span> <span class="o">=</span> <span class="sa"></span><span class="s">&#34;Your Company Name&#34;</span> <span class="p">;</span> <span class="p">}</span><span class="err">&#39;</span></code></pre></div>
+
+<p>into a Terminal window, replacing "Your Company Name" with whatever you choose.</p>
+
+<p>You can also open the file at ~/Library/Preferences/com.apple.Xcode in "Property List Editor" and insert your company name as a string value for the key "ORGANIZATIONNAME" under the dictionary "PBXCustomTemplateMacroDefinitions". You may need to create "PBXCustomTemplateMacroDefinitions" at the top level if it doesn't already exist.</p>
+
+<h2><a name="filetemplates">Changing the new file templates</a></h2>
+
+<p>The complete set of file templates that Xcode uses for new files can be found at "/Developer/Library/Xcode/File Templates/", sorted by API (we love Cocoa the best).</p>
+
+<p>You can add or modify them as you choose, although it's a good idea to backup changed files at a different location since "/Developer/Library/Xcode/File Templates/" may be lost if you move your account to a new computer or reinstall Xcode.</p>
+
+<h2><a name="textmacros">Text macros</a></h2>
+
+<p>The "Text macros" in Xcode are a great time saver. You can find them under "Insert Text Macro" in the "Edit" menu but they are most useful when you know their shortcuts. Type the shortcut in a document in Xcode when you're editing, hit "F5" to autocomplete and it expands the macro to its full form, complete with variable locations.</p>
+
+<p>For a full list of the default text macros and their shortcuts, visit Apple's "<a href="http://developer.apple.com/mac/library/documentation/DeveloperTools/Conceptual/XcodeWorkspace/100-The_Text_Editor/text_editor.html#//apple_ref/doc/uid/TP40002679-SW43">Xcode User Guide: Repeating Code</a>".</p>
+
+<p>The first way to customize text macros are to create entries for "BlockSeparator", "IndentedBlockSeparator", "InExpressionsSpacing", "PostBlockSeparator" and "PreExpressionsSpacing" in the "XCCodeSenseFormattingOptions" dictionary in your "com.apple.Xcode" preferences file.</p>
+
+<p>As before, you can do that like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="n">defaults</span> <span class="n">write</span> <span class="n">com</span><span class="p">.</span><span class="n">apple</span><span class="p">.</span><span class="n">Xcode</span> <span class="n">XCCodeSenseFormattingOptions</span> <span class="err">&#39;</span><span class="p">{</span> <span class="sa"></span><span class="s">&#34;BlockSeparator&#34;</span> <span class="o">=</span> <span class="sa"></span><span class="s">&#34;</span><span class="se">\n</span><span class="s">&#34;</span> <span class="p">;</span> <span class="p">}</span><span class="err">&#39;</span></code></pre></div>
+
+<p>or by editing the "~/Library/Preferences/com.apple.Xcode" file directly.</p>
+
+<p>You may also want to add completely new macros or customise more than these variables will allow. The best way to do this is to copy the "TextMacros.xctxtmacro" directory from:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="o">/</span><span class="n">Developer</span><span class="o">/</span><span class="n">Applications</span><span class="o">/</span><span class="n">Xcode</span><span class="o">/</span><span class="n">Contents</span><span class="o">/</span><span class="n">PlugIns</span></code></pre></div>
+
+<p>to</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="o">~/</span><span class="n">Library</span><span class="o">/</span><span class="n">Application</span> <span class="n">Support</span><span class="o">/</span><span class="n">Developer</span><span class="o">/</span><span class="n">Shared</span><span class="o">/</span><span class="n">Xcode</span><span class="o">/</span><span class="n">Specifications</span></code></pre></div>
+
+<p>and modify or add to the macros that Apple provide.</p>
+
+<p>It is not advisable to edit the original "TextMacros.xctxtmacro" definitions contained inside Xcode.app directly. We copy them to our own Library since the Xcode.app versions will be replaced without warning every time you update Xcode.</p>
+
+<blockquote><strong>Note</strong>: the destination path to which you should copy "TextMacros.xctxtmacro" is correct here but wrong in the Apple-provided "Repeating Code" documentation linked above (the documentation currently omits the "Xcode" directory between "Shared" and "Specifications").</blockquote>
+
+<p>Macros are sorted by programming language. I'll leave you to work out exactly how the macros are formatted. I'm not aware of any formal documentation for the xctxtmacro file format but it's plain text in a "Property List"-style format so you shouldn't find it too hard to decipher.</p>
+
+<h2><a name="environmentvariables">Environment Variables and Executable Arguments</a></h2>
+
+<p>With the desired Project and Target selected, choose "Edit Active Executable ..." from the "Project" menu in the menubar. The environment variables and executable arguments can be chosen on the "Arguments" tab.</p>
+
+<p>The following environment variables are of particular importance when programming in Cocoa:</p>
+
+<ul><li>NSDebugEnabled set to value YES &mdash; turns on extra debug information in Foundation</li>
+<li>NSZombieEnabled set to value YES &mdash; notifies when messages are incorrectly sent to deallocated objects allowing better debugging of this problem</li></ul>
+
+<p>For more debugging environment variables, check the "<a href="http://developer.apple.com/technotes/tn2004/tn2124.html#SECFOUNDATION">Technical Note TN2124: Mac OS X Debugging Magic</a>" page from Apple.</p>
+
+</span>
+
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="doing-things-in-cocoa-with.html">Doing things in Cocoa with &#34;nil&#34;</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../07/nsmaptable-more-than-nsdictionary-for.html">NSMapTable: more than an NSDictionary for weak pointers</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

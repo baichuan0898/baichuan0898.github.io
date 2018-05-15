@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Cocoa Application Startup</title>
+  <meta name="description" content="How does a Cocoa Application start up? Where are the main places to put code so that it gets run on startup? Learn the answers in this series of startup diagrams." />
+
+  <meta name="twitter:title" content="Cocoa Application Startup"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2008/03/cocoa-application-startup.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="How does a Cocoa Application start up? Where are the main places to put code so that it gets run on startup? Learn the answers in this series of startup diagrams."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="cocoa-application-startup.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="118px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Cocoa Application Startup</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2008-03-14">March 14, 2008</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/objective-c.html">Objective-C</a>, <a href="../../categories/appkit.html">AppKit</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>How does a Cocoa Application start up? Where are the main places to put code so that it gets run on startup? Learn the answers in this series of startup diagrams.</p></span><span class="fullpost"><h2>The natural first question</h2><p>After working through the first Cocoa tutorials and learning how to hook up basic methods to buttons and menus, the most common question I hear from new Cocoa programmers is:
+
+<blockquote>Where do I put my code so that it runs when my Cocoa Application starts up?</blockquote><p>Cocoa makes it very easy to edit and connect things in Interface Builder but you quickly reach the limits of this simple program setup. Documents and application windows can magically appear but eventually you'll want to have control over these default operations.</p><p>Once you need to do more, you need to start piercing through the magic of Cocoa Application startup and understand what the NSApplication does, how the Interface Builder NIB files appear and how to run customization code for documents and other elements.</p><p>Questions about how program startup works are the right questions to ask &mdash; you need to control your program and make it your own. This starts at the very beginning. But it can be tricky to decide where to put your code: Cocoa gives you many different places to initialize different components so that appropriate setup is performed in the appropriate place. I'm going to show all the common places in a Cocoa Application where code is run on startup. With luck, knowing the options will help you choose the right one.</p><h2>Objective-C runtime initialization</h2><p>The Objective-C runtime offers places to initialize your classes during its startup, as the following diagram shows:
+
+<div class="scroll"><img src="../../assets/objc-era/startupMain.png" border="0" width="578" height="426" /></div><p>The <span class="monospace">main()</span> method works in Objective-C as it would for any standard C program and you can perform global initializations here if you want. Typically though, Cocoa Applications do nothing here except invoke <span class="monospace">NSApplicationMain()</span>. The reason for largely ignoring this entry point is that classes, application instances, documents and user interface elements have their own means of initializing themselves and it makes more sense to use these locations.</p><p>Traditionally, in C languages, <span class="monospace">main()</span> is the earliest place where you can perform startup and initialization. In Objective-C, the first initialization offered occurs even earlier than this: <span class="monospace">+(void)load</span> methods. Any class can have a <span class="monospace">+(void)load</span> method and it will be invoked by the runtime when the class is loaded. For normal compiled classes, this occurs during "image loading" (some time before <span class="monospace">main()</span> is invoked). Since classes are loaded in no particular order and other classes may not yet be loaded, you must be careful what you do here &mdash; generally, you shouldn't refer to other classes in <span class="monospace">+(void)load</span> methods.</p><p>Objective-C also provides a similar (but safer since you <em>can</em> refer to other classes) setup method: <span class="monospace">+(void)initialize</span>. This is the most common place for performing class-specific setup. Before a message is sent to an object of a class for the first time, <span class="monospace">+(void)initialize</span> is sent to the class and all its super classes (if they haven't been initialized already). These messages are sent in hierarchical order (super classes receive the message before descendant classes). While safer (because all classes are loaded by this point) the timing of its invocation is less deterministic since  <span class="monospace">+(void)initialize</span> is only invoked when a first message is actually sent to the class &mdash; if a class is never used, the message is never sent.</p><h2>NSApplication initialization</h2><p>Here is the typical startup for <span class="monospace">NSApplication</span> (as invoked through <span class="monospace">NSApplicationMain()</span> in the previous diagram):</p><div class="scroll"><img src="../../assets/objc-era/startupNSApp.png" border="0" width="426" height="614" /></div><p>This image shows the application (normally <span class="monospace">NSApplication</span> but this is configurable in the Info.plist file) being initialized and run. Despite the fact you <em>can</em> change the principal class of your application, it is advised that you don't &mdash; so this isn't the first place to consider putting startup code.</p><p>Instead, you should look towards the three main functions that the application performs on startup (load main NIB, load first document, notify NSApplication delegate). These are the key areas to hook into.</p><blockquote>An NSApplication is only considered to handle documents if <span class="monospace">CFBundleDocumentTypes</span> is configured in the Info.plist file. Without this value in the Info.plist, the NSApplication will skip document handling (non-document applications).</blockquote><p>The first of these areas to consider is the "main NIB" file. A NIB file is the standard user-interface file and it is created in Interface Buillder. The "main NIB" is the user-interface file that normally contains the menubar and other "on startup" resources. It is also the common location for the NSApplication delegate. If you don't know what a delegate is, you can read <a href="http://developer.apple.com/documentation/Cocoa/Conceptual/CocoaFundamentals/CommunicatingWithObjects/chapter_6_section_4.html">Apple's description of delegates</a> but it's really any object that is connected to the NSApplication by its "delegate" outlet (usually in Interface Builder). The delegate is special because NSApplication sends it messages in response to certain events. These are the delegate methods.</p><p>At startup, the NSApplication delegate receives one of its most important messages, <span class="monospace">applicationDidFinishLaunching:</span>. Almost every application implements this method. It is the best place to fix program-wide settings after everything has been created and loaded.</p><p>If you need something more specific to a window or document to be initialized, then you'll need to hook into one of the other steps. If you're writing a non-document application with a single fixed window, then it will likely be loaded along with the main NIB, so you'll want to read the next section about NIB loading. If you are writing a document application, you'll want to look at the document loading section.</p><h2>NIB loading</h2><p>An Interface Builder NIB file is loaded as follows:</p><div class="scroll"><img src="../../assets/objc-era/startupNib.png" border="0" width="534" height="366" /></div><p>Application windows, document windows, the menubar and the NSApplication delegate are all typically loaded from a NIB file in this fashion.</p><p>The point to note here is that your objects' <span class="monospace">init</span> methods are invoked <em>before</em> their IBOutlet connections are configured according to the settings in the NIB file, so you can initialize your own object but you can't yet read objects connected through Interface Builder.</p><p>For this reason, the a common way to initialize an object loaded from a NIB file, is to implement the <span class="monospace">-(void)awakeFromNib</span> method on the object. If this method is present on an object, the NIB loader will invoke it after the whole NIB is initialized and connected, making it the perfect place to perform configuration involving multiple objects.</p><h2>Document loading</h2><p>A document is loaded as follows:</p><div class="scroll"><img src="../../assets/objc-era/startupDocument.png" border="0" width="575" height="457" /></div><p>The key places to initialize a document are: its <span class="monospace">init</span> methods, in the loading of the document's NIB file and in <span class="monospace">windowControllerDidLoadNib:</span>. Simply put, these offer configuration locations for before, during and after loading of the document's window resources.</p><h2>Conclusion</h2><p>I have not shown every location you can use on startup. There are many more delegate methods, notifications and overrideable methods if you have genuine need of them. What I have shown are the most common and most useful locations.</p><p>These locations are:</p><ul><li><span class="monospace">+(void)initialize</span></li><li><span class="monospace">-(void)awakeFromNib</span></li><li><span class="monospace">-(void)windowControllerDidLoadNib:</span></li><li><span class="monospace">-(void)applicationDidFinishLaunching:</span></li></ul><p>as well as the usual <span class="monospace">init</span> methods for your own subclasses.</p><p>Know what each of these methods are, when they are invoked and understand objects for which they are responsible. They will let you perform almost all configuration on Cocoa application startup.</p></span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="break-into-debugger.html">Break into Debugger</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="construct-nsinvocation-for-any-message.html">Construct an NSInvocation for any message, just by sending</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

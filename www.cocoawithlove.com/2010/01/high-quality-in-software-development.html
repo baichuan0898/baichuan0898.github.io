@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Quality control in application development without unit testing</title>
+  <meta name="description" content="In my last two posts, I&#39;ve shown a Mac app with full unit tests and an iPhone app with full unit tests. The reality though is that I do not write or test code this way. In this post, I look at why so few applications are actually developed using unit tests. I&#39;ll also look at the alternate approaches &amp;mdash; both manual and automated &amp;mdash; that are normally used to maintain high quality and low bug rates in application development." />
+
+  <meta name="twitter:title" content="Quality control in application development without unit testing"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2010/01/high-quality-in-software-development.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="In my last two posts, I&#39;ve shown a Mac app with full unit tests and an iPhone app with full unit tests. The reality though is that I do not write or test code this way. In this post, I look at why so few applications are actually developed using unit tests. I&#39;ll also look at the alternate approaches &amp;mdash; both manual and automated &amp;mdash; that are normally used to maintain high quality and low bug rates in application development."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="high-quality-in-software-development.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="118px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Quality control in application development without unit testing</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2010-01-05">January 5, 2010</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/testing.html">testing</a>, <a href="../../categories/object-oriented-design.html">object-oriented design</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>In my last two posts, I've shown a <a href="../../2009/12/sample-mac-application-with-complete.html">Mac app with full unit tests</a> and an <a href="../../2009/12/sample-iphone-application-with-complete.html">iPhone app with full unit tests</a>. The reality though is that I do not write or test code this way. In this post, I look at why so few applications are actually developed using unit tests. I'll also look at the alternate approaches &mdash; both manual and automated &mdash; that are normally used to maintain high quality and low bug rates in application development.</p></span>
+
+<span class="fullpost">
+
+<h2>Introduction</h2>
+
+<p>I have many friends who love unit tests. They never write code without writing the unit tests first. And they love it; the thought of writing code without unit tests seems foolish and scary to them. Test-first approaches ensure that they never write anything that isn't specified and unit tested.</p>
+
+<p>This post is not to dissuade these people from unit tests. If you already know that you know and love unit tests, then stick with them.</p>
+
+<p>But even unit testing advocates should remember that unit tests are about code-level specification and working within certain types of development methodology &mdash; they do not attempt to catch all bugs.</p>
+
+<p>This post is primarily for people who have heard of unit tests and are wondering if they are an efficient way to maintain product quality and lower bug rates.</p>
+
+<p>The short answer is: no.  If you simply want to lower bug counts, the best and most efficient approach is through system tests.</p>
+
+<h2>Difficulties of unit testing for application development</h2>
+
+<p>Depending on your development methodology, unit tests can serve a number of different functions. But if used purely to detect bugs then they are a very high cost approach for low return.</p>
+
+<p>Unit tests don't test the overall program, only isolated units. This creates many holes (integration, timing, re-entrancy, inter-module communication) that need to be tested another way. These limitations are not unique to application development so I'll focus instead on something that is: the difficulty of isolating your units for testing.</p>
+
+<p>Advocates of unit testing claim that you can follow good program design and reduce coupling and integration, making tests easy to write.</p>
+
+<p>Unfortunately, in application development, that's not exactly possible.</p>
+
+<p>As I noted when I was <a href="../../2009/12/design-of-iphone-application.html">discussing iPhone application design</a>, the code that you write in a Cocoa application is mostly controller classes &mdash; since the model and view classes are so reusable, you rarely need to write them yourself.</p>
+
+<p>Controller classes are the classes which link your program together &mdash; they join model and view elements together to make your program. The entire purpose of these classes is coupling. The unit tests I wrote for the <a href="../../2009/12/sample-mac-application-with-complete.html">WhereIsMyMac program</a> were approximately three times the size of the original code due to large numbers of mock objects and tricky hackery to intercept calls into the Cocoa framework &mdash; and this was a simple sample application, it could easily be much worse. Every mock object reduces the accuracy of the test by reducing the reality of the test environment and the risk of false positives or negatives in test results.</p>
+
+<p>Since controller classes are so common in applications and the main role of a controller class is to join different objects together, unit testing suffers from the following serious problems in application development:</p>
+
+<ul><li>Requires huge amounts of mocking code and other fakery (time consuming).</li>
+<li>The resulting tests are far removed from the integrated reality, making false positives and false negatives highly likely and leaving large holes that are simply not tested.</li></ul>
+
+<h2>System testing methodologies for application development</h2>
+
+<p>The best approach for testing an application is to accept the coupled, integrated, timing dependent, environment dependent nature and test everything in place. The idea is simple: test the complete program in the exact manner (or as close as possible) in which you expect it to be used.</p>
+
+<p>Tests which operate in this manner are classed as "<a href="http://en.wikipedia.org/wiki/System_testing">system tests</a>".</p>
+
+<p>The reason why system tests are the most efficient and accurate form of product testing is simple: if you want to ensure low bug rates for the user, test the program in the same way that the user will use it; don't test a fake environment and don't test at levels the user can't access.</p>
+
+<h3>Types of system testing</h3>
+
+<p>There are lots of ways to system test your code. In order from most important to least important for application development:</p>
+
+<ol>
+<li><a href="http://en.wikipedia.org/wiki/Sanity_test">Sanity testing</a></li>
+<li><a href="http://en.wikipedia.org/wiki/GUI_software_testing">User interface testing</a></li>
+<li><a href="http://www.logigear.com/newsletter/api_vs_unit.asp">API testing</a></li>
+<li><a href="http://en.wikipedia.org/wiki/Regression_testing">Regression testing</a></li>
+<li><a href="http://en.wikipedia.org/wiki/Performance_testing">Performance testing</a></li>
+<li><a href="http://en.wikipedia.org/wiki/Load_testing">Load testing</a></li>
+<li><a href="http://en.wikipedia.org/wiki/Scalability_testing">Scalability testing</a></li>
+</ol>
+
+<p>I'm not going to give full definitions of these tests here &mdash; I'm simply going to discuss their importance to applications and related projects. Follow the links to read more about each one.</p>
+
+<p>Every good application has point 2 and most have 3 and 4 as part of their regular testing methodology &mdash; sanity checks occur as part of the development methodology (run your code before you commit) and fall outside formal testing.</p>
+
+<p>The important step in making system tests work is to keep them formalized.  If the test is not automated, then it should be formally documented so that each of the steps is correctly run during a testing phase. A basic or ad hoc approach to any of these points doesn't count though: proper quality comes from rigorous and clearly defined testing approaches.</p>
+
+<h3>User interface testing</h3>
+
+<p>User interface testing is normally performed using testing matrices. In its simplest form, this means a document containing all user interface test cases in a table &mdash; a spreadsheet, workprocessor or TextEdit document, it doesn't really matter as long as it is documented.</p>
+
+<p>The rows in the table are all steps in operating your program (selecting menu items, operating buttons, perform edit operations). Every single user interface element in the program should be tested and most should be tested multiple ways to account for different expected effects.</p>
+
+<p>The columns are all environmental differences between runs. Different operating system versions, different computers, different installation settings or different builds of the application (lite, demo or full).</p>
+
+<p>Each cell in the table should then contain the observed result and an indication of whether this is a success or failure according to the specification.</p>
+
+<p>If you can automate the process, then great &mdash; there are software tools that will help with this on the Mac. If you can't &mdash; yes, user interface testing will get manual and tedious but ultimately, it is the only way to guarantee that the program works as expected. Most of the programs you use have simply had someone sitting in front of them, progressively clicking all the buttons and using all the controls &mdash; for every test case in every version.</p>
+
+<p>You need to have the whole table documented and it needs to cover every element of the user interface. The purpose is to remind you to test everything (bad luck will ensure that failure to test a row will guarantee that it contains uncaught bugs).</p>
+
+<h3>API testing</h3>
+
+<p>In theory, user-interface testing should test everything in a user facing application. It may seem inefficient to suggest API testing (which is normally done for libraries and code modules).</p>
+
+<p>There are three reasons that any substantial application would want API tests:</p>
+
+<ul><li>Human testers of user-interfaces are lazy, forget or make mistakes</li>
+<li>API tests are automated and can be run at build-time or as part of continuous integration</li>
+<li>You can test issues that may not be obvious during user testing (like data coherency)</ul>
+
+<p>For user applications though, it presents the problem that you must create an API layer that can actually be programmatically tested. The common approach is to separate the "model" of your application into a separate module with an API layer.</p>
+
+<p>API testing is similar to unit testing in many respects:</p>
+
+<ul><li>it is automated</li>
+<li>can be implemented using OCUnit or similar libraries</li>
+<li>can be used to develop your application using test-first methodologies</li>
+</ul>
+
+<p>The difference is that API tests do not separate the units within the module. API tests test the whole module in-place, fully integrated. This means that the API tests can be quite removed from the implementation details &mdash; which has the advantage that they can be more easily written by a separate programmer or test engineer, freeing up programming resources. API tests also aim to be optimally efficient: they only test inputs and outputs and don't care about how intermediary steps in the transformation occurs.</p>
+
+<p>API tests attempt to provide a realistic environment and data but do suffer from some of the same limitations as unit tests in that some parts of the environment must be synthetic (the full application will not be present during testing).</p>
+
+<h3>Regression tests</h3>
+
+<p>After you're happy that your program is working as intended, regression tests ensure that subsequent work doesn't screw it up.</p>
+
+<p>These are tests are normally used for programs that produce a file output. Their operation is basically: run the regression test and compare the output to the "known good" result which was saved previously. If the output changes unexpectedly, the test fails.</p>
+
+<p>For many file producing projects (like a few major open-source projects specializing in video codecs, PDF renderers, DVD authoring packages) this is the only test they include. However, it's all that these types of project require: a good set of regression tests should have high code coverage (exercise almost all of the program) and perform most of the work of API testing too.</p>
+
+<p>Regression tests can be human or automatically driven. Applescript can drive regression tests in full applications or OCUnit can be used to drive regression tests through an API layer.</p>
+
+<h2>Specification</h2>
+
+<p>As I hinted previously, there are a few roles served by unit tests that system tests handle. One is that unit tests are a form of specification for the code. You can use the tests as a way of learning what the code is supposed to do and in some cases for sketching out how future code should operate.</p>
+
+<p>API testing can certainly replicate the unit testing specification at the API level; again, API tests are like an interface optimized application of unit tests.</p>
+
+<p>However, I prefer the old-school approach: document your code with comments. Not with a line or two inside the method but full comment blocks on every single method documenting conditions on all parameters and the return parameters and effects of the method. Like test-first development, it is common to write comments first (specify the functionality of the method, then write it, asserting pre and post conditions if desired).</p>
+
+<p>I use a customized version of Xcode's "Script Menu&rarr;HeaderDoc&rarr;Insert @method comment" to automate the creation of the comment block's formatting from the method prototype.</p>
+
+<p>If the comments at the start of each method are not clear enough for documentation (think about Apple's Cocoa API documentation) then you're not doing your commenting job.</p>
+
+<h2>Conclusion</h2>
+
+<p>Unit testing an application is filled with difficulties and problems. In my development style, I consider the time cost of unit testing an application outweighs its benefits &mdash; especially since a unit tested application still requires system tests like user-interface and regression tests for proper validation.</p>
+
+<p>Regardless of whether you use unit tests, formalized system testing &mdash; either automated or manual and methodical &mdash; is required to fully validate an application and ensure the lowest possible low bug rates.</p>
+
+<p>The most efficient approach is to test the interface that the program exposes in the exact way that the user will use it. For user interface apps, this means user testing matrices. For applications with a lot of model code, this means API tests. For document producing applications, this means regression tests. In many cases though, a combination of all three is best.</p>
+
+<p>Most of these approaches require that you be disciplined. You need to comment your code. You need to maintain user interface testing matrices. You need to refactor your model layer so it has an interface that can be tested automatically. You need to measure the code coverage of your regression tests.</p>
+
+<p>I know these things are tedious. I know that no one wants to write test plans, test documents and API tests. But if you love your program and you want it to suck less, this is work that needs to be done.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="../../2009/12/sample-iphone-application-with-complete.html">A sample iPhone application with complete unit tests</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="getting-subclasses-of-objective-c-class.html">Getting the subclasses of an Objective-C class</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>

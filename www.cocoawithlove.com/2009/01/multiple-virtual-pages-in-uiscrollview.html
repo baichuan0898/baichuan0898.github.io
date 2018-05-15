@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Multiple virtual pages in a UIScrollView with just 2 child views</title>
+  <meta name="description" content="The &lt;code&gt;UIScrollView&lt;/code&gt; and &lt;code&gt;UIPageControl&lt;/code&gt; in Cocoa Touch allow for user interfaces with multiple panning pages. The sample project that Apple provides (PageControl) keeps all child views for every page in a lazily loaded array. I&#39;ll show you how you can implement this using just two child views, no matter how many virtual pages you wish to represent." />
+
+  <meta name="twitter:title" content="Multiple virtual pages in a UIScrollView with just 2 child views"/>
+  <meta name="twitter:image" content="https://www.cocoawithlove.com/assets/site/touch_heartandcup.png"/>
+  <meta name="twitter:url" content="https://www.cocoawithlove.com/2009/01/multiple-virtual-pages-in-uiscrollview.html"/>
+  <meta name="twitter:card" content="summary"/>
+  <meta name="twitter:description" content="The &lt;code&gt;UIScrollView&lt;/code&gt; and &lt;code&gt;UIPageControl&lt;/code&gt; in Cocoa Touch allow for user interfaces with multiple panning pages. The sample project that Apple provides (PageControl) keeps all child views for every page in a lazily loaded array. I&#39;ll show you how you can implement this using just two child views, no matter how many virtual pages you wish to represent."/>
+
+  <link rel="icon" href="../../assets/site/heartandcup.png" />
+  <link rel="apple-touch-icon" href="../../assets/site/touch_heartandcup.png" />
+  <link rel="stylesheet" href="../../css/main.css" />
+  <link rel="canonical" href="multiple-virtual-pages-in-uiscrollview.html" />
+
+  
+</head>
+
+<body>
+
+<div class="hidetopextension"></div>
+<header class="nav-header">
+  <div class="wrapper">
+  	<a href="../../index.html"><img class="heartandcup" src="../../assets/site/heartandcup.svg"></a>
+  	<a class="top" href="#">top</a>
+    <nav class="site-nav" onClick="if (this.className == 'site-nav') { this.className = 'site-nav-collapsed'; } else { this.className = 'site-nav'; }">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15" width="18px" height="15px">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        <a class="page-link" href="../../about/index.html">about</a>
+        <a class="page-link" href="../../archive/index.html">archive</a>
+        <a class="page-link" href="../../search/index.html">search</a>
+        <a class="page-link" href="http://zqueue.com/">zqueue.com</a>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<div class="nav-header-baseline"></div>
+
+<div class="wrapper"><div class="hidetop"></div></div>
+
+<header class="site-header">
+  <div class="wrapper">
+    <a class="site-title" href="../../index.html">
+      <img class="site-banner" alt="Matt Gallagher: Cocoa with Love" src="../../assets/site/banner.svg" width="720px" height="135px">
+    </a>
+  </div>
+</header>
+
+<div class="banner-baseline"></div>
+
+<div class="page-content">
+<div class="wrapper">
+
+
+<blockquote class="notice"><strong>Please note:</strong> this article is part of the older "Objective-C era" on Cocoa with Love. I don't keep these articles up-to-date; please be wary of broken code or potentially out-of-date information. Read <a href="../../blog/2016/01/25/a-new-era-for-cocoa-with-love.html">"A new era for Cocoa with Love"</a> for more.</blockquote>
+
+<header class="post-header">
+	<h1 class="post-title" itemprop="headline">Multiple virtual pages in a UIScrollView with just 2 child views</h1>
+	<div class="post-meta"><time itemprop="datePublished" datetime="2009-01-23">January 23, 2009</time> by Matt Gallagher</div>
+	<div class="post-tags">Tags:
+		
+			<a href="../../categories/cocoa-touch.html">Cocoa Touch</a>
+		 
+	</div>
+</header>
+
+		
+	<main role="main">
+		<article itemscope itemtype="http://schema.org/BlogPosting">
+  <div class="post-content" itemprop="articleBody">
+			<span class="introduction"><p>The <code>UIScrollView</code> and <code>UIPageControl</code> in Cocoa Touch allow for user interfaces with multiple panning pages. The sample project that Apple provides (PageControl) keeps all child views for every page in a lazily loaded array. I'll show you how you can implement this using just two child views, no matter how many virtual pages you wish to represent.</p></span>
+
+<span class="fullpost">
+<h2>First, something completely different...</h2>
+<p>Last week, <a href="http://www.unpossible.com/">Dan Grigsby</a> of <a href="http://mobileorchard.com">Mobile Orchard</a> interviewed me about a post I wrote on <a href="../../2008/11/automated-user-interface-testing-on.html">Automated user interface testing on the iPhone</a>. He posted the <a href="http://www.mobileorchard.com/interview-with-matt-gallagher-author-of-the-cocoa-with-love-blog/">podcast of the interview online earlier this week</a>, so I recommend you go listen if you're interested in the Director's Commentary for that earlier post.</p>
+
+<h2>Back to this post...</h2>
+<p>This week, I'm presenting the following application:</p>
+<img src="../../assets/objc-era/pagingscrollview.png" width="336" height="284" />
+<p>The black region is a <code>UIScrollView</code> with <code>pagingEnabled</code> set to <code>YES</code>. The dots at the bottom are a <code>UIPageControl</code> indicating the number of pages in the <code>UIScrollView</code>.</p>
+
+<p>Apple's sample application "PageControl" presents a similar user interface that loads a different <code>UIViewController</code> and <code>UIView</code> for each of the pages in the <code>UIScrollView</code>. I'll show you how you can create the same effect using exactly two child <code>UIViewController</code>s and <code>UIView</code>s &mdash; a "current" and the "next" view which leap around out-of-view to fill in each new page as the scrolling reaches it.</p>
+
+<h2>Fast display, slow content</h2>
+
+<p>The approach I will display is optimized for views that can redisplay quickly, once their data is loaded. The data may or may not be slow-to-load data so it is important that it is not loaded as part of the view.</p>
+
+<p>Data is therefore loaded and cached in a separate, data-specific class. In the sample app, it will be a class named <code>DataSource</code> that holds an array of page titles and page text &mdash; simple in this case but it's just a sample app.</p>
+
+<p>Holding your data in a view-independent class is basic program design &mdash; as good programmers, I'm sure you always do this and never, ever have your <code>UIViewController</code>s directly load and store your data. Ever.
+
+<h2>Moving child views to maintain the illusion</h2>
+
+<p>The trick in this post is handling an arbitrary array of child pages using just two views. It will work as follows:</p>
+
+<ol><li>Initially, the displayed view will be the <code>currentPage</code> view. The next view will be configured to display the cached data for Page 1</li>
+<li>As the user begins scrolling to the right, the <code>nextPage</code> is quickly moved into the location for the next page in the scrolling direction. At the same time as it is positioned, <code>nextPage</code> is configured with the data for Page 2. Neither of these configuration changes will be visible to the user.</li>
+<li>As the scroll operation ends, the pointers for <code>currentPage</code> and <code>nextPage</code> are swapped so that <code>currentPage</code> now points to the view displaying Page 2 and <code>nextPage</code> now points to Page 1</li>
+<li>If the next scroll is to the left, <code>nextPage</code> is already configured and in position. If the next scroll is to the right, <code>nextPage</code> will be moved and configured as it was during the first scroll.</li></ol>
+
+<p>The code that chooses how to move the views as the scroll view scrolls (step 2 in the above description) looks like this:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">scrollViewDidScroll:</span><span class="p">(</span><span class="n">UIScrollView</span> <span class="o">*</span><span class="p">)</span><span class="nv">sender</span>
+<span class="p">{</span>
+    <span class="n">CGFloat</span> <span class="n">pageWidth</span> <span class="o">=</span> <span class="n">scrollView</span><span class="p">.</span><span class="n">frame</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">width</span><span class="p">;</span>
+    <span class="kt">float</span> <span class="n">fractionalPage</span> <span class="o">=</span> <span class="n">scrollView</span><span class="p">.</span><span class="n">contentOffset</span><span class="p">.</span><span class="n">x</span> <span class="o">/</span> <span class="n">pageWidth</span><span class="p">;</span>
+    
+    <span class="n">NSInteger</span> <span class="n">lowerNumber</span> <span class="o">=</span> <span class="n">floor</span><span class="p">(</span><span class="n">fractionalPage</span><span class="p">);</span>
+    <span class="n">NSInteger</span> <span class="n">upperNumber</span> <span class="o">=</span> <span class="n">lowerNumber</span> <span class="o">+</span> <span class="mi">1</span><span class="p">;</span>
+    
+    <span class="k">if</span> <span class="p">(</span><span class="n">lowerNumber</span> <span class="o">==</span> <span class="n">currentPage</span><span class="p">.</span><span class="n">pageIndex</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">upperNumber</span> <span class="o">!=</span> <span class="n">nextPage</span><span class="p">.</span><span class="n">pageIndex</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="p">[</span><span class="nb">self</span> <span class="nl">applyNewIndex</span><span class="p">:</span><span class="n">upperNumber</span> <span class="nl">pageController</span><span class="p">:</span><span class="n">nextPage</span><span class="p">];</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+    <span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">upperNumber</span> <span class="o">==</span> <span class="n">currentPage</span><span class="p">.</span><span class="n">pageIndex</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">lowerNumber</span> <span class="o">!=</span> <span class="n">nextPage</span><span class="p">.</span><span class="n">pageIndex</span><span class="p">)</span>
+        <span class="p">{</span>
+            <span class="p">[</span><span class="nb">self</span> <span class="nl">applyNewIndex</span><span class="p">:</span><span class="n">lowerNumber</span> <span class="nl">pageController</span><span class="p">:</span><span class="n">nextPage</span><span class="p">];</span>
+        <span class="p">}</span>
+    <span class="p">}</span></code></pre></div>
+
+<p>I've left off the final condition for size but it is a rarely invoked path for when very fast scrolling leaves the <code>currentPage</code> out of position and it needs to configure both pages.</p>
+
+<p>The exchange of pointers at the end of scrolling (step 3 in the above description) is handled in the <code>scrollViewDidEndScrollingAnimation:</code> method:</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">scrollViewDidEndScrollingAnimation:</span><span class="p">(</span><span class="n">UIScrollView</span> <span class="o">*</span><span class="p">)</span><span class="nv">newScrollView</span>
+<span class="p">{</span>
+    <span class="n">CGFloat</span> <span class="n">pageWidth</span> <span class="o">=</span> <span class="n">scrollView</span><span class="p">.</span><span class="n">frame</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">width</span><span class="p">;</span>
+    <span class="kt">float</span> <span class="n">fractionalPage</span> <span class="o">=</span> <span class="n">scrollView</span><span class="p">.</span><span class="n">contentOffset</span><span class="p">.</span><span class="n">x</span> <span class="o">/</span> <span class="n">pageWidth</span><span class="p">;</span>
+    <span class="n">NSInteger</span> <span class="n">nearestNumber</span> <span class="o">=</span> <span class="n">lround</span><span class="p">(</span><span class="n">fractionalPage</span><span class="p">);</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">currentPage</span><span class="p">.</span><span class="n">pageIndex</span> <span class="o">!=</span> <span class="n">nearestNumber</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">PageViewController</span> <span class="o">*</span><span class="n">swapController</span> <span class="o">=</span> <span class="n">currentPage</span><span class="p">;</span>
+        <span class="n">currentPage</span> <span class="o">=</span> <span class="n">nextPage</span><span class="p">;</span>
+        <span class="n">nextPage</span> <span class="o">=</span> <span class="n">swapController</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="n">pageControl</span><span class="p">.</span><span class="n">currentPage</span> <span class="o">=</span> <span class="n">currentPage</span><span class="p">.</span><span class="n">pageIndex</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+<p>The only remaining component to reveal is exactly how the pages are positioned and configured in <code>applyNewIndex:pageController:</code></p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">applyNewIndex:</span><span class="p">(</span><span class="n">NSInteger</span><span class="p">)</span><span class="nv">newIndex</span> <span class="nf">pageController:</span><span class="p">(</span><span class="n">PageViewController</span> <span class="o">*</span><span class="p">)</span><span class="nv">pageController</span>
+<span class="p">{</span>
+    <span class="n">NSInteger</span> <span class="n">pageCount</span> <span class="o">=</span> <span class="p">[[</span><span class="n">DataSource</span> <span class="n">sharedDataSource</span><span class="p">]</span> <span class="n">numDataPages</span><span class="p">];</span>
+    <span class="kt">BOOL</span> <span class="n">outOfBounds</span> <span class="o">=</span> <span class="n">newIndex</span> <span class="o">&gt;=</span> <span class="n">pageCount</span> <span class="o">||</span> <span class="n">newIndex</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">;</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">outOfBounds</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">CGRect</span> <span class="n">pageFrame</span> <span class="o">=</span> <span class="n">pageController</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">frame</span><span class="p">;</span>
+        <span class="n">pageFrame</span><span class="p">.</span><span class="n">origin</span><span class="p">.</span><span class="n">y</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+        <span class="n">pageFrame</span><span class="p">.</span><span class="n">origin</span><span class="p">.</span><span class="n">x</span> <span class="o">=</span> <span class="n">scrollView</span><span class="p">.</span><span class="n">frame</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">width</span> <span class="o">*</span> <span class="n">newIndex</span><span class="p">;</span>
+        <span class="n">pageController</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">frame</span> <span class="o">=</span> <span class="n">pageFrame</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="k">else</span>
+    <span class="p">{</span>
+        <span class="n">CGRect</span> <span class="n">pageFrame</span> <span class="o">=</span> <span class="n">pageController</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">frame</span><span class="p">;</span>
+        <span class="n">pageFrame</span><span class="p">.</span><span class="n">origin</span><span class="p">.</span><span class="n">y</span> <span class="o">=</span> <span class="n">scrollView</span><span class="p">.</span><span class="n">frame</span><span class="p">.</span><span class="n">size</span><span class="p">.</span><span class="n">height</span><span class="p">;</span>
+        <span class="n">pageController</span><span class="p">.</span><span class="n">view</span><span class="p">.</span><span class="n">frame</span> <span class="o">=</span> <span class="n">pageFrame</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="n">pageController</span><span class="p">.</span><span class="n">pageIndex</span> <span class="o">=</span> <span class="n">newIndex</span><span class="p">;</span>
+<span class="p">}</span></code></pre></div>
+
+
+<p>You can see here that if a page is given an out-of-bounds index, it is placed below the bottom of the scroll view (invisible). I chose not to use <code>setHidden:</code> on the view because this resulted in "pop-in" when making the view visible again.</p>
+
+<p>The actual configuration of the view for the new page index happens in the setter method for <code>pageController.pageIndex</code>. This method fetches the data for the page out of the <code>DataSource</code> and configures the view for displaying that page.</p>
+
+<div class="highlight"><pre class="chroma"><code class="language-objc" data-lang="objc"><span class="p">-</span> <span class="p">(</span><span class="kt">void</span><span class="p">)</span><span class="nf">setPageIndex:</span><span class="p">(</span><span class="n">NSInteger</span><span class="p">)</span><span class="nv">newPageIndex</span>
+<span class="p">{</span>
+    <span class="n">pageIndex</span> <span class="o">=</span> <span class="n">newPageIndex</span><span class="p">;</span>
+    
+    <span class="k">if</span> <span class="p">(</span><span class="n">pageIndex</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span>
+        <span class="n">pageIndex</span> <span class="o">&lt;</span> <span class="p">[[</span><span class="n">DataSource</span> <span class="n">sharedDataSource</span><span class="p">]</span> <span class="n">numDataPages</span><span class="p">])</span>
+    <span class="p">{</span>
+        <span class="n">NSDictionary</span> <span class="o">*</span><span class="n">pageData</span> <span class="o">=</span>
+            <span class="p">[[</span><span class="n">DataSource</span> <span class="n">sharedDataSource</span><span class="p">]</span> <span class="nl">dataForPage</span><span class="p">:</span><span class="n">pageIndex</span><span class="p">];</span>
+        <span class="n">label</span><span class="p">.</span><span class="n">text</span> <span class="o">=</span> <span class="p">[</span><span class="n">pageData</span> <span class="nl">objectForKey</span><span class="p">:</span><span class="s">@&#34;pageName&#34;</span><span class="p">];</span>
+        <span class="n">textView</span><span class="p">.</span><span class="n">text</span> <span class="o">=</span> <span class="p">[</span><span class="n">pageData</span> <span class="nl">objectForKey</span><span class="p">:</span><span class="s">@&#34;pageText&#34;</span><span class="p">];</span>
+    <span class="p">}</span>
+<span class="p">}</span></code></pre></div>
+
+<p>Notice that I've made this method tolerant of out-of-bounds indices. This is because while out-of-bounds indices are invalid for data from the <code>DataSource</code>, they can be valid locations for views in the scroll view (representing an offscreen position) so these positions must be permitted.</p>
+
+<h2>Offscreen UITextViews don't update correctly</h2>
+
+<p>If you take a look at the <a href="../../assets/objc-era/PagingScrollView.zip">code for this sample project</a>, you'll notice a method that I've added named <code>updateTextViews:</code> and a value I track named <code>textViewNeedsUpdate</code>.</p>
+
+<p>These parts of the program exist because <code>UITextView</code> (used for the "Some text for Page X" display) don't update if they are offscreen (in this case: in an offscreen page of the <code>UIScrollView</code>). This behavior isn't a problem when the <code>UITextView</code> remains offscreen but becomes especially annoying when it is brought onscreen and still doesn't update.</p>
+
+<p>I have addressed this in 2 ways:</p>
+
+<ol><li>When an update is applied, check if the <code>UITextView</code> is offscreen. If it is, set <code>textViewNeedsUpdate</code> to <code>YES</code>. I check this value regularly during a scroll, to see if the <code>UITextView</code> has appeared and update the view when it does.</li>
+<li>In some fast scrolling cases (mostly when using the <code>UIPageControl</code> instead of the <code>UIScrollView</code> to page) this still doesn't work &mdash; so I always force one update to the <code>currentPage</code> at the end of scrolling. This case can result in a visible update if your eyes are quick but it is an uncommon case.</li></ol>
+
+<h2>Conclusion</h2>
+
+<blockquote>You can <a href="../../assets/objc-era/PagingScrollView.zip">download the complete Xcode 3.1 project for PagingScrollView</a> (31kB).</blockquote>
+
+<p>It is possible to handle a paging scroll view using just 2 child views, no matter how many virtual pages you wish to support.</p>
+
+<p>This approach assumes the views can be reconfigured to display a new virtual page quickly (normally a safe assumption). Remember that the data displayed need not be fast to load for the pages to reconfigure quickly because the data is loaded and cached in a separate object, independent of the paging.</p>
+
+<p>The bug in <code>UITextView</code> is annoying. I've presented a means of getting around it, although I'd be happy to see a better approach.</p>
+
+</span>
+</div>
+		</article>
+	</main>
+
+<div class="pagination">
+  <div class="page-prev">
+    Previous article:<br/><a href="demystifying-nsapplication-by.html">Demystifying NSApplication by recreating it</a>
+  </div>
+  <div class="page-next">
+    Next article:<br/><a href="../02/interprocess-communication-snooping.html">Interprocess communication: snooping, intercepting and subverting</a>
+  </div>
+</div>
+
+
+</div>
+</div>
+
+<footer class="site-footer">
+
+  <div class="wrapper">
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col footer-col-1">
+        <ul class="contact-list">
+          <li>Subscribe: <a href="../../feed.json">JSON</a>, <a href="../../feed.xml.rss">RSS</a> or <a href="https://apple.news/ToAaeVKb9TJOyYZi4sXnvXg">Apple News</a></li>
+          <li>Twitter: <a href="https://twitter.com/cocoawithlove">@cocoawithlove</a></li>
+          <li>Github: <a href="https://github.com/mattgallagher">mattgallagher</a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col footer-col-2">
+        <p>&copy; 2008-2017 Matt Gallagher. All rights reserved.<br/>Code may be used in accordance with license on <a href="../../about/index.html">About</a> page.<br/>If you need to contact me: <script type="text/javascript">
+e1=('cocoa' + 'with' + 'love' + '&#46' + 'com')
+e2=('info' + '&#64')
+document.write('<a href="mailto:' + e2 + e1 + '">' + e2 + e1 + '</a>')
+</script></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+</body>
+
+</html>
