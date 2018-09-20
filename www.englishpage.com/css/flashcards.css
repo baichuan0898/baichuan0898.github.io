@@ -1,0 +1,131 @@
+@charset "utf-8";
+/* CSS Document */
+
+table {
+	display:none;
+}
+
+table.FlashcardTable{
+	background-color: transparent;
+	margin-left: 5%;
+	margin-right: 5%;
+	margin-top: 15px;
+	margin-bottom: 10px;
+	width: 90%;
+	position: relative;
+	text-align: center;
+	padding: 0px;
+}
+
+table.FlashTableActive {
+	display: table;
+	height: 40vh;
+}
+
+table.FlashcardTable tr{
+	border-style: none;
+	margin: 0px;
+	padding: 0px;
+}
+
+td.Showing{
+	font-size: 140%;
+	text-align: center;
+	width: 50%;
+	display: table-cell;
+	margin: 0px;
+	padding: 5px;
+	border-style: solid;
+	border-width: 1px;
+	border-color: #d3d3d3;
+	background-color: #eaeaea;
+	height: 100%;
+}
+
+table.FlashcardTable td.Hidden {
+	display: none;
+}
+
+.FlashRemove {
+	display: none;
+}
+
+div.CardStyle {
+	position: absolute;
+	padding: 5px;
+	border-style: solid;
+	border-width: 1px;
+	left: -50px;
+	top: -50px;
+	overflow: visible;
+}
+
+button.FlashButton {
+	width: 130px;
+	font-size: 130%;
+	padding: 6px 15px;
+}
+	
+button.Next {
+	margin-right: 15px;
+}
+
+.MoreCards {
+	display:inline-block;
+	padding:4px;
+	border-style: solid;
+	border-width: 1px;
+	border-color: #d3d3d3;
+	background-color: #eaeaea;
+	border-radius: 10px;
+}
+
+.MoreCardsDiv {
+	margin: 5px auto;
+	text-align: center;
+	width: 90%;
+}
+	
+
+.FlashShare {
+	font-size:135%;
+	font-weight: 700;
+	margin: 10px;
+}
+
+.FlashAd {
+    display: block;
+    max-width: 748px;
+    margin: 25px auto;
+    text-align: center;
+	padding:0 10px;
+}
+
+@media(max-width: 400px) {
+	
+	table.FlashcardTable{
+	background-color: #eaeaea;
+	margin-top: 15px;
+	border: 1px solid #d3d3d3;
+	}
+	
+	tr {
+		display:block;
+		}
+
+
+    td.Showing {
+		width: 99.5%;
+        display: block;
+        float: left;
+        line-height: 1.7em;
+		border: 0;
+        padding: 15px 0;
+		margin:0 auto;
+    }
+	
+	td.Showing:nth-child(2) {
+		border-top: 1px solid #d3d3d3; 
+	}
+	
+}

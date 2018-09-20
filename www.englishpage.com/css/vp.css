@@ -1,0 +1,13 @@
+BODY{font-family:arial,helvetica,sans-serif; font-size:medium; font-weight:normal; margin: 0px; padding: 0px;}
+H1{font-size:26pt; font-weight:normal;}
+H3{font-size:15pt; font-weight:normal;}
+A{color:#0000ff; text-decoration:underline;}
+A:Visited{color:#800080; text-decoration:underline; }
+A:Hover{color:#ff0000; text-decoration:underline; }
+A.empty{color:#000000; text-decoration:none;}
+.small {font-size:small; font-weight:normal;}
+
+
+
+
+
